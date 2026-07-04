@@ -21,6 +21,14 @@ alter table public.marketing_drafts enable row level security;
 alter table public.ai_recommendations enable row level security;
 alter table public.image_caption_jobs enable row level security;
 alter table public.demand_alerts enable row level security;
+alter table public.external_data_sources enable row level security;
+alter table public.data_import_jobs enable row level security;
+alter table public.data_import_files enable row level security;
+alter table public.data_column_mappings enable row level security;
+alter table public.sales_transactions enable row level security;
+alter table public.sales_transaction_items enable row level security;
+alter table public.normalized_sales_summaries enable row level security;
+alter table public.import_error_rows enable row level security;
 alter table public.items enable row level security;
 alter table public.inventory_stocks enable row level security;
 alter table public.inventory_movements enable row level security;
@@ -86,6 +94,22 @@ drop policy if exists "read org image caption jobs" on public.image_caption_jobs
 drop policy if exists "write org image caption jobs" on public.image_caption_jobs;
 drop policy if exists "read org demand alerts" on public.demand_alerts;
 drop policy if exists "write org demand alerts" on public.demand_alerts;
+drop policy if exists "read org external data sources" on public.external_data_sources;
+drop policy if exists "write org external data sources" on public.external_data_sources;
+drop policy if exists "read org data import jobs" on public.data_import_jobs;
+drop policy if exists "write org data import jobs" on public.data_import_jobs;
+drop policy if exists "read org data import files" on public.data_import_files;
+drop policy if exists "write org data import files" on public.data_import_files;
+drop policy if exists "read org data column mappings" on public.data_column_mappings;
+drop policy if exists "write org data column mappings" on public.data_column_mappings;
+drop policy if exists "read org sales transactions" on public.sales_transactions;
+drop policy if exists "write org sales transactions" on public.sales_transactions;
+drop policy if exists "read org sales transaction items" on public.sales_transaction_items;
+drop policy if exists "write org sales transaction items" on public.sales_transaction_items;
+drop policy if exists "read org normalized sales summaries" on public.normalized_sales_summaries;
+drop policy if exists "write org normalized sales summaries" on public.normalized_sales_summaries;
+drop policy if exists "read org import error rows" on public.import_error_rows;
+drop policy if exists "write org import error rows" on public.import_error_rows;
 drop policy if exists "read org items" on public.items;
 drop policy if exists "write org items" on public.items;
 drop policy if exists "read org inventory stocks" on public.inventory_stocks;
@@ -200,6 +224,62 @@ create policy "read org demand alerts" on public.demand_alerts
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org demand alerts" on public.demand_alerts
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org external data sources" on public.external_data_sources
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org external data sources" on public.external_data_sources
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org data import jobs" on public.data_import_jobs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org data import jobs" on public.data_import_jobs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org data import files" on public.data_import_files
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org data import files" on public.data_import_files
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org data column mappings" on public.data_column_mappings
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org data column mappings" on public.data_column_mappings
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org sales transactions" on public.sales_transactions
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org sales transactions" on public.sales_transactions
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org sales transaction items" on public.sales_transaction_items
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org sales transaction items" on public.sales_transaction_items
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org normalized sales summaries" on public.normalized_sales_summaries
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org normalized sales summaries" on public.normalized_sales_summaries
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org import error rows" on public.import_error_rows
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org import error rows" on public.import_error_rows
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 

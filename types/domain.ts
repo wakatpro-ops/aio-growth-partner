@@ -21,6 +21,17 @@ export type ModuleKey =
   | "ai_monthly_recommendations"
   | "image_caption_generation"
   | "demand_alerts"
+  | "data_imports"
+  | "csv_import"
+  | "excel_import"
+  | "column_mapping"
+  | "sales_normalization"
+  | "sales_reports"
+  | "google_sheets_import"
+  | "pos_api_integrations"
+  | "sales_export"
+  | "sales_report_pdf"
+  | "ai_sales_insights"
   | "admin"
   | "billing"
   | "accounting";
@@ -84,7 +95,9 @@ export type AiTemplateKey =
   | "aio_diagnosis"
   | "instagram_draft_generation"
   | "google_business_profile_draft"
-  | "ai_monthly_recommendations";
+  | "ai_monthly_recommendations"
+  | "data_column_mapping_suggestion"
+  | "sales_monthly_commentary";
 
 export type AiLogRecord = {
   user_id: string | null;

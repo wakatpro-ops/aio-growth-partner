@@ -25,7 +25,18 @@ export const demoStores: Store[] = [
       google_business_profile_draft: true,
       ai_monthly_recommendations: true,
       image_caption_generation: false,
-      demand_alerts: true
+      demand_alerts: true,
+      data_imports: true,
+      csv_import: true,
+      excel_import: true,
+      column_mapping: true,
+      sales_normalization: true,
+      sales_reports: true,
+      google_sheets_import: false,
+      pos_api_integrations: false,
+      sales_export: false,
+      sales_report_pdf: false,
+      ai_sales_insights: false
     },
     status: "active"
   },
@@ -55,7 +66,18 @@ export const demoStores: Store[] = [
       google_business_profile_draft: true,
       ai_monthly_recommendations: true,
       image_caption_generation: false,
-      demand_alerts: true
+      demand_alerts: true,
+      data_imports: true,
+      csv_import: true,
+      excel_import: true,
+      column_mapping: true,
+      sales_normalization: true,
+      sales_reports: true,
+      google_sheets_import: false,
+      pos_api_integrations: false,
+      sales_export: false,
+      sales_report_pdf: false,
+      ai_sales_insights: false
     },
     status: "active"
   }

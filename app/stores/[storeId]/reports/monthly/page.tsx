@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getMonthlyReport, normalizeMonth } from "@/lib/phase2/monthly-report";
+import { getSalesReport } from "@/lib/phase4/sales-import-data";
 import { getStore } from "@/lib/stores";
 
 function formatCurrency(value: number) {
@@ -31,7 +32,10 @@ export default async function MonthlyReportPage({
 
   const industry = getIndustryConfig(store.industry_type_key);
   const month = normalizeMonth(query.month);
-  const report = await getMonthlyReport(store.id, month);
+  const [report, salesReport] = await Promise.all([
+    getMonthlyReport(store.id, month),
+    getSalesReport(store.id)
+  ]);
   const documentLabels = {
     estimate: store.industry_type_key === "auto_repair" ? "整備見積" : "見積",
     invoice: store.industry_type_key === "auto_repair" ? "整備請求" : "請求",
@@ -97,6 +101,25 @@ export default async function MonthlyReportPage({
             {report.frequentItems.length === 0 ? <tr><td colSpan={3}>集計できる商品・部品データがまだありません。</td></tr> : null}
           </tbody>
         </table>
+      </section>
+
+      <section className="card">
+        <h3>外部売上データ</h3>
+        <p>CSV / Excelから取り込んだ売上データの接続ポイントです。Phase 4-Aでは簡易集計を表示し、今後AI改善提案へ反映します。</p>
+        <div className="grid cols-3">
+          <article>
+            <p className="muted">外部売上合計</p>
+            <div className="metric">{formatCurrency(salesReport.totalSales)}</div>
+          </article>
+          <article>
+            <p className="muted">外部取引件数</p>
+            <div className="metric">{salesReport.transactionCount.toLocaleString("ja-JP")}件</div>
+          </article>
+          <article>
+            <p className="muted">平均単価</p>
+            <div className="metric">{formatCurrency(salesReport.averageTransactionAmount)}</div>
+          </article>
+        </div>
       </section>
     </AppShell>
   );

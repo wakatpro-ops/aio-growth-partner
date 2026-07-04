@@ -8,7 +8,7 @@ values
     'general_store',
     '汎用店舗',
     '飲食店、美容室、整体院などに転用できる基本業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":false,"ai_sales_insights":false,"billing":false,"accounting":false}',
     '["store_profile_completion","ai_post_generation","review_reply","aio_score","instagram_post"]',
     '[{"key":"target_customer","label":"ターゲット顧客"},{"key":"brand_tone","label":"投稿トーン"},{"key":"opening_hours","label":"営業時間"},{"key":"strengths","label":"店舗の強み"}]'
   ),
@@ -16,7 +16,7 @@ values
     'auto_repair',
     '自動車修理',
     '車検、点検、修理相談に対応する整備工場向け業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":false,"ai_sales_insights":false,"billing":false,"accounting":false}',
     '["store_profile_completion","aio_score","review_reply","repair_service_visibility","ai_post_generation"]',
     '[{"key":"services","label":"対応サービス"},{"key":"supported_makers","label":"対応メーカー"},{"key":"has_replacement_car","label":"代車あり"},{"key":"emergency_support","label":"緊急対応可"},{"key":"reservation_method","label":"予約方法"},{"key":"brand_tone","label":"投稿トーン"}]'
   )
@@ -44,6 +44,17 @@ values
   ('ai_monthly_recommendations', 'AI月次改善提案', '月次レポートから集客改善提案を生成します。', 'marketing', false),
   ('image_caption_generation', '画像キャプション生成', '将来の画像アップロードからのキャプション生成拡張です。', 'marketing', false),
   ('demand_alerts', '需要予測・在庫アラート', '在庫と業務データから需要や発注注意を提案します。', 'marketing', false),
+  ('data_imports', '外部売上データ取り込み', 'CSVやExcelから外部売上データを取り込みます。', 'data', false),
+  ('csv_import', 'CSV取り込み', 'CSVファイルから売上データを取り込みます。', 'data', false),
+  ('excel_import', 'Excel取り込み', 'Excelファイルから売上データを取り込みます。', 'data', false),
+  ('column_mapping', '列マッピング', '外部データ列をAIO標準項目に対応付けます。', 'data', false),
+  ('sales_normalization', '売上データ正規化', '取り込んだ売上データを共通形式に整えます。', 'data', false),
+  ('sales_reports', '売上レポート', '外部売上データの簡易集計を表示します。', 'data', false),
+  ('google_sheets_import', 'Googleスプレッドシート取り込み', '将来のGoogleスプレッドシート取り込み拡張です。', 'data', false),
+  ('pos_api_integrations', 'POS API連携', '将来のレジ・販売管理API連携拡張です。', 'integration', false),
+  ('sales_export', '売上CSV出力', '将来の整形済みCSV出力拡張です。', 'data', false),
+  ('sales_report_pdf', '売上レポートPDF', '将来の月次資料PDF出力拡張です。', 'data', false),
+  ('ai_sales_insights', 'AI売上分析', '将来のAI月次コメント・需要予測拡張です。', 'ai', false),
   ('admin', '管理者画面', '運営者が全体を確認します。', 'admin', true),
   ('billing', '請求連携', '将来のStripe連携用拡張ポイントです。', 'integration', false),
   ('accounting', '会計連携', '将来のfreee連携用拡張ポイントです。', 'integration', false)
@@ -53,7 +64,7 @@ insert into public.industry_modules (industry_type_key, module_key, is_enabled)
 select industry.key, module.key, true
 from public.industry_types industry
 cross join public.modules module
-where module.key in ('store_profile','multi_store','ai_post_generation','ai_review_reply','aio_diagnosis','admin','product_management','inventory_management','customer_management','estimate_management','invoice_management','pdf_export','monthly_report','marketing_drafts','instagram_draft_generation','google_business_profile_draft','ai_monthly_recommendations','demand_alerts')
+where module.key in ('store_profile','multi_store','ai_post_generation','ai_review_reply','aio_diagnosis','admin','product_management','inventory_management','customer_management','estimate_management','invoice_management','pdf_export','monthly_report','marketing_drafts','instagram_draft_generation','google_business_profile_draft','ai_monthly_recommendations','demand_alerts','data_imports','csv_import','excel_import','column_mapping','sales_normalization','sales_reports')
 on conflict (industry_type_key, module_key) do nothing;
 
 insert into public.industry_modules (industry_type_key, module_key, is_enabled)
@@ -75,7 +86,17 @@ on conflict (industry_type_key, module_key) do update set is_enabled = excluded.
 insert into public.industry_modules (industry_type_key, module_key, is_enabled)
 values
   ('general_store', 'image_caption_generation', false),
-  ('auto_repair', 'image_caption_generation', false)
+  ('auto_repair', 'image_caption_generation', false),
+  ('general_store', 'google_sheets_import', false),
+  ('auto_repair', 'google_sheets_import', false),
+  ('general_store', 'pos_api_integrations', false),
+  ('auto_repair', 'pos_api_integrations', false),
+  ('general_store', 'sales_export', false),
+  ('auto_repair', 'sales_export', false),
+  ('general_store', 'sales_report_pdf', false),
+  ('auto_repair', 'sales_report_pdf', false),
+  ('general_store', 'ai_sales_insights', false),
+  ('auto_repair', 'ai_sales_insights', false)
 on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
 
 insert into public.ai_prompt_templates (industry_type_key, module_key, template_key, name, system_prompt, user_prompt_template)
@@ -122,17 +143,17 @@ values
   ('starter', 'max_stores', '3'),
   ('starter', 'max_users', '5'),
   ('starter', 'ai_generations_per_month', '100'),
-  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts"]')
+  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports"]')
 on conflict (plan_key, limit_key) do nothing;
 
 update public.industry_types
-set default_feature_flags = default_feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true}'::jsonb
+set default_feature_flags = default_feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":false,"ai_sales_insights":false}'::jsonb
 where key in ('general_store', 'auto_repair');
 
 update public.stores
-set feature_flags = feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true}'::jsonb
+set feature_flags = feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":false,"ai_sales_insights":false}'::jsonb
 where industry_type_key in ('general_store', 'auto_repair');
 
 update public.plan_limits
-set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts"]'
+set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports"]'
 where plan_key = 'starter' and limit_key = 'enabled_modules';

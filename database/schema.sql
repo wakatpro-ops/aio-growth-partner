@@ -307,6 +307,162 @@ create table if not exists public.demand_alerts (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.external_data_sources (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  provider_key text not null default 'manual_csv',
+  connection_type text not null default 'file_upload',
+  name text not null,
+  status text not null default 'active',
+  settings jsonb not null default '{}'::jsonb,
+  credentials_ref text,
+  last_synced_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, provider_key, connection_type, name)
+);
+
+create table if not exists public.data_import_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  data_source_id uuid references public.external_data_sources(id) on delete set null,
+  status text not null default 'uploaded',
+  import_type text not null default 'csv',
+  original_filename text,
+  encoding text,
+  delimiter text,
+  header_row_number integer not null default 1,
+  detected_columns jsonb not null default '[]'::jsonb,
+  mapping_status text not null default 'pending',
+  preview_rows jsonb not null default '[]'::jsonb,
+  normalized_preview jsonb not null default '[]'::jsonb,
+  total_rows integer not null default 0,
+  success_rows integer not null default 0,
+  error_rows integer not null default 0,
+  started_at timestamptz,
+  completed_at timestamptz,
+  error_message text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.data_import_files (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  import_job_id uuid not null references public.data_import_jobs(id) on delete cascade,
+  storage_bucket text not null default 'import-files',
+  storage_path text not null,
+  file_name text not null,
+  file_type text not null,
+  mime_type text,
+  file_size bigint,
+  checksum text,
+  uploaded_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique (import_job_id)
+);
+
+create table if not exists public.data_column_mappings (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  data_source_id uuid references public.external_data_sources(id) on delete cascade,
+  import_job_id uuid references public.data_import_jobs(id) on delete cascade,
+  source_column_name text not null,
+  source_column_index integer not null default 0,
+  target_field text not null,
+  transform_rule jsonb not null default '{}'::jsonb,
+  confidence numeric(5,4),
+  is_required boolean not null default false,
+  created_by text not null default 'user',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, import_job_id, source_column_name)
+);
+
+create table if not exists public.sales_transactions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  data_source_id uuid references public.external_data_sources(id) on delete set null,
+  import_job_id uuid references public.data_import_jobs(id) on delete set null,
+  external_transaction_id text,
+  source_row_hash text not null,
+  transaction_date timestamptz not null,
+  business_date date not null,
+  customer_name text,
+  payment_method text,
+  gross_amount numeric(14,2) not null default 0,
+  discount_amount numeric(14,2) not null default 0,
+  tax_amount numeric(14,2) not null default 0,
+  net_amount numeric(14,2) not null default 0,
+  currency text not null default 'JPY',
+  channel text,
+  source_metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, source_row_hash)
+);
+
+create table if not exists public.sales_transaction_items (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  sales_transaction_id uuid not null references public.sales_transactions(id) on delete cascade,
+  external_item_id text,
+  item_name text not null,
+  category_name text,
+  quantity numeric(14,3) not null default 1,
+  unit_price numeric(14,2) not null default 0,
+  discount_amount numeric(14,2) not null default 0,
+  tax_amount numeric(14,2) not null default 0,
+  total_amount numeric(14,2) not null default 0,
+  source_metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.normalized_sales_summaries (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  summary_type text not null,
+  summary_date date,
+  summary_month text,
+  item_name text,
+  category_name text,
+  payment_method text,
+  weekday integer,
+  hour integer,
+  transaction_count integer not null default 0,
+  quantity numeric(14,3) not null default 0,
+  gross_amount numeric(14,2) not null default 0,
+  discount_amount numeric(14,2) not null default 0,
+  tax_amount numeric(14,2) not null default 0,
+  net_amount numeric(14,2) not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.import_error_rows (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  import_job_id uuid not null references public.data_import_jobs(id) on delete cascade,
+  row_number integer not null,
+  raw_row jsonb not null,
+  error_code text not null,
+  error_message text not null,
+  suggested_fix jsonb not null default '{}'::jsonb,
+  status text not null default 'unresolved',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists stores_organization_id_idx on public.stores(organization_id);
 create index if not exists stores_industry_type_key_idx on public.stores(industry_type_key);
 create index if not exists ai_generation_logs_store_id_idx on public.ai_generation_logs(store_id);
@@ -316,6 +472,15 @@ create index if not exists marketing_drafts_created_at_idx on public.marketing_d
 create index if not exists ai_recommendations_store_month_idx on public.ai_recommendations(store_id, month);
 create index if not exists image_caption_jobs_store_id_idx on public.image_caption_jobs(store_id);
 create index if not exists demand_alerts_store_id_idx on public.demand_alerts(store_id);
+create index if not exists external_data_sources_store_id_idx on public.external_data_sources(store_id);
+create index if not exists data_import_jobs_store_id_idx on public.data_import_jobs(store_id);
+create index if not exists data_import_jobs_created_at_idx on public.data_import_jobs(created_at desc);
+create index if not exists data_column_mappings_source_idx on public.data_column_mappings(store_id, data_source_id);
+create index if not exists sales_transactions_store_date_idx on public.sales_transactions(store_id, business_date desc);
+create index if not exists sales_transactions_import_job_idx on public.sales_transactions(import_job_id);
+create index if not exists sales_transaction_items_store_id_idx on public.sales_transaction_items(store_id);
+create index if not exists normalized_sales_summaries_store_type_idx on public.normalized_sales_summaries(store_id, summary_type);
+create index if not exists import_error_rows_job_idx on public.import_error_rows(import_job_id);
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),
@@ -338,6 +503,9 @@ create table if not exists public.items (
 );
 
 alter table public.demand_alerts
+add column if not exists item_id uuid references public.items(id) on delete set null;
+
+alter table public.sales_transaction_items
 add column if not exists item_id uuid references public.items(id) on delete set null;
 
 create table if not exists public.inventory_stocks (

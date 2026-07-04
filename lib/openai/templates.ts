@@ -98,6 +98,28 @@ export function getFallbackPromptTemplate(industryTypeKey: IndustryTypeKey, temp
     };
   }
 
+  if (templateKey === "data_column_mapping_suggestion") {
+    return {
+      id: `${industryTypeKey}-data-column-mapping-suggestion-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt: "あなたはCSV/Excelの列名を標準データ項目へ対応付けるデータ整理アシスタントです。",
+      userPromptTemplate: `${baseContext}\n列名とサンプル行をもとに、sale_date、item_name、quantity、gross_amountなどへのマッピング候補をJSONで返してください。`
+    };
+  }
+
+  if (templateKey === "sales_monthly_commentary") {
+    return {
+      id: `${industryTypeKey}-sales-monthly-commentary-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt: "あなたは店舗売上データから月次コメントを作成する分析者です。",
+      userPromptTemplate: `${baseContext}\n売上集計データをもとに、良かった点、注意点、来月の改善案をJSONで返してください。`
+    };
+  }
+
   const systemPrompt =
     industryTypeKey === "auto_repair"
       ? "あなたは自動車修理・整備工場のAIO診断コンサルタントです。地域名、対応サービス、信頼性、予約導線を評価してください。"
