@@ -32,6 +32,13 @@ export type ModuleKey =
   | "demand_forecast"
   | "inventory_alerts"
   | "recommended_actions"
+  | "growth_action_center"
+  | "google_business_profile_drafts"
+  | "instagram_drafts"
+  | "review_reply_drafts"
+  | "customer_message_drafts"
+  | "pop_copy_drafts"
+  | "line_message_drafts"
   | "google_sheets_import"
   | "pos_api_integrations"
   | "sales_export"
@@ -104,7 +111,8 @@ export type AiTemplateKey =
   | "data_column_mapping_suggestion"
   | "sales_monthly_commentary"
   | "sales_ai_monthly_report"
-  | "demand_action_recommendations";
+  | "demand_action_recommendations"
+  | "growth_action_draft_generation";
 
 export type AiLogRecord = {
   user_id: string | null;

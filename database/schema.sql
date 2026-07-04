@@ -559,6 +559,58 @@ create table if not exists public.recommended_actions (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.growth_actions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  industry_type_key text not null references public.industry_types(key),
+  title text not null,
+  summary text not null,
+  priority text not null default 'medium',
+  reason text not null,
+  recommended_date date,
+  target_channel text not null,
+  status text not null default 'todo',
+  source_type text,
+  source_id text,
+  external_provider text,
+  external_status text not null default 'not_connected',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.growth_action_drafts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  growth_action_id uuid not null references public.growth_actions(id) on delete cascade,
+  channel text not null,
+  title text not null,
+  body text not null,
+  short_body text,
+  hashtags text[] not null default '{}'::text[],
+  call_to_action text,
+  copy_variant text not null default 'primary',
+  external_provider text,
+  external_status text not null default 'not_connected',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.growth_action_logs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  growth_action_id uuid references public.growth_actions(id) on delete cascade,
+  event_type text not null,
+  message text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists stores_organization_id_idx on public.stores(organization_id);
 create index if not exists stores_industry_type_key_idx on public.stores(industry_type_key);
 create index if not exists ai_generation_logs_store_id_idx on public.ai_generation_logs(store_id);
@@ -583,6 +635,10 @@ create index if not exists sales_anomaly_flags_store_month_idx on public.sales_a
 create index if not exists demand_forecasts_store_month_idx on public.demand_forecasts(store_id, target_month desc);
 create index if not exists inventory_alerts_store_month_idx on public.inventory_alerts(store_id, target_month desc);
 create index if not exists recommended_actions_store_month_idx on public.recommended_actions(store_id, target_month desc);
+create index if not exists growth_actions_store_status_idx on public.growth_actions(store_id, status, created_at desc);
+create index if not exists growth_actions_store_channel_idx on public.growth_actions(store_id, target_channel);
+create index if not exists growth_action_drafts_action_idx on public.growth_action_drafts(growth_action_id);
+create index if not exists growth_action_logs_action_idx on public.growth_action_logs(growth_action_id);
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),

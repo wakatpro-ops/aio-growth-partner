@@ -8,7 +8,7 @@ values
     'general_store',
     '汎用店舗',
     '飲食店、美容室、整体院などに転用できる基本業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"growth_action_center":true,"google_business_profile_drafts":true,"instagram_drafts":true,"review_reply_drafts":true,"customer_message_drafts":true,"pop_copy_drafts":true,"line_message_drafts":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false,"billing":false,"accounting":false}',
     '["store_profile_completion","ai_post_generation","review_reply","aio_score","instagram_post"]',
     '[{"key":"target_customer","label":"ターゲット顧客"},{"key":"brand_tone","label":"投稿トーン"},{"key":"opening_hours","label":"営業時間"},{"key":"strengths","label":"店舗の強み"}]'
   ),
@@ -16,7 +16,7 @@ values
     'auto_repair',
     '自動車修理',
     '車検、点検、修理相談に対応する整備工場向け業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"growth_action_center":true,"google_business_profile_drafts":true,"instagram_drafts":true,"review_reply_drafts":true,"customer_message_drafts":true,"pop_copy_drafts":true,"line_message_drafts":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false,"billing":false,"accounting":false}',
     '["store_profile_completion","aio_score","review_reply","repair_service_visibility","ai_post_generation"]',
     '[{"key":"services","label":"対応サービス"},{"key":"supported_makers","label":"対応メーカー"},{"key":"has_replacement_car","label":"代車あり"},{"key":"emergency_support","label":"緊急対応可"},{"key":"reservation_method","label":"予約方法"},{"key":"brand_tone","label":"投稿トーン"}]'
   )
@@ -55,6 +55,13 @@ values
   ('demand_forecast', '需要予測', '売上傾向から来月伸びそうな商品・サービスを推定します。', 'ai', false),
   ('inventory_alerts', '在庫アラート', '売上傾向と在庫を照合し、在庫切れや過剰在庫を検出します。', 'data', false),
   ('recommended_actions', '次アクション提案', '需要予測と在庫アラートから投稿、販促、発注の打ち手を提案します。', 'ai', false),
+  ('growth_action_center', '集客アクションセンター', 'AI提案を実行用の投稿、返信、案内、POP、配信用下書きに変換して管理します。', 'marketing', false),
+  ('google_business_profile_drafts', 'Google投稿下書き', 'Googleビジネスプロフィール向け投稿案を管理します。', 'marketing', false),
+  ('instagram_drafts', 'Instagram投稿下書き', 'Instagram向け投稿案を管理します。', 'marketing', false),
+  ('review_reply_drafts', 'クチコミ返信下書き', 'クチコミ返信に使える文章案を管理します。', 'marketing', false),
+  ('customer_message_drafts', '既存顧客案内下書き', '既存顧客への案内文を管理します。', 'marketing', false),
+  ('pop_copy_drafts', '店頭POP下書き', '店頭POPに使える短文を管理します。', 'marketing', false),
+  ('line_message_drafts', 'LINE配信下書き', 'LINE配信に使える文章を管理します。', 'marketing', false),
   ('google_sheets_import', 'Googleスプレッドシート取り込み', '将来のGoogleスプレッドシート取り込み拡張です。', 'data', false),
   ('pos_api_integrations', 'POS API連携', '将来のレジ・販売管理API連携拡張です。', 'integration', false),
   ('sales_export', '売上CSV出力', '将来の整形済みCSV出力拡張です。', 'data', false),
@@ -69,7 +76,7 @@ insert into public.industry_modules (industry_type_key, module_key, is_enabled)
 select industry.key, module.key, true
 from public.industry_types industry
 cross join public.modules module
-where module.key in ('store_profile','multi_store','ai_post_generation','ai_review_reply','aio_diagnosis','admin','product_management','inventory_management','customer_management','estimate_management','invoice_management','pdf_export','monthly_report','marketing_drafts','instagram_draft_generation','google_business_profile_draft','ai_monthly_recommendations','demand_alerts','data_imports','csv_import','excel_import','column_mapping','sales_normalization','sales_reports','sales_ai_report','sales_anomaly_detection','demand_forecast','inventory_alerts','recommended_actions','sales_report_pdf')
+where module.key in ('store_profile','multi_store','ai_post_generation','ai_review_reply','aio_diagnosis','admin','product_management','inventory_management','customer_management','estimate_management','invoice_management','pdf_export','monthly_report','marketing_drafts','instagram_draft_generation','google_business_profile_draft','ai_monthly_recommendations','demand_alerts','data_imports','csv_import','excel_import','column_mapping','sales_normalization','sales_reports','sales_ai_report','sales_anomaly_detection','demand_forecast','inventory_alerts','recommended_actions','growth_action_center','google_business_profile_drafts','instagram_drafts','review_reply_drafts','customer_message_drafts','pop_copy_drafts','line_message_drafts','sales_report_pdf')
 on conflict (industry_type_key, module_key) do nothing;
 
 insert into public.industry_modules (industry_type_key, module_key, is_enabled)
@@ -110,6 +117,20 @@ values
   ('auto_repair', 'inventory_alerts', true),
   ('general_store', 'recommended_actions', true),
   ('auto_repair', 'recommended_actions', true),
+  ('general_store', 'growth_action_center', true),
+  ('auto_repair', 'growth_action_center', true),
+  ('general_store', 'google_business_profile_drafts', true),
+  ('auto_repair', 'google_business_profile_drafts', true),
+  ('general_store', 'instagram_drafts', true),
+  ('auto_repair', 'instagram_drafts', true),
+  ('general_store', 'review_reply_drafts', true),
+  ('auto_repair', 'review_reply_drafts', true),
+  ('general_store', 'customer_message_drafts', true),
+  ('auto_repair', 'customer_message_drafts', true),
+  ('general_store', 'pop_copy_drafts', true),
+  ('auto_repair', 'pop_copy_drafts', true),
+  ('general_store', 'line_message_drafts', true),
+  ('auto_repair', 'line_message_drafts', true),
   ('general_store', 'ai_sales_insights', false),
   ('auto_repair', 'ai_sales_insights', false)
 on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
@@ -158,6 +179,16 @@ on conflict (industry_type_key, module_key, template_key) do update set
   user_prompt_template = excluded.user_prompt_template,
   is_active = true;
 
+insert into public.ai_prompt_templates (industry_type_key, module_key, template_key, name, system_prompt, user_prompt_template)
+values
+  ('general_store', 'growth_action_center', 'growth_action_draft_generation', '汎用店舗 集客アクション下書き生成', 'あなたは店舗の集客アクションを、すぐ使える投稿・案内・返信の下書きに変換する編集者です。来店促進、口コミ促進、既存顧客フォローを重視してください。', '売上データ、AI月次レポート、需要予測、次アクション提案、店舗プロフィールをもとに、actions配列でGoogle投稿案、Instagram投稿案、クチコミ返信案、既存顧客案内文、店頭POP文、LINE配信用文章をJSONで返してください。各actionはtarget_channel、title、summary、priority、reason、recommended_date、draftを含め、draftはtitle、body、short_body、hashtags、call_to_actionを含めてください。'),
+  ('auto_repair', 'growth_action_center', 'growth_action_draft_generation', '自動車修理 集客アクション下書き生成', 'あなたは自動車整備工場の集客アクションを、すぐ使える下書きに変換する編集者です。点検、オイル交換、タイヤ交換、車検、部品交換、リピート来店の文脈で、信頼感と予約導線を重視してください。', '売上データ、AI月次レポート、需要予測、次アクション提案、店舗プロフィールをもとに、actions配列でGoogle投稿案、Instagram投稿案、クチコミ返信案、既存顧客案内文、店頭POP文、LINE配信用文章をJSONで返してください。各actionはtarget_channel、title、summary、priority、reason、recommended_date、draftを含め、draftはtitle、body、short_body、hashtags、call_to_actionを含めてください。')
+on conflict (industry_type_key, module_key, template_key) do update set
+  name = excluded.name,
+  system_prompt = excluded.system_prompt,
+  user_prompt_template = excluded.user_prompt_template,
+  is_active = true;
+
 insert into public.role_permissions (role_key, permission_key, is_allowed)
 values
   ('platform_admin', '*', true),
@@ -178,17 +209,17 @@ values
   ('starter', 'max_stores', '3'),
   ('starter', 'max_users', '5'),
   ('starter', 'ai_generations_per_month', '100'),
-  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","sales_report_pdf"]')
+  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","growth_action_center","google_business_profile_drafts","instagram_drafts","review_reply_drafts","customer_message_drafts","pop_copy_drafts","line_message_drafts","sales_report_pdf"]')
 on conflict (plan_key, limit_key) do nothing;
 
 update public.industry_types
-set default_feature_flags = default_feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false}'::jsonb
+set default_feature_flags = default_feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"growth_action_center":true,"google_business_profile_drafts":true,"instagram_drafts":true,"review_reply_drafts":true,"customer_message_drafts":true,"pop_copy_drafts":true,"line_message_drafts":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false}'::jsonb
 where key in ('general_store', 'auto_repair');
 
 update public.stores
-set feature_flags = feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false}'::jsonb
+set feature_flags = feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"data_imports":true,"csv_import":true,"excel_import":true,"column_mapping":true,"sales_normalization":true,"sales_reports":true,"sales_ai_report":true,"sales_anomaly_detection":true,"demand_forecast":true,"inventory_alerts":true,"recommended_actions":true,"growth_action_center":true,"google_business_profile_drafts":true,"instagram_drafts":true,"review_reply_drafts":true,"customer_message_drafts":true,"pop_copy_drafts":true,"line_message_drafts":true,"google_sheets_import":false,"pos_api_integrations":false,"sales_export":false,"sales_report_pdf":true,"ai_sales_insights":false}'::jsonb
 where industry_type_key in ('general_store', 'auto_repair');
 
 update public.plan_limits
-set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","sales_report_pdf"]'
+set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","growth_action_center","google_business_profile_drafts","instagram_drafts","review_reply_drafts","customer_message_drafts","pop_copy_drafts","line_message_drafts","sales_report_pdf"]'
 where plan_key = 'starter' and limit_key = 'enabled_modules';

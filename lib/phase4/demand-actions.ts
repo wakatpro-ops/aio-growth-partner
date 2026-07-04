@@ -70,7 +70,14 @@ async function ensureDemoPersistence(supabase: SupabaseClient, store: Store) {
       ...(store.feature_flags ?? {}),
       demand_forecast: true,
       inventory_alerts: true,
-      recommended_actions: true
+      recommended_actions: true,
+      growth_action_center: true,
+      google_business_profile_drafts: true,
+      instagram_drafts: true,
+      review_reply_drafts: true,
+      customer_message_drafts: true,
+      pop_copy_drafts: true,
+      line_message_drafts: true
     },
     profile_data: store.profile_data ?? {},
     updated_at: new Date().toISOString()

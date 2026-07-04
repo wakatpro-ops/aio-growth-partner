@@ -152,6 +152,22 @@ export function getFallbackPromptTemplate(industryTypeKey: IndustryTypeKey, temp
     };
   }
 
+  if (templateKey === "growth_action_draft_generation") {
+    const systemPrompt =
+      industryTypeKey === "auto_repair"
+        ? "あなたは自動車整備工場の集客アクションを、すぐ使える下書きに変換する編集者です。点検、オイル交換、タイヤ交換、車検、部品交換、リピート来店の文脈で、信頼感と予約導線を重視してください。"
+        : "あなたは店舗の集客アクションを、すぐ使える投稿・案内・返信の下書きに変換する編集者です。来店促進、口コミ促進、既存顧客フォローを重視してください。";
+
+    return {
+      id: `${industryTypeKey}-growth-action-draft-generation-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt,
+      userPromptTemplate: `${baseContext}\n売上データ、AI月次レポート、需要予測、次アクション提案、店舗プロフィールをもとに、actions配列でGoogle投稿案、Instagram投稿案、クチコミ返信案、既存顧客案内文、店頭POP文、LINE配信用文章をJSONで返してください。各actionはtarget_channel、title、summary、priority、reason、recommended_date、draftを含め、draftはtitle、body、short_body、hashtags、call_to_actionを含めてください。`
+    };
+  }
+
   const systemPrompt =
     industryTypeKey === "auto_repair"
       ? "あなたは自動車修理・整備工場のAIO診断コンサルタントです。地域名、対応サービス、信頼性、予約導線を評価してください。"

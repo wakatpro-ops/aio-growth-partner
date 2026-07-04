@@ -339,10 +339,39 @@ Phase 4-Cの判定は、まず集計ベースです。
 
 自動車修理では、点検、オイル交換、タイヤ交換、車検前点検、部品交換、リピート来店に寄せた文言に切り替えます。
 
+## Growth Action Center
+
+Phase 5-Aでは、需要予測、AI月次売上レポート、次アクション提案を、実際に使える集客・発信用の下書きに変換します。
+
+画面:
+
+- `/stores/[storeId]/growth-actions`
+- `/stores/[storeId]/growth-actions/[actionId]`
+
+生成される下書き:
+
+- Googleビジネスプロフィール投稿案
+- Instagram投稿案
+- クチコミ返信案
+- 既存顧客への案内文
+- 店頭POP文
+- LINE配信用文章
+
+使い方:
+
+1. `/stores/[storeId]/growth-actions` を開く
+2. 「集客アクションを生成」を押す
+3. 優先度、理由、推奨実行日、対象チャネル、ステータスを確認する
+4. 詳細画面で文章を確認し、必要な本文をコピーする
+5. ステータスを「未対応」「下書き作成済み」「実行済み」「保留」に変更する
+
+Phase 5-Aでは外部API投稿は行いません。`external_provider` と `external_status` を保存し、将来のGoogle、Instagram、LINE API連携に備えます。
+自動車修理では、車検、点検、オイル交換、タイヤ交換、部品交換、リピート来店に寄せた文言に切り替えます。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。
-- Phase 3-A以降のAI生成、Phase 4-BのAI月次売上レポート、Phase 4-Cの次アクション提案には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
+- Phase 3-A以降のAI生成、Phase 4-BのAI月次売上レポート、Phase 4-Cの次アクション提案、Phase 5-Aの集客アクション生成には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
 - SupabaseにPhase 3-Aのテーブルを追加してから、本番で投稿下書き作成やAI改善提案作成を確認してください。
 - Phase 4-AのCSV / Excel取り込みにはSupabase Storage bucket `import-files` が必要です。
 - 日本語フォントを完全埋め込みする方式へ移行する場合は、フォントファイルをリポジトリに含め、サーバー側だけでPDF生成してください。

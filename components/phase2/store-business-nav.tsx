@@ -19,7 +19,8 @@ export function StoreBusinessNav({ store }: { store: Store }) {
     { href: `/stores/${store.id}/sales/reports/monthly-ai`, label: "AI月次売上", feature: "sales_ai_report" },
     { href: `/stores/${store.id}/sales/forecast`, label: "需要予測", feature: "demand_forecast" },
     { href: `/stores/${store.id}/inventory/alerts`, label: "在庫アラート", feature: "inventory_alerts" },
-    { href: `/stores/${store.id}/actions`, label: "次アクション", feature: "recommended_actions" }
+    { href: `/stores/${store.id}/actions`, label: "次アクション", feature: "recommended_actions" },
+    { href: `/stores/${store.id}/growth-actions`, label: "集客アクション", feature: "growth_action_center" }
   ].filter((link) => isFeatureEnabled(flags, link.feature));
 
   return (

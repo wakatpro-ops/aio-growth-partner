@@ -104,6 +104,105 @@ function demoOutput(templateKey: AiTemplateKey, store: Store) {
     };
   }
 
+  if (templateKey === "growth_action_draft_generation") {
+    const isAuto = store.industry_type_key === "auto_repair";
+    const subject = isAuto ? "季節点検と車検前点検" : "今月のおすすめ商品・サービス";
+    return {
+      actions: [
+        {
+          target_channel: "google_business_profile",
+          title: isAuto ? "Google投稿: 車検前点検の案内" : "Google投稿: おすすめサービス紹介",
+          summary: isAuto ? "検索経由で点検・車検相談につなげる投稿です。" : "検索経由で来店・問い合わせにつなげる投稿です。",
+          priority: "high",
+          reason: isAuto ? "車検、点検、オイル交換など検索されやすい整備語句を自然に使えるためです。" : "来店理由になる商品・サービスをGoogle上で見せられるためです。",
+          recommended_date: new Date().toISOString().slice(0, 10),
+          draft: {
+            title: isAuto ? "車検前点検・季節点検のご相談受付中" : "今月のおすすめサービス",
+            body: isAuto ? `${store.name}では、車検前点検、オイル交換、タイヤ交換など安全運転につながる整備相談を受け付けています。気になる音や違和感がある方は、早めの点検がおすすめです。ご予約・ご相談はお気軽にどうぞ。` : `${store.name}では、今月おすすめの商品・サービスをご用意しています。気になる方はお気軽にお問い合わせください。`,
+            short_body: isAuto ? "車検前点検・季節点検のご相談受付中です。" : "今月のおすすめをご紹介しています。",
+            hashtags: [],
+            call_to_action: isAuto ? "点検予約・整備相談はこちら" : "お問い合わせ・ご来店をお待ちしています"
+          }
+        },
+        {
+          target_channel: "instagram",
+          title: isAuto ? "Instagram投稿: 点検の重要性" : "Instagram投稿: おすすめ紹介",
+          summary: "写真と短い説明で認知を作る投稿です。",
+          priority: "high",
+          reason: "視覚的に伝えることで相談前の不安を減らせるためです。",
+          recommended_date: new Date().toISOString().slice(0, 10),
+          draft: {
+            title: isAuto ? "安心点検のすすめ" : "今月のおすすめ",
+            body: isAuto ? "安全なカーライフのために、季節の変わり目は点検がおすすめです。オイル交換、タイヤの状態、ブレーキまわりなど、気になることは早めにご相談ください。" : "今月のおすすめを紹介します。気になる方はぜひチェックしてください。",
+            short_body: isAuto ? "季節点検で安心のカーライフを。" : "今月のおすすめです。",
+            hashtags: isAuto ? ["#自動車整備", "#点検", "#オイル交換", "#タイヤ交換", "#車検"] : ["#おすすめ", "#地域店舗", "#来店歓迎"],
+            call_to_action: isAuto ? "点検予約はお気軽に" : "ご来店をお待ちしています"
+          }
+        },
+        {
+          target_channel: "review_reply",
+          title: "クチコミ返信案",
+          summary: "信頼感を高める返信の下書きです。",
+          priority: "medium",
+          reason: "丁寧な返信が次の問い合わせの安心材料になるためです。",
+          recommended_date: new Date().toISOString().slice(0, 10),
+          draft: {
+            title: "クチコミ返信テンプレート",
+            body: isAuto ? `${store.name}をご利用いただきありがとうございます。整備内容や説明について安心していただけたようで大変うれしく思います。今後も点検、車検、修理の際は分かりやすく丁寧な対応を心がけてまいります。` : `${store.name}をご利用いただきありがとうございます。温かいお言葉を励みに、今後も丁寧な対応を続けてまいります。`,
+            short_body: null,
+            hashtags: [],
+            call_to_action: null
+          }
+        },
+        {
+          target_channel: "customer_message",
+          title: isAuto ? "既存顧客案内: 点検リマインド" : "既存顧客案内",
+          summary: "再来店を促す案内文です。",
+          priority: "medium",
+          reason: "過去利用者へ次の相談きっかけを作れるためです。",
+          recommended_date: new Date().toISOString().slice(0, 10),
+          draft: {
+            title: isAuto ? "点検時期のご案内" : "おすすめのご案内",
+            body: isAuto ? `いつも${store.name}をご利用いただきありがとうございます。前回の整備からお時間が経っている場合、オイル交換やタイヤ状態の確認がおすすめです。気になる点がありましたらお気軽にご相談ください。` : `いつも${store.name}をご利用いただきありがとうございます。今月のおすすめをご案内しています。気になる点があればお気軽にご相談ください。`,
+            short_body: isAuto ? "点検・オイル交換の時期確認はいかがですか。" : "今月のおすすめをご案内します。",
+            hashtags: [],
+            call_to_action: isAuto ? "点検予約はこちら" : "お問い合わせはこちら"
+          }
+        },
+        {
+          target_channel: "store_pop",
+          title: isAuto ? "店頭POP: 早めの点検" : "店頭POP",
+          summary: "店頭で相談を生む短いコピーです。",
+          priority: "medium",
+          reason: "来店中のお客様に追加相談のきっかけを作れるためです。",
+          recommended_date: new Date().toISOString().slice(0, 10),
+          draft: {
+            title: isAuto ? "早めの点検で安心運転" : "今月のおすすめ",
+            body: isAuto ? "気になる音・違和感、そのままにしていませんか？早めの点検で安心運転。" : "気になる方はスタッフまでお気軽にどうぞ。",
+            short_body: isAuto ? "早めの点検で安心運転。" : "スタッフまでお気軽に。",
+            hashtags: [],
+            call_to_action: "スタッフまでお声がけください"
+          }
+        },
+        {
+          target_channel: "line",
+          title: isAuto ? "LINE配信: 季節点検案内" : "LINE配信",
+          summary: "短く読みやすい配信用文章です。",
+          priority: "medium",
+          reason: "既存顧客に直接届き、予約導線を作りやすいためです。",
+          recommended_date: new Date().toISOString().slice(0, 10),
+          draft: {
+            title: isAuto ? "季節点検のお知らせ" : "今月のお知らせ",
+            body: isAuto ? `【${store.name}】季節の変わり目は、オイル交換・タイヤ点検・車検前点検がおすすめです。気になる症状がある方は、お早めにご相談ください。` : `【${store.name}】今月のおすすめをご案内しています。気になる方はお気軽にお問い合わせください。`,
+            short_body: `${subject}のご案内です。`,
+            hashtags: [],
+            call_to_action: isAuto ? "予約・相談はこちら" : "詳しくはこちら"
+          }
+        }
+      ]
+    };
+  }
+
   return {
     score: 78,
     summary: `${store.name}は基本情報が整理されています。AI検索に向けて、地域名、強み、具体的なサービス説明をさらに明確にすると効果的です。`,
