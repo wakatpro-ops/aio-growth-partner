@@ -8,6 +8,13 @@ export type ModuleKey =
   | "aio_diagnosis"
   | "instagram_post"
   | "repair_services"
+  | "product_management"
+  | "inventory_management"
+  | "customer_management"
+  | "estimate_management"
+  | "invoice_management"
+  | "pdf_export"
+  | "monthly_report"
   | "admin"
   | "billing"
   | "accounting";
@@ -29,6 +36,17 @@ export type IndustryConfig = {
   postLabel: string;
   reviewLabel: string;
   diagnosisLabel: string;
+  businessLabels: {
+    item: string;
+    product: string;
+    part: string;
+    service: string;
+    stock: string;
+    customer: string;
+    estimate: string;
+    invoice: string;
+    vehicle?: string;
+  };
   defaultFeatureFlags: FeatureFlags;
   dashboardCards: string[];
   profileFields: Array<{

@@ -17,6 +17,14 @@ alter table public.ai_generation_logs enable row level security;
 alter table public.post_generations enable row level security;
 alter table public.review_reply_generations enable row level security;
 alter table public.aio_diagnoses enable row level security;
+alter table public.items enable row level security;
+alter table public.inventory_stocks enable row level security;
+alter table public.inventory_movements enable row level security;
+alter table public.customers enable row level security;
+alter table public.estimates enable row level security;
+alter table public.estimate_items enable row level security;
+alter table public.invoices enable row level security;
+alter table public.invoice_items enable row level security;
 
 create or replace function public.is_platform_admin()
 returns boolean
@@ -115,3 +123,95 @@ for select using (public.is_org_member(organization_id) or public.is_platform_ad
 
 create policy "read diagnoses org" on public.aio_diagnoses
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org items" on public.items
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org items" on public.items
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org inventory stocks" on public.inventory_stocks
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org inventory stocks" on public.inventory_stocks
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org inventory movements" on public.inventory_movements
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org inventory movements" on public.inventory_movements
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org customers" on public.customers
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org customers" on public.customers
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org estimates" on public.estimates
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org estimates" on public.estimates
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org estimate items" on public.estimate_items
+for select using (
+  exists (
+    select 1 from public.estimates
+    where estimates.id = estimate_items.estimate_id
+      and (public.is_org_member(estimates.organization_id) or public.is_platform_admin())
+  )
+);
+
+create policy "write org estimate items" on public.estimate_items
+for all using (
+  exists (
+    select 1 from public.estimates
+    where estimates.id = estimate_items.estimate_id
+      and (public.is_org_member(estimates.organization_id) or public.is_platform_admin())
+  )
+)
+with check (
+  exists (
+    select 1 from public.estimates
+    where estimates.id = estimate_items.estimate_id
+      and (public.is_org_member(estimates.organization_id) or public.is_platform_admin())
+  )
+);
+
+create policy "read org invoices" on public.invoices
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org invoices" on public.invoices
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org invoice items" on public.invoice_items
+for select using (
+  exists (
+    select 1 from public.invoices
+    where invoices.id = invoice_items.invoice_id
+      and (public.is_org_member(invoices.organization_id) or public.is_platform_admin())
+  )
+);
+
+create policy "write org invoice items" on public.invoice_items
+for all using (
+  exists (
+    select 1 from public.invoices
+    where invoices.id = invoice_items.invoice_id
+      and (public.is_org_member(invoices.organization_id) or public.is_platform_admin())
+  )
+)
+with check (
+  exists (
+    select 1 from public.invoices
+    where invoices.id = invoice_items.invoice_id
+      and (public.is_org_member(invoices.organization_id) or public.is_platform_admin())
+  )
+);

@@ -241,3 +241,133 @@ create index if not exists stores_organization_id_idx on public.stores(organizat
 create index if not exists stores_industry_type_key_idx on public.stores(industry_type_key);
 create index if not exists ai_generation_logs_store_id_idx on public.ai_generation_logs(store_id);
 create index if not exists ai_generation_logs_created_at_idx on public.ai_generation_logs(created_at desc);
+
+create table if not exists public.items (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  industry_type_key text not null references public.industry_types(key),
+  item_type text not null default 'product',
+  name text not null,
+  sku text,
+  description text,
+  unit text not null default '個',
+  unit_price numeric(12,2) not null default 0,
+  cost_price numeric(12,2) not null default 0,
+  tax_rate numeric(5,2) not null default 10,
+  is_stock_managed boolean not null default true,
+  status text not null default 'active',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.inventory_stocks (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  item_id uuid not null references public.items(id) on delete cascade,
+  quantity numeric(12,2) not null default 0,
+  reorder_point numeric(12,2) not null default 0,
+  updated_at timestamptz not null default now(),
+  unique (item_id)
+);
+
+create table if not exists public.inventory_movements (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  item_id uuid not null references public.items(id) on delete cascade,
+  movement_type text not null default 'adjustment',
+  quantity_delta numeric(12,2) not null,
+  note text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  name text not null,
+  company_name text,
+  email text,
+  phone text,
+  address text,
+  vehicle_info jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.estimates (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  customer_id uuid references public.customers(id) on delete set null,
+  document_number text not null,
+  title text not null,
+  issue_date date not null default current_date,
+  expiry_date date,
+  status text not null default 'draft',
+  subtotal numeric(12,2) not null default 0,
+  tax_total numeric(12,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, document_number)
+);
+
+create table if not exists public.estimate_items (
+  id uuid primary key default gen_random_uuid(),
+  estimate_id uuid not null references public.estimates(id) on delete cascade,
+  item_id uuid references public.items(id) on delete set null,
+  description text not null,
+  quantity numeric(12,2) not null default 1,
+  unit text not null default '個',
+  unit_price numeric(12,2) not null default 0,
+  tax_rate numeric(5,2) not null default 10,
+  amount numeric(12,2) not null default 0,
+  sort_order integer not null default 0
+);
+
+create table if not exists public.invoices (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  customer_id uuid references public.customers(id) on delete set null,
+  document_number text not null,
+  title text not null,
+  issue_date date not null default current_date,
+  due_date date,
+  status text not null default 'draft',
+  subtotal numeric(12,2) not null default 0,
+  tax_total numeric(12,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  paid_at timestamptz,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, document_number)
+);
+
+create table if not exists public.invoice_items (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references public.invoices(id) on delete cascade,
+  item_id uuid references public.items(id) on delete set null,
+  description text not null,
+  quantity numeric(12,2) not null default 1,
+  unit text not null default '個',
+  unit_price numeric(12,2) not null default 0,
+  tax_rate numeric(5,2) not null default 10,
+  amount numeric(12,2) not null default 0,
+  sort_order integer not null default 0
+);
+
+create index if not exists items_store_id_idx on public.items(store_id);
+create index if not exists inventory_stocks_store_id_idx on public.inventory_stocks(store_id);
+create index if not exists inventory_movements_store_id_idx on public.inventory_movements(store_id);
+create index if not exists customers_store_id_idx on public.customers(store_id);
+create index if not exists estimates_store_id_idx on public.estimates(store_id);
+create index if not exists invoices_store_id_idx on public.invoices(store_id);

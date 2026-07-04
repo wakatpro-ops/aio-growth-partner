@@ -162,6 +162,11 @@ p {
   color: var(--accent-strong);
 }
 
+.button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
@@ -227,6 +232,46 @@ p {
   font-size: 12px;
   font-weight: 800;
   padding: 4px 9px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.quick-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.check-row {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.check-row input {
+  height: 18px;
+  width: 18px;
+}
+
+.subsection {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.danger-zone {
+  margin-top: 16px;
+}
+
+.table.compact th,
+.table.compact td {
+  padding: 10px 8px;
 }
 
 .hero {
