@@ -27,7 +27,12 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
         eyebrow={industry.name}
         title={estimate.title}
         description={`${industry.businessLabels.estimate}を編集します。`}
-        action={isFeatureEnabled(flags, "pdf_export") ? <Link className="button" href={`/stores/${store.id}/estimates/${estimate.id}/pdf`}>PDF出力</Link> : undefined}
+        action={isFeatureEnabled(flags, "pdf_export") ? (
+          <div className="action-row">
+            <Link className="button" href={`/stores/${store.id}/estimates/${estimate.id}/pdf/download`}>PDF出力</Link>
+            <Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}/pdf`}>印刷プレビュー</Link>
+          </div>
+        ) : undefined}
       />
       <DocumentForm action={updateEstimateAction.bind(null, store.id, estimate.id)} document={estimate} customers={customers} kind="estimate" />
       <form action={deleteEstimateAction.bind(null, store.id, estimate.id)} className="danger-zone">

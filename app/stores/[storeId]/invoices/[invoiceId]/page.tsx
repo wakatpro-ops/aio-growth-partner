@@ -27,7 +27,12 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
         eyebrow={industry.name}
         title={invoice.title}
         description={`${industry.businessLabels.invoice}を編集します。`}
-        action={isFeatureEnabled(flags, "pdf_export") ? <Link className="button" href={`/stores/${store.id}/invoices/${invoice.id}/pdf`}>PDF出力</Link> : undefined}
+        action={isFeatureEnabled(flags, "pdf_export") ? (
+          <div className="action-row">
+            <Link className="button" href={`/stores/${store.id}/invoices/${invoice.id}/pdf/download`}>PDF出力</Link>
+            <Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}/pdf`}>印刷プレビュー</Link>
+          </div>
+        ) : undefined}
       />
       <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" />
       <form action={deleteInvoiceAction.bind(null, store.id, invoice.id)} className="danger-zone">

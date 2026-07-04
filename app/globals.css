@@ -176,6 +176,12 @@ p {
   opacity: 0.5;
 }
 
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .form {
   display: grid;
   gap: 14px;

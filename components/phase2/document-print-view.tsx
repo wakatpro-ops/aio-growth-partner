@@ -30,7 +30,8 @@ export function DocumentPrintView({
   return (
     <main className="print-page">
       <div className="print-actions">
-        <button className="button" type="button" onClick={() => globalThis.print()}>PDF保存</button>
+        <a className="button" href={kind === "estimate" ? `/stores/${store.id}/estimates/${document.id}/pdf/download` : `/stores/${store.id}/invoices/${document.id}/pdf/download`}>PDFダウンロード</a>
+        <button className="button secondary" type="button" onClick={() => globalThis.print()}>印刷</button>
         <a className="button secondary" href={kind === "estimate" ? `/stores/${store.id}/estimates/${document.id}` : `/stores/${store.id}/invoices/${document.id}`}>編集へ戻る</a>
       </div>
       <section className="print-sheet">
