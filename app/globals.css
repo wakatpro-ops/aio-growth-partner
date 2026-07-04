@@ -249,6 +249,19 @@ p {
   font-size: 12px;
 }
 
+.notice {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+}
+
+.notice.danger {
+  border-color: rgba(184, 74, 74, 0.35);
+  color: var(--danger);
+}
+
 .quick-nav {
   display: flex;
   flex-wrap: wrap;

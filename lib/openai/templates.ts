@@ -1,5 +1,6 @@
 import "server-only";
 import { getIndustryConfig } from "@/config/industries";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AiTemplateKey, IndustryTypeKey, Store } from "@/types/domain";
 
 export type PromptTemplate = {
@@ -49,6 +50,54 @@ export function getFallbackPromptTemplate(industryTypeKey: IndustryTypeKey, temp
     };
   }
 
+  if (templateKey === "instagram_draft_generation") {
+    const systemPrompt =
+      industryTypeKey === "auto_repair"
+        ? "あなたは自動車整備工場のInstagram集客に詳しいマーケターです。整備、点検、部品、安全性、予約導線を重視してください。"
+        : "あなたは地域店舗のInstagram集客に詳しいマーケターです。商品・サービスの魅力、来店促進、口コミ促進を重視してください。";
+
+    return {
+      id: `${industryTypeKey}-instagram-draft-generation-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt,
+      userPromptTemplate: `${baseContext}\n業務データをもとに、caption、short_caption、hashtags、call_to_action、recommended_image_idea、title、ai_reasoningをJSONで返してください。`
+    };
+  }
+
+  if (templateKey === "google_business_profile_draft") {
+    const systemPrompt =
+      industryTypeKey === "auto_repair"
+        ? "あなたは整備工場向けGoogleビジネスプロフィール投稿に詳しいローカルSEO編集者です。車検、点検、修理、地域名、予約導線を自然に含めてください。"
+        : "あなたはGoogleビジネスプロフィール投稿に詳しいローカルSEO編集者です。検索されやすいキーワードを自然に含めてください。";
+
+    return {
+      id: `${industryTypeKey}-google-business-profile-draft-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt,
+      userPromptTemplate: `${baseContext}\n投稿種別と業務データをもとに、caption、short_caption、hashtags、call_to_action、recommended_image_idea、title、ai_reasoningをJSONで返してください。`
+    };
+  }
+
+  if (templateKey === "ai_monthly_recommendations") {
+    const systemPrompt =
+      industryTypeKey === "auto_repair"
+        ? "あなたは自動車整備工場の業務改善と地域集客に詳しいコンサルタントです。安全性、点検需要、部品在庫、予約導線を重視してください。"
+        : "あなたは地域店舗の売上改善と集客施策に詳しいコンサルタントです。";
+
+    return {
+      id: `${industryTypeKey}-ai-monthly-recommendations-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt,
+      userPromptTemplate: `${baseContext}\n月次レポート、商品、在庫、顧客情報をもとに、title、good_points、cautions、next_actions、posting_themes、inventory_suggestions、customer_priorities、ai_reasoningをJSONで返してください。`
+    };
+  }
+
   const systemPrompt =
     industryTypeKey === "auto_repair"
       ? "あなたは自動車修理・整備工場のAIO診断コンサルタントです。地域名、対応サービス、信頼性、予約導線を評価してください。"
@@ -61,6 +110,30 @@ export function getFallbackPromptTemplate(industryTypeKey: IndustryTypeKey, temp
     model,
     systemPrompt,
     userPromptTemplate: `${baseContext}\n店舗プロフィールを診断し、score、summary、strengths、issues、recommendationsをJSONで返してください。`
+  };
+}
+
+export async function getPromptTemplate(industryTypeKey: IndustryTypeKey, templateKey: AiTemplateKey): Promise<PromptTemplate> {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return getFallbackPromptTemplate(industryTypeKey, templateKey);
+
+  const { data, error } = await supabase
+    .from("ai_prompt_templates")
+    .select("id, industry_type_key, template_key, model, system_prompt, user_prompt_template")
+    .eq("industry_type_key", industryTypeKey)
+    .eq("template_key", templateKey)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error || !data) return getFallbackPromptTemplate(industryTypeKey, templateKey);
+
+  return {
+    id: String(data.id),
+    industryTypeKey,
+    templateKey,
+    model: String(data.model ?? model),
+    systemPrompt: String(data.system_prompt),
+    userPromptTemplate: String(data.user_prompt_template)
   };
 }
 

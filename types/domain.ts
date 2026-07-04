@@ -15,6 +15,12 @@ export type ModuleKey =
   | "invoice_management"
   | "pdf_export"
   | "monthly_report"
+  | "marketing_drafts"
+  | "instagram_draft_generation"
+  | "google_business_profile_draft"
+  | "ai_monthly_recommendations"
+  | "image_caption_generation"
+  | "demand_alerts"
   | "admin"
   | "billing"
   | "accounting";
@@ -72,7 +78,13 @@ export type Store = {
   status: "active" | "inactive";
 };
 
-export type AiTemplateKey = "post_generation" | "review_reply" | "aio_diagnosis";
+export type AiTemplateKey =
+  | "post_generation"
+  | "review_reply"
+  | "aio_diagnosis"
+  | "instagram_draft_generation"
+  | "google_business_profile_draft"
+  | "ai_monthly_recommendations";
 
 export type AiLogRecord = {
   user_id: string | null;

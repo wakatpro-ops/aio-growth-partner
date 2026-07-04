@@ -19,7 +19,13 @@ export const demoStores: Store[] = [
     },
     feature_flags: {
       pdf_export: true,
-      monthly_report: true
+      monthly_report: true,
+      marketing_drafts: true,
+      instagram_draft_generation: true,
+      google_business_profile_draft: true,
+      ai_monthly_recommendations: true,
+      image_caption_generation: false,
+      demand_alerts: true
     },
     status: "active"
   },
@@ -43,7 +49,13 @@ export const demoStores: Store[] = [
     },
     feature_flags: {
       pdf_export: true,
-      monthly_report: true
+      monthly_report: true,
+      marketing_drafts: true,
+      instagram_draft_generation: true,
+      google_business_profile_draft: true,
+      ai_monthly_recommendations: true,
+      image_caption_generation: false,
+      demand_alerts: true
     },
     status: "active"
   }

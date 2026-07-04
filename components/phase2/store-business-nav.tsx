@@ -12,7 +12,8 @@ export function StoreBusinessNav({ store }: { store: Store }) {
     { href: `/stores/${store.id}/customers`, label: industry.businessLabels.customer, feature: "customer_management" },
     { href: `/stores/${store.id}/estimates`, label: industry.businessLabels.estimate, feature: "estimate_management" },
     { href: `/stores/${store.id}/invoices`, label: industry.businessLabels.invoice, feature: "invoice_management" },
-    { href: `/stores/${store.id}/reports/monthly`, label: "月次レポート", feature: "monthly_report" }
+    { href: `/stores/${store.id}/reports/monthly`, label: "月次レポート", feature: "monthly_report" },
+    { href: `/stores/${store.id}/marketing`, label: "AI集客", feature: "marketing_drafts" }
   ].filter((link) => isFeatureEnabled(flags, link.feature));
 
   return (

@@ -237,10 +237,85 @@ create table if not exists public.aio_diagnoses (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.marketing_drafts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  industry_type_key text not null references public.industry_types(key),
+  channel text not null default 'instagram',
+  status text not null default 'draft',
+  title text not null,
+  body text not null,
+  short_body text,
+  hashtags text[] not null default '{}'::text[],
+  call_to_action text,
+  recommended_image_idea text,
+  source_type text,
+  source_id text,
+  ai_reasoning text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.ai_recommendations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  industry_type_key text not null references public.industry_types(key),
+  month text not null,
+  title text not null,
+  good_points jsonb not null default '[]'::jsonb,
+  cautions jsonb not null default '[]'::jsonb,
+  next_actions jsonb not null default '[]'::jsonb,
+  posting_themes jsonb not null default '[]'::jsonb,
+  inventory_suggestions jsonb not null default '[]'::jsonb,
+  customer_priorities jsonb not null default '[]'::jsonb,
+  source_report jsonb not null default '{}'::jsonb,
+  ai_reasoning text,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.image_caption_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  industry_type_key text not null references public.industry_types(key),
+  image_url text,
+  status text not null default 'queued',
+  result jsonb not null default '{}'::jsonb,
+  error_message text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.demand_alerts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  industry_type_key text not null references public.industry_types(key),
+  alert_type text not null default 'low_stock',
+  severity text not null default 'medium',
+  title text not null,
+  message text not null,
+  suggested_action text,
+  source_data jsonb not null default '{}'::jsonb,
+  status text not null default 'open',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists stores_organization_id_idx on public.stores(organization_id);
 create index if not exists stores_industry_type_key_idx on public.stores(industry_type_key);
 create index if not exists ai_generation_logs_store_id_idx on public.ai_generation_logs(store_id);
 create index if not exists ai_generation_logs_created_at_idx on public.ai_generation_logs(created_at desc);
+create index if not exists marketing_drafts_store_id_idx on public.marketing_drafts(store_id);
+create index if not exists marketing_drafts_created_at_idx on public.marketing_drafts(created_at desc);
+create index if not exists ai_recommendations_store_month_idx on public.ai_recommendations(store_id, month);
+create index if not exists image_caption_jobs_store_id_idx on public.image_caption_jobs(store_id);
+create index if not exists demand_alerts_store_id_idx on public.demand_alerts(store_id);
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),
@@ -261,6 +336,9 @@ create table if not exists public.items (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.demand_alerts
+add column if not exists item_id uuid references public.items(id) on delete set null;
 
 create table if not exists public.inventory_stocks (
   id uuid primary key default gen_random_uuid(),

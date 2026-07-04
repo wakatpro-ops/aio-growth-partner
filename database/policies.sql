@@ -17,6 +17,10 @@ alter table public.ai_generation_logs enable row level security;
 alter table public.post_generations enable row level security;
 alter table public.review_reply_generations enable row level security;
 alter table public.aio_diagnoses enable row level security;
+alter table public.marketing_drafts enable row level security;
+alter table public.ai_recommendations enable row level security;
+alter table public.image_caption_jobs enable row level security;
+alter table public.demand_alerts enable row level security;
 alter table public.items enable row level security;
 alter table public.inventory_stocks enable row level security;
 alter table public.inventory_movements enable row level security;
@@ -51,6 +55,53 @@ as $$
       and user_id = auth.uid()
   );
 $$;
+
+drop policy if exists "read own profile or admin" on public.user_profiles;
+drop policy if exists "read member organizations" on public.organizations;
+drop policy if exists "read org members" on public.organization_members;
+drop policy if exists "read public config authenticated" on public.industry_types;
+drop policy if exists "read modules authenticated" on public.modules;
+drop policy if exists "read industry modules authenticated" on public.industry_modules;
+drop policy if exists "read org stores" on public.stores;
+drop policy if exists "write org stores" on public.stores;
+drop policy if exists "read config flags authenticated" on public.feature_flags;
+drop policy if exists "read prompts authenticated" on public.ai_prompt_templates;
+drop policy if exists "admin write prompts" on public.ai_prompt_templates;
+drop policy if exists "read dashboard layouts authenticated" on public.dashboard_layouts;
+drop policy if exists "read role permissions authenticated" on public.role_permissions;
+drop policy if exists "read plan limits authenticated" on public.plan_limits;
+drop policy if exists "read billing org" on public.billing_integrations;
+drop policy if exists "read accounting org" on public.accounting_integrations;
+drop policy if exists "anonymous applications insert" on public.applications;
+drop policy if exists "admin read applications" on public.applications;
+drop policy if exists "read own ai logs or admin" on public.ai_generation_logs;
+drop policy if exists "read post generations org" on public.post_generations;
+drop policy if exists "read review generations org" on public.review_reply_generations;
+drop policy if exists "read diagnoses org" on public.aio_diagnoses;
+drop policy if exists "read org marketing drafts" on public.marketing_drafts;
+drop policy if exists "write org marketing drafts" on public.marketing_drafts;
+drop policy if exists "read org ai recommendations" on public.ai_recommendations;
+drop policy if exists "write org ai recommendations" on public.ai_recommendations;
+drop policy if exists "read org image caption jobs" on public.image_caption_jobs;
+drop policy if exists "write org image caption jobs" on public.image_caption_jobs;
+drop policy if exists "read org demand alerts" on public.demand_alerts;
+drop policy if exists "write org demand alerts" on public.demand_alerts;
+drop policy if exists "read org items" on public.items;
+drop policy if exists "write org items" on public.items;
+drop policy if exists "read org inventory stocks" on public.inventory_stocks;
+drop policy if exists "write org inventory stocks" on public.inventory_stocks;
+drop policy if exists "read org inventory movements" on public.inventory_movements;
+drop policy if exists "write org inventory movements" on public.inventory_movements;
+drop policy if exists "read org customers" on public.customers;
+drop policy if exists "write org customers" on public.customers;
+drop policy if exists "read org estimates" on public.estimates;
+drop policy if exists "write org estimates" on public.estimates;
+drop policy if exists "read org estimate items" on public.estimate_items;
+drop policy if exists "write org estimate items" on public.estimate_items;
+drop policy if exists "read org invoices" on public.invoices;
+drop policy if exists "write org invoices" on public.invoices;
+drop policy if exists "read org invoice items" on public.invoice_items;
+drop policy if exists "write org invoice items" on public.invoice_items;
 
 create policy "read own profile or admin" on public.user_profiles
 for select using (user_id = auth.uid() or public.is_platform_admin());
@@ -123,6 +174,34 @@ for select using (public.is_org_member(organization_id) or public.is_platform_ad
 
 create policy "read diagnoses org" on public.aio_diagnoses
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org marketing drafts" on public.marketing_drafts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org marketing drafts" on public.marketing_drafts
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org ai recommendations" on public.ai_recommendations
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org ai recommendations" on public.ai_recommendations
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org image caption jobs" on public.image_caption_jobs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org image caption jobs" on public.image_caption_jobs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org demand alerts" on public.demand_alerts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org demand alerts" on public.demand_alerts
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "read org items" on public.items
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());

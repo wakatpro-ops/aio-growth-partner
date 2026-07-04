@@ -8,7 +8,7 @@ values
     'general_store',
     '汎用店舗',
     '飲食店、美容室、整体院などに転用できる基本業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"billing":false,"accounting":false}',
     '["store_profile_completion","ai_post_generation","review_reply","aio_score","instagram_post"]',
     '[{"key":"target_customer","label":"ターゲット顧客"},{"key":"brand_tone","label":"投稿トーン"},{"key":"opening_hours","label":"営業時間"},{"key":"strengths","label":"店舗の強み"}]'
   ),
@@ -16,7 +16,7 @@ values
     'auto_repair',
     '自動車修理',
     '車検、点検、修理相談に対応する整備工場向け業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true,"billing":false,"accounting":false}',
     '["store_profile_completion","aio_score","review_reply","repair_service_visibility","ai_post_generation"]',
     '[{"key":"services","label":"対応サービス"},{"key":"supported_makers","label":"対応メーカー"},{"key":"has_replacement_car","label":"代車あり"},{"key":"emergency_support","label":"緊急対応可"},{"key":"reservation_method","label":"予約方法"},{"key":"brand_tone","label":"投稿トーン"}]'
   )
@@ -38,6 +38,12 @@ values
   ('invoice_management', '請求書管理', '顧客向け請求書を作成・管理します。', 'core', false),
   ('pdf_export', 'PDF出力', '見積書、請求書、レポートのPDF出力拡張ポイントです。', 'integration', false),
   ('monthly_report', '月次レポート', '売上、見積、請求、在庫の月次集計を確認します。', 'core', false),
+  ('marketing_drafts', '投稿下書き管理', 'AIで生成した投稿下書きを保存・承認・管理します。', 'marketing', false),
+  ('instagram_draft_generation', 'Instagram下書き生成', '業務データをもとにInstagram向け投稿案を生成します。', 'marketing', false),
+  ('google_business_profile_draft', 'Googleビジネスプロフィール下書き', 'Google投稿向けの最新情報、キャンペーン、サービス紹介文を生成します。', 'marketing', false),
+  ('ai_monthly_recommendations', 'AI月次改善提案', '月次レポートから集客改善提案を生成します。', 'marketing', false),
+  ('image_caption_generation', '画像キャプション生成', '将来の画像アップロードからのキャプション生成拡張です。', 'marketing', false),
+  ('demand_alerts', '需要予測・在庫アラート', '在庫と業務データから需要や発注注意を提案します。', 'marketing', false),
   ('admin', '管理者画面', '運営者が全体を確認します。', 'admin', true),
   ('billing', '請求連携', '将来のStripe連携用拡張ポイントです。', 'integration', false),
   ('accounting', '会計連携', '将来のfreee連携用拡張ポイントです。', 'integration', false)
@@ -47,7 +53,7 @@ insert into public.industry_modules (industry_type_key, module_key, is_enabled)
 select industry.key, module.key, true
 from public.industry_types industry
 cross join public.modules module
-where module.key in ('store_profile','multi_store','ai_post_generation','ai_review_reply','aio_diagnosis','admin','product_management','inventory_management','customer_management','estimate_management','invoice_management')
+where module.key in ('store_profile','multi_store','ai_post_generation','ai_review_reply','aio_diagnosis','admin','product_management','inventory_management','customer_management','estimate_management','invoice_management','pdf_export','monthly_report','marketing_drafts','instagram_draft_generation','google_business_profile_draft','ai_monthly_recommendations','demand_alerts')
 on conflict (industry_type_key, module_key) do nothing;
 
 insert into public.industry_modules (industry_type_key, module_key, is_enabled)
@@ -66,6 +72,12 @@ values
   ('auto_repair', 'monthly_report', true)
 on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
 
+insert into public.industry_modules (industry_type_key, module_key, is_enabled)
+values
+  ('general_store', 'image_caption_generation', false),
+  ('auto_repair', 'image_caption_generation', false)
+on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
+
 insert into public.ai_prompt_templates (industry_type_key, module_key, template_key, name, system_prompt, user_prompt_template)
 values
   ('general_store', 'ai_post_generation', 'post_generation', '汎用店舗 投稿文生成', 'あなたは地域店舗の集客支援に詳しいマーケターです。', '店舗情報と入力内容をもとに、投稿文、短縮版、ハッシュタグ案をJSONで返してください。'),
@@ -75,6 +87,20 @@ values
   ('general_store', 'aio_diagnosis', 'aio_diagnosis', '汎用店舗 AIO診断', 'あなたは地域店舗のAIO診断コンサルタントです。', '店舗プロフィールを診断し、score、summary、strengths、issues、recommendationsをJSONで返してください。'),
   ('auto_repair', 'aio_diagnosis', 'aio_diagnosis', '自動車修理 AIO診断', 'あなたは自動車修理・整備工場のAIO診断コンサルタントです。', '対応サービス、地域名、信頼性、予約導線を診断し、score、summary、strengths、issues、recommendationsをJSONで返してください。')
 on conflict (industry_type_key, module_key, template_key) do nothing;
+
+insert into public.ai_prompt_templates (industry_type_key, module_key, template_key, name, system_prompt, user_prompt_template)
+values
+  ('general_store', 'instagram_draft_generation', 'instagram_draft_generation', '汎用店舗 Instagram下書き生成', 'あなたは地域店舗のInstagram運用に詳しいマーケターです。来店促進と口コミ促進につながる自然な文章を作成してください。', '店舗プロフィール、商品、在庫、月次レポートをもとに、caption、short_caption、hashtags、call_to_action、recommended_image_idea、title、ai_reasoningをJSONで返してください。'),
+  ('auto_repair', 'instagram_draft_generation', 'instagram_draft_generation', '自動車修理 Instagram下書き生成', 'あなたは自動車整備工場の集客に詳しいマーケターです。整備、点検、部品、安全性、予約導線を重視してください。', '店舗プロフィール、部品、在庫、月次レポートをもとに、caption、short_caption、hashtags、call_to_action、recommended_image_idea、title、ai_reasoningをJSONで返してください。'),
+  ('general_store', 'google_business_profile_draft', 'google_business_profile_draft', '汎用店舗 Google投稿下書き生成', 'あなたはGoogleビジネスプロフィール投稿に詳しいローカルSEO編集者です。検索されやすい語句を自然に含めてください。', '投稿種別、店舗プロフィール、商品、月次レポートをもとに、caption、short_caption、hashtags、call_to_action、recommended_image_idea、title、ai_reasoningをJSONで返してください。'),
+  ('auto_repair', 'google_business_profile_draft', 'google_business_profile_draft', '自動車修理 Google投稿下書き生成', 'あなたは整備工場向けGoogleビジネスプロフィール投稿に詳しいローカルSEO編集者です。車検、点検、修理、地域名、予約導線を自然に含めてください。', '投稿種別、店舗プロフィール、部品、整備メニュー、月次レポートをもとに、caption、short_caption、hashtags、call_to_action、recommended_image_idea、title、ai_reasoningをJSONで返してください。'),
+  ('general_store', 'ai_monthly_recommendations', 'ai_monthly_recommendations', '汎用店舗 月次AI改善提案', 'あなたは地域店舗の売上改善と集客施策に詳しいコンサルタントです。', '月次レポート、商品、在庫、顧客情報をもとに、title、good_points、cautions、next_actions、posting_themes、inventory_suggestions、customer_priorities、ai_reasoningをJSONで返してください。'),
+  ('auto_repair', 'ai_monthly_recommendations', 'ai_monthly_recommendations', '自動車修理 月次AI改善提案', 'あなたは自動車整備工場の業務改善と地域集客に詳しいコンサルタントです。安全性、点検需要、部品在庫、予約導線を重視してください。', '月次レポート、部品、在庫、顧客・車両情報をもとに、title、good_points、cautions、next_actions、posting_themes、inventory_suggestions、customer_priorities、ai_reasoningをJSONで返してください。')
+on conflict (industry_type_key, module_key, template_key) do update set
+  name = excluded.name,
+  system_prompt = excluded.system_prompt,
+  user_prompt_template = excluded.user_prompt_template,
+  is_active = true;
 
 insert into public.role_permissions (role_key, permission_key, is_allowed)
 values
@@ -96,17 +122,17 @@ values
   ('starter', 'max_stores', '3'),
   ('starter', 'max_users', '5'),
   ('starter', 'ai_generations_per_month', '100'),
-  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report"]')
+  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts"]')
 on conflict (plan_key, limit_key) do nothing;
 
 update public.industry_types
-set default_feature_flags = default_feature_flags || '{"pdf_export":true,"monthly_report":true}'::jsonb
+set default_feature_flags = default_feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true}'::jsonb
 where key in ('general_store', 'auto_repair');
 
 update public.stores
-set feature_flags = feature_flags || '{"pdf_export":true,"monthly_report":true}'::jsonb
+set feature_flags = feature_flags || '{"pdf_export":true,"monthly_report":true,"marketing_drafts":true,"instagram_draft_generation":true,"google_business_profile_draft":true,"ai_monthly_recommendations":true,"image_caption_generation":false,"demand_alerts":true}'::jsonb
 where industry_type_key in ('general_store', 'auto_repair');
 
 update public.plan_limits
-set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report"]'
+set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts"]'
 where plan_key = 'starter' and limit_key = 'enabled_modules';
