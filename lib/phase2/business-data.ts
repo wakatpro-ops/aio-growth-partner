@@ -6,6 +6,7 @@ import type { BusinessDocument, BusinessItem, Customer, InventoryStock } from "@
 import type { Store } from "@/types/domain";
 
 type DocumentKind = "estimates" | "invoices";
+type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
 
 const demoPersistence = {
   "store-general-demo": {
@@ -55,7 +56,7 @@ function demoConfigFor(storeId: string) {
   return demoPersistence[storeId as keyof typeof demoPersistence];
 }
 
-async function ensureDemoPersistence(supabase: NonNullable<ReturnType<typeof createSupabaseAdminClient>>, storeId: string) {
+async function ensureDemoPersistence(supabase: SupabaseClient, storeId: string) {
   const config = demoConfigFor(storeId);
   if (!config) {
     return { organizationId: null, storeId };
@@ -88,11 +89,11 @@ async function ensureDemoPersistence(supabase: NonNullable<ReturnType<typeof cre
   return { organizationId: config.organizationId, storeId: config.storeId };
 }
 
-async function resolveStoreForRead(supabase: NonNullable<ReturnType<typeof createSupabaseAdminClient>>, storeId: string) {
+async function resolveStoreForRead(supabase: SupabaseClient, storeId: string) {
   return ensureDemoPersistence(supabase, storeId);
 }
 
-async function resolveStoreForWrite(supabase: NonNullable<ReturnType<typeof createSupabaseAdminClient>>, store: Store) {
+async function resolveStoreForWrite(supabase: SupabaseClient, store: Store) {
   const demo = await ensureDemoPersistence(supabase, store.id);
   return {
     organizationId: demo.organizationId ?? store.organization_id,
@@ -102,7 +103,7 @@ async function resolveStoreForWrite(supabase: NonNullable<ReturnType<typeof crea
 }
 
 async function seedAutoRepairDemoRows(
-  supabase: NonNullable<ReturnType<typeof createSupabaseAdminClient>>,
+  supabase: SupabaseClient,
   organizationId: string,
   storeId: string
 ) {
@@ -447,7 +448,7 @@ export async function createDocumentFromForm(storeId: string, kind: DocumentKind
 
   const subtotal = asNumber(formData.get("subtotal"));
   const taxTotal = asNumber(formData.get("tax_total"));
-  await supabase.from(kind).insert({
+  const payload = {
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
     customer_id: asText(formData.get("customer_id")),
@@ -461,7 +462,16 @@ export async function createDocumentFromForm(storeId: string, kind: DocumentKind
     tax_total: taxTotal,
     total: subtotal + taxTotal,
     notes: asText(formData.get("notes"))
-  });
+  };
+
+  const dateFields = kind === "estimates"
+    ? { expiry_date: asText(formData.get("expiry_date")) }
+    : { due_date: asText(formData.get("due_date")) };
+
+  const { error } = await supabase.from(kind).insert({ ...payload, ...dateFields });
+  if (error) {
+    throw new Error(`${kind}の保存に失敗しました: ${error.message}`);
+  }
 }
 
 export async function updateDocumentFromForm(storeId: string, documentId: string, kind: DocumentKind, formData: FormData) {
@@ -471,24 +481,31 @@ export async function updateDocumentFromForm(storeId: string, documentId: string
 
   const subtotal = asNumber(formData.get("subtotal"));
   const taxTotal = asNumber(formData.get("tax_total"));
-  await supabase
+  const payload = {
+    customer_id: asText(formData.get("customer_id")),
+    document_number: String(formData.get("document_number") ?? ""),
+    title: String(formData.get("title") ?? ""),
+    issue_date: String(formData.get("issue_date") ?? new Date().toISOString().slice(0, 10)),
+    status: String(formData.get("status") ?? "draft"),
+    subtotal,
+    tax_total: taxTotal,
+    total: subtotal + taxTotal,
+    notes: asText(formData.get("notes")),
+    updated_at: new Date().toISOString()
+  };
+
+  const dateFields = kind === "estimates"
+    ? { expiry_date: asText(formData.get("expiry_date")) }
+    : { due_date: asText(formData.get("due_date")) };
+
+  const { error } = await supabase
     .from(kind)
-    .update({
-      customer_id: asText(formData.get("customer_id")),
-      document_number: String(formData.get("document_number") ?? ""),
-      title: String(formData.get("title") ?? ""),
-      issue_date: String(formData.get("issue_date") ?? new Date().toISOString().slice(0, 10)),
-      expiry_date: kind === "estimates" ? asText(formData.get("expiry_date")) : null,
-      due_date: kind === "invoices" ? asText(formData.get("due_date")) : null,
-      status: String(formData.get("status") ?? "draft"),
-      subtotal,
-      tax_total: taxTotal,
-      total: subtotal + taxTotal,
-      notes: asText(formData.get("notes")),
-      updated_at: new Date().toISOString()
-    })
+    .update({ ...payload, ...dateFields })
     .eq("store_id", resolved.storeId)
     .eq("id", documentId);
+  if (error) {
+    throw new Error(`${kind}の更新に失敗しました: ${error.message}`);
+  }
 }
 
 export async function deleteDocument(storeId: string, documentId: string, kind: DocumentKind) {
