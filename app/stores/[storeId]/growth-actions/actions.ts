@@ -2,7 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { generateGrowthActions, updateGrowthActionStatus } from "@/lib/phase5/growth-actions";
+import {
+  generateGrowthActions,
+  submitGrowthActionApproval,
+  updateGrowthActionDraft,
+  updateGrowthActionStatus,
+  upsertExternalChannelAccount
+} from "@/lib/phase5/growth-actions";
 import type { GrowthActionStatus } from "@/types/phase5";
 
 function errorRedirect(path: string, error: unknown): never {
@@ -27,6 +33,44 @@ export async function updateGrowthActionStatusAction(storeId: string, actionId: 
   try {
     await updateGrowthActionStatus(storeId, actionId, status);
     revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(path);
+}
+
+export async function updateGrowthActionDraftAction(storeId: string, actionId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/edit`;
+  try {
+    await updateGrowthActionDraft(storeId, actionId, formData);
+    revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(`/stores/${storeId}/growth-calendar`);
+    revalidatePath(`/stores/${storeId}/growth-actions/${actionId}`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`/stores/${storeId}/growth-actions/${actionId}`);
+}
+
+export async function submitGrowthActionApprovalAction(storeId: string, actionId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}`;
+  try {
+    await submitGrowthActionApproval(storeId, actionId, formData);
+    revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(`/stores/${storeId}/growth-calendar`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(path);
+}
+
+export async function upsertExternalChannelAccountAction(storeId: string, formData: FormData) {
+  const path = `/stores/${storeId}/settings/channels`;
+  try {
+    await upsertExternalChannelAccount(storeId, formData);
     revalidatePath(path);
   } catch (error) {
     errorRedirect(path, error);

@@ -574,7 +574,12 @@ create table if not exists public.growth_actions (
   source_type text,
   source_id text,
   external_provider text,
+  external_account_id text,
+  external_post_id text,
   external_status text not null default 'not_connected',
+  scheduled_at timestamptz,
+  published_at timestamptz,
+  failed_reason text,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -593,7 +598,12 @@ create table if not exists public.growth_action_drafts (
   call_to_action text,
   copy_variant text not null default 'primary',
   external_provider text,
+  external_account_id text,
+  external_post_id text,
   external_status text not null default 'not_connected',
+  scheduled_at timestamptz,
+  published_at timestamptz,
+  failed_reason text,
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -610,6 +620,88 @@ create table if not exists public.growth_action_logs (
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+create table if not exists public.growth_action_schedule_items (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  growth_action_id uuid not null references public.growth_actions(id) on delete cascade,
+  growth_action_draft_id uuid references public.growth_action_drafts(id) on delete set null,
+  channel text not null,
+  title text not null,
+  scheduled_date date not null,
+  scheduled_at timestamptz,
+  status text not null default 'drafted',
+  external_provider text,
+  external_account_id text,
+  external_post_id text,
+  external_status text not null default 'not_connected',
+  published_at timestamptz,
+  failed_reason text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.growth_action_approvals (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  growth_action_id uuid not null references public.growth_actions(id) on delete cascade,
+  growth_action_draft_id uuid references public.growth_action_drafts(id) on delete set null,
+  status text not null default 'pending',
+  comment text,
+  requested_by uuid references auth.users(id) on delete set null,
+  approved_by uuid references auth.users(id) on delete set null,
+  requested_at timestamptz not null default now(),
+  decided_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.growth_action_draft_versions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  growth_action_id uuid not null references public.growth_actions(id) on delete cascade,
+  growth_action_draft_id uuid not null references public.growth_action_drafts(id) on delete cascade,
+  version_number integer not null default 1,
+  title text not null,
+  body text not null,
+  short_body text,
+  hashtags text[] not null default '{}'::text[],
+  call_to_action text,
+  memo text,
+  edited_by uuid references auth.users(id) on delete set null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.external_channel_accounts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  channel text not null,
+  external_provider text not null,
+  external_account_id text,
+  account_name text not null,
+  connection_status text not null default 'planned',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, channel, external_provider)
+);
+
+alter table public.growth_actions add column if not exists external_account_id text;
+alter table public.growth_actions add column if not exists external_post_id text;
+alter table public.growth_actions add column if not exists scheduled_at timestamptz;
+alter table public.growth_actions add column if not exists published_at timestamptz;
+alter table public.growth_actions add column if not exists failed_reason text;
+
+alter table public.growth_action_drafts add column if not exists external_account_id text;
+alter table public.growth_action_drafts add column if not exists external_post_id text;
+alter table public.growth_action_drafts add column if not exists scheduled_at timestamptz;
+alter table public.growth_action_drafts add column if not exists published_at timestamptz;
+alter table public.growth_action_drafts add column if not exists failed_reason text;
 
 create index if not exists stores_organization_id_idx on public.stores(organization_id);
 create index if not exists stores_industry_type_key_idx on public.stores(industry_type_key);
@@ -639,6 +731,11 @@ create index if not exists growth_actions_store_status_idx on public.growth_acti
 create index if not exists growth_actions_store_channel_idx on public.growth_actions(store_id, target_channel);
 create index if not exists growth_action_drafts_action_idx on public.growth_action_drafts(growth_action_id);
 create index if not exists growth_action_logs_action_idx on public.growth_action_logs(growth_action_id);
+create index if not exists growth_action_schedule_items_store_date_idx on public.growth_action_schedule_items(store_id, scheduled_date);
+create index if not exists growth_action_schedule_items_action_idx on public.growth_action_schedule_items(growth_action_id);
+create index if not exists growth_action_approvals_action_idx on public.growth_action_approvals(growth_action_id);
+create index if not exists growth_action_draft_versions_draft_idx on public.growth_action_draft_versions(growth_action_draft_id, version_number desc);
+create index if not exists external_channel_accounts_store_idx on public.external_channel_accounts(store_id, channel);
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),

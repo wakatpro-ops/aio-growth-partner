@@ -38,6 +38,10 @@ alter table public.recommended_actions enable row level security;
 alter table public.growth_actions enable row level security;
 alter table public.growth_action_drafts enable row level security;
 alter table public.growth_action_logs enable row level security;
+alter table public.growth_action_schedule_items enable row level security;
+alter table public.growth_action_approvals enable row level security;
+alter table public.growth_action_draft_versions enable row level security;
+alter table public.external_channel_accounts enable row level security;
 alter table public.items enable row level security;
 alter table public.inventory_stocks enable row level security;
 alter table public.inventory_movements enable row level security;
@@ -137,6 +141,14 @@ drop policy if exists "read org growth action drafts" on public.growth_action_dr
 drop policy if exists "write org growth action drafts" on public.growth_action_drafts;
 drop policy if exists "read org growth action logs" on public.growth_action_logs;
 drop policy if exists "write org growth action logs" on public.growth_action_logs;
+drop policy if exists "read org growth action schedule items" on public.growth_action_schedule_items;
+drop policy if exists "write org growth action schedule items" on public.growth_action_schedule_items;
+drop policy if exists "read org growth action approvals" on public.growth_action_approvals;
+drop policy if exists "write org growth action approvals" on public.growth_action_approvals;
+drop policy if exists "read org growth action draft versions" on public.growth_action_draft_versions;
+drop policy if exists "write org growth action draft versions" on public.growth_action_draft_versions;
+drop policy if exists "read org external channel accounts" on public.external_channel_accounts;
+drop policy if exists "write org external channel accounts" on public.external_channel_accounts;
 drop policy if exists "read org items" on public.items;
 drop policy if exists "write org items" on public.items;
 drop policy if exists "read org inventory stocks" on public.inventory_stocks;
@@ -370,6 +382,34 @@ create policy "read org growth action logs" on public.growth_action_logs
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org growth action logs" on public.growth_action_logs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org growth action schedule items" on public.growth_action_schedule_items
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org growth action schedule items" on public.growth_action_schedule_items
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org growth action approvals" on public.growth_action_approvals
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org growth action approvals" on public.growth_action_approvals
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org growth action draft versions" on public.growth_action_draft_versions
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org growth action draft versions" on public.growth_action_draft_versions
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org external channel accounts" on public.external_channel_accounts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org external channel accounts" on public.external_channel_accounts
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 

@@ -368,10 +368,32 @@ Phase 5-Aでは、需要予測、AI月次売上レポート、次アクション
 Phase 5-Aでは外部API投稿は行いません。`external_provider` と `external_status` を保存し、将来のGoogle、Instagram、LINE API連携に備えます。
 自動車修理では、車検、点検、オイル交換、タイヤ交換、部品交換、リピート来店に寄せた文言に切り替えます。
 
+## Growth Calendar And Approval Flow
+
+Phase 5-Bでは、生成した集客アクションを投稿・配信・返信の運用予定として管理します。外部APIへの実投稿はまだ行わず、いつ、どのチャネルで、どの文章を使うかを整理します。
+
+画面:
+
+- `/stores/[storeId]/growth-calendar`
+- `/stores/[storeId]/growth-actions/[actionId]/edit`
+- `/stores/[storeId]/growth-actions/[actionId]/preview`
+- `/stores/[storeId]/settings/channels`
+
+できること:
+
+- 今日やること、今週やること、承認待ち、実行済み、保留を確認する
+- Google投稿、Instagram、LINE、既存顧客案内、店頭POP、クチコミ返信をチャネル別に見る
+- 下書きのタイトル、本文、短縮版、CTA、ハッシュタグ、メモを編集する
+- 承認待ち、承認済み、差し戻しを保存する
+- Google投稿風、Instagram投稿風、LINE配信風、クチコミ返信風、店頭POP風、既存顧客案内風のプレビューを見る
+- 将来の外部連携に備え、チャネルごとの外部サービス名、アカウント名、外部アカウントIDを控える
+
+Phase 5-BのDB更新は、全文の `schema.sql` / `policies.sql` / `seed.sql` ではなく、Phase 5-B差分SQLだけをSupabase SQL Editorで実行できます。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。
-- Phase 3-A以降のAI生成、Phase 4-BのAI月次売上レポート、Phase 4-Cの次アクション提案、Phase 5-Aの集客アクション生成には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
+- Phase 3-A以降のAI生成、Phase 4-BのAI月次売上レポート、Phase 4-Cの次アクション提案、Phase 5-A以降の集客アクション生成には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
 - SupabaseにPhase 3-Aのテーブルを追加してから、本番で投稿下書き作成やAI改善提案作成を確認してください。
 - Phase 4-AのCSV / Excel取り込みにはSupabase Storage bucket `import-files` が必要です。
 - 日本語フォントを完全埋め込みする方式へ移行する場合は、フォントファイルをリポジトリに含め、サーバー側だけでPDF生成してください。

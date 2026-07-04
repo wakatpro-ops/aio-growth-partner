@@ -5,7 +5,13 @@ import { listDemandForecasts, listInventoryAlerts, listRecommendedActions } from
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import type { Store } from "@/types/domain";
-import type { GrowthAction, GrowthActionChannel, GrowthActionStatus } from "@/types/phase5";
+import type {
+  ExternalChannelAccount,
+  GrowthAction,
+  GrowthActionChannel,
+  GrowthActionScheduleItem,
+  GrowthActionStatus
+} from "@/types/phase5";
 
 const demoPersistence = {
   "store-general-demo": {
@@ -80,7 +86,12 @@ async function ensureDemoPersistence(supabase: SupabaseClient, store: Store) {
       review_reply_drafts: true,
       customer_message_drafts: true,
       pop_copy_drafts: true,
-      line_message_drafts: true
+      line_message_drafts: true,
+      growth_calendar: true,
+      draft_approval_flow: true,
+      draft_editing: true,
+      channel_previews: true,
+      external_channel_accounts: true
     },
     profile_data: store.profile_data ?? {},
     updated_at: new Date().toISOString()
@@ -114,6 +125,11 @@ function providerFor(channel: GrowthActionChannel) {
     other: null
   };
   return providers[channel];
+}
+
+function scheduledAt(date: string | null | undefined) {
+  const value = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : nextActionDate(0);
+  return `${value}T09:00:00.000Z`;
 }
 
 function nextActionDate(index: number) {
@@ -189,7 +205,7 @@ export async function listGrowthActions(storeId: string): Promise<GrowthAction[]
   const resolved = await ensureDemoPersistence(supabase, store);
   const { data } = await supabase
     .from("growth_actions")
-    .select("*, drafts:growth_action_drafts(*)")
+    .select("*, drafts:growth_action_drafts(*), schedule_items:growth_action_schedule_items(*), approvals:growth_action_approvals(*)")
     .eq("store_id", resolved.storeId)
     .order("created_at", { ascending: false });
   return (data ?? []) as GrowthAction[];
@@ -202,7 +218,7 @@ export async function getGrowthAction(storeId: string, actionId: string): Promis
   const resolved = await ensureDemoPersistence(supabase, store);
   const { data } = await supabase
     .from("growth_actions")
-    .select("*, drafts:growth_action_drafts(*)")
+    .select("*, drafts:growth_action_drafts(*), schedule_items:growth_action_schedule_items(*), approvals:growth_action_approvals(*)")
     .eq("store_id", resolved.storeId)
     .eq("id", actionId)
     .maybeSingle();
@@ -261,13 +277,14 @@ export async function generateGrowthActions(storeId: string) {
         source_id: ai.log.template_id,
         external_provider: provider,
         external_status: "not_connected",
+        scheduled_at: scheduledAt(item.recommended_date),
         metadata: { ai_output: item }
       })
       .select("id")
       .single();
     if (error) throw new Error(`集客アクションを保存できませんでした: ${error.message}`);
 
-    const { error: draftError } = await supabase.from("growth_action_drafts").insert({
+    const { data: draft, error: draftError } = await supabase.from("growth_action_drafts").insert({
       organization_id: resolved.organizationId,
       store_id: resolved.storeId,
       growth_action_id: action.id,
@@ -280,9 +297,25 @@ export async function generateGrowthActions(storeId: string) {
       copy_variant: "primary",
       external_provider: provider,
       external_status: "not_connected",
+      scheduled_at: scheduledAt(item.recommended_date),
+      metadata: {}
+    }).select("id").single();
+    if (draftError) throw new Error(`集客下書きを保存できませんでした: ${draftError.message}`);
+
+    await supabase.from("growth_action_schedule_items").insert({
+      organization_id: resolved.organizationId,
+      store_id: resolved.storeId,
+      growth_action_id: action.id,
+      growth_action_draft_id: draft?.id ?? null,
+      channel: item.target_channel,
+      title: item.title,
+      scheduled_date: item.recommended_date,
+      scheduled_at: scheduledAt(item.recommended_date),
+      status: "drafted",
+      external_provider: provider,
+      external_status: "not_connected",
       metadata: {}
     });
-    if (draftError) throw new Error(`集客下書きを保存できませんでした: ${draftError.message}`);
   }
 }
 
@@ -297,6 +330,11 @@ export async function updateGrowthActionStatus(storeId: string, actionId: string
     .eq("store_id", resolved.storeId)
     .eq("id", actionId);
   if (error) throw new Error(`ステータスを更新できませんでした: ${error.message}`);
+  await supabase
+    .from("growth_action_schedule_items")
+    .update({ status, updated_at: new Date().toISOString(), published_at: status === "done" ? new Date().toISOString() : null })
+    .eq("store_id", resolved.storeId)
+    .eq("growth_action_id", actionId);
   await supabase.from("growth_action_logs").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
@@ -307,6 +345,197 @@ export async function updateGrowthActionStatus(storeId: string, actionId: string
   });
 }
 
+export async function listGrowthCalendarItems(storeId: string): Promise<GrowthActionScheduleItem[]> {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return [];
+  const resolved = await ensureDemoPersistence(supabase, store);
+  const { data: existingItems } = await supabase
+    .from("growth_action_schedule_items")
+    .select("growth_action_id")
+    .eq("store_id", resolved.storeId);
+  const existingActionIds = new Set((existingItems ?? []).map((item) => item.growth_action_id as string));
+  const { data: actions } = await supabase
+    .from("growth_actions")
+    .select("*, drafts:growth_action_drafts(id)")
+    .eq("store_id", resolved.storeId);
+  const missing = (actions ?? []).filter((action) => !existingActionIds.has(action.id));
+  if (missing.length > 0) {
+    await supabase.from("growth_action_schedule_items").insert(missing.map((action) => {
+      const draft = Array.isArray(action.drafts) ? action.drafts[0] as { id: string } | undefined : undefined;
+      return {
+        organization_id: resolved.organizationId,
+        store_id: resolved.storeId,
+        growth_action_id: action.id,
+        growth_action_draft_id: draft?.id ?? null,
+        channel: action.target_channel,
+        title: action.title,
+        scheduled_date: action.recommended_date ?? new Date().toISOString().slice(0, 10),
+        scheduled_at: action.scheduled_at ?? scheduledAt(action.recommended_date),
+        status: action.status,
+        external_provider: action.external_provider,
+        external_account_id: action.external_account_id,
+        external_post_id: action.external_post_id,
+        external_status: action.external_status ?? "not_connected",
+        published_at: action.published_at,
+        failed_reason: action.failed_reason,
+        metadata: { backfilled: true }
+      };
+    }));
+  }
+  const { data } = await supabase
+    .from("growth_action_schedule_items")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .order("scheduled_date", { ascending: true })
+    .order("created_at", { ascending: true });
+  return (data ?? []) as GrowthActionScheduleItem[];
+}
+
+export async function updateGrowthActionDraft(storeId: string, actionId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = await ensureDemoPersistence(supabase, store);
+  const draftId = String(formData.get("draft_id") ?? "");
+  const hashtags = String(formData.get("hashtags") ?? "")
+    .split(/[,\n\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const payload = {
+    title: String(formData.get("title") ?? ""),
+    body: String(formData.get("body") ?? ""),
+    short_body: String(formData.get("short_body") ?? "") || null,
+    call_to_action: String(formData.get("call_to_action") ?? "") || null,
+    hashtags,
+    metadata: { memo: String(formData.get("memo") ?? "") },
+    updated_at: new Date().toISOString()
+  };
+
+  const { data: currentDraft, error: currentError } = await supabase
+    .from("growth_action_drafts")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .eq("growth_action_id", actionId)
+    .eq("id", draftId)
+    .maybeSingle();
+  if (currentError) throw new Error(`下書きを確認できませんでした: ${currentError.message}`);
+  if (!currentDraft) throw new Error("下書きが見つかりませんでした。");
+
+  const { count } = await supabase
+    .from("growth_action_draft_versions")
+    .select("id", { count: "exact", head: true })
+    .eq("growth_action_draft_id", draftId);
+
+  await supabase.from("growth_action_draft_versions").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    growth_action_draft_id: draftId,
+    version_number: (count ?? 0) + 1,
+    title: currentDraft.title,
+    body: currentDraft.body,
+    short_body: currentDraft.short_body,
+    hashtags: currentDraft.hashtags ?? [],
+    call_to_action: currentDraft.call_to_action,
+    memo: currentDraft.metadata?.memo ?? null,
+    metadata: { saved_before_edit: true }
+  });
+
+  const { error } = await supabase
+    .from("growth_action_drafts")
+    .update(payload)
+    .eq("store_id", resolved.storeId)
+    .eq("growth_action_id", actionId)
+    .eq("id", draftId);
+  if (error) throw new Error(`下書きを保存できませんでした: ${error.message}`);
+
+  await supabase
+    .from("growth_actions")
+    .update({ title: payload.title, summary: payload.short_body ?? payload.body.slice(0, 120), status: "drafted", updated_at: new Date().toISOString() })
+    .eq("store_id", resolved.storeId)
+    .eq("id", actionId);
+
+  await supabase
+    .from("growth_action_schedule_items")
+    .update({ title: payload.title, status: "drafted", updated_at: new Date().toISOString() })
+    .eq("store_id", resolved.storeId)
+    .eq("growth_action_id", actionId);
+
+  await supabase.from("growth_action_logs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    event_type: "draft_edited",
+    message: "下書きを編集しました。",
+    metadata: { draft_id: draftId }
+  });
+}
+
+export async function submitGrowthActionApproval(storeId: string, actionId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = await ensureDemoPersistence(supabase, store);
+  const status = String(formData.get("approval_status") ?? "pending") as "pending" | "approved" | "rejected";
+  const comment = String(formData.get("comment") ?? "") || null;
+  const actionStatus: GrowthActionStatus = status === "approved" ? "approved" : status === "rejected" ? "rejected" : "pending_approval";
+
+  const { data: action } = await supabase
+    .from("growth_actions")
+    .select("drafts:growth_action_drafts(id)")
+    .eq("store_id", resolved.storeId)
+    .eq("id", actionId)
+    .maybeSingle();
+  const firstDraft = Array.isArray(action?.drafts) ? action.drafts[0] as { id: string } | undefined : undefined;
+
+  const { error } = await supabase.from("growth_action_approvals").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    growth_action_draft_id: firstDraft?.id ?? null,
+    status,
+    comment,
+    decided_at: status === "pending" ? null : new Date().toISOString()
+  });
+  if (error) throw new Error(`承認状態を保存できませんでした: ${error.message}`);
+  await updateGrowthActionStatus(storeId, actionId, actionStatus);
+}
+
+export async function listExternalChannelAccounts(storeId: string): Promise<ExternalChannelAccount[]> {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return [];
+  const resolved = await ensureDemoPersistence(supabase, store);
+  const { data } = await supabase
+    .from("external_channel_accounts")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as ExternalChannelAccount[];
+}
+
+export async function upsertExternalChannelAccount(storeId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = await ensureDemoPersistence(supabase, store);
+  const channel = normalizeChannel(formData.get("channel"));
+  const externalProvider = String(formData.get("external_provider") ?? providerFor(channel) ?? "manual");
+  const { error } = await supabase.from("external_channel_accounts").upsert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    channel,
+    external_provider: externalProvider,
+    external_account_id: String(formData.get("external_account_id") ?? "") || null,
+    account_name: String(formData.get("account_name") ?? ""),
+    connection_status: "planned",
+    metadata: { memo: String(formData.get("memo") ?? "") },
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id,channel,external_provider" });
+  if (error) throw new Error(`外部連携メモを保存できませんでした: ${error.message}`);
+}
+
 export function growthActionChannelLabel(channel: GrowthActionChannel) {
   return channelLabels[channel] ?? channel;
 }
@@ -315,8 +544,20 @@ export function growthActionStatusLabel(status: GrowthActionStatus) {
   const labels: Record<GrowthActionStatus, string> = {
     todo: "未対応",
     drafted: "下書き作成済み",
+    pending_approval: "承認待ち",
+    approved: "承認済み",
+    rejected: "差し戻し",
     done: "実行済み",
     paused: "保留"
   };
   return labels[status];
+}
+
+export function growthActionApprovalLabel(status: string) {
+  const labels: Record<string, string> = {
+    pending: "承認待ち",
+    approved: "承認済み",
+    rejected: "差し戻し"
+  };
+  return labels[status] ?? status;
 }

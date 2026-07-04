@@ -7,10 +7,10 @@ import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGrowthAction, growthActionChannelLabel, growthActionStatusLabel } from "@/lib/phase5/growth-actions";
 import { getStore } from "@/lib/stores";
-import { updateGrowthActionStatusAction } from "../actions";
+import { submitGrowthActionApprovalAction, updateGrowthActionStatusAction } from "../actions";
 import type { GrowthActionStatus } from "@/types/phase5";
 
-const statuses: GrowthActionStatus[] = ["todo", "drafted", "done", "paused"];
+const statuses: GrowthActionStatus[] = ["todo", "drafted", "pending_approval", "approved", "rejected", "done", "paused"];
 
 function draftText(title: string, body: string, hashtags: string[], callToAction: string | null) {
   return [
@@ -60,6 +60,19 @@ export default async function GrowthActionDetailPage({
           </label>
           <div className="form-actions"><button className="button" type="submit">ステータスを更新</button></div>
         </form>
+        <form className="form-grid" action={submitGrowthActionApprovalAction.bind(null, store.id, action.id)}>
+          <label>承認フロー
+            <select name="approval_status" defaultValue={action.status === "approved" ? "approved" : action.status === "rejected" ? "rejected" : "pending"}>
+              <option value="pending">承認待ち</option>
+              <option value="approved">承認済み</option>
+              <option value="rejected">差し戻し</option>
+            </select>
+          </label>
+          <label>承認コメント / 差し戻し理由
+            <textarea name="comment" rows={3} placeholder="確認メモを残せます" />
+          </label>
+          <div className="form-actions"><button className="button secondary" type="submit">承認状態を保存</button></div>
+        </form>
       </section>
 
       <section className="grid cols-2">
@@ -79,6 +92,8 @@ export default async function GrowthActionDetailPage({
       </section>
 
       <div className="form-actions">
+        <Link className="button" href={`/stores/${store.id}/growth-actions/${action.id}/edit`}>下書きを編集</Link>
+        <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/preview`}>プレビュー</Link>
         <Link className="button secondary" href={`/stores/${store.id}/growth-actions`}>一覧へ戻る</Link>
       </div>
     </AppShell>

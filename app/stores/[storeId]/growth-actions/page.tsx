@@ -44,9 +44,12 @@ export default async function GrowthActionsPage({
       <section className="card">
         <h3>下書きを生成</h3>
         <p>売上データ、AI月次売上レポート、需要予測、次アクション提案、店舗プロフィールをもとに作成します。</p>
-        <form action={generateGrowthActionsAction.bind(null, store.id)}>
-          <button className="button" type="submit">集客アクションを生成</button>
-        </form>
+        <div className="button-row">
+          <form action={generateGrowthActionsAction.bind(null, store.id)}>
+            <button className="button" type="submit">集客アクションを生成</button>
+          </form>
+          <Link className="button secondary" href={`/stores/${store.id}/growth-calendar`}>カレンダーを見る</Link>
+        </div>
       </section>
 
       <section className="card">
@@ -64,7 +67,13 @@ export default async function GrowthActionsPage({
                 <td>{action.recommended_date ?? "-"}</td>
                 <td>{growthActionStatusLabel(action.status as GrowthActionStatus)}</td>
                 <td>{action.reason}</td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細</Link></td>
+                <td>
+                  <div className="button-row">
+                    <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細</Link>
+                    <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/edit`}>編集</Link>
+                    <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/preview`}>プレビュー</Link>
+                  </div>
+                </td>
               </tr>
             ))}
             {actions.length === 0 ? <tr><td colSpan={7}>まだ集客アクションがありません。生成ボタンから下書きを作成してください。</td></tr> : null}

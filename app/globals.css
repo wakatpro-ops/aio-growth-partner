@@ -495,6 +495,92 @@ p {
   padding: 10px 8px;
 }
 
+.calendar-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 14px;
+}
+
+.calendar-item {
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.calendar-item-head {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.channel-instagram {
+  border-left-color: #b64d86;
+}
+
+.channel-google-business-profile {
+  border-left-color: var(--blue);
+}
+
+.channel-line {
+  border-left-color: #22a85a;
+}
+
+.channel-store-pop {
+  border-left-color: var(--yellow);
+}
+
+.channel-review-reply {
+  border-left-color: #7a5bb8;
+}
+
+.preview-card {
+  background: #f8faf8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  white-space: pre-wrap;
+}
+
+.preview-media {
+  align-items: center;
+  aspect-ratio: 4 / 3;
+  background: #dfe9e3;
+  border-radius: 8px;
+  color: var(--muted);
+  display: flex;
+  font-weight: 800;
+  justify-content: center;
+}
+
+.line-preview {
+  background: #eaf7ee;
+}
+
+.line-bubble {
+  background: white;
+  border-radius: 8px;
+  color: var(--ink);
+  margin: 0;
+  padding: 14px;
+}
+
+.pop-preview {
+  background: #fff8d9;
+  text-align: center;
+}
+
+.google-preview,
+.review-preview,
+.mail-preview {
+  background: white;
+}
+
 .hero {
   align-items: flex-end;
   background:
