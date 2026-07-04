@@ -434,6 +434,39 @@ Supabase更新:
 - 全量反映する場合は `database/schema.sql`、`database/policies.sql`、`database/seed.sql` を順番に実行します。
 - Phase 5-Cだけ反映する場合は `database/migrations/phase-5c-google-integrations.sql` をSupabase SQL Editorで実行します。
 
+Google OAuth接続手順:
+
+1. Google Cloud Consoleを開きます。
+2. 新しいプロジェクトを作成します。
+3. OAuth同意画面を設定します。テスト中は、利用するGoogleアカウントをテストユーザーに追加してください。
+4. OAuthクライアントIDを作成します。アプリケーションの種類は「ウェブ アプリケーション」を選びます。
+5. 承認済みのリダイレクトURIに `https://aio-growth-partner.vercel.app/api/google/oauth/callback` を追加します。
+6. Client ID と Client Secret を取得します。
+7. Vercel の Project Settings から Environment Variables を開き、次の値を追加します。
+8. Vercelで本番環境をRedeployします。
+9. AIO Growth Partnerの `/stores/store-auto-demo/settings/google` を開き、「Googleに接続」を押します。
+
+Vercelに入れる値:
+
+```env
+GOOGLE_CLIENT_ID=Google Cloudで取得したClient ID
+GOOGLE_CLIENT_SECRET=Google Cloudで取得したClient Secret
+GOOGLE_REDIRECT_URI=https://aio-growth-partner.vercel.app/api/google/oauth/callback
+GOOGLE_OAUTH_SCOPES=openid email profile https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/calendar.events
+GOOGLE_TOKEN_ENCRYPTION_KEY=ランダムな長い文字列
+```
+
+OAuth接続時の動き:
+
+- `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`GOOGLE_REDIRECT_URI` が未設定の場合は、Googleへ進まず設定画面へ戻します。
+- OAuth `state` には店舗ID、nonce、作成日時、署名を含め、callbackで検証します。
+- callbackでGoogleの `code` をtokenへ交換します。
+- 取得できる場合はGoogleアカウントの `email`、`sub`、`name` を保存します。
+- `GOOGLE_TOKEN_ENCRYPTION_KEY` がある場合はtokenを暗号化して保存します。
+- `GOOGLE_TOKEN_ENCRYPTION_KEY` がない場合、token本体は保存せず、警告ログを `external_integration_logs` に残します。
+- 接続成功時は `/stores/[storeId]/settings/google?connected=1` に戻します。
+- 接続失敗時は `/stores/[storeId]/settings/google?error=...` に戻します。
+
 重要:
 
 - Phase 5-Cでは、Google APIへの実投稿・実送信・実予定作成は行いません。

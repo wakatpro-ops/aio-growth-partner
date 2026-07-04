@@ -26,6 +26,17 @@ const demoPersistence = {
 } as const;
 
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
+type GoogleOAuthState = {
+  storeId: string;
+  nonce: string;
+  createdAt: string;
+  signature: string;
+};
+type GoogleIdentity = {
+  email: string | null;
+  providerUserId: string | null;
+  name: string | null;
+};
 
 export type GoogleIntegrationState = {
   connection: GoogleOAuthConnection | null;
@@ -97,29 +108,75 @@ export function googleScopes() {
 }
 
 function hasGoogleOAuthEnv() {
-  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REDIRECT_URI);
+  return missingGoogleOAuthEnv().length === 0;
+}
+
+function missingGoogleOAuthEnv() {
+  return [
+    ["GOOGLE_CLIENT_ID", process.env.GOOGLE_CLIENT_ID],
+    ["GOOGLE_CLIENT_SECRET", process.env.GOOGLE_CLIENT_SECRET],
+    ["GOOGLE_REDIRECT_URI", process.env.GOOGLE_REDIRECT_URI]
+  ].filter(([, value]) => !value).map(([key]) => key);
+}
+
+function googleOAuthEnvError() {
+  const missing = missingGoogleOAuthEnv();
+  if (missing.length === 0) return null;
+  return `Google OAuth環境変数が未設定です: ${missing.join(", ")}。VercelのEnvironment Variablesに追加してください。`;
+}
+
+function stateSecret() {
+  const secret = process.env.GOOGLE_TOKEN_ENCRYPTION_KEY || process.env.GOOGLE_CLIENT_SECRET;
+  if (!secret) throw new Error("OAuth state検証用の秘密情報が未設定です。GOOGLE_CLIENT_SECRET を設定してください。");
+  return secret;
+}
+
+function signStatePayload(storeId: string, nonce: string, createdAt: string) {
+  return crypto
+    .createHmac("sha256", stateSecret())
+    .update(`${storeId}.${nonce}.${createdAt}`)
+    .digest("base64url");
 }
 
 function encodeState(storeId: string) {
+  const nonce = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
   const payload = {
     storeId,
-    nonce: crypto.randomUUID(),
-    createdAt: new Date().toISOString()
+    nonce,
+    createdAt,
+    signature: signStatePayload(storeId, nonce, createdAt)
   };
   return Buffer.from(JSON.stringify(payload)).toString("base64url");
 }
 
-function decodeState(state: string | null) {
+export function decodeGoogleOAuthState(state: string | null) {
   if (!state) throw new Error("OAuth stateがありません。");
-  const payload = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as { storeId?: string };
-  if (!payload.storeId) throw new Error("OAuth stateの店舗情報を確認できませんでした。");
-  return { storeId: payload.storeId };
+  let payload: GoogleOAuthState;
+  try {
+    payload = JSON.parse(Buffer.from(state, "base64url").toString("utf8")) as GoogleOAuthState;
+  } catch {
+    throw new Error("OAuth stateを読み取れませんでした。もう一度接続してください。");
+  }
+  if (!payload.storeId || !payload.nonce || !payload.createdAt || !payload.signature) {
+    throw new Error("OAuth stateの内容を確認できませんでした。もう一度接続してください。");
+  }
+  const created = Date.parse(payload.createdAt);
+  if (!Number.isFinite(created) || Date.now() - created > 15 * 60 * 1000) {
+    throw new Error("OAuth stateの有効期限が切れました。もう一度接続してください。");
+  }
+  const expected = signStatePayload(payload.storeId, payload.nonce, payload.createdAt);
+  const expectedBuffer = Buffer.from(expected);
+  const actualBuffer = Buffer.from(payload.signature);
+  if (expectedBuffer.length !== actualBuffer.length || !crypto.timingSafeEqual(expectedBuffer, actualBuffer)) {
+    throw new Error("OAuth stateの検証に失敗しました。もう一度接続してください。");
+  }
+  return { storeId: payload.storeId, nonce: payload.nonce, createdAt: payload.createdAt };
 }
 
-function encryptSecret(value: string | null | undefined) {
-  if (!value) return null;
+function encryptToken(value: string) {
   const secret = process.env.GOOGLE_TOKEN_ENCRYPTION_KEY;
-  if (!secret) throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY が未設定です。Vercel環境変数に追加してください。");
+  if (!secret) return null;
   const key = crypto.createHash("sha256").update(secret).digest();
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
@@ -128,15 +185,42 @@ function encryptSecret(value: string | null | undefined) {
   return `v1:${iv.toString("base64")}:${tag.toString("base64")}:${encrypted.toString("base64")}`;
 }
 
-function decodeJwtEmail(idToken: string | undefined) {
-  if (!idToken) return { email: null, providerUserId: null };
+function protectGoogleToken(value: string | null | undefined) {
+  if (!value) return { encryptedValue: null, storageMode: "not_returned" };
+  const encrypted = encryptToken(value);
+  if (encrypted) return { encryptedValue: encrypted, storageMode: "encrypted" };
+  return { encryptedValue: null, storageMode: "not_stored_missing_encryption_key" };
+}
+
+function decodeJwtIdentity(idToken: string | undefined): GoogleIdentity {
+  if (!idToken) return { email: null, providerUserId: null, name: null };
   const [, payload] = idToken.split(".");
-  if (!payload) return { email: null, providerUserId: null };
+  if (!payload) return { email: null, providerUserId: null, name: null };
   try {
-    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { email?: string; sub?: string };
-    return { email: decoded.email ?? null, providerUserId: decoded.sub ?? null };
+    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { email?: string; sub?: string; name?: string };
+    return { email: decoded.email ?? null, providerUserId: decoded.sub ?? null, name: decoded.name ?? null };
   } catch {
-    return { email: null, providerUserId: null };
+    return { email: null, providerUserId: null, name: null };
+  }
+}
+
+async function fetchGoogleIdentity(accessToken: string | undefined, idToken: string | undefined): Promise<GoogleIdentity> {
+  const fromJwt = decodeJwtIdentity(idToken);
+  if (fromJwt.email && fromJwt.providerUserId) return fromJwt;
+  if (!accessToken) return fromJwt;
+  try {
+    const response = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { authorization: `Bearer ${accessToken}` }
+    });
+    if (!response.ok) return fromJwt;
+    const data = await response.json() as { email?: string; sub?: string; name?: string };
+    return {
+      email: data.email ?? fromJwt.email,
+      providerUserId: data.sub ?? fromJwt.providerUserId,
+      name: data.name ?? fromJwt.name
+    };
+  } catch {
+    return fromJwt;
   }
 }
 
@@ -188,12 +272,19 @@ export async function getGoogleIntegrationState(storeId: string): Promise<Google
 }
 
 export async function buildGoogleOAuthStartUrl(storeId: string) {
-  if (!hasGoogleOAuthEnv()) throw new Error("Google OAuth用の環境変数が未設定です。");
+  const envError = googleOAuthEnvError();
+  if (envError) throw new Error(envError);
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
+  const state = encodeState(storeId);
   if (supabase) {
     const resolved = await ensureGooglePersistence(supabase, store);
-    await logIntegration(supabase, resolved, "oauth_start", "ready", "Google OAuth接続を開始しました。", { store_id: store.id });
+    const decodedState = decodeGoogleOAuthState(state);
+    await logIntegration(supabase, resolved, "google_oauth_started", "ready", "Google OAuth接続を開始しました。", {
+      store_id: store.id,
+      nonce: decodedState.nonce,
+      scopes: googleScopes()
+    });
   }
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", process.env.GOOGLE_CLIENT_ID!);
@@ -202,25 +293,32 @@ export async function buildGoogleOAuthStartUrl(storeId: string) {
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
   url.searchParams.set("scope", googleScopes().join(" "));
-  url.searchParams.set("state", encodeState(storeId));
+  url.searchParams.set("state", state);
   return url.toString();
 }
 
 export async function handleGoogleOAuthCallback(url: URL) {
-  const state = decodeState(url.searchParams.get("state"));
+  const state = decodeGoogleOAuthState(url.searchParams.get("state"));
   const store = await getStore(state.storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
   const oauthError = url.searchParams.get("error");
   if (oauthError) {
-    await logIntegration(supabase, resolved, "oauth_callback", "error", `Google OAuthでエラーが返りました: ${oauthError}`);
+    await logIntegration(supabase, resolved, "google_oauth_failed", "error", `Google OAuthでエラーが返りました: ${oauthError}`, { nonce: state.nonce });
     return { storeId: store.id, ok: false, message: oauthError };
   }
 
   const code = url.searchParams.get("code");
-  if (!code) throw new Error("Google OAuth codeがありません。");
-  if (!hasGoogleOAuthEnv()) throw new Error("Google OAuth用の環境変数が未設定です。");
+  if (!code) {
+    await logIntegration(supabase, resolved, "google_oauth_failed", "error", "Google OAuth codeがありません。", { nonce: state.nonce });
+    return { storeId: store.id, ok: false, message: "Google OAuth codeがありません。もう一度接続してください。" };
+  }
+  const envError = googleOAuthEnvError();
+  if (envError) {
+    await logIntegration(supabase, resolved, "google_oauth_failed", "error", envError, { nonce: state.nonce });
+    return { storeId: store.id, ok: false, message: envError };
+  }
 
   const response = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -244,26 +342,52 @@ export async function handleGoogleOAuthCallback(url: URL) {
   };
   if (!response.ok) {
     const message = token.error_description ?? token.error ?? "Googleトークン取得に失敗しました。";
-    await logIntegration(supabase, resolved, "oauth_callback", "error", message, { token_error: token.error });
+    await logIntegration(supabase, resolved, "google_oauth_failed", "error", message, { token_error: token.error, nonce: state.nonce });
     return { storeId: store.id, ok: false, message };
   }
 
-  const identity = decodeJwtEmail(token.id_token);
+  const identity = await fetchGoogleIdentity(token.access_token, token.id_token);
   const expiresAt = token.expires_in ? new Date(Date.now() + token.expires_in * 1000).toISOString() : null;
+  const accessToken = protectGoogleToken(token.access_token);
+  const refreshToken = protectGoogleToken(token.refresh_token);
+  const tokenStorageWarning = [accessToken, refreshToken].some((item) => item.storageMode === "not_stored_missing_encryption_key");
   await supabase.from("google_oauth_connections").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
     provider_user_id: identity.providerUserId,
     email: identity.email,
-    access_token_encrypted: encryptSecret(token.access_token),
-    refresh_token_encrypted: encryptSecret(token.refresh_token),
+    access_token_encrypted: accessToken.encryptedValue,
+    refresh_token_encrypted: refreshToken.encryptedValue,
     expires_at: expiresAt,
     scopes: token.scope ? token.scope.split(/\s+/) : googleScopes(),
     status: "connected",
     connected_at: new Date().toISOString(),
-    metadata: { token_type: "encrypted", phase: "5-C" }
+    metadata: {
+      token_type: tokenStorageWarning ? "not_stored_missing_encryption_key" : "encrypted",
+      access_token_storage: accessToken.storageMode,
+      refresh_token_storage: refreshToken.storageMode,
+      google_name: identity.name,
+      nonce: state.nonce,
+      phase: "5-C-2"
+    }
   });
-  await logIntegration(supabase, resolved, "oauth_callback", "success", "Google OAuth接続を保存しました。", { email: identity.email });
+  if (tokenStorageWarning) {
+    await logIntegration(
+      supabase,
+      resolved,
+      "google_token_storage_warning",
+      "warning",
+      "GOOGLE_TOKEN_ENCRYPTION_KEY が未設定のため、Google token本体は保存していません。接続情報のみ保存しました。",
+      { email: identity.email, nonce: state.nonce }
+    );
+  }
+  await logIntegration(supabase, resolved, "google_oauth_connected", "success", "Google OAuth接続を保存しました。", {
+    email: identity.email,
+    name: identity.name,
+    expires_at: expiresAt,
+    scopes: token.scope ? token.scope.split(/\s+/) : googleScopes(),
+    nonce: state.nonce
+  });
   return { storeId: store.id, ok: true, message: "Google接続が完了しました。" };
 }
 
