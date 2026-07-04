@@ -32,6 +32,9 @@ alter table public.import_error_rows enable row level security;
 alter table public.sales_ai_reports enable row level security;
 alter table public.sales_ai_report_sections enable row level security;
 alter table public.sales_anomaly_flags enable row level security;
+alter table public.demand_forecasts enable row level security;
+alter table public.inventory_alerts enable row level security;
+alter table public.recommended_actions enable row level security;
 alter table public.items enable row level security;
 alter table public.inventory_stocks enable row level security;
 alter table public.inventory_movements enable row level security;
@@ -119,6 +122,12 @@ drop policy if exists "read org sales ai report sections" on public.sales_ai_rep
 drop policy if exists "write org sales ai report sections" on public.sales_ai_report_sections;
 drop policy if exists "read org sales anomaly flags" on public.sales_anomaly_flags;
 drop policy if exists "write org sales anomaly flags" on public.sales_anomaly_flags;
+drop policy if exists "read org demand forecasts" on public.demand_forecasts;
+drop policy if exists "write org demand forecasts" on public.demand_forecasts;
+drop policy if exists "read org inventory alerts" on public.inventory_alerts;
+drop policy if exists "write org inventory alerts" on public.inventory_alerts;
+drop policy if exists "read org recommended actions" on public.recommended_actions;
+drop policy if exists "write org recommended actions" on public.recommended_actions;
 drop policy if exists "read org items" on public.items;
 drop policy if exists "write org items" on public.items;
 drop policy if exists "read org inventory stocks" on public.inventory_stocks;
@@ -310,6 +319,27 @@ create policy "read org sales anomaly flags" on public.sales_anomaly_flags
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org sales anomaly flags" on public.sales_anomaly_flags
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org demand forecasts" on public.demand_forecasts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org demand forecasts" on public.demand_forecasts
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org inventory alerts" on public.inventory_alerts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org inventory alerts" on public.inventory_alerts
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org recommended actions" on public.recommended_actions
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org recommended actions" on public.recommended_actions
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 

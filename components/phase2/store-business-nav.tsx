@@ -16,7 +16,10 @@ export function StoreBusinessNav({ store }: { store: Store }) {
     { href: `/stores/${store.id}/marketing`, label: "AI集客", feature: "marketing_drafts" },
     { href: `/stores/${store.id}/data-imports`, label: "データ取込", feature: "data_imports" },
     { href: `/stores/${store.id}/sales`, label: "売上データ", feature: "sales_reports" },
-    { href: `/stores/${store.id}/sales/reports/monthly-ai`, label: "AI月次売上", feature: "sales_ai_report" }
+    { href: `/stores/${store.id}/sales/reports/monthly-ai`, label: "AI月次売上", feature: "sales_ai_report" },
+    { href: `/stores/${store.id}/sales/forecast`, label: "需要予測", feature: "demand_forecast" },
+    { href: `/stores/${store.id}/inventory/alerts`, label: "在庫アラート", feature: "inventory_alerts" },
+    { href: `/stores/${store.id}/actions`, label: "次アクション", feature: "recommended_actions" }
   ].filter((link) => isFeatureEnabled(flags, link.feature));
 
   return (

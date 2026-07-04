@@ -64,6 +64,46 @@ function demoOutput(templateKey: AiTemplateKey, store: Store) {
     };
   }
 
+  if (templateKey === "demand_action_recommendations") {
+    const isAuto = store.industry_type_key === "auto_repair";
+    return {
+      actions: [
+        {
+          action_type: "instagram",
+          title: isAuto ? "季節点検のInstagram投稿" : "おすすめ商品のInstagram投稿",
+          body: isAuto ? "点検、オイル交換、タイヤ交換など、来月の相談につながりやすい整備テーマを写真付きで紹介します。" : "来月伸びそうな商品・サービスを、来店理由が伝わる写真と短い文章で紹介します。",
+          item_name: null,
+          priority: "high",
+          reason: "需要予測で伸びる可能性があるテーマを早めに露出するためです。"
+        },
+        {
+          action_type: "google_business_profile",
+          title: isAuto ? "車検前点検のGoogle投稿" : "サービス紹介のGoogle投稿",
+          body: isAuto ? "地域名、車検、点検、予約導線を自然に含めた投稿で検索経由の相談を狙います。" : "検索されやすい商品名やサービス名を含め、問い合わせにつながる投稿を作ります。",
+          item_name: null,
+          priority: "medium",
+          reason: "Google検索からの流入を増やすためです。"
+        },
+        {
+          action_type: "store_pop",
+          title: isAuto ? "点検おすすめPOP" : "おすすめPOP",
+          body: isAuto ? "安全運転のため、気になる症状は早めに点検を。" : "今月のおすすめ。気になる方はスタッフまで。",
+          item_name: null,
+          priority: "medium",
+          reason: "店頭での気づきを作り、相談につなげるためです。"
+        },
+        {
+          action_type: "customer_message",
+          title: isAuto ? "リピート来店向け案内" : "既存顧客向け案内",
+          body: isAuto ? "前回整備から時間が経ったお客様へ、点検や部品交換の案内を送ります。" : "過去に購入・利用したお客様へ、関連商品やサービスを案内します。",
+          item_name: null,
+          priority: "medium",
+          reason: "既存顧客の再来店につなげるためです。"
+        }
+      ]
+    };
+  }
+
   return {
     score: 78,
     summary: `${store.name}は基本情報が整理されています。AI検索に向けて、地域名、強み、具体的なサービス説明をさらに明確にすると効果的です。`,

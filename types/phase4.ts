@@ -190,3 +190,50 @@ export type SalesAiReport = {
   created_at: string;
   updated_at: string;
 };
+
+export type DemandForecast = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  target_month: string;
+  item_name: string;
+  forecast_type: "growth" | "decline" | "stable";
+  current_value: number;
+  previous_value: number;
+  predicted_value: number;
+  confidence: number;
+  reason: string;
+  status: string;
+  created_at: string;
+};
+
+export type InventoryAlert = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  target_month: string;
+  item_name: string;
+  alert_type: "stockout_risk" | "overstock_risk" | "reorder_candidate";
+  current_stock: number;
+  reorder_point: number;
+  recent_sales_quantity: number;
+  severity: "low" | "medium" | "high";
+  reason: string;
+  status: string;
+  created_at: string;
+};
+
+export type RecommendedAction = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  target_month: string;
+  action_type: "instagram" | "google_business_profile" | "store_pop" | "customer_message" | "inventory_order" | "service_focus";
+  title: string;
+  body: string;
+  item_name: string | null;
+  priority: "low" | "medium" | "high";
+  reason: string;
+  status: string;
+  created_at: string;
+};

@@ -509,6 +509,56 @@ create table if not exists public.sales_anomaly_flags (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.demand_forecasts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  target_month text not null,
+  item_name text not null,
+  forecast_type text not null default 'stable',
+  current_value numeric(14,2) not null default 0,
+  previous_value numeric(14,2) not null default 0,
+  predicted_value numeric(14,2) not null default 0,
+  confidence numeric(5,4) not null default 0.5,
+  reason text not null,
+  status text not null default 'active',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.inventory_alerts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  target_month text not null,
+  item_name text not null,
+  alert_type text not null,
+  current_stock numeric(14,3) not null default 0,
+  reorder_point numeric(14,3) not null default 0,
+  recent_sales_quantity numeric(14,3) not null default 0,
+  severity text not null default 'medium',
+  reason text not null,
+  status text not null default 'open',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.recommended_actions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  target_month text not null,
+  action_type text not null,
+  title text not null,
+  body text not null,
+  item_name text,
+  priority text not null default 'medium',
+  reason text not null,
+  status text not null default 'open',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists stores_organization_id_idx on public.stores(organization_id);
 create index if not exists stores_industry_type_key_idx on public.stores(industry_type_key);
 create index if not exists ai_generation_logs_store_id_idx on public.ai_generation_logs(store_id);
@@ -530,6 +580,9 @@ create index if not exists import_error_rows_job_idx on public.import_error_rows
 create index if not exists sales_ai_reports_store_month_idx on public.sales_ai_reports(store_id, target_month desc);
 create index if not exists sales_ai_report_sections_report_idx on public.sales_ai_report_sections(report_id);
 create index if not exists sales_anomaly_flags_store_month_idx on public.sales_anomaly_flags(store_id, target_month);
+create index if not exists demand_forecasts_store_month_idx on public.demand_forecasts(store_id, target_month desc);
+create index if not exists inventory_alerts_store_month_idx on public.inventory_alerts(store_id, target_month desc);
+create index if not exists recommended_actions_store_month_idx on public.recommended_actions(store_id, target_month desc);
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),

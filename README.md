@@ -107,6 +107,7 @@ Supabase SQL Editorで以下を順に実行します。
 Phase 3-Aでは `marketing_drafts`、`ai_recommendations`、`image_caption_jobs`、`demand_alerts` を追加します。
 Phase 4-Aでは `external_data_sources`、`data_import_jobs`、`data_import_files`、`data_column_mappings`、`sales_transactions`、`sales_transaction_items`、`normalized_sales_summaries`、`import_error_rows` を追加します。
 Phase 4-Bでは `sales_ai_reports`、`sales_ai_report_sections`、`sales_anomaly_flags` を追加します。
+Phase 4-Cでは `demand_forecasts`、`inventory_alerts`、`recommended_actions` を追加します。
 既存環境へ反映する場合も、更新後の `database/schema.sql`、`database/policies.sql`、`database/seed.sql` を順番に再実行してください。
 
 CSV / Excelの元ファイル保存にはSupabase Storage bucketが必要です。SQLだけではStorage bucketを確実に作れないため、Supabase DashboardのStorageから以下を作成してください。
@@ -310,10 +311,38 @@ Phase 4-BのAI分析:
 - 異常値検出は、前月比で大きく落ちた商品、急に増えた商品、極端な金額、数量が不自然な行、重複候補をまずルールベースで検出します。
 - PDFはPhase 4-Bではブラウザ印刷方式です。将来、サーバー側PDF生成へ移行する場合は日本語フォント埋め込みを前提にしてください。
 
+## Demand Forecasts And Actions
+
+Phase 4-Cでは、取り込んだ外部売上データと商品・在庫データから、需要予測、在庫アラート、次アクション提案を作成します。
+
+画面:
+
+- `/stores/[storeId]/sales/forecast`
+- `/stores/[storeId]/inventory/alerts`
+- `/stores/[storeId]/actions`
+
+使い方:
+
+1. CSV / Excel取り込みを完了し、売上データと商品・在庫データを用意する
+2. `/stores/[storeId]/sales/forecast` で対象月を選び、需要予測を生成する
+3. `/stores/[storeId]/inventory/alerts` で在庫切れリスク、過剰在庫リスク、発注候補を確認する
+4. `/stores/[storeId]/actions` でInstagram投稿案、Google投稿案、店頭POP、既存顧客案内、発注確認を確認する
+
+Phase 4-Cの判定は、まず集計ベースです。
+
+- 商品・サービス別の直近売上と前月比を見ます。
+- 伸びている商品・部品と現在庫を照合します。
+- 在庫が少ないものを在庫切れリスクまたは発注候補として表示します。
+- 売上に紐づかず在庫が多いものを過剰在庫リスクとして表示します。
+- OpenAI APIが設定されている場合、業態別の表現で販促アクション文を整えます。
+- `OPENAI_API_KEY` が未設定の場合も、デモ提案で画面確認できます。
+
+自動車修理では、点検、オイル交換、タイヤ交換、車検前点検、部品交換、リピート来店に寄せた文言に切り替えます。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。
-- Phase 3-A以降のAI生成とPhase 4-BのAI月次売上レポートには `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
+- Phase 3-A以降のAI生成、Phase 4-BのAI月次売上レポート、Phase 4-Cの次アクション提案には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
 - SupabaseにPhase 3-Aのテーブルを追加してから、本番で投稿下書き作成やAI改善提案作成を確認してください。
 - Phase 4-AのCSV / Excel取り込みにはSupabase Storage bucket `import-files` が必要です。
 - 日本語フォントを完全埋め込みする方式へ移行する場合は、フォントファイルをリポジトリに含め、サーバー側だけでPDF生成してください。
