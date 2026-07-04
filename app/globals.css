@@ -171,6 +171,19 @@ p {
   border-color: var(--danger);
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stack-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.5;

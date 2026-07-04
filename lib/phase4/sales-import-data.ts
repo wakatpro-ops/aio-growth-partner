@@ -79,10 +79,12 @@ async function ensureDemoPersistence(supabase: SupabaseClient, storeId: string) 
       column_mapping: true,
       sales_normalization: true,
       sales_reports: true,
+      sales_ai_report: true,
+      sales_anomaly_detection: true,
       google_sheets_import: false,
       pos_api_integrations: false,
       sales_export: false,
-      sales_report_pdf: false,
+      sales_report_pdf: true,
       ai_sales_insights: false
     },
     profile_data: {},

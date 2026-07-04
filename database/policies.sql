@@ -29,6 +29,9 @@ alter table public.sales_transactions enable row level security;
 alter table public.sales_transaction_items enable row level security;
 alter table public.normalized_sales_summaries enable row level security;
 alter table public.import_error_rows enable row level security;
+alter table public.sales_ai_reports enable row level security;
+alter table public.sales_ai_report_sections enable row level security;
+alter table public.sales_anomaly_flags enable row level security;
 alter table public.items enable row level security;
 alter table public.inventory_stocks enable row level security;
 alter table public.inventory_movements enable row level security;
@@ -110,6 +113,12 @@ drop policy if exists "read org normalized sales summaries" on public.normalized
 drop policy if exists "write org normalized sales summaries" on public.normalized_sales_summaries;
 drop policy if exists "read org import error rows" on public.import_error_rows;
 drop policy if exists "write org import error rows" on public.import_error_rows;
+drop policy if exists "read org sales ai reports" on public.sales_ai_reports;
+drop policy if exists "write org sales ai reports" on public.sales_ai_reports;
+drop policy if exists "read org sales ai report sections" on public.sales_ai_report_sections;
+drop policy if exists "write org sales ai report sections" on public.sales_ai_report_sections;
+drop policy if exists "read org sales anomaly flags" on public.sales_anomaly_flags;
+drop policy if exists "write org sales anomaly flags" on public.sales_anomaly_flags;
 drop policy if exists "read org items" on public.items;
 drop policy if exists "write org items" on public.items;
 drop policy if exists "read org inventory stocks" on public.inventory_stocks;
@@ -280,6 +289,27 @@ create policy "read org import error rows" on public.import_error_rows
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org import error rows" on public.import_error_rows
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org sales ai reports" on public.sales_ai_reports
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org sales ai reports" on public.sales_ai_reports
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org sales ai report sections" on public.sales_ai_report_sections
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org sales ai report sections" on public.sales_ai_report_sections
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org sales anomaly flags" on public.sales_anomaly_flags
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org sales anomaly flags" on public.sales_anomaly_flags
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 

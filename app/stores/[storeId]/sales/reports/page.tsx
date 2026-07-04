@@ -56,7 +56,12 @@ export default async function SalesReportsPage({ params }: { params: Promise<{ s
         eyebrow={industry.name}
         title="売上レポート"
         description="外部売上データを日別、月別、商品別、支払方法別に集計します。"
-        action={<Link className="button secondary" href={`/stores/${store.id}/data-imports/new`}>データ取り込み</Link>}
+        action={(
+          <div className="button-row">
+            {isFeatureEnabled(flags, "sales_ai_report") ? <Link className="button" href={`/stores/${store.id}/sales/reports/monthly-ai`}>AI月次レポート</Link> : null}
+            <Link className="button secondary" href={`/stores/${store.id}/data-imports/new`}>データ取り込み</Link>
+          </div>
+        )}
       />
       <StoreBusinessNav store={store} />
 

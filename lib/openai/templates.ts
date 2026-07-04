@@ -120,6 +120,22 @@ export function getFallbackPromptTemplate(industryTypeKey: IndustryTypeKey, temp
     };
   }
 
+  if (templateKey === "sales_ai_monthly_report") {
+    const systemPrompt =
+      industryTypeKey === "auto_repair"
+        ? "あなたは自動車整備工場の売上分析と集客改善に詳しいコンサルタントです。オイル交換、タイヤ交換、車検、点検、部品在庫、リピート来店の観点で具体的に提案してください。"
+        : "あなたは店舗オーナー向けに売上分析と販促改善を分かりやすく整理するコンサルタントです。";
+
+    return {
+      id: `${industryTypeKey}-sales-ai-monthly-report-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt,
+      userPromptTemplate: `${baseContext}\n対象月の売上集計、商品ランキング、支払方法、異常値候補をもとに、title、good_points、cautions、growth_items、promotion_ideas、inventory_notes、next_actions、industry_advice、ai_reasoningをJSONで返してください。`
+    };
+  }
+
   const systemPrompt =
     industryTypeKey === "auto_repair"
       ? "あなたは自動車修理・整備工場のAIO診断コンサルタントです。地域名、対応サービス、信頼性、予約導線を評価してください。"

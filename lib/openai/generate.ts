@@ -49,6 +49,21 @@ function demoOutput(templateKey: AiTemplateKey, store: Store) {
     };
   }
 
+  if (templateKey === "sales_ai_monthly_report") {
+    const isAuto = store.industry_type_key === "auto_repair";
+    return {
+      title: isAuto ? "整備工場向け 月次売上AIレポート" : "月次売上AIレポート",
+      good_points: isAuto ? ["売上データから整備メニュー別の傾向を確認できる状態です。"] : ["売上データから商品・サービス別の傾向を確認できる状態です。"],
+      cautions: isAuto ? ["オイル交換、タイヤ交換、車検、点検の増減と部品在庫を合わせて確認してください。"] : ["売上が落ちている商品と在庫状況を合わせて確認してください。"],
+      growth_items: isAuto ? ["点検", "オイル交換", "タイヤ交換"] : ["売上上位の商品・サービス"],
+      promotion_ideas: isAuto ? ["季節点検の案内", "安全運転につながる部品交換の紹介"] : ["売れ筋商品の紹介", "来店促進キャンペーン"],
+      inventory_notes: isAuto ? ["伸びている整備メニューに関連する部品在庫を確認する"] : ["売れている商品の欠品を防ぐ"],
+      next_actions: isAuto ? ["リピート来店向けの点検案内を作る", "部品在庫と売上上位メニューを照合する"] : ["売上上位商品を投稿する", "落ち込み商品の販促を見直す"],
+      industry_advice: isAuto ? ["整備工場では、点検・車検・部品交換を分かりやすく伝えると予約につながりやすくなります。"] : ["店舗では、売れ筋と来店理由を投稿・POP・口コミ導線に展開すると効果的です。"],
+      ai_reasoning: "対象月の売上集計、ランキング、注意点から、店舗オーナーが次に動きやすい内容に整理しました。"
+    };
+  }
+
   return {
     score: 78,
     summary: `${store.name}は基本情報が整理されています。AI検索に向けて、地域名、強み、具体的なサービス説明をさらに明確にすると効果的です。`,

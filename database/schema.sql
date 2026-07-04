@@ -463,6 +463,52 @@ create table if not exists public.import_error_rows (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.sales_ai_reports (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  industry_type_key text not null references public.industry_types(key),
+  target_month text not null,
+  title text not null,
+  summary_metrics jsonb not null default '{}'::jsonb,
+  ai_result jsonb not null default '{}'::jsonb,
+  anomaly_summary jsonb not null default '[]'::jsonb,
+  prompt_version text not null default 'phase-4-b-v1',
+  model_name text not null default 'gpt-4.1-mini',
+  status text not null default 'success',
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.sales_ai_report_sections (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  report_id uuid not null references public.sales_ai_reports(id) on delete cascade,
+  section_key text not null,
+  title text not null,
+  content jsonb not null default '[]'::jsonb,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.sales_anomaly_flags (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  report_id uuid references public.sales_ai_reports(id) on delete cascade,
+  target_month text not null,
+  anomaly_type text not null,
+  severity text not null default 'medium',
+  title text not null,
+  description text not null,
+  source_data jsonb not null default '{}'::jsonb,
+  status text not null default 'open',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists stores_organization_id_idx on public.stores(organization_id);
 create index if not exists stores_industry_type_key_idx on public.stores(industry_type_key);
 create index if not exists ai_generation_logs_store_id_idx on public.ai_generation_logs(store_id);
@@ -481,6 +527,9 @@ create index if not exists sales_transactions_import_job_idx on public.sales_tra
 create index if not exists sales_transaction_items_store_id_idx on public.sales_transaction_items(store_id);
 create index if not exists normalized_sales_summaries_store_type_idx on public.normalized_sales_summaries(store_id, summary_type);
 create index if not exists import_error_rows_job_idx on public.import_error_rows(import_job_id);
+create index if not exists sales_ai_reports_store_month_idx on public.sales_ai_reports(store_id, target_month desc);
+create index if not exists sales_ai_report_sections_report_idx on public.sales_ai_report_sections(report_id);
+create index if not exists sales_anomaly_flags_store_month_idx on public.sales_anomaly_flags(store_id, target_month);
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),

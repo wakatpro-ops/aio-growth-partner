@@ -106,6 +106,7 @@ Supabase SQL Editorで以下を順に実行します。
 
 Phase 3-Aでは `marketing_drafts`、`ai_recommendations`、`image_caption_jobs`、`demand_alerts` を追加します。
 Phase 4-Aでは `external_data_sources`、`data_import_jobs`、`data_import_files`、`data_column_mappings`、`sales_transactions`、`sales_transaction_items`、`normalized_sales_summaries`、`import_error_rows` を追加します。
+Phase 4-Bでは `sales_ai_reports`、`sales_ai_report_sections`、`sales_anomaly_flags` を追加します。
 既存環境へ反映する場合も、更新後の `database/schema.sql`、`database/policies.sql`、`database/seed.sql` を順番に再実行してください。
 
 CSV / Excelの元ファイル保存にはSupabase Storage bucketが必要です。SQLだけではStorage bucketを確実に作れないため、Supabase DashboardのStorageから以下を作成してください。
@@ -288,10 +289,31 @@ Vercel注意点:
 - Googleスプレッドシート連携は、将来 `external_data_sources.connection_type = google_sheets` とOAuth設定で追加します。
 - POS API連携は、将来 `external_data_sources.connection_type = api` と `credentials_ref` を使って追加します。APIキー本体はDBに直接保存しません。
 
+## Sales AI Reports
+
+`/stores/[storeId]/sales/reports/monthly-ai` から、取り込んだ外部売上データを使ったAI月次売上レポートを生成できます。
+
+使い方:
+
+1. CSV / Excel取り込みを完了し、`/stores/[storeId]/sales/reports` に売上集計が表示されていることを確認する
+2. `/stores/[storeId]/sales/reports/monthly-ai` を開く
+3. 対象月を選んで「AIレポート生成」を押す
+4. レポート詳細で、売上サマリー、前月比、商品・サービス別ランキング、支払方法別集計、日別・曜日別売上、AI改善提案、異常値・確認ポイントを確認する
+5. 「印刷プレビュー」からブラウザ印刷またはPDF保存を行う
+
+Phase 4-BのAI分析:
+
+- OpenAI APIはサーバー側のみで使用します。
+- `OPENAI_API_KEY` はVercel環境変数に設定し、`NEXT_PUBLIC_` を付けません。
+- 未設定の場合はデモ出力で画面確認できます。
+- 自動車修理では、オイル交換、タイヤ交換、車検、点検、部品在庫、リピート来店を意識した文言に切り替えます。
+- 異常値検出は、前月比で大きく落ちた商品、急に増えた商品、極端な金額、数量が不自然な行、重複候補をまずルールベースで検出します。
+- PDFはPhase 4-Bではブラウザ印刷方式です。将来、サーバー側PDF生成へ移行する場合は日本語フォント埋め込みを前提にしてください。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。
-- Phase 3-AのAI生成には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
+- Phase 3-A以降のAI生成とPhase 4-BのAI月次売上レポートには `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
 - SupabaseにPhase 3-Aのテーブルを追加してから、本番で投稿下書き作成やAI改善提案作成を確認してください。
 - Phase 4-AのCSV / Excel取り込みにはSupabase Storage bucket `import-files` が必要です。
 - 日本語フォントを完全埋め込みする方式へ移行する場合は、フォントファイルをリポジトリに含め、サーバー側だけでPDF生成してください。

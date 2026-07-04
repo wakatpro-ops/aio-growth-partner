@@ -27,6 +27,8 @@ export type ModuleKey =
   | "column_mapping"
   | "sales_normalization"
   | "sales_reports"
+  | "sales_ai_report"
+  | "sales_anomaly_detection"
   | "google_sheets_import"
   | "pos_api_integrations"
   | "sales_export"
@@ -97,7 +99,8 @@ export type AiTemplateKey =
   | "google_business_profile_draft"
   | "ai_monthly_recommendations"
   | "data_column_mapping_suggestion"
-  | "sales_monthly_commentary";
+  | "sales_monthly_commentary"
+  | "sales_ai_monthly_report";
 
 export type AiLogRecord = {
   user_id: string | null;

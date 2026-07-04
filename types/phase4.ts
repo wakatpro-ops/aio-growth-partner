@@ -136,3 +136,57 @@ export type SalesReport = {
   items: Array<{ label: string; amount: number; quantity: number }>;
   paymentMethods: Array<{ label: string; amount: number; count: number }>;
 };
+
+export type SalesAnalysisSummary = {
+  targetMonth: string;
+  totalSales: number;
+  previousMonthSales: number;
+  monthOverMonthRate: number | null;
+  transactionCount: number;
+  averageTransactionAmount: number;
+  topItems: Array<{ label: string; amount: number; quantity: number }>;
+  paymentMethods: Array<{ label: string; amount: number; count: number }>;
+  daily: Array<{ label: string; amount: number; count: number }>;
+  weekday: Array<{ label: string; amount: number; count: number }>;
+  risingItems: Array<{ label: string; currentAmount: number; previousAmount: number; changeRate: number | null }>;
+  fallingItems: Array<{ label: string; currentAmount: number; previousAmount: number; changeRate: number | null }>;
+};
+
+export type SalesAnomalyFlag = {
+  id?: string;
+  anomaly_type: string;
+  severity: "low" | "medium" | "high";
+  title: string;
+  description: string;
+  source_data: Record<string, unknown>;
+  status?: string;
+};
+
+export type SalesAiReportOutput = {
+  title: string;
+  good_points: string[];
+  cautions: string[];
+  growth_items: string[];
+  promotion_ideas: string[];
+  inventory_notes: string[];
+  next_actions: string[];
+  industry_advice: string[];
+  ai_reasoning: string;
+};
+
+export type SalesAiReport = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  industry_type_key: string;
+  target_month: string;
+  title: string;
+  summary_metrics: SalesAnalysisSummary;
+  ai_result: SalesAiReportOutput;
+  anomaly_summary: SalesAnomalyFlag[];
+  prompt_version: string;
+  model_name: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
