@@ -91,7 +91,13 @@ async function ensureDemoPersistence(supabase: SupabaseClient, store: Store) {
       draft_approval_flow: true,
       draft_editing: true,
       channel_previews: true,
-      external_channel_accounts: true
+      external_channel_accounts: true,
+      google_integrations: true,
+      google_oauth_connection: true,
+      google_business_profile_integration: true,
+      gmail_draft_integration: true,
+      google_calendar_integration: true,
+      external_publish_jobs: true
     },
     profile_data: store.profile_data ?? {},
     updated_at: new Date().toISOString()

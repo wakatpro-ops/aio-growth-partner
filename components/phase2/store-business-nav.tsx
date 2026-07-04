@@ -22,7 +22,8 @@ export function StoreBusinessNav({ store }: { store: Store }) {
     { href: `/stores/${store.id}/actions`, label: "次アクション", feature: "recommended_actions" },
     { href: `/stores/${store.id}/growth-actions`, label: "集客アクション", feature: "growth_action_center" },
     { href: `/stores/${store.id}/growth-calendar`, label: "集客カレンダー", feature: "growth_calendar" },
-    { href: `/stores/${store.id}/settings/channels`, label: "チャネル設定", feature: "external_channel_accounts" }
+    { href: `/stores/${store.id}/settings/channels`, label: "チャネル設定", feature: "external_channel_accounts" },
+    { href: `/stores/${store.id}/settings/google`, label: "Google連携", feature: "google_integrations" }
   ].filter((link) => isFeatureEnabled(flags, link.feature));
 
   return (

@@ -691,6 +691,99 @@ create table if not exists public.external_channel_accounts (
   unique (store_id, channel, external_provider)
 );
 
+create table if not exists public.google_oauth_connections (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  provider_user_id text,
+  email text,
+  access_token_encrypted text,
+  refresh_token_encrypted text,
+  expires_at timestamptz,
+  scopes text[] not null default '{}'::text[],
+  status text not null default 'not_connected',
+  connected_at timestamptz,
+  disconnected_at timestamptz,
+  error_message text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.google_business_profiles (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  google_account_id text,
+  location_id text,
+  location_name text,
+  address text,
+  status text not null default 'not_connected',
+  last_synced_at timestamptz,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id)
+);
+
+create table if not exists public.google_gmail_settings (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  email text,
+  sender_name text,
+  signature text,
+  status text not null default 'not_connected',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id)
+);
+
+create table if not exists public.google_calendar_settings (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  calendar_id text,
+  calendar_name text,
+  timezone text not null default 'Asia/Tokyo',
+  status text not null default 'not_connected',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id)
+);
+
+create table if not exists public.external_publish_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  growth_action_id uuid references public.growth_actions(id) on delete set null,
+  channel text not null,
+  provider text not null,
+  target_id text,
+  status text not null default 'ready',
+  scheduled_at timestamptz,
+  sent_at timestamptz,
+  error_message text,
+  payload_json jsonb not null default '{}'::jsonb,
+  response_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.external_integration_logs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  provider text not null,
+  action_type text not null,
+  status text not null,
+  message text,
+  metadata_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
 alter table public.growth_actions add column if not exists external_account_id text;
 alter table public.growth_actions add column if not exists external_post_id text;
 alter table public.growth_actions add column if not exists scheduled_at timestamptz;
@@ -736,6 +829,13 @@ create index if not exists growth_action_schedule_items_action_idx on public.gro
 create index if not exists growth_action_approvals_action_idx on public.growth_action_approvals(growth_action_id);
 create index if not exists growth_action_draft_versions_draft_idx on public.growth_action_draft_versions(growth_action_draft_id, version_number desc);
 create index if not exists external_channel_accounts_store_idx on public.external_channel_accounts(store_id, channel);
+create index if not exists google_oauth_connections_store_idx on public.google_oauth_connections(store_id, status, created_at desc);
+create index if not exists google_business_profiles_store_idx on public.google_business_profiles(store_id);
+create index if not exists google_gmail_settings_store_idx on public.google_gmail_settings(store_id);
+create index if not exists google_calendar_settings_store_idx on public.google_calendar_settings(store_id);
+create index if not exists external_publish_jobs_store_idx on public.external_publish_jobs(store_id, provider, created_at desc);
+create index if not exists external_publish_jobs_action_idx on public.external_publish_jobs(growth_action_id);
+create index if not exists external_integration_logs_store_idx on public.external_integration_logs(store_id, provider, created_at desc);
 
 create table if not exists public.items (
   id uuid primary key default gen_random_uuid(),

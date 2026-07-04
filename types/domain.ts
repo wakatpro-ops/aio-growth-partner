@@ -44,6 +44,12 @@ export type ModuleKey =
   | "draft_editing"
   | "channel_previews"
   | "external_channel_accounts"
+  | "google_integrations"
+  | "google_oauth_connection"
+  | "google_business_profile_integration"
+  | "gmail_draft_integration"
+  | "google_calendar_integration"
+  | "external_publish_jobs"
   | "google_sheets_import"
   | "pos_api_integrations"
   | "sales_export"
@@ -117,7 +123,8 @@ export type AiTemplateKey =
   | "sales_monthly_commentary"
   | "sales_ai_monthly_report"
   | "demand_action_recommendations"
-  | "growth_action_draft_generation";
+  | "growth_action_draft_generation"
+  | "google_send_preparation";
 
 export type AiLogRecord = {
   user_id: string | null;

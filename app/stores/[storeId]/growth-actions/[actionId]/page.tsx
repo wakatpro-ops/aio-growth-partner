@@ -94,6 +94,7 @@ export default async function GrowthActionDetailPage({
       <div className="form-actions">
         <Link className="button" href={`/stores/${store.id}/growth-actions/${action.id}/edit`}>下書きを編集</Link>
         <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/preview`}>プレビュー</Link>
+        <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/send`}>Google送信前確認</Link>
         <Link className="button secondary" href={`/stores/${store.id}/growth-actions`}>一覧へ戻る</Link>
       </div>
     </AppShell>

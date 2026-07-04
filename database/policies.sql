@@ -42,6 +42,12 @@ alter table public.growth_action_schedule_items enable row level security;
 alter table public.growth_action_approvals enable row level security;
 alter table public.growth_action_draft_versions enable row level security;
 alter table public.external_channel_accounts enable row level security;
+alter table public.google_oauth_connections enable row level security;
+alter table public.google_business_profiles enable row level security;
+alter table public.google_gmail_settings enable row level security;
+alter table public.google_calendar_settings enable row level security;
+alter table public.external_publish_jobs enable row level security;
+alter table public.external_integration_logs enable row level security;
 alter table public.items enable row level security;
 alter table public.inventory_stocks enable row level security;
 alter table public.inventory_movements enable row level security;
@@ -149,6 +155,18 @@ drop policy if exists "read org growth action draft versions" on public.growth_a
 drop policy if exists "write org growth action draft versions" on public.growth_action_draft_versions;
 drop policy if exists "read org external channel accounts" on public.external_channel_accounts;
 drop policy if exists "write org external channel accounts" on public.external_channel_accounts;
+drop policy if exists "read org google oauth connections" on public.google_oauth_connections;
+drop policy if exists "write org google oauth connections" on public.google_oauth_connections;
+drop policy if exists "read org google business profiles" on public.google_business_profiles;
+drop policy if exists "write org google business profiles" on public.google_business_profiles;
+drop policy if exists "read org google gmail settings" on public.google_gmail_settings;
+drop policy if exists "write org google gmail settings" on public.google_gmail_settings;
+drop policy if exists "read org google calendar settings" on public.google_calendar_settings;
+drop policy if exists "write org google calendar settings" on public.google_calendar_settings;
+drop policy if exists "read org external publish jobs" on public.external_publish_jobs;
+drop policy if exists "write org external publish jobs" on public.external_publish_jobs;
+drop policy if exists "read org external integration logs" on public.external_integration_logs;
+drop policy if exists "write org external integration logs" on public.external_integration_logs;
 drop policy if exists "read org items" on public.items;
 drop policy if exists "write org items" on public.items;
 drop policy if exists "read org inventory stocks" on public.inventory_stocks;
@@ -410,6 +428,48 @@ create policy "read org external channel accounts" on public.external_channel_ac
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org external channel accounts" on public.external_channel_accounts
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org google oauth connections" on public.google_oauth_connections
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org google oauth connections" on public.google_oauth_connections
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org google business profiles" on public.google_business_profiles
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org google business profiles" on public.google_business_profiles
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org google gmail settings" on public.google_gmail_settings
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org google gmail settings" on public.google_gmail_settings
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org google calendar settings" on public.google_calendar_settings
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org google calendar settings" on public.google_calendar_settings
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org external publish jobs" on public.external_publish_jobs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org external publish jobs" on public.external_publish_jobs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org external integration logs" on public.external_integration_logs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org external integration logs" on public.external_integration_logs
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 

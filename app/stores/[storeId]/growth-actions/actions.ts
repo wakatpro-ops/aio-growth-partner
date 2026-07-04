@@ -3,6 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  disconnectGoogle,
+  prepareGooglePublishJob,
+  upsertGoogleBusinessProfile,
+  upsertGoogleCalendar,
+  upsertGoogleGmail
+} from "@/lib/phase5/google-integrations";
+import {
   generateGrowthActions,
   submitGrowthActionApproval,
   updateGrowthActionDraft,
@@ -76,4 +83,64 @@ export async function upsertExternalChannelAccountAction(storeId: string, formDa
     errorRedirect(path, error);
   }
   redirect(path);
+}
+
+export async function disconnectGoogleAction(storeId: string) {
+  const path = `/stores/${storeId}/settings/google`;
+  try {
+    await disconnectGoogle(storeId);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(path);
+}
+
+export async function upsertGoogleBusinessProfileAction(storeId: string, formData: FormData) {
+  const path = `/stores/${storeId}/settings/google/business-profile`;
+  try {
+    await upsertGoogleBusinessProfile(storeId, formData);
+    revalidatePath(path);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(path);
+}
+
+export async function upsertGoogleGmailAction(storeId: string, formData: FormData) {
+  const path = `/stores/${storeId}/settings/google/gmail`;
+  try {
+    await upsertGoogleGmail(storeId, formData);
+    revalidatePath(path);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(path);
+}
+
+export async function upsertGoogleCalendarAction(storeId: string, formData: FormData) {
+  const path = `/stores/${storeId}/settings/google/calendar`;
+  try {
+    await upsertGoogleCalendar(storeId, formData);
+    revalidatePath(path);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(path);
+}
+
+export async function prepareGooglePublishJobAction(storeId: string, actionId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/send`;
+  try {
+    await prepareGooglePublishJob(storeId, actionId, formData);
+    revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?prepared=1`);
 }

@@ -130,3 +130,91 @@ export type ExternalChannelAccount = {
   created_at: string;
   updated_at: string;
 };
+
+export type GoogleOAuthConnection = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  provider_user_id: string | null;
+  email: string | null;
+  expires_at: string | null;
+  scopes: string[];
+  status: "not_connected" | "connected" | "expired" | "error" | "disconnected";
+  connected_at: string | null;
+  disconnected_at: string | null;
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GoogleBusinessProfileSetting = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  google_account_id: string | null;
+  location_id: string | null;
+  location_name: string | null;
+  address: string | null;
+  status: string;
+  last_synced_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GoogleGmailSetting = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  email: string | null;
+  sender_name: string | null;
+  signature: string | null;
+  status: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GoogleCalendarSetting = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  calendar_id: string | null;
+  calendar_name: string | null;
+  timezone: string | null;
+  status: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExternalPublishJob = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  growth_action_id: string | null;
+  channel: string;
+  provider: string;
+  target_id: string | null;
+  status: string;
+  scheduled_at: string | null;
+  sent_at: string | null;
+  error_message: string | null;
+  payload_json: Record<string, unknown>;
+  response_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExternalIntegrationLog = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  provider: string;
+  action_type: string;
+  status: string;
+  message: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};

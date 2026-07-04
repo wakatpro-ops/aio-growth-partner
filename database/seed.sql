@@ -228,3 +228,55 @@ where industry_type_key in ('general_store', 'auto_repair');
 update public.plan_limits
 set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","growth_action_center","google_business_profile_drafts","instagram_drafts","review_reply_drafts","customer_message_drafts","pop_copy_drafts","line_message_drafts","growth_calendar","draft_approval_flow","draft_editing","channel_previews","external_channel_accounts","sales_report_pdf"]'
 where plan_key = 'starter' and limit_key = 'enabled_modules';
+
+insert into public.modules (key, name, description, category, is_core)
+values
+  ('google_integrations', 'Google連携', 'Googleビジネスプロフィール、Gmail、Googleカレンダー連携の共通基盤です。', 'integration', false),
+  ('google_oauth_connection', 'Google OAuth接続', 'Google OAuth接続状態とトークン保存の基盤です。', 'integration', false),
+  ('google_business_profile_integration', 'Googleビジネスプロフィール連携', 'Google検索・マップ向け投稿とロケーション管理の準備です。', 'integration', false),
+  ('gmail_draft_integration', 'Gmail下書き連携', '既存顧客案内メールをGmail下書きへ連携する準備です。', 'integration', false),
+  ('google_calendar_integration', 'Googleカレンダー連携', '投稿・配信・案内予定をGoogleカレンダーへ連携する準備です。', 'integration', false),
+  ('external_publish_jobs', '外部送信準備ログ', '外部サービスに送る前の確認内容、予約日時、結果ログを保存します。', 'integration', false)
+on conflict (key) do update set
+  name = excluded.name,
+  description = excluded.description,
+  category = excluded.category,
+  is_core = excluded.is_core;
+
+insert into public.industry_modules (industry_type_key, module_key, is_enabled)
+values
+  ('general_store', 'google_integrations', true),
+  ('auto_repair', 'google_integrations', true),
+  ('general_store', 'google_oauth_connection', true),
+  ('auto_repair', 'google_oauth_connection', true),
+  ('general_store', 'google_business_profile_integration', true),
+  ('auto_repair', 'google_business_profile_integration', true),
+  ('general_store', 'gmail_draft_integration', true),
+  ('auto_repair', 'gmail_draft_integration', true),
+  ('general_store', 'google_calendar_integration', true),
+  ('auto_repair', 'google_calendar_integration', true),
+  ('general_store', 'external_publish_jobs', true),
+  ('auto_repair', 'external_publish_jobs', true)
+on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
+
+insert into public.ai_prompt_templates (industry_type_key, module_key, template_key, name, system_prompt, user_prompt_template)
+values
+  ('general_store', 'google_integrations', 'google_send_preparation', '汎用店舗 Google送信前確認', 'あなたは地域店舗のGoogle連携前チェックを支援する運用担当です。外部送信前に、本文、送信先、注意点を簡潔に整理してください。', '集客アクション、下書き、送信先、予約日時をもとに、確認ポイント、リスク、次の手順をJSONで返してください。'),
+  ('auto_repair', 'google_integrations', 'google_send_preparation', '自動車修理 Google送信前確認', 'あなたは整備工場のGoogle連携前チェックを支援する運用担当です。車検、点検、修理、予約導線の表現が正しいか確認してください。', '集客アクション、下書き、送信先、予約日時をもとに、確認ポイント、リスク、次の手順をJSONで返してください。')
+on conflict (industry_type_key, module_key, template_key) do update set
+  name = excluded.name,
+  system_prompt = excluded.system_prompt,
+  user_prompt_template = excluded.user_prompt_template,
+  is_active = true;
+
+update public.industry_types
+set default_feature_flags = default_feature_flags || '{"google_integrations":true,"google_oauth_connection":true,"google_business_profile_integration":true,"gmail_draft_integration":true,"google_calendar_integration":true,"external_publish_jobs":true}'::jsonb
+where key in ('general_store', 'auto_repair');
+
+update public.stores
+set feature_flags = feature_flags || '{"google_integrations":true,"google_oauth_connection":true,"google_business_profile_integration":true,"gmail_draft_integration":true,"google_calendar_integration":true,"external_publish_jobs":true}'::jsonb
+where industry_type_key in ('general_store', 'auto_repair');
+
+update public.plan_limits
+set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","growth_action_center","google_business_profile_drafts","instagram_drafts","review_reply_drafts","customer_message_drafts","pop_copy_drafts","line_message_drafts","growth_calendar","draft_approval_flow","draft_editing","channel_previews","external_channel_accounts","google_integrations","google_oauth_connection","google_business_profile_integration","gmail_draft_integration","google_calendar_integration","external_publish_jobs","sales_report_pdf"]'
+where plan_key = 'starter' and limit_key = 'enabled_modules';
