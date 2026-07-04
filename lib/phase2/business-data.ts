@@ -455,8 +455,6 @@ export async function createDocumentFromForm(storeId: string, kind: DocumentKind
     document_number: String(formData.get("document_number") ?? ""),
     title: String(formData.get("title") ?? ""),
     issue_date: String(formData.get("issue_date") ?? new Date().toISOString().slice(0, 10)),
-    expiry_date: kind === "estimates" ? asText(formData.get("expiry_date")) : null,
-    due_date: kind === "invoices" ? asText(formData.get("due_date")) : null,
     status: String(formData.get("status") ?? "draft"),
     subtotal: subtotal,
     tax_total: taxTotal,

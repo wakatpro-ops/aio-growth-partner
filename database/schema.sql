@@ -365,6 +365,37 @@ create table if not exists public.invoice_items (
   sort_order integer not null default 0
 );
 
+alter table public.estimates add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
+alter table public.estimates add column if not exists store_id uuid references public.stores(id) on delete cascade;
+alter table public.estimates add column if not exists customer_id uuid references public.customers(id) on delete set null;
+alter table public.estimates add column if not exists document_number text;
+alter table public.estimates add column if not exists title text;
+alter table public.estimates add column if not exists issue_date date default current_date;
+alter table public.estimates add column if not exists expiry_date date;
+alter table public.estimates add column if not exists status text default 'draft';
+alter table public.estimates add column if not exists subtotal numeric(12,2) default 0;
+alter table public.estimates add column if not exists tax_total numeric(12,2) default 0;
+alter table public.estimates add column if not exists total numeric(12,2) default 0;
+alter table public.estimates add column if not exists notes text;
+alter table public.estimates add column if not exists created_at timestamptz default now();
+alter table public.estimates add column if not exists updated_at timestamptz default now();
+
+alter table public.invoices add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
+alter table public.invoices add column if not exists store_id uuid references public.stores(id) on delete cascade;
+alter table public.invoices add column if not exists customer_id uuid references public.customers(id) on delete set null;
+alter table public.invoices add column if not exists document_number text;
+alter table public.invoices add column if not exists title text;
+alter table public.invoices add column if not exists issue_date date default current_date;
+alter table public.invoices add column if not exists due_date date;
+alter table public.invoices add column if not exists status text default 'draft';
+alter table public.invoices add column if not exists subtotal numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_total numeric(12,2) default 0;
+alter table public.invoices add column if not exists total numeric(12,2) default 0;
+alter table public.invoices add column if not exists paid_at timestamptz;
+alter table public.invoices add column if not exists notes text;
+alter table public.invoices add column if not exists created_at timestamptz default now();
+alter table public.invoices add column if not exists updated_at timestamptz default now();
+
 create index if not exists items_store_id_idx on public.items(store_id);
 create index if not exists inventory_stocks_store_id_idx on public.inventory_stocks(store_id);
 create index if not exists inventory_movements_store_id_idx on public.inventory_movements(store_id);
