@@ -47,6 +47,38 @@ function persistenceFor(store: Store) {
   };
 }
 
+async function ensureDemoPersistence(supabase: SupabaseClient, store: Store) {
+  const resolved = persistenceFor(store);
+  if (!demoPersistence[store.id as keyof typeof demoPersistence]) return resolved;
+
+  await supabase.from("organizations").upsert({
+    id: resolved.organizationId,
+    name: "AIOデモ組織",
+    plan_key: "starter",
+    updated_at: new Date().toISOString()
+  });
+
+  await supabase.from("stores").upsert({
+    id: resolved.storeId,
+    organization_id: resolved.organizationId,
+    industry_type_key: store.industry_type_key,
+    name: store.name,
+    address: store.address,
+    phone: store.phone,
+    status: "active",
+    feature_flags: {
+      ...(store.feature_flags ?? {}),
+      demand_forecast: true,
+      inventory_alerts: true,
+      recommended_actions: true
+    },
+    profile_data: store.profile_data ?? {},
+    updated_at: new Date().toISOString()
+  });
+
+  return resolved;
+}
+
 function nextMonthFromNow() {
   const date = new Date();
   date.setUTCMonth(date.getUTCMonth() + 1);
@@ -280,7 +312,7 @@ export async function generateDemandActionPlan(storeId: string, targetMonth = ne
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
-  const resolved = persistenceFor(store);
+  const resolved = await ensureDemoPersistence(supabase, store);
   const [{ rows, currentMonth, prevMonth }, stocks] = await Promise.all([
     fetchSalesItems(supabase, resolved.storeId, targetMonth),
     fetchStocks(supabase, resolved.storeId)
@@ -313,9 +345,18 @@ export async function generateDemandActionPlan(storeId: string, targetMonth = ne
     supabase.from("inventory_alerts").delete().eq("store_id", resolved.storeId).eq("target_month", targetMonth),
     supabase.from("recommended_actions").delete().eq("store_id", resolved.storeId).eq("target_month", targetMonth)
   ]);
-  if (forecasts.length > 0) await supabase.from("demand_forecasts").insert(forecasts);
-  if (alerts.length > 0) await supabase.from("inventory_alerts").insert(alerts);
-  if (actions.length > 0) await supabase.from("recommended_actions").insert(actions);
+  if (forecasts.length > 0) {
+    const { error } = await supabase.from("demand_forecasts").insert(forecasts);
+    if (error) throw new Error(`需要予測を保存できませんでした: ${error.message}`);
+  }
+  if (alerts.length > 0) {
+    const { error } = await supabase.from("inventory_alerts").insert(alerts);
+    if (error) throw new Error(`在庫アラートを保存できませんでした: ${error.message}`);
+  }
+  if (actions.length > 0) {
+    const { error } = await supabase.from("recommended_actions").insert(actions);
+    if (error) throw new Error(`次アクションを保存できませんでした: ${error.message}`);
+  }
   return targetMonth;
 }
 
@@ -323,7 +364,7 @@ export async function listDemandForecasts(storeId: string): Promise<DemandForeca
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [];
-  const resolved = persistenceFor(store);
+  const resolved = await ensureDemoPersistence(supabase, store);
   const { data } = await supabase.from("demand_forecasts").select("*").eq("store_id", resolved.storeId).order("target_month", { ascending: false }).order("predicted_value", { ascending: false });
   return (data ?? []) as DemandForecast[];
 }
@@ -332,7 +373,7 @@ export async function listInventoryAlerts(storeId: string): Promise<InventoryAle
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [];
-  const resolved = persistenceFor(store);
+  const resolved = await ensureDemoPersistence(supabase, store);
   const { data } = await supabase.from("inventory_alerts").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false });
   return (data ?? []) as InventoryAlert[];
 }
@@ -341,7 +382,7 @@ export async function listRecommendedActions(storeId: string): Promise<Recommend
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [];
-  const resolved = persistenceFor(store);
+  const resolved = await ensureDemoPersistence(supabase, store);
   const { data } = await supabase.from("recommended_actions").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false });
   return (data ?? []) as RecommendedAction[];
 }
