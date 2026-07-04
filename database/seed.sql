@@ -8,7 +8,7 @@ values
     'general_store',
     '汎用店舗',
     '飲食店、美容室、整体院などに転用できる基本業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":false,"monthly_report":false,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":true,"repair_services":false,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"billing":false,"accounting":false}',
     '["store_profile_completion","ai_post_generation","review_reply","aio_score","instagram_post"]',
     '[{"key":"target_customer","label":"ターゲット顧客"},{"key":"brand_tone","label":"投稿トーン"},{"key":"opening_hours","label":"営業時間"},{"key":"strengths","label":"店舗の強み"}]'
   ),
@@ -16,7 +16,7 @@ values
     'auto_repair',
     '自動車修理',
     '車検、点検、修理相談に対応する整備工場向け業態。',
-    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":false,"monthly_report":false,"billing":false,"accounting":false}',
+    '{"ai_post_generation":true,"ai_review_reply":true,"aio_diagnosis":true,"instagram_post":false,"repair_services":true,"product_management":true,"inventory_management":true,"customer_management":true,"estimate_management":true,"invoice_management":true,"pdf_export":true,"monthly_report":true,"billing":false,"accounting":false}',
     '["store_profile_completion","aio_score","review_reply","repair_service_visibility","ai_post_generation"]',
     '[{"key":"services","label":"対応サービス"},{"key":"supported_makers","label":"対応メーカー"},{"key":"has_replacement_car","label":"代車あり"},{"key":"emergency_support","label":"緊急対応可"},{"key":"reservation_method","label":"予約方法"},{"key":"brand_tone","label":"投稿トーン"}]'
   )
@@ -60,10 +60,10 @@ values
   ('general_store', 'accounting', false),
   ('auto_repair', 'billing', false),
   ('auto_repair', 'accounting', false),
-  ('general_store', 'pdf_export', false),
-  ('auto_repair', 'pdf_export', false),
-  ('general_store', 'monthly_report', false),
-  ('auto_repair', 'monthly_report', false)
+  ('general_store', 'pdf_export', true),
+  ('auto_repair', 'pdf_export', true),
+  ('general_store', 'monthly_report', true),
+  ('auto_repair', 'monthly_report', true)
 on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
 
 insert into public.ai_prompt_templates (industry_type_key, module_key, template_key, name, system_prompt, user_prompt_template)
@@ -96,5 +96,17 @@ values
   ('starter', 'max_stores', '3'),
   ('starter', 'max_users', '5'),
   ('starter', 'ai_generations_per_month', '100'),
-  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management"]')
+  ('starter', 'enabled_modules', '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report"]')
 on conflict (plan_key, limit_key) do nothing;
+
+update public.industry_types
+set default_feature_flags = default_feature_flags || '{"pdf_export":true,"monthly_report":true}'::jsonb
+where key in ('general_store', 'auto_repair');
+
+update public.stores
+set feature_flags = feature_flags || '{"pdf_export":true,"monthly_report":true}'::jsonb
+where industry_type_key in ('general_store', 'auto_repair');
+
+update public.plan_limits
+set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report"]'
+where plan_key = 'starter' and limit_key = 'enabled_modules';

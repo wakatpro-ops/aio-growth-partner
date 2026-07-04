@@ -30,8 +30,8 @@ export const industries: Record<string, IndustryConfig> = {
       customer_management: true,
       estimate_management: true,
       invoice_management: true,
-      pdf_export: false,
-      monthly_report: false,
+      pdf_export: true,
+      monthly_report: true,
       billing: false,
       accounting: false
     },
@@ -79,8 +79,8 @@ export const industries: Record<string, IndustryConfig> = {
       customer_management: true,
       estimate_management: true,
       invoice_management: true,
-      pdf_export: false,
-      monthly_report: false,
+      pdf_export: true,
+      monthly_report: true,
       billing: false,
       accounting: false
     },

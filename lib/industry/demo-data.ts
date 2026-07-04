@@ -17,7 +17,10 @@ export const demoStores: Store[] = [
       opening_hours: "10:00-19:00",
       strengths: "丁寧な接客と通いやすい価格"
     },
-    feature_flags: {},
+    feature_flags: {
+      pdf_export: true,
+      monthly_report: true
+    },
     status: "active"
   },
   {
@@ -38,7 +41,10 @@ export const demoStores: Store[] = [
       reservation_method: "電話とWeb",
       brand_tone: "信頼感があり丁寧"
     },
-    feature_flags: {},
+    feature_flags: {
+      pdf_export: true,
+      monthly_report: true
+    },
     status: "active"
   }
 ];
