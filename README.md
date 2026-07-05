@@ -508,6 +508,15 @@ Phase 5-C-5:
 - 参考: https://developers.google.com/my-business/content/posts-data
 - 参考: https://developers.google.com/my-business/content/limits
 
+Phase 5-D:
+
+- Google Business Profile APIのBasic API Access / quota付与待ちの間は、実API投稿ではなく手動投稿運用を行います。
+- `/stores/[storeId]/growth-actions/[actionId]/manual-post` で、Googleビジネスプロフィール投稿用のコピー本文、投稿タイプ、CTA、プレビュー、投稿前チェックリストを確認できます。
+- 「Google管理画面を開く」からGoogleビジネスプロフィール管理画面へ移動し、コピーした本文を手動投稿します。
+- 手動投稿後は、投稿日時、担当者、投稿URLまたは管理メモ、チェックリストを保存できます。
+- 保存すると `growth_actions`、`growth_action_drafts`、`growth_action_schedule_items` を手動投稿済みに更新し、`external_publish_jobs` にも `manual_published` として履歴を残します。
+- 将来GBP API quotaが付与されたら、同じ下書き・承認・履歴データを使って実API投稿に切り替えます。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。

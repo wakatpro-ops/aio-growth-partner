@@ -13,6 +13,7 @@ import {
 } from "@/lib/phase5/google-integrations";
 import {
   generateGrowthActions,
+  markGoogleBusinessProfileManualPost,
   submitGrowthActionApproval,
   updateGrowthActionDraft,
   updateGrowthActionStatus,
@@ -74,6 +75,21 @@ export async function submitGrowthActionApprovalAction(storeId: string, actionId
     errorRedirect(path, error);
   }
   redirect(path);
+}
+
+export async function markGoogleBusinessProfileManualPostAction(storeId: string, actionId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/manual-post`;
+  try {
+    await markGoogleBusinessProfileManualPost(storeId, actionId, formData);
+    revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(`/stores/${storeId}/growth-calendar`);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+    revalidatePath(`/stores/${storeId}/growth-actions/${actionId}`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?posted=1`);
 }
 
 export async function upsertExternalChannelAccountAction(storeId: string, formData: FormData) {

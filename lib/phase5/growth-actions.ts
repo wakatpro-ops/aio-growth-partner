@@ -508,6 +508,112 @@ export async function submitGrowthActionApproval(storeId: string, actionId: stri
   await updateGrowthActionStatus(storeId, actionId, actionStatus);
 }
 
+export async function markGoogleBusinessProfileManualPost(storeId: string, actionId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = await ensureDemoPersistence(supabase, store);
+  const { data: action, error: actionError } = await supabase
+    .from("growth_actions")
+    .select("*, drafts:growth_action_drafts(*)")
+    .eq("store_id", resolved.storeId)
+    .eq("id", actionId)
+    .maybeSingle();
+  if (actionError) throw new Error(`集客アクションを確認できませんでした: ${actionError.message}`);
+  if (!action) throw new Error("集客アクションが見つかりませんでした。");
+  const draft = Array.isArray(action.drafts)
+    ? action.drafts.find((item: { channel?: string }) => item.channel === "google_business_profile") ?? action.drafts[0]
+    : null;
+  if (!draft) throw new Error("Google投稿下書きが見つかりませんでした。");
+
+  const postedAt = String(formData.get("posted_at") ?? "") || new Date().toISOString();
+  const manualPost = {
+    post_type: String(formData.get("post_type") ?? "standard"),
+    cta_type: String(formData.get("cta_type") ?? "learn_more"),
+    public_url: String(formData.get("public_url") ?? "") || null,
+    posted_at: postedAt,
+    operator_name: String(formData.get("operator_name") ?? "") || null,
+    memo: String(formData.get("memo") ?? "") || null,
+    checklist: formData.getAll("checklist").map(String),
+    source: "manual_google_business_profile"
+  };
+  const actionMetadata = action.metadata && typeof action.metadata === "object" ? action.metadata as Record<string, unknown> : {};
+  const draftMetadata = draft.metadata && typeof draft.metadata === "object" ? draft.metadata as Record<string, unknown> : {};
+
+  const { error } = await supabase
+    .from("growth_actions")
+    .update({
+      status: "done",
+      external_provider: "google_business_profile",
+      external_status: "manual_published",
+      external_post_id: manualPost.public_url,
+      published_at: postedAt,
+      failed_reason: null,
+      metadata: { ...actionMetadata, manual_google_business_profile: manualPost },
+      updated_at: new Date().toISOString()
+    })
+    .eq("store_id", resolved.storeId)
+    .eq("id", actionId);
+  if (error) throw new Error(`手動投稿済みとして保存できませんでした: ${error.message}`);
+
+  await supabase
+    .from("growth_action_drafts")
+    .update({
+      external_provider: "google_business_profile",
+      external_status: "manual_published",
+      external_post_id: manualPost.public_url,
+      published_at: postedAt,
+      failed_reason: null,
+      metadata: { ...draftMetadata, manual_google_business_profile: manualPost },
+      updated_at: new Date().toISOString()
+    })
+    .eq("store_id", resolved.storeId)
+    .eq("id", draft.id);
+
+  await supabase
+    .from("growth_action_schedule_items")
+    .update({
+      status: "done",
+      external_provider: "google_business_profile",
+      external_status: "manual_published",
+      external_post_id: manualPost.public_url,
+      published_at: postedAt,
+      metadata: { manual_google_business_profile: manualPost },
+      updated_at: new Date().toISOString()
+    })
+    .eq("store_id", resolved.storeId)
+    .eq("growth_action_id", actionId);
+
+  await supabase.from("external_publish_jobs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    channel: "google_business_profile",
+    provider: "manual_google_business_profile",
+    target_id: manualPost.public_url,
+    status: "manual_published",
+    scheduled_at: action.scheduled_at ?? null,
+    sent_at: postedAt,
+    payload_json: {
+      title: draft.title,
+      body: draft.body,
+      hashtags: draft.hashtags ?? [],
+      call_to_action: draft.call_to_action,
+      manual_post: manualPost
+    },
+    response_json: { manual: true, public_url: manualPost.public_url }
+  });
+
+  await supabase.from("growth_action_logs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    event_type: "manual_google_business_profile_posted",
+    message: "Googleビジネスプロフィールへ手動投稿済みとして記録しました。",
+    metadata: manualPost
+  });
+}
+
 export async function listExternalChannelAccounts(storeId: string): Promise<ExternalChannelAccount[]> {
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();

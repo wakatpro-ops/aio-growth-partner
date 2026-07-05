@@ -317,6 +317,19 @@ p {
   width: 18px;
 }
 
+.manual-checklist {
+  display: grid;
+  gap: 10px;
+}
+
+.google-manual-preview {
+  background: #fbfcf9;
+}
+
+.google-manual-preview strong {
+  color: var(--accent-strong);
+}
+
 .print-page {
   background: #eef1ed;
   min-height: 100vh;
