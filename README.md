@@ -439,12 +439,13 @@ Google OAuth接続手順:
 1. Google Cloud Consoleを開きます。
 2. 新しいプロジェクトを作成します。
 3. OAuth同意画面を設定します。テスト中は、利用するGoogleアカウントをテストユーザーに追加してください。
-4. OAuthクライアントIDを作成します。アプリケーションの種類は「ウェブ アプリケーション」を選びます。
-5. 承認済みのリダイレクトURIに `https://aio-growth-partner.vercel.app/api/google/oauth/callback` を追加します。
-6. Client ID と Client Secret を取得します。
-7. Vercel の Project Settings から Environment Variables を開き、次の値を追加します。
-8. Vercelで本番環境をRedeployします。
-9. AIO Growth Partnerの `/stores/store-auto-demo/settings/google` を開き、「Googleに接続」を押します。
+4. APIとサービスで Gmail API と Google Calendar API を有効化します。
+5. OAuthクライアントIDを作成します。アプリケーションの種類は「ウェブ アプリケーション」を選びます。
+6. 承認済みのリダイレクトURIに `https://aio-growth-partner.vercel.app/api/google/oauth/callback` を追加します。
+7. Client ID と Client Secret を取得します。
+8. Vercel の Project Settings から Environment Variables を開き、次の値を追加します。
+9. Vercelで本番環境をRedeployします。
+10. AIO Growth Partnerの `/stores/store-auto-demo/settings/google` を開き、「Googleに接続」を押します。
 
 Vercelに入れる値:
 
@@ -469,7 +470,8 @@ OAuth接続時の動き:
 
 重要:
 
-- Phase 5-Cでは、Google APIへの実投稿・実送信・実予定作成は行いません。
+- Phase 5-C-2までは、Google APIへの実投稿・実送信・実予定作成は行いません。
+- Phase 5-C-3では、Gmail下書き作成とGoogleカレンダー予定作成のみ実APIを実行します。Gmailのメール送信とGoogleビジネスプロフィール投稿は行いません。
 - 将来の実接続に備え、provider adapterとしてGoogleビジネスプロフィール、Gmail、Googleカレンダーのpayload作成を分けています。
 - refresh tokenやclient secretはクライアント側に出さない設計です。
 
@@ -478,6 +480,7 @@ Phase 5-C-3:
 - `/stores/[storeId]/growth-actions/[actionId]/send` から、接続済みGoogleアカウントを使ってGmail下書き作成とGoogleカレンダー予定作成を実行できます。
 - Gmailは `gmail.compose` scopeを使い、下書きだけを作成します。メール送信は行いません。
 - Googleカレンダーは `calendar.events` scopeを使い、指定したカレンダーに予定を作成します。
+- Google Cloud側で Gmail API または Google Calendar API が未有効の場合、Googleから返る有効化案内URLを画面エラーと `external_integration_logs` に残します。
 - Googleビジネスプロフィール投稿は、API制限、Google側の権限、審査要件を確認しながら次フェーズで扱います。
 - 成功・失敗は `external_publish_jobs` と `external_integration_logs` に保存します。
 - access token / refresh token はサーバー側だけで扱い、画面には表示しません。
