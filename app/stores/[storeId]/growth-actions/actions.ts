@@ -6,6 +6,7 @@ import {
   disconnectGoogle,
   executeGoogleIntegration,
   prepareGooglePublishJob,
+  syncGoogleBusinessProfileCandidates,
   upsertGoogleBusinessProfile,
   upsertGoogleCalendar,
   upsertGoogleGmail
@@ -107,6 +108,22 @@ export async function upsertGoogleBusinessProfileAction(storeId: string, formDat
     errorRedirect(path, error);
   }
   redirect(path);
+}
+
+export async function syncGoogleBusinessProfileCandidatesAction(storeId: string) {
+  const path = `/stores/${storeId}/settings/google/business-profile`;
+  let accountsCount = 0;
+  let locationsCount = 0;
+  try {
+    const result = await syncGoogleBusinessProfileCandidates(storeId);
+    accountsCount = result.accountsCount;
+    locationsCount = result.locationsCount;
+    revalidatePath(path);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?synced=1&accounts=${accountsCount}&locations=${locationsCount}`);
 }
 
 export async function upsertGoogleGmailAction(storeId: string, formData: FormData) {

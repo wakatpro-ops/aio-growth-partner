@@ -38,6 +38,20 @@ type GoogleIdentity = {
   name: string | null;
 };
 type GoogleExecutionTarget = "gmail" | "google_calendar";
+type GoogleBusinessAccountCandidate = {
+  name: string;
+  accountName: string | null;
+  type: string | null;
+  role: string | null;
+};
+type GoogleBusinessLocationCandidate = {
+  accountName: string;
+  name: string;
+  title: string | null;
+  address: string | null;
+  storeCode: string | null;
+  metadata: Record<string, unknown>;
+};
 
 export type GoogleIntegrationState = {
   connection: GoogleOAuthConnection | null;
@@ -504,6 +518,12 @@ export async function upsertGoogleBusinessProfile(storeId: string, formData: For
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
+  const { data: current } = await supabase
+    .from("google_business_profiles")
+    .select("metadata")
+    .eq("store_id", resolved.storeId)
+    .maybeSingle();
+  const currentMetadata = asRecord(current?.metadata);
   const { error } = await supabase.from("google_business_profiles").upsert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
@@ -513,11 +533,129 @@ export async function upsertGoogleBusinessProfile(storeId: string, formData: For
     address: String(formData.get("address") ?? "") || null,
     status: "ready",
     last_synced_at: new Date().toISOString(),
-    metadata: { memo: String(formData.get("memo") ?? "") },
+    metadata: { ...currentMetadata, memo: String(formData.get("memo") ?? "") },
     updated_at: new Date().toISOString()
   }, { onConflict: "store_id" });
   if (error) throw new Error(`Googleビジネスプロフィール設定を保存できませんでした: ${error.message}`);
   await logIntegration(supabase, resolved, "business_profile_setting", "success", "Googleビジネスプロフィール設定を保存しました。");
+}
+
+function postalAddressText(value: unknown) {
+  const address = asRecord(value);
+  const lines = Array.isArray(address.addressLines) ? address.addressLines.filter((line): line is string => typeof line === "string") : [];
+  return [
+    typeof address.postalCode === "string" ? address.postalCode : null,
+    typeof address.administrativeArea === "string" ? address.administrativeArea : null,
+    typeof address.locality === "string" ? address.locality : null,
+    ...lines
+  ].filter(Boolean).join(" ");
+}
+
+function accountCandidate(raw: Record<string, unknown>): GoogleBusinessAccountCandidate {
+  return {
+    name: typeof raw.name === "string" ? raw.name : "",
+    accountName: typeof raw.accountName === "string" ? raw.accountName : null,
+    type: typeof raw.type === "string" ? raw.type : null,
+    role: typeof raw.role === "string" ? raw.role : null
+  };
+}
+
+function locationCandidate(accountName: string, raw: Record<string, unknown>): GoogleBusinessLocationCandidate {
+  return {
+    accountName,
+    name: typeof raw.name === "string" ? raw.name : "",
+    title: typeof raw.title === "string" ? raw.title : null,
+    address: postalAddressText(raw.storefrontAddress) || null,
+    storeCode: typeof raw.storeCode === "string" ? raw.storeCode : null,
+    metadata: asRecord(raw.metadata)
+  };
+}
+
+export async function syncGoogleBusinessProfileCandidates(storeId: string) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = await ensureGooglePersistence(supabase, store);
+  const connection = await latestConnectedGoogleAccount(supabase, resolved.storeId);
+  if (!connection) throw new Error("Googleアカウントが接続されていません。Google連携画面から接続してください。");
+  const accessToken = await getUsableGoogleAccessToken(supabase, connection, resolved);
+
+  const accountsResponse = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts?pageSize=20", {
+    headers: { authorization: `Bearer ${accessToken}` }
+  });
+  const accountsResult = await accountsResponse.json() as Record<string, unknown>;
+  if (!accountsResponse.ok) {
+    const message = googleApiErrorMessage(accountsResult, "Googleビジネスプロフィールのアカウント一覧を取得できませんでした。");
+    await logIntegration(supabase, resolved, "gbp_accounts_sync_failed", "error", message, { response: accountsResult });
+    throw new Error(message);
+  }
+
+  const accounts = Array.isArray(accountsResult.accounts)
+    ? accountsResult.accounts.map((item) => accountCandidate(asRecord(item))).filter((item) => item.name)
+    : [];
+  const locations: GoogleBusinessLocationCandidate[] = [];
+
+  for (const account of accounts) {
+    const url = new URL(`https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations`);
+    url.searchParams.set("pageSize", "100");
+    url.searchParams.set("readMask", "name,title,storeCode,storefrontAddress,metadata");
+    const response = await fetch(url.toString(), {
+      headers: { authorization: `Bearer ${accessToken}` }
+    });
+    const result = await response.json() as Record<string, unknown>;
+    if (!response.ok) {
+      await logIntegration(
+        supabase,
+        resolved,
+        "gbp_locations_sync_warning",
+        "warning",
+        googleApiErrorMessage(result, `${account.name} のロケーション一覧を取得できませんでした。`),
+        { account: account.name, response: result }
+      );
+      continue;
+    }
+    if (Array.isArray(result.locations)) {
+      locations.push(...result.locations.map((item) => locationCandidate(account.name, asRecord(item))).filter((item) => item.name));
+    }
+  }
+
+  const { data: current } = await supabase
+    .from("google_business_profiles")
+    .select("metadata")
+    .eq("store_id", resolved.storeId)
+    .maybeSingle();
+  const currentMetadata = asRecord(current?.metadata);
+  const selectedLocation = locations[0] ?? null;
+  const { error } = await supabase.from("google_business_profiles").upsert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    google_account_id: selectedLocation?.accountName ?? accounts[0]?.name ?? null,
+    location_id: selectedLocation?.name ?? null,
+    location_name: selectedLocation?.title ?? null,
+    address: selectedLocation?.address ?? null,
+    status: locations.length ? "ready" : "needs_location",
+    last_synced_at: new Date().toISOString(),
+    metadata: {
+      ...currentMetadata,
+      accounts,
+      locations,
+      last_sync_status: "success",
+      posting_capabilities: {
+        supported_post_types: ["STANDARD", "EVENT", "OFFER"],
+        supported_call_to_actions: ["BOOK", "ORDER", "SHOP", "LEARN_MORE", "SIGN_UP", "CALL"],
+        product_posts_supported: false,
+        requires_manual_review_before_publish: true
+      },
+      sync_note: locations.length ? "Google Business Profileの候補ロケーションを取得しました。" : "アカウントは取得できましたが、投稿対象ロケーションは見つかりませんでした。"
+    },
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id" });
+  if (error) throw new Error(`Googleビジネスプロフィール候補を保存できませんでした: ${error.message}`);
+  await logIntegration(supabase, resolved, "gbp_accounts_locations_synced", "success", "Googleビジネスプロフィールのアカウント・ロケーション候補を取得しました。", {
+    accounts_count: accounts.length,
+    locations_count: locations.length
+  });
+  return { accountsCount: accounts.length, locationsCount: locations.length };
 }
 
 export async function upsertGoogleGmail(storeId: string, formData: FormData) {
@@ -693,6 +831,7 @@ function friendlyGoogleApiError(message: string) {
   if (message.includes("has not been used") || message.includes("is disabled")) {
     if (message.includes("gmail.googleapis.com")) return "Google CloudでGmail APIが有効になっていません。Google Cloud Consoleで Gmail API を有効化し、数分待ってからもう一度実行してください。";
     if (message.includes("calendar-json.googleapis.com")) return "Google CloudでGoogle Calendar APIが有効になっていません。Google Cloud Consoleで Google Calendar API を有効化し、数分待ってからもう一度実行してください。";
+    if (message.includes("mybusiness") || message.includes("business")) return "Google CloudでGoogle Business Profile APIが有効になっていない、または利用権限がありません。API有効化とGBP APIアクセス権限を確認してください。";
     return "Google Cloudで必要なAPIが有効になっていません。Google Cloud Consoleで対象APIを有効化してからもう一度実行してください。";
   }
   if (message.includes("insufficient") || message.includes("Insufficient Permission") || message.includes("Request had insufficient authentication scopes")) {
@@ -704,10 +843,19 @@ function friendlyGoogleApiError(message: string) {
   if (message.includes("quota") || message.includes("429")) {
     return "Google APIの利用上限に達した可能性があります。少し時間をおいてからもう一度実行してください。";
   }
+  if (message.includes("PERMISSION_DENIED") || message.includes("permission") || message.includes("Permission")) {
+    return "Googleビジネスプロフィールへの権限が不足しています。接続したGoogleアカウントが対象店舗の管理者になっているか確認してください。";
+  }
   if (message.includes("not found") || message.includes("Not Found") || message.includes("404")) {
     return "指定したGoogle側の保存先が見つかりません。メールアドレス、カレンダーID、ロケーションIDを確認してください。";
   }
   return message || "Google連携の実行に失敗しました。設定を確認してからもう一度実行してください。";
+}
+
+function googleApiErrorMessage(result: Record<string, unknown>, fallback: string) {
+  const error = asRecord(result.error);
+  if (typeof error.message === "string") return friendlyGoogleApiError(error.message);
+  return friendlyGoogleApiError(fallback);
 }
 
 async function createExternalPublishJob(
@@ -1012,7 +1160,8 @@ export function googleConnectionStatusLabel(status: string | null | undefined) {
     expired: "期限切れ",
     error: "エラー",
     disconnected: "解除済み",
-    ready: "準備済み"
+    ready: "準備済み",
+    needs_location: "ロケーション確認待ち"
   };
   return labels[status ?? "not_connected"] ?? status ?? "未接続";
 }

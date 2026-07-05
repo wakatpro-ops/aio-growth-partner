@@ -494,6 +494,20 @@ Phase 5-C-4:
 - Google APIの権限不足、API未有効、接続期限切れ、利用上限などは、初心者にも分かる日本語メッセージに変換して画面とログに残します。
 - Googleビジネスプロフィール投稿は、Google Business Profile APIのロケーション取得、OAuth権限、投稿種別、審査・ポリシー要件を確認してから実投稿へ進みます。Google公式ドキュメントでは、投稿作成には `accounts/{accountId}/locations/{locationId}/localPosts` を使い、商品投稿はAPIから作成できない制限があります。
 
+Phase 5-C-5:
+
+- `/stores/[storeId]/settings/google/business-profile` で、接続済みGoogleアカウントからGoogleビジネスプロフィールのアカウント候補とロケーション候補を取得できます。
+- アカウント一覧は Account Management API の `GET https://mybusinessaccountmanagement.googleapis.com/v1/accounts` を使います。
+- ロケーション一覧は Business Information API の `GET https://mybusinessbusinessinformation.googleapis.com/v1/{parent=accounts/*}/locations` を使い、`readMask` で `name,title,storeCode,storefrontAddress,metadata` を取得します。
+- 取得した候補は `google_business_profiles.metadata` に保存し、選択中の `google_account_id` / `location_id` / `location_name` / `address` にも反映します。
+- 投稿可能形式は、まず `STANDARD`、`EVENT`、`OFFER` として扱います。CTAは `BOOK`、`ORDER`、`SHOP`、`LEARN_MORE`、`SIGN_UP`、`CALL` を前提にします。
+- 商品投稿はGoogle公式ドキュメント上、APIから作成できないため、Phase 5-C-5では実投稿対象に含めません。
+- Google Business Profile APIのquotaが0の場合は、Google側でBasic API Access申請が必要です。quota超過時は `429 Too Many Requests` または `RESOURCE_EXHAUSTED` が返る前提で、実投稿前に連続実行を避けます。
+- 参考: https://developers.google.com/my-business/reference/accountmanagement/rest/v1/accounts/list
+- 参考: https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations/list
+- 参考: https://developers.google.com/my-business/content/posts-data
+- 参考: https://developers.google.com/my-business/content/limits
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。
