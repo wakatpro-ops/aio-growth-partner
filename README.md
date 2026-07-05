@@ -473,6 +473,15 @@ OAuth接続時の動き:
 - 将来の実接続に備え、provider adapterとしてGoogleビジネスプロフィール、Gmail、Googleカレンダーのpayload作成を分けています。
 - refresh tokenやclient secretはクライアント側に出さない設計です。
 
+Phase 5-C-3:
+
+- `/stores/[storeId]/growth-actions/[actionId]/send` から、接続済みGoogleアカウントを使ってGmail下書き作成とGoogleカレンダー予定作成を実行できます。
+- Gmailは `gmail.compose` scopeを使い、下書きだけを作成します。メール送信は行いません。
+- Googleカレンダーは `calendar.events` scopeを使い、指定したカレンダーに予定を作成します。
+- Googleビジネスプロフィール投稿は、API制限、Google側の権限、審査要件を確認しながら次フェーズで扱います。
+- 成功・失敗は `external_publish_jobs` と `external_integration_logs` に保存します。
+- access token / refresh token はサーバー側だけで扱い、画面には表示しません。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。

@@ -137,6 +137,8 @@ export type GoogleOAuthConnection = {
   store_id: string;
   provider_user_id: string | null;
   email: string | null;
+  access_token_encrypted?: string | null;
+  refresh_token_encrypted?: string | null;
   expires_at: string | null;
   scopes: string[];
   status: "not_connected" | "connected" | "expired" | "error" | "disconnected";

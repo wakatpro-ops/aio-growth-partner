@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   disconnectGoogle,
+  executeGoogleIntegration,
   prepareGooglePublishJob,
   upsertGoogleBusinessProfile,
   upsertGoogleCalendar,
@@ -143,4 +144,17 @@ export async function prepareGooglePublishJobAction(storeId: string, actionId: s
     errorRedirect(path, error);
   }
   redirect(`${path}?prepared=1`);
+}
+
+export async function executeGoogleIntegrationAction(storeId: string, actionId: string, target: "gmail" | "google_calendar", formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/send`;
+  try {
+    await executeGoogleIntegration(storeId, actionId, target, formData);
+    revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?executed=${target}`);
 }

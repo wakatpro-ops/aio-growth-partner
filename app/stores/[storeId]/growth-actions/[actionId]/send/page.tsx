@@ -9,7 +9,7 @@ import { googlePublishTargets } from "@/lib/phase5/google-adapters";
 import { getGoogleIntegrationState, googleConnectionStatusLabel } from "@/lib/phase5/google-integrations";
 import { getGrowthAction, growthActionChannelLabel } from "@/lib/phase5/growth-actions";
 import { getStore } from "@/lib/stores";
-import { prepareGooglePublishJobAction } from "../../actions";
+import { executeGoogleIntegrationAction, prepareGooglePublishJobAction } from "../../actions";
 
 function draftText(action: NonNullable<Awaited<ReturnType<typeof getGrowthAction>>>) {
   const draft = action.drafts?.[0];
@@ -22,10 +22,10 @@ export default async function GrowthActionSendPage({
   searchParams
 }: {
   params: Promise<{ storeId: string; actionId: string }>;
-  searchParams: Promise<{ error?: string; prepared?: string }>;
+  searchParams: Promise<{ error?: string; prepared?: string; executed?: string }>;
 }) {
   const { storeId, actionId } = await params;
-  const { error, prepared } = await searchParams;
+  const { error, prepared, executed } = await searchParams;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "external_publish_jobs")) notFound();
@@ -37,9 +37,10 @@ export default async function GrowthActionSendPage({
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="Googleへ送る前の確認" description="送信先、本文、予約日時を確認し、Phase 5-Cでは送信準備ログとして保存します。" />
+      <PageHeader eyebrow={industry.name} title="Google連携実行" description="送信前確認を残しつつ、Gmail下書き作成とGoogleカレンダー予定作成を実行できます。" />
       <StoreBusinessNav store={store} />
       {prepared ? <p className="notice success">送信準備を保存しました。外部サービスへの実送信はまだ行っていません。</p> : null}
+      {executed ? <p className="notice success">{executed === "gmail" ? "Gmail下書きを作成しました。" : "Googleカレンダー予定を作成しました。"}</p> : null}
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
 
       <section className="card">
@@ -51,7 +52,7 @@ export default async function GrowthActionSendPage({
             <input value={growthActionChannelLabel(action.target_channel)} readOnly />
           </label>
         </div>
-        <p className="notice">今回はGoogle APIへの実投稿・メール送信・予定作成は行わず、送信前確認とログ保存まで行います。</p>
+        <p className="notice">Gmailは下書き作成のみで、メール送信はしません。Googleビジネスプロフィール投稿はまだ実行しません。</p>
       </section>
 
       <form className="card form" action={prepareGooglePublishJobAction.bind(null, store.id, action.id)}>
@@ -93,6 +94,35 @@ export default async function GrowthActionSendPage({
             <p>{target.note}</p>
           </article>
         ))}
+      </section>
+
+      <section className="grid cols-2">
+        <form className="card form" action={executeGoogleIntegrationAction.bind(null, store.id, action.id, "gmail")}>
+          <h2>Gmail下書き作成</h2>
+          <p className="muted">接続済みGoogleアカウントのGmailに、実際の下書きを作成します。メール送信はしません。</p>
+          <label className="field">宛先メールアドレス
+            <input name="recipient_email" type="email" placeholder="customer@example.com" required />
+          </label>
+          <label className="field">件名
+            <input name="subject" defaultValue={action.drafts?.[0]?.title ?? action.title} />
+          </label>
+          <button className="button" type="submit">Gmail下書きを作成</button>
+        </form>
+
+        <form className="card form" action={executeGoogleIntegrationAction.bind(null, store.id, action.id, "google_calendar")}>
+          <h2>Googleカレンダー予定作成</h2>
+          <p className="muted">接続済みGoogleアカウントのカレンダーに、実際の予定を作成します。</p>
+          <label className="field">カレンダーID
+            <input name="calendar_id" defaultValue={state.calendar?.calendar_id ?? "primary"} />
+          </label>
+          <label className="field">予定タイトル
+            <input name="event_title" defaultValue={action.drafts?.[0]?.title ?? action.title} />
+          </label>
+          <label className="field">予定日時
+            <input name="scheduled_at" type="datetime-local" defaultValue={action.scheduled_at ? action.scheduled_at.slice(0, 16) : ""} />
+          </label>
+          <button className="button" type="submit">カレンダー予定を作成</button>
+        </form>
       </section>
     </AppShell>
   );

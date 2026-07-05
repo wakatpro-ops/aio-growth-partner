@@ -37,6 +37,7 @@ type GoogleIdentity = {
   providerUserId: string | null;
   name: string | null;
 };
+type GoogleExecutionTarget = "gmail" | "google_calendar";
 
 export type GoogleIntegrationState = {
   connection: GoogleOAuthConnection | null;
@@ -185,11 +186,33 @@ function encryptToken(value: string) {
   return `v1:${iv.toString("base64")}:${tag.toString("base64")}:${encrypted.toString("base64")}`;
 }
 
+function decryptToken(value: string | null | undefined) {
+  if (!value) return null;
+  const secret = process.env.GOOGLE_TOKEN_ENCRYPTION_KEY;
+  if (!secret) throw new Error("GOOGLE_TOKEN_ENCRYPTION_KEY が未設定のため、保存済みGoogle tokenを復号できません。");
+  const [version, ivValue, tagValue, encryptedValue] = value.split(":");
+  if (version !== "v1" || !ivValue || !tagValue || !encryptedValue) {
+    throw new Error("Google tokenの保存形式を確認できませんでした。再接続してください。");
+  }
+  const key = crypto.createHash("sha256").update(secret).digest();
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(ivValue, "base64"));
+  decipher.setAuthTag(Buffer.from(tagValue, "base64"));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encryptedValue, "base64")),
+    decipher.final()
+  ]);
+  return decrypted.toString("utf8");
+}
+
 function protectGoogleToken(value: string | null | undefined) {
   if (!value) return { encryptedValue: null, storageMode: "not_returned" };
   const encrypted = encryptToken(value);
   if (encrypted) return { encryptedValue: encrypted, storageMode: "encrypted" };
   return { encryptedValue: null, storageMode: "not_stored_missing_encryption_key" };
+}
+
+function base64Url(value: string) {
+  return Buffer.from(value, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
 function decodeJwtIdentity(idToken: string | undefined): GoogleIdentity {
@@ -241,6 +264,77 @@ async function logIntegration(
     message,
     metadata_json: metadata
   });
+}
+
+async function latestConnectedGoogleAccount(supabase: SupabaseClient, storeId: string) {
+  const { data, error } = await supabase
+    .from("google_oauth_connections")
+    .select("*")
+    .eq("store_id", storeId)
+    .eq("status", "connected")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Google接続情報を確認できませんでした: ${error.message}`);
+  return data as GoogleOAuthConnection | null;
+}
+
+async function getUsableGoogleAccessToken(
+  supabase: SupabaseClient,
+  connection: GoogleOAuthConnection,
+  resolved: { organizationId: string; storeId: string }
+) {
+  const accessToken = decryptToken(connection.access_token_encrypted);
+  const refreshToken = decryptToken(connection.refresh_token_encrypted);
+  const expiresAt = connection.expires_at ? Date.parse(connection.expires_at) : 0;
+  if (accessToken && expiresAt > Date.now() + 5 * 60 * 1000) return accessToken;
+  if (!refreshToken) {
+    await logIntegration(supabase, resolved, "google_token_refresh_failed", "error", "refresh tokenが保存されていないためGoogle APIを実行できません。", { connection_id: connection.id });
+    throw new Error("Google refresh tokenが保存されていません。Google連携画面から再接続してください。");
+  }
+  const envError = googleOAuthEnvError();
+  if (envError) throw new Error(envError);
+
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: process.env.GOOGLE_CLIENT_ID!,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token"
+    })
+  });
+  const token = await response.json() as {
+    access_token?: string;
+    expires_in?: number;
+    scope?: string;
+    error?: string;
+    error_description?: string;
+  };
+  if (!response.ok || !token.access_token) {
+    const message = token.error_description ?? token.error ?? "Google access tokenの更新に失敗しました。";
+    await logIntegration(supabase, resolved, "google_token_refresh_failed", "error", message, { connection_id: connection.id, token_error: token.error });
+    throw new Error(message);
+  }
+  const protectedAccessToken = protectGoogleToken(token.access_token);
+  const nextExpiresAt = token.expires_in ? new Date(Date.now() + token.expires_in * 1000).toISOString() : null;
+  await supabase
+    .from("google_oauth_connections")
+    .update({
+      access_token_encrypted: protectedAccessToken.encryptedValue,
+      expires_at: nextExpiresAt,
+      scopes: token.scope ? token.scope.split(/\s+/) : connection.scopes,
+      updated_at: new Date().toISOString(),
+      metadata: {
+        ...(connection.metadata ?? {}),
+        access_token_storage: protectedAccessToken.storageMode,
+        refreshed_at: new Date().toISOString()
+      }
+    })
+    .eq("id", connection.id);
+  await logIntegration(supabase, resolved, "google_token_refreshed", "success", "Google access tokenを更新しました。", { connection_id: connection.id, expires_at: nextExpiresAt });
+  return token.access_token;
 }
 
 export async function getGoogleIntegrationState(storeId: string): Promise<GoogleIntegrationState> {
@@ -507,6 +601,253 @@ export async function prepareGooglePublishJob(storeId: string, actionId: string,
     .eq("store_id", resolved.storeId)
     .eq("id", actionId);
   await logIntegration(supabase, resolved, "publish_prepare", "success", "Google向け送信準備を保存しました。", { job_id: job?.id, target });
+}
+
+function firstDraftText(action: GrowthAction) {
+  const draft = action.drafts?.[0];
+  if (!draft) return action.summary;
+  return [draft.body, draft.hashtags?.join(" "), draft.call_to_action].filter(Boolean).join("\n\n");
+}
+
+function firstDraftTitle(action: GrowthAction) {
+  return action.drafts?.[0]?.title ?? action.title;
+}
+
+function rfc822Message({
+  to,
+  fromName,
+  subject,
+  body
+}: {
+  to: string;
+  fromName: string;
+  subject: string;
+  body: string;
+}) {
+  return [
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`,
+    `From: ${fromName}`,
+    "MIME-Version: 1.0",
+    "Content-Type: text/plain; charset=UTF-8",
+    "Content-Transfer-Encoding: 8bit",
+    "",
+    body
+  ].join("\r\n");
+}
+
+function scheduledDateTime(value: string | null, fallbackDays = 1) {
+  if (value) {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  const date = new Date();
+  date.setDate(date.getDate() + fallbackDays);
+  date.setHours(10, 0, 0, 0);
+  return date;
+}
+
+async function createExternalPublishJob(
+  supabase: SupabaseClient,
+  resolved: { organizationId: string; storeId: string },
+  actionId: string,
+  target: GoogleExecutionTarget,
+  targetId: string | null,
+  scheduledAt: string | null,
+  payload: Record<string, unknown>
+) {
+  const { data, error } = await supabase.from("external_publish_jobs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    channel: target,
+    provider: "google",
+    target_id: targetId,
+    status: "processing",
+    scheduled_at: scheduledAt,
+    payload_json: payload,
+    response_json: {}
+  }).select("id").single();
+  if (error) throw new Error(`外部連携ジョブを保存できませんでした: ${error.message}`);
+  return data?.id as string;
+}
+
+async function loadGoogleActionForExecution(supabase: SupabaseClient, storeId: string, actionId: string) {
+  const { data, error } = await supabase
+    .from("growth_actions")
+    .select("*, drafts:growth_action_drafts(*)")
+    .eq("store_id", storeId)
+    .eq("id", actionId)
+    .maybeSingle();
+  if (error) throw new Error(`集客アクションを確認できませんでした: ${error.message}`);
+  if (!data) throw new Error("集客アクションが見つかりませんでした。");
+  return data as GrowthAction;
+}
+
+async function executeGmailDraft(
+  supabase: SupabaseClient,
+  resolved: { organizationId: string; storeId: string },
+  action: GrowthAction,
+  accessToken: string,
+  formData: FormData
+) {
+  const { data: gmailSetting } = await supabase
+    .from("google_gmail_settings")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .maybeSingle();
+  const targetEmail = String(formData.get("recipient_email") ?? formData.get("target_id") ?? "") || (gmailSetting as GoogleGmailSetting | null)?.email;
+  if (!targetEmail) throw new Error("Gmail下書きの宛先メールアドレスを入力してください。");
+  const senderName = (gmailSetting as GoogleGmailSetting | null)?.sender_name ?? "AIO Growth Partner";
+  const signature = (gmailSetting as GoogleGmailSetting | null)?.signature;
+  const subject = String(formData.get("subject") ?? "") || firstDraftTitle(action);
+  const body = [firstDraftText(action), signature].filter(Boolean).join("\n\n");
+  const raw = base64Url(rfc822Message({ to: targetEmail, fromName: senderName, subject, body }));
+  const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({ message: { raw } })
+  });
+  const result = await response.json() as Record<string, unknown>;
+  if (!response.ok) {
+    const message = typeof result.error === "object" && result.error && "message" in result.error ? String((result.error as { message?: string }).message) : "Gmail下書き作成に失敗しました。";
+    throw new Error(message);
+  }
+  return {
+    targetId: targetEmail,
+    payload: { subject, to: targetEmail, body_preview: body.slice(0, 500) },
+    response: result
+  };
+}
+
+async function executeCalendarEvent(
+  supabase: SupabaseClient,
+  resolved: { organizationId: string; storeId: string },
+  action: GrowthAction,
+  accessToken: string,
+  formData: FormData
+) {
+  const { data: calendarSetting } = await supabase
+    .from("google_calendar_settings")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .maybeSingle();
+  const calendarId = String(formData.get("calendar_id") ?? formData.get("target_id") ?? "") || (calendarSetting as GoogleCalendarSetting | null)?.calendar_id || "primary";
+  const timezone = (calendarSetting as GoogleCalendarSetting | null)?.timezone || "Asia/Tokyo";
+  const start = scheduledDateTime(String(formData.get("scheduled_at") ?? action.scheduled_at ?? "") || null);
+  const end = new Date(start.getTime() + 30 * 60 * 1000);
+  const event = {
+    summary: String(formData.get("event_title") ?? "") || firstDraftTitle(action),
+    description: firstDraftText(action),
+    start: { dateTime: start.toISOString(), timeZone: timezone },
+    end: { dateTime: end.toISOString(), timeZone: timezone }
+  };
+  const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(event)
+  });
+  const result = await response.json() as Record<string, unknown>;
+  if (!response.ok) {
+    const message = typeof result.error === "object" && result.error && "message" in result.error ? String((result.error as { message?: string }).message) : "Googleカレンダー予定作成に失敗しました。";
+    throw new Error(message);
+  }
+  return {
+    targetId: calendarId,
+    scheduledAt: start.toISOString(),
+    payload: { calendar_id: calendarId, event, timezone },
+    response: result
+  };
+}
+
+export async function executeGoogleIntegration(storeId: string, actionId: string, target: GoogleExecutionTarget, formData: FormData) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = await ensureGooglePersistence(supabase, store);
+  const connection = await latestConnectedGoogleAccount(supabase, resolved.storeId);
+  if (!connection) throw new Error("Googleアカウントが接続されていません。Google連携画面から接続してください。");
+  const action = await loadGoogleActionForExecution(supabase, resolved.storeId, actionId);
+  const accessToken = await getUsableGoogleAccessToken(supabase, connection, resolved);
+  const startedAt = new Date().toISOString();
+  let jobId: string | null = null;
+
+  try {
+    const result = target === "gmail"
+      ? { ...(await executeGmailDraft(supabase, resolved, action, accessToken, formData)), scheduledAt: null }
+      : await executeCalendarEvent(supabase, resolved, action, accessToken, formData);
+    const scheduledAt = target === "google_calendar" ? result.scheduledAt ?? startedAt : null;
+    jobId = await createExternalPublishJob(supabase, resolved, actionId, target, result.targetId, scheduledAt, result.payload);
+    await supabase
+      .from("external_publish_jobs")
+      .update({
+        status: "success",
+        sent_at: new Date().toISOString(),
+        response_json: result.response,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", jobId);
+    await supabase
+      .from("growth_actions")
+      .update({
+        external_provider: target,
+        external_status: "success",
+        external_post_id: typeof result.response.id === "string" ? result.response.id : null,
+        published_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq("store_id", resolved.storeId)
+      .eq("id", actionId);
+    await logIntegration(
+      supabase,
+      resolved,
+      target === "gmail" ? "gmail_draft_created" : "calendar_event_created",
+      "success",
+      target === "gmail" ? "Gmail下書きを作成しました。" : "Googleカレンダー予定を作成しました。",
+      { job_id: jobId, action_id: actionId, target_id: result.targetId, response_id: result.response.id }
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Google API実行に失敗しました。";
+    if (!jobId) {
+      jobId = await createExternalPublishJob(supabase, resolved, actionId, target, null, null, {
+        target,
+        failed_before_request: true
+      });
+    }
+    await supabase
+      .from("external_publish_jobs")
+      .update({
+        status: "error",
+        error_message: message,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", jobId);
+    await supabase
+      .from("growth_actions")
+      .update({
+        external_provider: target,
+        external_status: "error",
+        failed_reason: message,
+        updated_at: new Date().toISOString()
+      })
+      .eq("store_id", resolved.storeId)
+      .eq("id", actionId);
+    await logIntegration(
+      supabase,
+      resolved,
+      target === "gmail" ? "gmail_draft_failed" : "calendar_event_failed",
+      "error",
+      message,
+      { job_id: jobId, action_id: actionId, target }
+    );
+    throw new Error(message);
+  }
 }
 
 export function googleConnectionStatusLabel(status: string | null | undefined) {
