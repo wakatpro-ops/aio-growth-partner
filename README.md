@@ -485,6 +485,15 @@ Phase 5-C-3:
 - 成功・失敗は `external_publish_jobs` と `external_integration_logs` に保存します。
 - access token / refresh token はサーバー側だけで扱い、画面には表示しません。
 
+Phase 5-C-4:
+
+- Gmail下書き作成後は、外部IDとGmail下書き一覧へのリンクを送信前確認画面に表示します。
+- Googleカレンダー予定作成後は、予定タイトル、予定日時、外部ID、Googleカレンダー側の確認リンクを表示します。
+- `/stores/[storeId]/settings/google` にGoogle実行履歴を表示し、成功・失敗、外部ID、エラー内容を追跡できます。
+- 同じ集客アクションから同じGmail下書きや同じカレンダー予定を重複作成しないよう、成功済みジョブがある場合は通常停止します。必要な場合だけ「同じ内容でも再作成する」にチェックして再作成します。
+- Google APIの権限不足、API未有効、接続期限切れ、利用上限などは、初心者にも分かる日本語メッセージに変換して画面とログに残します。
+- Googleビジネスプロフィール投稿は、Google Business Profile APIのロケーション取得、OAuth権限、投稿種別、審査・ポリシー要件を確認してから実投稿へ進みます。Google公式ドキュメントでは、投稿作成には `accounts/{accountId}/locations/{locationId}/localPosts` を使い、商品投稿はAPIから作成できない制限があります。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。

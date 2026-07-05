@@ -647,6 +647,69 @@ function scheduledDateTime(value: string | null, fallbackDays = 1) {
   return date;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+export function googleJobExternalId(job: { response_json: Record<string, unknown> }) {
+  const response = asRecord(job.response_json);
+  const message = asRecord(response.message);
+  if (typeof response.id === "string") return response.id;
+  if (typeof response.name === "string") return response.name;
+  if (typeof message.id === "string") return message.id;
+  return null;
+}
+
+export function googleJobExternalLink(job: { channel: string; response_json: Record<string, unknown> }) {
+  const response = asRecord(job.response_json);
+  if (typeof response.htmlLink === "string") return response.htmlLink;
+  if (job.channel === "gmail") return "https://mail.google.com/mail/u/0/#drafts";
+  return null;
+}
+
+export function googleJobSummary(job: { channel: string; payload_json: Record<string, unknown>; response_json: Record<string, unknown>; scheduled_at: string | null; target_id: string | null }) {
+  const payload = asRecord(job.payload_json);
+  const response = asRecord(job.response_json);
+  if (job.channel === "gmail") {
+    return {
+      title: typeof payload.subject === "string" ? payload.subject : "Gmail下書き",
+      target: typeof payload.to === "string" ? payload.to : job.target_id,
+      scheduledAt: null,
+      externalId: googleJobExternalId(job),
+      externalLink: googleJobExternalLink(job)
+    };
+  }
+  const event = asRecord(payload.event);
+  return {
+    title: typeof event.summary === "string" ? event.summary : typeof response.summary === "string" ? response.summary : "Googleカレンダー予定",
+    target: typeof payload.calendar_id === "string" ? payload.calendar_id : job.target_id,
+    scheduledAt: job.scheduled_at,
+    externalId: googleJobExternalId(job),
+    externalLink: googleJobExternalLink(job)
+  };
+}
+
+function friendlyGoogleApiError(message: string) {
+  if (message.includes("has not been used") || message.includes("is disabled")) {
+    if (message.includes("gmail.googleapis.com")) return "Google CloudでGmail APIが有効になっていません。Google Cloud Consoleで Gmail API を有効化し、数分待ってからもう一度実行してください。";
+    if (message.includes("calendar-json.googleapis.com")) return "Google CloudでGoogle Calendar APIが有効になっていません。Google Cloud Consoleで Google Calendar API を有効化し、数分待ってからもう一度実行してください。";
+    return "Google Cloudで必要なAPIが有効になっていません。Google Cloud Consoleで対象APIを有効化してからもう一度実行してください。";
+  }
+  if (message.includes("insufficient") || message.includes("Insufficient Permission") || message.includes("Request had insufficient authentication scopes")) {
+    return "Google連携の権限が不足しています。Google連携を一度解除し、必要な権限を含めて再接続してください。";
+  }
+  if (message.includes("invalid_grant") || message.includes("invalid credentials") || message.includes("Unauthorized") || message.includes("401")) {
+    return "Google接続の有効期限が切れている可能性があります。Google連携画面から再接続してください。";
+  }
+  if (message.includes("quota") || message.includes("429")) {
+    return "Google APIの利用上限に達した可能性があります。少し時間をおいてからもう一度実行してください。";
+  }
+  if (message.includes("not found") || message.includes("Not Found") || message.includes("404")) {
+    return "指定したGoogle側の保存先が見つかりません。メールアドレス、カレンダーID、ロケーションIDを確認してください。";
+  }
+  return message || "Google連携の実行に失敗しました。設定を確認してからもう一度実行してください。";
+}
+
 async function createExternalPublishJob(
   supabase: SupabaseClient,
   resolved: { organizationId: string; storeId: string },
@@ -672,6 +735,31 @@ async function createExternalPublishJob(
   return data?.id as string;
 }
 
+async function findSuccessfulExternalJob(
+  supabase: SupabaseClient,
+  resolved: { storeId: string },
+  actionId: string,
+  target: GoogleExecutionTarget,
+  targetId: string | null,
+  scheduledAt: string | null
+) {
+  let query = supabase
+    .from("external_publish_jobs")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .eq("provider", "google")
+    .eq("growth_action_id", actionId)
+    .eq("channel", target)
+    .eq("status", "success")
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (targetId) query = query.eq("target_id", targetId);
+  if (target === "google_calendar" && scheduledAt) query = query.eq("scheduled_at", scheduledAt);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw new Error(`既存の連携履歴を確認できませんでした: ${error.message}`);
+  return data as ExternalPublishJob | null;
+}
+
 async function loadGoogleActionForExecution(supabase: SupabaseClient, storeId: string, actionId: string) {
   const { data, error } = await supabase
     .from("growth_actions")
@@ -684,11 +772,20 @@ async function loadGoogleActionForExecution(supabase: SupabaseClient, storeId: s
   return data as GrowthAction;
 }
 
-async function executeGmailDraft(
+type PreparedGmailDraft = {
+  targetEmail: string;
+  senderName: string;
+  subject: string;
+  body: string;
+  targetId: string;
+  scheduledAt: null;
+  payload: Record<string, unknown>;
+};
+
+async function prepareGmailDraftExecution(
   supabase: SupabaseClient,
   resolved: { organizationId: string; storeId: string },
   action: GrowthAction,
-  accessToken: string,
   formData: FormData
 ) {
   const { data: gmailSetting } = await supabase
@@ -702,6 +799,19 @@ async function executeGmailDraft(
   const signature = (gmailSetting as GoogleGmailSetting | null)?.signature;
   const subject = String(formData.get("subject") ?? "") || firstDraftTitle(action);
   const body = [firstDraftText(action), signature].filter(Boolean).join("\n\n");
+  return {
+    targetEmail,
+    senderName,
+    subject,
+    body,
+    targetId: targetEmail,
+    scheduledAt: null,
+    payload: { subject, to: targetEmail, body_preview: body.slice(0, 500) }
+  };
+}
+
+async function executeGmailDraft(accessToken: string, prepared: PreparedGmailDraft) {
+  const { targetEmail, senderName, subject, body } = prepared;
   const raw = base64Url(rfc822Message({ to: targetEmail, fromName: senderName, subject, body }));
   const response = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
     method: "POST",
@@ -714,20 +824,32 @@ async function executeGmailDraft(
   const result = await response.json() as Record<string, unknown>;
   if (!response.ok) {
     const message = typeof result.error === "object" && result.error && "message" in result.error ? String((result.error as { message?: string }).message) : "Gmail下書き作成に失敗しました。";
-    throw new Error(message);
+    throw new Error(friendlyGoogleApiError(message));
   }
   return {
-    targetId: targetEmail,
-    payload: { subject, to: targetEmail, body_preview: body.slice(0, 500) },
+    targetId: prepared.targetId,
+    scheduledAt: prepared.scheduledAt,
+    payload: prepared.payload,
     response: result
   };
 }
 
-async function executeCalendarEvent(
+type PreparedCalendarEvent = {
+  calendarId: string;
+  scheduledAt: string;
+  payload: Record<string, unknown>;
+  event: {
+    summary: string;
+    description: string;
+    start: { dateTime: string; timeZone: string };
+    end: { dateTime: string; timeZone: string };
+  };
+};
+
+async function prepareCalendarEventExecution(
   supabase: SupabaseClient,
   resolved: { organizationId: string; storeId: string },
   action: GrowthAction,
-  accessToken: string,
   formData: FormData
 ) {
   const { data: calendarSetting } = await supabase
@@ -745,6 +867,16 @@ async function executeCalendarEvent(
     start: { dateTime: start.toISOString(), timeZone: timezone },
     end: { dateTime: end.toISOString(), timeZone: timezone }
   };
+  return {
+    calendarId,
+    scheduledAt: start.toISOString(),
+    event,
+    payload: { calendar_id: calendarId, event, timezone }
+  };
+}
+
+async function executeCalendarEvent(accessToken: string, prepared: PreparedCalendarEvent) {
+  const { calendarId, event } = prepared;
   const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`, {
     method: "POST",
     headers: {
@@ -756,12 +888,12 @@ async function executeCalendarEvent(
   const result = await response.json() as Record<string, unknown>;
   if (!response.ok) {
     const message = typeof result.error === "object" && result.error && "message" in result.error ? String((result.error as { message?: string }).message) : "Googleカレンダー予定作成に失敗しました。";
-    throw new Error(message);
+    throw new Error(friendlyGoogleApiError(message));
   }
   return {
     targetId: calendarId,
-    scheduledAt: start.toISOString(),
-    payload: { calendar_id: calendarId, event, timezone },
+    scheduledAt: prepared.scheduledAt,
+    payload: prepared.payload,
     response: result
   };
 }
@@ -774,14 +906,35 @@ export async function executeGoogleIntegration(storeId: string, actionId: string
   const connection = await latestConnectedGoogleAccount(supabase, resolved.storeId);
   if (!connection) throw new Error("Googleアカウントが接続されていません。Google連携画面から接続してください。");
   const action = await loadGoogleActionForExecution(supabase, resolved.storeId, actionId);
+  const preparedGmail = target === "gmail" ? await prepareGmailDraftExecution(supabase, resolved, action, formData) : null;
+  const preparedCalendar = target === "google_calendar" ? await prepareCalendarEventExecution(supabase, resolved, action, formData) : null;
+  const targetId = preparedGmail?.targetId ?? preparedCalendar?.calendarId ?? null;
+  const targetScheduledAt = preparedCalendar?.scheduledAt ?? null;
+  const attemptedPayload = preparedGmail?.payload ?? preparedCalendar?.payload ?? { target };
+  const forceDuplicate = String(formData.get("force_duplicate") ?? "") === "1";
+  if (!forceDuplicate) {
+    const existing = await findSuccessfulExternalJob(
+      supabase,
+      resolved,
+      actionId,
+      target,
+      targetId,
+      targetScheduledAt
+    );
+    if (existing) {
+      const summary = googleJobSummary(existing);
+      const externalId = summary.externalId ? ` 外部ID: ${summary.externalId}` : "";
+      throw new Error(`${target === "gmail" ? "このGmail下書き" : "このGoogleカレンダー予定"}はすでに作成済みです。再作成したい場合は「同じ内容でも再作成する」にチェックしてください。${externalId}`);
+    }
+  }
   const accessToken = await getUsableGoogleAccessToken(supabase, connection, resolved);
   const startedAt = new Date().toISOString();
   let jobId: string | null = null;
 
   try {
-    const result = target === "gmail"
-      ? { ...(await executeGmailDraft(supabase, resolved, action, accessToken, formData)), scheduledAt: null }
-      : await executeCalendarEvent(supabase, resolved, action, accessToken, formData);
+    const result = preparedGmail
+      ? await executeGmailDraft(accessToken, preparedGmail)
+      : await executeCalendarEvent(accessToken, preparedCalendar as PreparedCalendarEvent);
     const scheduledAt = target === "google_calendar" ? result.scheduledAt ?? startedAt : null;
     jobId = await createExternalPublishJob(supabase, resolved, actionId, target, result.targetId, scheduledAt, result.payload);
     await supabase
@@ -812,12 +965,14 @@ export async function executeGoogleIntegration(storeId: string, actionId: string
       target === "gmail" ? "Gmail下書きを作成しました。" : "Googleカレンダー予定を作成しました。",
       { job_id: jobId, action_id: actionId, target_id: result.targetId, response_id: result.response.id }
     );
+    return { jobId, target, externalId: typeof result.response.id === "string" ? result.response.id : null };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Google API実行に失敗しました。";
+    const message = friendlyGoogleApiError(error instanceof Error ? error.message : "Google API実行に失敗しました。");
     if (!jobId) {
-      jobId = await createExternalPublishJob(supabase, resolved, actionId, target, null, null, {
+      jobId = await createExternalPublishJob(supabase, resolved, actionId, target, targetId, targetScheduledAt, {
         target,
-        failed_before_request: true
+        failed_before_request: true,
+        attempted_payload: attemptedPayload
       });
     }
     await supabase

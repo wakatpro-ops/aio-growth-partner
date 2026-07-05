@@ -5,7 +5,7 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
-import { getGoogleIntegrationState, googleConnectionStatusLabel } from "@/lib/phase5/google-integrations";
+import { getGoogleIntegrationState, googleConnectionStatusLabel, googleJobExternalId, googleJobExternalLink, googleJobSummary } from "@/lib/phase5/google-integrations";
 import { getStore } from "@/lib/stores";
 import { disconnectGoogleAction } from "../../growth-actions/actions";
 
@@ -14,6 +14,35 @@ const services = [
   { href: "gmail", label: "Gmail", description: "既存顧客案内メールの下書き作成準備" },
   { href: "calendar", label: "Googleカレンダー", description: "投稿・配信・点検案内の予定作成準備" }
 ];
+
+function dateTime(value: string | null | undefined) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat("ja-JP", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Tokyo" }).format(new Date(value));
+}
+
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    ready: "準備済み",
+    processing: "処理中",
+    success: "成功",
+    error: "失敗",
+    disconnected: "解除済み"
+  };
+  return labels[status] ?? status;
+}
+
+function actionTypeLabel(actionType: string) {
+  const labels: Record<string, string> = {
+    google_oauth_started: "Google接続開始",
+    google_oauth_connected: "Google接続保存",
+    google_token_refreshed: "トークン更新",
+    gmail_draft_created: "Gmail下書き作成",
+    gmail_draft_failed: "Gmail下書き失敗",
+    calendar_event_created: "カレンダー予定作成",
+    calendar_event_failed: "カレンダー予定失敗"
+  };
+  return labels[actionType] ?? actionType;
+}
 
 export default async function GoogleSettingsPage({
   params,
@@ -73,15 +102,42 @@ export default async function GoogleSettingsPage({
       </section>
 
       <section className="card">
+        <h2>Google実行履歴</h2>
+        <table className="table">
+          <thead><tr><th>日時</th><th>種類</th><th>状態</th><th>外部ID</th><th>内容</th></tr></thead>
+          <tbody>
+            {state.jobs.map((job) => {
+              const summary = googleJobSummary(job);
+              const link = googleJobExternalLink(job);
+              return (
+                <tr key={job.id}>
+                  <td>{dateTime(job.created_at)}</td>
+                  <td>{job.channel === "gmail" ? "Gmail下書き" : job.channel === "google_calendar" ? "Googleカレンダー" : job.channel}</td>
+                  <td><span className="badge">{statusLabel(job.status)}</span></td>
+                  <td>{googleJobExternalId(job) ?? "-"}</td>
+                  <td>
+                    {summary.title}<br />
+                    <span className="muted">{job.error_message ?? summary.target ?? "-"}</span>
+                    {link ? <><br /><Link href={link} target="_blank">Google側で開く</Link></> : null}
+                  </td>
+                </tr>
+              );
+            })}
+            {state.jobs.length === 0 ? <tr><td colSpan={5}>まだGoogle実行履歴はありません。</td></tr> : null}
+          </tbody>
+        </table>
+      </section>
+
+      <section className="card">
         <h2>最近の連携ログ</h2>
         <table className="table">
           <thead><tr><th>日時</th><th>処理</th><th>状態</th><th>内容</th></tr></thead>
           <tbody>
             {state.logs.map((log) => (
               <tr key={log.id}>
-                <td>{new Date(log.created_at).toLocaleString("ja-JP")}</td>
-                <td>{log.action_type}</td>
-                <td><span className="badge">{log.status}</span></td>
+                <td>{dateTime(log.created_at)}</td>
+                <td>{actionTypeLabel(log.action_type)}</td>
+                <td><span className="badge">{statusLabel(log.status)}</span></td>
                 <td>{log.message ?? "-"}</td>
               </tr>
             ))}

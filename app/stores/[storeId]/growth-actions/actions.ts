@@ -148,13 +148,15 @@ export async function prepareGooglePublishJobAction(storeId: string, actionId: s
 
 export async function executeGoogleIntegrationAction(storeId: string, actionId: string, target: "gmail" | "google_calendar", formData: FormData) {
   const path = `/stores/${storeId}/growth-actions/${actionId}/send`;
+  let jobId: string | null = null;
   try {
-    await executeGoogleIntegration(storeId, actionId, target, formData);
+    const result = await executeGoogleIntegration(storeId, actionId, target, formData);
+    jobId = result.jobId;
     revalidatePath(`/stores/${storeId}/growth-actions`);
     revalidatePath(`/stores/${storeId}/settings/google`);
     revalidatePath(path);
   } catch (error) {
     errorRedirect(path, error);
   }
-  redirect(`${path}?executed=${target}`);
+  redirect(`${path}?executed=${target}${jobId ? `&job=${jobId}` : ""}`);
 }

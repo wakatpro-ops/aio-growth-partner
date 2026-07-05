@@ -36,6 +36,21 @@ export default async function GoogleBusinessProfilePage({
         <p>プロフィール設定: <span className="badge">{googleConnectionStatusLabel(setting?.status)}</span></p>
       </section>
 
+      <section className="card">
+        <h2>実投稿前の確認</h2>
+        <ul className="compact-list">
+          <li>Google Business Profile API と対象ロケーションへのアクセス権限を確認します。</li>
+          <li>Google側のアカウントIDとロケーションIDを取得して、この画面に保存します。</li>
+          <li>投稿は「最新情報」「イベント」「特典」などの対応形式から開始します。</li>
+          <li>商品投稿はAPIで作成できない制限があるため、別導線として扱います。</li>
+          <li>実投稿前に、必ず送信前確認画面で本文、URL、画像、CTAを確認します。</li>
+        </ul>
+        <div className="form-actions">
+          <Link className="button secondary" href="https://developers.google.com/my-business/content/posts-data" target="_blank">投稿APIの公式情報</Link>
+          <Link className="button secondary" href="https://developers.google.com/my-business/reference/rest" target="_blank">API一覧を確認</Link>
+        </div>
+      </section>
+
       <form className="card form" action={upsertGoogleBusinessProfileAction.bind(null, store.id)}>
         <div className="grid cols-2">
           <label className="field">GoogleアカウントID

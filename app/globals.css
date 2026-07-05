@@ -228,6 +228,18 @@ p {
   resize: vertical;
 }
 
+.field.checkbox-row {
+  align-items: center;
+  display: flex;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field.checkbox-row input {
+  min-height: auto;
+  width: auto;
+}
+
 .table {
   border-collapse: collapse;
   width: 100%;

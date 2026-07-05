@@ -13,19 +13,19 @@ export const googlePublishTargets: Array<{
     key: "google_business_profile",
     label: "Googleビジネスプロフィール投稿",
     provider: "google_business_profile",
-    note: "Google検索・マップに出す投稿の準備です。Phase 5-Cでは実投稿は行いません。"
+    note: "Google検索・マップに出す投稿の準備です。API制限、権限、ロケーション確認を済ませてから実投稿に進みます。"
   },
   {
     key: "gmail",
     label: "Gmail下書き",
     provider: "gmail",
-    note: "既存顧客への案内メール下書き作成に使う準備です。Phase 5-Cでは実送信は行いません。"
+    note: "既存顧客への案内メール下書きを実際にGmailへ作成します。メール送信は行いません。"
   },
   {
     key: "google_calendar",
     label: "Googleカレンダー予定",
     provider: "google_calendar",
-    note: "投稿・配信・点検案内などの実行予定を作る準備です。Phase 5-Cでは予定作成は行いません。"
+    note: "投稿・配信・点検案内などの予定を実際にGoogleカレンダーへ作成します。"
   }
 ];
 
