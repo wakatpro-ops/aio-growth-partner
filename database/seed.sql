@@ -319,7 +319,16 @@ values ('starter', 'phase6a_invoice_ready_modules', '["invoice_compliance","invo
 on conflict (plan_key, limit_key) do update set limit_value = excluded.limit_value;
 
 insert into public.invoice_number_sequences (organization_id, store_id, prefix, next_number, registration_number, qualified_invoice_issuer_name)
-values
-  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', 'INV', 2, null, 'AIOサンプル店舗'),
-  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000102', 'INV-AUTO', 2, null, 'AIOオート整備')
-on conflict (store_id) do nothing;
+select
+  stores.organization_id,
+  stores.id,
+  case when stores.industry_type_key = 'auto_repair' then 'INV-AUTO' else 'INV' end,
+  1,
+  null,
+  stores.name
+from public.stores
+where stores.status = 'active'
+on conflict (store_id) do update set
+  prefix = coalesce(public.invoice_number_sequences.prefix, excluded.prefix),
+  qualified_invoice_issuer_name = coalesce(public.invoice_number_sequences.qualified_invoice_issuer_name, excluded.qualified_invoice_issuer_name),
+  updated_at = now();
