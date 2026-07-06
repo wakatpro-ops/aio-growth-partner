@@ -513,7 +513,7 @@ Phase 5-C-5:
 - 参考: https://developers.google.com/my-business/content/posts-data
 - 参考: https://developers.google.com/my-business/content/limits
 
-Phase 5-D:
+Phase 5-C-6: GBP手動投稿支援:
 
 - Google Business Profile APIのBasic API Access / quota付与待ちの間は、実API投稿ではなく手動投稿運用を行います。
 - `/stores/[storeId]/growth-actions/[actionId]/manual-post` で、Googleビジネスプロフィール投稿用のコピー本文、投稿タイプ、CTA、プレビュー、投稿前チェックリストを確認できます。
@@ -524,6 +524,18 @@ Phase 5-D:
 - 手動投稿後は、投稿日時、担当者、投稿URLまたは管理メモ、対象店舗メモ、画像メモ、チェックリストを保存できます。
 - 保存すると `growth_actions`、`growth_action_drafts`、`growth_action_schedule_items` に進行状態を反映し、`external_publish_jobs` にも `pending_manual_post` / `awaiting_approval` / `manual_published` として履歴を残します。
 - 将来GBP API quotaが付与されたら、同じ下書き・承認・履歴データを使って実API投稿に切り替えます。
+
+Phase 5-D: SNS投稿支援:
+
+- Google Business Profile実APIの審査待ち中も、Instagram / LINE / X / Facebookへ展開できる手動投稿支援を行います。
+- `/stores/[storeId]/growth-actions/[actionId]/sns-post` で、既存の集客アクション下書きから媒体別の投稿文を確認できます。
+- Instagramは写真や整備風景と組み合わせやすい文体、LINEは既存顧客向けの短文、Xは短く即時性のある文体、Facebookは地域向けの説明文として整形します。
+- 投稿目的は「新規集客」「既存顧客フォロー」「キャンペーン」「季節案内」「口コミ促進」「予約促進」から選べます。
+- 投稿ステータスは「下書き」「承認待ち」「承認済み」「手動投稿済み」で管理します。
+- 画像アップロードや画像URLを前提に、Phase 5-Dでは画像URL、画像メモ、画像キャプション設計メモを保存します。将来は画像アップロードからキャプション生成へ拡張します。
+- 媒体別チェックリストとして、画像あり、CTAあり、URLあり、ハッシュタグあり、投稿前確認済みを保存できます。
+- 保存内容は `growth_actions`、`growth_action_drafts`、`growth_action_schedule_items` に反映し、`external_publish_jobs` に `manual_instagram`、`manual_line`、`manual_x`、`manual_facebook` などの履歴を残します。
+- 現段階ではSNS APIへの実投稿は行いません。将来Meta Graph APIやLINE APIへ接続できるよう、投稿先、外部ステータス、投稿URL、履歴を分けて保存します。
 
 ## Vercel Notes
 

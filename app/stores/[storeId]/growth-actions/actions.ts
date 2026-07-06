@@ -14,6 +14,7 @@ import {
 import {
   generateGrowthActions,
   markGoogleBusinessProfileManualPost,
+  markSnsManualPost,
   submitGrowthActionApproval,
   updateGrowthActionDraft,
   updateGrowthActionStatus,
@@ -90,6 +91,21 @@ export async function markGoogleBusinessProfileManualPostAction(storeId: string,
     errorRedirect(path, error);
   }
   redirect(`${path}?posted=1`);
+}
+
+export async function markSnsManualPostAction(storeId: string, actionId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
+  try {
+    await markSnsManualPost(storeId, actionId, formData);
+    revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(`/stores/${storeId}/growth-calendar`);
+    revalidatePath(`/stores/${storeId}/settings/channels`);
+    revalidatePath(`/stores/${storeId}/growth-actions/${actionId}`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?saved=1`);
 }
 
 export async function upsertExternalChannelAccountAction(storeId: string, formData: FormData) {

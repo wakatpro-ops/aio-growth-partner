@@ -620,6 +620,124 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
   });
 }
 
+export async function markSnsManualPost(storeId: string, actionId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = await ensureDemoPersistence(supabase, store);
+  const { data: action, error: actionError } = await supabase
+    .from("growth_actions")
+    .select("*, drafts:growth_action_drafts(*)")
+    .eq("store_id", resolved.storeId)
+    .eq("id", actionId)
+    .maybeSingle();
+  if (actionError) throw new Error(`集客アクションを確認できませんでした: ${actionError.message}`);
+  if (!action) throw new Error("集客アクションが見つかりませんでした。");
+  const draft = Array.isArray(action.drafts)
+    ? action.drafts.find((item: { channel?: string }) => item.channel === action.target_channel) ?? action.drafts[0]
+    : null;
+  if (!draft) throw new Error("SNS投稿下書きが見つかりませんでした。");
+
+  const manualStatus = String(formData.get("manual_status") ?? "draft");
+  const isPublished = manualStatus === "manual_published";
+  const actionStatus: GrowthActionStatus =
+    manualStatus === "approval_pending" ? "pending_approval" :
+      manualStatus === "approved" ? "approved" :
+        isPublished ? "done" : "drafted";
+  const postedAt = String(formData.get("posted_at") ?? "") || new Date().toISOString();
+  const selectedChannel = String(formData.get("sns_channel") ?? draft.channel ?? action.target_channel);
+  const snsPost = {
+    status: manualStatus,
+    sns_channel: selectedChannel,
+    post_goal: String(formData.get("post_goal") ?? "new_customer"),
+    image_url: String(formData.get("image_url") ?? "") || null,
+    image_note: String(formData.get("image_note") ?? "") || null,
+    selected_text: String(formData.get("selected_text") ?? "") || null,
+    public_url: String(formData.get("public_url") ?? "") || null,
+    posted_at: isPublished ? postedAt : null,
+    operator_name: String(formData.get("operator_name") ?? "") || null,
+    memo: String(formData.get("memo") ?? "") || null,
+    checklist: formData.getAll("checklist").map(String),
+    source: "manual_sns_post"
+  };
+  const actionMetadata = action.metadata && typeof action.metadata === "object" ? action.metadata as Record<string, unknown> : {};
+  const draftMetadata = draft.metadata && typeof draft.metadata === "object" ? draft.metadata as Record<string, unknown> : {};
+
+  const { error } = await supabase
+    .from("growth_actions")
+    .update({
+      status: actionStatus,
+      external_provider: selectedChannel,
+      external_status: manualStatus,
+      external_post_id: isPublished ? snsPost.public_url : null,
+      published_at: isPublished ? postedAt : null,
+      failed_reason: null,
+      metadata: { ...actionMetadata, manual_sns_post: snsPost },
+      updated_at: new Date().toISOString()
+    })
+    .eq("store_id", resolved.storeId)
+    .eq("id", actionId);
+  if (error) throw new Error(`SNS投稿状態を保存できませんでした: ${error.message}`);
+
+  await supabase
+    .from("growth_action_drafts")
+    .update({
+      external_provider: selectedChannel,
+      external_status: manualStatus,
+      external_post_id: isPublished ? snsPost.public_url : null,
+      published_at: isPublished ? postedAt : null,
+      failed_reason: null,
+      metadata: { ...draftMetadata, manual_sns_post: snsPost },
+      updated_at: new Date().toISOString()
+    })
+    .eq("store_id", resolved.storeId)
+    .eq("id", draft.id);
+
+  await supabase
+    .from("growth_action_schedule_items")
+    .update({
+      status: actionStatus,
+      external_provider: selectedChannel,
+      external_status: manualStatus,
+      external_post_id: isPublished ? snsPost.public_url : null,
+      published_at: isPublished ? postedAt : null,
+      metadata: { manual_sns_post: snsPost },
+      updated_at: new Date().toISOString()
+    })
+    .eq("store_id", resolved.storeId)
+    .eq("growth_action_id", actionId);
+
+  await supabase.from("external_publish_jobs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    channel: selectedChannel,
+    provider: `manual_${selectedChannel}`,
+    target_id: isPublished ? snsPost.public_url : null,
+    status: manualStatus,
+    scheduled_at: action.scheduled_at ?? null,
+    sent_at: isPublished ? postedAt : null,
+    payload_json: {
+      title: draft.title,
+      body: draft.body,
+      short_body: draft.short_body,
+      hashtags: draft.hashtags ?? [],
+      call_to_action: draft.call_to_action,
+      manual_post: snsPost
+    },
+    response_json: { manual: true, public_url: snsPost.public_url, status: manualStatus }
+  });
+
+  await supabase.from("growth_action_logs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    growth_action_id: actionId,
+    event_type: `manual_sns_${manualStatus}`,
+    message: isPublished ? "SNSへ手動投稿済みとして記録しました。" : "SNS手動投稿の進行状態を保存しました。",
+    metadata: snsPost
+  });
+}
+
 export async function listExternalChannelAccounts(storeId: string): Promise<ExternalChannelAccount[]> {
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
