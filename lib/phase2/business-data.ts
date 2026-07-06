@@ -47,6 +47,36 @@ function asText(value: FormDataEntryValue | null) {
   return text.length > 0 ? text : null;
 }
 
+function asDateText(value: FormDataEntryValue | null) {
+  return asText(value) ?? new Date().toISOString().slice(0, 10);
+}
+
+async function nextInvoiceNumber(supabase: SupabaseClient, organizationId: string, storeId: string, requested: string | null) {
+  if (requested) return { documentNumber: requested, sequenceNumber: null, prefix: null };
+
+  const { data } = await supabase
+    .from("invoice_number_sequences")
+    .select("prefix, next_number")
+    .eq("store_id", storeId)
+    .maybeSingle();
+
+  const prefix = data?.prefix ?? "INV";
+  const nextNumber = Number(data?.next_number ?? 1);
+  await supabase.from("invoice_number_sequences").upsert({
+    organization_id: organizationId,
+    store_id: storeId,
+    prefix,
+    next_number: nextNumber + 1,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id" });
+
+  return {
+    documentNumber: `${prefix}-${String(nextNumber).padStart(6, "0")}`,
+    sequenceNumber: nextNumber,
+    prefix
+  };
+}
+
 function documentFallback(kind: DocumentKind, storeId: string) {
   const source = kind === "estimates" ? demoEstimates : demoInvoices;
   return source.filter((doc) => doc.store_id === storeId || storeId.startsWith("demo"));
@@ -448,23 +478,45 @@ export async function createDocumentFromForm(storeId: string, kind: DocumentKind
 
   const subtotal = asNumber(formData.get("subtotal"));
   const taxTotal = asNumber(formData.get("tax_total"));
+  const tax10Subtotal = asNumber(formData.get("tax_10_subtotal"), subtotal);
+  const tax10Amount = asNumber(formData.get("tax_10_amount"), taxTotal);
+  const tax8Subtotal = asNumber(formData.get("tax_8_subtotal"));
+  const tax8Amount = asNumber(formData.get("tax_8_amount"));
+  const requestedNumber = asText(formData.get("document_number"));
+  const invoiceNumber = kind === "invoices"
+    ? await nextInvoiceNumber(supabase, resolved.organizationId, resolved.storeId, requestedNumber)
+    : { documentNumber: requestedNumber ?? "", sequenceNumber: null, prefix: null };
   const payload = {
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
     customer_id: asText(formData.get("customer_id")),
-    document_number: String(formData.get("document_number") ?? ""),
+    document_number: invoiceNumber.documentNumber,
     title: String(formData.get("title") ?? ""),
-    issue_date: String(formData.get("issue_date") ?? new Date().toISOString().slice(0, 10)),
+    issue_date: asDateText(formData.get("issue_date")),
     status: String(formData.get("status") ?? "draft"),
     subtotal: subtotal,
     tax_total: taxTotal,
     total: subtotal + taxTotal,
+    tax_10_subtotal: tax10Subtotal,
+    tax_10_amount: tax10Amount,
+    tax_8_subtotal: tax8Subtotal,
+    tax_8_amount: tax8Amount,
     notes: asText(formData.get("notes"))
   };
 
   const dateFields = kind === "estimates"
     ? { expiry_date: asText(formData.get("expiry_date")) }
-    : { due_date: asText(formData.get("due_date")) };
+    : {
+        due_date: asText(formData.get("due_date")),
+        transaction_date: asText(formData.get("transaction_date")),
+        invoice_registration_number: asText(formData.get("invoice_registration_number")),
+        qualified_invoice_issuer_name: asText(formData.get("qualified_invoice_issuer_name")),
+        invoice_sequence_number: invoiceNumber.sequenceNumber,
+        invoice_number_prefix: invoiceNumber.prefix,
+        payment_status: String(formData.get("payment_status") ?? "unpaid"),
+        payment_method: asText(formData.get("payment_method")),
+        issued_at: String(formData.get("status") ?? "draft") === "issued" ? new Date().toISOString() : null
+      };
 
   const { error } = await supabase.from(kind).insert({ ...payload, ...dateFields });
   if (error) {
@@ -488,13 +540,25 @@ export async function updateDocumentFromForm(storeId: string, documentId: string
     subtotal,
     tax_total: taxTotal,
     total: subtotal + taxTotal,
+    tax_10_subtotal: asNumber(formData.get("tax_10_subtotal"), subtotal),
+    tax_10_amount: asNumber(formData.get("tax_10_amount"), taxTotal),
+    tax_8_subtotal: asNumber(formData.get("tax_8_subtotal")),
+    tax_8_amount: asNumber(formData.get("tax_8_amount")),
     notes: asText(formData.get("notes")),
     updated_at: new Date().toISOString()
   };
 
   const dateFields = kind === "estimates"
     ? { expiry_date: asText(formData.get("expiry_date")) }
-    : { due_date: asText(formData.get("due_date")) };
+    : {
+        due_date: asText(formData.get("due_date")),
+        transaction_date: asText(formData.get("transaction_date")),
+        invoice_registration_number: asText(formData.get("invoice_registration_number")),
+        qualified_invoice_issuer_name: asText(formData.get("qualified_invoice_issuer_name")),
+        payment_status: String(formData.get("payment_status") ?? "unpaid"),
+        payment_method: asText(formData.get("payment_method")),
+        issued_at: String(formData.get("status") ?? "draft") === "issued" ? new Date().toISOString() : null
+      };
 
   const { error } = await supabase
     .from(kind)

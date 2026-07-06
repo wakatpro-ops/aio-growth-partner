@@ -6,15 +6,17 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getDocument, listCustomers } from "@/lib/phase2/business-data";
+import { listPdfIssues } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
 import { deleteInvoiceAction, updateInvoiceAction } from "../../business/actions";
 
 export default async function InvoiceDetailPage({ params }: { params: Promise<{ storeId: string; invoiceId: string }> }) {
   const { storeId, invoiceId } = await params;
   const store = await getStore(storeId);
-  const [invoice, customers] = await Promise.all([
+  const [invoice, customers, pdfIssues] = await Promise.all([
     getDocument(store.id, invoiceId, "invoices"),
-    listCustomers(store.id)
+    listCustomers(store.id),
+    listPdfIssues(store.id, invoiceId)
   ]);
   if (!invoice) notFound();
 
@@ -34,7 +36,37 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
         ) : undefined}
       />
+      <section className="grid cols-3">
+        <article className="card">
+          <p className="muted">登録番号</p>
+          <strong>{invoice.invoice_registration_number ?? "未設定"}</strong>
+        </article>
+        <article className="card">
+          <p className="muted">税率別内訳</p>
+          <strong>10%: {(invoice.tax_10_amount ?? invoice.tax_total).toLocaleString("ja-JP")}円 / 8%: {(invoice.tax_8_amount ?? 0).toLocaleString("ja-JP")}円</strong>
+        </article>
+        <article className="card">
+          <p className="muted">入金状態</p>
+          <strong>{invoice.payment_status ?? "未設定"}</strong>
+        </article>
+      </section>
       <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" />
+      <section className="card">
+        <h2>PDF発行・再発行履歴</h2>
+        <table className="table compact">
+          <thead><tr><th>日時</th><th>種別</th><th>ファイル名</th></tr></thead>
+          <tbody>
+            {pdfIssues.map((issue) => (
+              <tr key={issue.id}>
+                <td>{new Date(issue.issued_at).toLocaleString("ja-JP")}</td>
+                <td>{issue.issue_type === "reissue" ? "再発行" : "発行"}</td>
+                <td>{issue.file_name ?? "-"}</td>
+              </tr>
+            ))}
+            {pdfIssues.length === 0 ? <tr><td colSpan={3}>まだPDF発行履歴はありません。</td></tr> : null}
+          </tbody>
+        </table>
+      </section>
       <form action={deleteInvoiceAction.bind(null, store.id, invoice.id)} className="danger-zone">
         <button className="button danger" type="submit">削除</button>
       </form>

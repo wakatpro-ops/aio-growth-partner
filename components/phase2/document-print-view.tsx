@@ -56,12 +56,22 @@ export function DocumentPrintView({
           <dl className="print-meta">
             <div><dt>{documentLabel}番号</dt><dd>{document.document_number}</dd></div>
             <div><dt>発行日</dt><dd>{formatDate(document.issue_date)}</dd></div>
+            {kind === "invoice" ? <div><dt>取引年月日</dt><dd>{formatDate(document.transaction_date ?? document.issue_date)}</dd></div> : null}
             <div><dt>{limitLabel}</dt><dd>{formatDate(limitValue)}</dd></div>
+            {kind === "invoice" ? <div><dt>登録番号</dt><dd>{document.invoice_registration_number ?? "未設定"}</dd></div> : null}
           </dl>
         </section>
 
         <table className="print-table">
           <tbody>
+            {kind === "invoice" ? (
+              <>
+                <tr><th>10%対象</th><td>{formatCurrency(document.tax_10_subtotal ?? document.subtotal)}</td></tr>
+                <tr><th>10%消費税</th><td>{formatCurrency(document.tax_10_amount ?? document.tax_total)}</td></tr>
+                <tr><th>8%対象</th><td>{formatCurrency(document.tax_8_subtotal ?? 0)}</td></tr>
+                <tr><th>8%消費税</th><td>{formatCurrency(document.tax_8_amount ?? 0)}</td></tr>
+              </>
+            ) : null}
             <tr><th>小計</th><td>{formatCurrency(document.subtotal)}</td></tr>
             <tr><th>消費税</th><td>{formatCurrency(document.tax_total)}</td></tr>
             <tr className="print-total"><th>合計</th><td>{formatCurrency(document.total)}</td></tr>

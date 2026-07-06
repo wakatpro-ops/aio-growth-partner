@@ -280,3 +280,46 @@ where industry_type_key in ('general_store', 'auto_repair');
 update public.plan_limits
 set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","growth_action_center","google_business_profile_drafts","instagram_drafts","review_reply_drafts","customer_message_drafts","pop_copy_drafts","line_message_drafts","growth_calendar","draft_approval_flow","draft_editing","channel_previews","external_channel_accounts","google_integrations","google_oauth_connection","google_business_profile_integration","gmail_draft_integration","google_calendar_integration","external_publish_jobs","sales_report_pdf"]'
 where plan_key = 'starter' and limit_key = 'enabled_modules';
+
+insert into public.modules (key, name, description, category, is_core)
+values
+  ('invoice_compliance', 'インボイス対応請求書', '登録番号、税率別内訳、取引年月日を含む請求書管理です。', 'accounting', false),
+  ('invoice_numbering', '請求書番号連番管理', '店舗ごとに請求書番号を連番管理します。', 'accounting', false),
+  ('tax_rate_breakdown', '税率別内訳', '10%と8%の対象額、消費税額を管理します。', 'accounting', false),
+  ('order_workflow', '受注・作業フロー', '見積、受注、作業完了、請求、入金の流れを管理します。', 'operations', false),
+  ('payment_management', '入金管理', '入金状態と支払方法を管理します。', 'payment', false),
+  ('accounting_csv_export', '会計CSV出力', '請求・税額・入金状態をCSV出力します。', 'accounting', false),
+  ('pdf_issue_logs', 'PDF発行履歴', '請求書PDFの発行、再発行履歴を残します。', 'audit', false),
+  ('audit_logs', '操作ログ', '請求、入金、CSV出力などの操作証跡を残します。', 'audit', false),
+  ('subsidy_impact_report', '導入効果レポート', '電子化、売上管理、入金管理、AI活用件数を可視化します。', 'report', false),
+  ('invoice_tool_map', '補助金対応機能マップ', '会計・受発注・決済・データ連携・AI活用・証跡を説明しやすく整理します。', 'report', false)
+on conflict (key) do update set
+  name = excluded.name,
+  description = excluded.description,
+  category = excluded.category,
+  is_core = excluded.is_core;
+
+insert into public.industry_modules (industry_type_key, module_key, is_enabled)
+select industry.key, module.key, true
+from public.industry_types industry
+cross join public.modules module
+where module.key in ('invoice_compliance','invoice_numbering','tax_rate_breakdown','order_workflow','payment_management','accounting_csv_export','pdf_issue_logs','audit_logs','subsidy_impact_report','invoice_tool_map')
+on conflict (industry_type_key, module_key) do update set is_enabled = true;
+
+update public.industry_types
+set default_feature_flags = default_feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"payment_management":true,"accounting_csv_export":true,"pdf_issue_logs":true,"audit_logs":true,"subsidy_impact_report":true,"invoice_tool_map":true}'::jsonb
+where key in ('general_store', 'auto_repair');
+
+update public.stores
+set feature_flags = feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"payment_management":true,"accounting_csv_export":true,"pdf_issue_logs":true,"audit_logs":true,"subsidy_impact_report":true,"invoice_tool_map":true}'::jsonb
+where industry_type_key in ('general_store', 'auto_repair');
+
+insert into public.plan_limits (plan_key, limit_key, limit_value)
+values ('starter', 'phase6a_invoice_ready_modules', '["invoice_compliance","invoice_numbering","tax_rate_breakdown","order_workflow","payment_management","accounting_csv_export","pdf_issue_logs","audit_logs","subsidy_impact_report","invoice_tool_map"]')
+on conflict (plan_key, limit_key) do update set limit_value = excluded.limit_value;
+
+insert into public.invoice_number_sequences (organization_id, store_id, prefix, next_number, registration_number, qualified_invoice_issuer_name)
+values
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000101', 'INV', 2, null, 'AIOサンプル店舗'),
+  ('00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000102', 'INV-AUTO', 2, null, 'AIOオート整備')
+on conflict (store_id) do nothing;

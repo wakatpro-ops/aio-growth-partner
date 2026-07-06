@@ -537,6 +537,22 @@ Phase 5-D: SNS投稿支援:
 - 保存内容は `growth_actions`、`growth_action_drafts`、`growth_action_schedule_items` に反映し、`external_publish_jobs` に `manual_instagram`、`manual_line`、`manual_x`、`manual_facebook` などの履歴を残します。
 - 現段階ではSNS APIへの実投稿は行いません。将来Meta Graph APIやLINE APIへ接続できるよう、投稿先、外部ステータス、投稿URL、履歴を分けて保存します。
 
+Phase 6-A: 補助金説明を意識したインボイス対応強化:
+
+- AIO Growth Partnerを「AI集客つきインボイス対応 店舗業務管理SaaS」として説明しやすくするため、会計・受発注・決済・データ連携・AI活用・証跡管理の機能整理を追加しました。
+- `/stores/[storeId]/settings/invoice` で、登録番号、適格請求書発行事業者名、請求書番号プレフィックス、次の連番を管理できます。
+- 請求書には、登録番号、事業者名、取引年月日、10% / 8% の税率別対象額と消費税額、入金状態、支払方法を保存できます。
+- 請求書番号を空欄で保存した場合、店舗ごとの連番設定から自動採番します。既存番号を使いたい場合は手入力できます。
+- `/stores/[storeId]/orders` で、見積から受注、作業中、作業完了、請求化済みまでの状態を管理できます。
+- `/stores/[storeId]/payments` で、現金、クレジットカード、QR決済、銀行振込、その他の支払方法と入金履歴を管理できます。
+- `/stores/[storeId]/accounting/exports` で、請求書、税率別内訳、入金状態、支払方法をCSV出力できます。freee、マネーフォワード、Stripeの直接連携はまだ行わず、将来接続しやすい構成にしています。
+- 請求書PDFをダウンロードすると、`invoice_pdf_issues` に発行・再発行履歴を保存し、`audit_logs` に操作ログを残します。
+- `/stores/[storeId]/audit-logs` で、PDF発行履歴、再発行履歴、操作ログを確認できます。
+- `/stores/[storeId]/reports/subsidy-impact` で、電子化した請求書数、売上管理件数、入金管理件数、AI提案件数、PDF発行件数、手作業削減見込みを確認できます。
+- `/stores/[storeId]/compliance/invoice-tool-map` で、会計、受発注、決済、データ連携、AI活用、証跡管理の機能を一覧できます。
+- この機能マップは補助金説明に使いやすい機能整理です。補助金採択、ITツール登録、審査通過を保証するものではありません。
+- SupabaseにPhase 6-Aだけを反映する場合は、`database/migrations/phase-6a-invoice-compliance.sql` をSQL Editorで実行してください。全量反映する場合は、従来どおり `database/schema.sql`、`database/policies.sql`、`database/seed.sql` の順に実行してください。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。

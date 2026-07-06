@@ -78,8 +78,18 @@ export function createBusinessDocumentPdf({ document, industry, kind, store }: P
   content += textLine(430, 682, 10, formatDate(document.issue_date));
   content += textLine(330, 660, 10, limitLabel);
   content += textLine(430, 660, 10, formatDate(limitValue));
+  if (kind === "invoice") {
+    content += textLine(330, 638, 10, "取引年月日");
+    content += textLine(430, 638, 10, formatDate(document.transaction_date ?? document.issue_date));
+    content += textLine(330, 616, 10, "登録番号");
+    content += textLine(430, 616, 10, document.invoice_registration_number ?? "未設定");
+  }
 
   content += line(300, 605, 547, 605);
+  if (kind === "invoice") {
+    content += textLine(320, 625, 9, `10%対象 ${formatCurrency(document.tax_10_subtotal ?? document.subtotal)} / 税 ${formatCurrency(document.tax_10_amount ?? document.tax_total)}`);
+    content += textLine(320, 610, 9, `8%対象 ${formatCurrency(document.tax_8_subtotal ?? 0)} / 税 ${formatCurrency(document.tax_8_amount ?? 0)}`);
+  }
   content += textLine(320, 580, 11, "小計");
   content += textLine(450, 580, 11, formatCurrency(document.subtotal));
   content += line(300, 565, 547, 565);

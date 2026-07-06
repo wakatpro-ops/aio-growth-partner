@@ -2,6 +2,7 @@ import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getDocument } from "@/lib/phase2/business-data";
 import { createBusinessDocumentPdf } from "@/lib/phase2/pdf-document";
+import { listPdfIssues, recordPdfIssue } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
 
 export async function GET(_: Request, { params }: { params: Promise<{ storeId: string; invoiceId: string }> }) {
@@ -20,6 +21,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ storeId: s
   const industry = getIndustryConfig(store.industry_type_key);
   const pdf = createBusinessDocumentPdf({ document: invoice, industry, kind: "invoice", store });
   const fileName = encodeURIComponent(`${invoice.document_number}.pdf`);
+  const previousIssues = await listPdfIssues(store.id, invoice.id);
+  await recordPdfIssue(store.id, invoice, previousIssues.length > 0 ? "reissue" : "issue");
 
   return new Response(pdf, {
     headers: {

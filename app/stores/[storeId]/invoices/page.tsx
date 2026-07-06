@@ -30,6 +30,7 @@ export default async function InvoicesPage({ params }: { params: Promise<{ store
               <th>顧客</th>
               <th>合計</th>
               <th>状態</th>
+              <th>入金</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -41,10 +42,11 @@ export default async function InvoicesPage({ params }: { params: Promise<{ store
                 <td>{invoice.customer?.name ?? "未選択"}</td>
                 <td>{invoice.total.toLocaleString("ja-JP")}円</td>
                 <td><span className="badge">{invoice.status}</span></td>
+                <td><span className="badge">{invoice.payment_status ?? "未設定"}</span></td>
                 <td><Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}`}>編集</Link></td>
               </tr>
             ))}
-            {invoices.length === 0 ? <tr><td colSpan={6}>まだ登録がありません。</td></tr> : null}
+            {invoices.length === 0 ? <tr><td colSpan={7}>まだ登録がありません。</td></tr> : null}
           </tbody>
         </table>
       </div>

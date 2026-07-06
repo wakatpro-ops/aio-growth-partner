@@ -993,9 +993,151 @@ alter table public.invoices add column if not exists subtotal numeric(12,2) defa
 alter table public.invoices add column if not exists tax_total numeric(12,2) default 0;
 alter table public.invoices add column if not exists total numeric(12,2) default 0;
 alter table public.invoices add column if not exists paid_at timestamptz;
+alter table public.invoices add column if not exists invoice_registration_number text;
+alter table public.invoices add column if not exists qualified_invoice_issuer_name text;
+alter table public.invoices add column if not exists transaction_date date;
+alter table public.invoices add column if not exists invoice_sequence_number integer;
+alter table public.invoices add column if not exists invoice_number_prefix text;
+alter table public.invoices add column if not exists tax_10_subtotal numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_10_amount numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_8_subtotal numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_8_amount numeric(12,2) default 0;
+alter table public.invoices add column if not exists payment_status text default 'unpaid';
+alter table public.invoices add column if not exists payment_method text;
+alter table public.invoices add column if not exists issued_at timestamptz;
+alter table public.invoices add column if not exists last_pdf_issued_at timestamptz;
 alter table public.invoices add column if not exists notes text;
 alter table public.invoices add column if not exists created_at timestamptz default now();
 alter table public.invoices add column if not exists updated_at timestamptz default now();
+
+create table if not exists public.invoice_number_sequences (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  prefix text not null default 'INV',
+  next_number integer not null default 1,
+  registration_number text,
+  qualified_invoice_issuer_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id)
+);
+
+create table if not exists public.invoice_tax_lines (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references public.invoices(id) on delete cascade,
+  tax_rate numeric(5,2) not null,
+  taxable_amount numeric(12,2) not null default 0,
+  tax_amount numeric(12,2) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  estimate_id uuid references public.estimates(id) on delete set null,
+  invoice_id uuid references public.invoices(id) on delete set null,
+  customer_id uuid references public.customers(id) on delete set null,
+  order_number text not null,
+  title text not null,
+  status text not null default 'ordered',
+  ordered_at date,
+  completed_at date,
+  total numeric(12,2) not null default 0,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, order_number)
+);
+
+create table if not exists public.order_status_logs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete cascade,
+  from_status text,
+  to_status text not null,
+  comment text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  invoice_id uuid references public.invoices(id) on delete set null,
+  payment_date date not null default current_date,
+  amount numeric(12,2) not null default 0,
+  payment_method text not null default 'bank_transfer',
+  status text not null default 'received',
+  memo text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.invoice_pdf_issues (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  invoice_id uuid references public.invoices(id) on delete set null,
+  document_number text not null,
+  issue_type text not null default 'issue',
+  file_name text,
+  storage_path text,
+  metadata jsonb not null default '{}'::jsonb,
+  issued_by uuid references auth.users(id) on delete set null,
+  issued_at timestamptz not null default now()
+);
+
+create table if not exists public.audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid references public.organizations(id) on delete cascade,
+  store_id uuid references public.stores(id) on delete cascade,
+  actor_user_id uuid references auth.users(id) on delete set null,
+  action_type text not null,
+  target_type text not null,
+  target_id uuid,
+  message text not null,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.accounting_exports (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  export_type text not null default 'invoice_csv',
+  file_name text,
+  row_count integer not null default 0,
+  metadata jsonb not null default '{}'::jsonb,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.integration_configs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  provider text not null,
+  integration_type text not null,
+  status text not null default 'planned',
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, provider, integration_type)
+);
+
+create table if not exists public.subsidy_impact_reports (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  target_month text,
+  metrics jsonb not null default '{}'::jsonb,
+  notes text,
+  created_at timestamptz not null default now()
+);
 
 create index if not exists items_store_id_idx on public.items(store_id);
 create index if not exists inventory_stocks_store_id_idx on public.inventory_stocks(store_id);
@@ -1003,3 +1145,12 @@ create index if not exists inventory_movements_store_id_idx on public.inventory_
 create index if not exists customers_store_id_idx on public.customers(store_id);
 create index if not exists estimates_store_id_idx on public.estimates(store_id);
 create index if not exists invoices_store_id_idx on public.invoices(store_id);
+create index if not exists invoice_number_sequences_store_id_idx on public.invoice_number_sequences(store_id);
+create index if not exists invoice_tax_lines_invoice_id_idx on public.invoice_tax_lines(invoice_id);
+create index if not exists orders_store_id_idx on public.orders(store_id);
+create index if not exists payments_store_id_idx on public.payments(store_id);
+create index if not exists invoice_pdf_issues_store_id_idx on public.invoice_pdf_issues(store_id);
+create index if not exists audit_logs_store_id_idx on public.audit_logs(store_id);
+create index if not exists accounting_exports_store_id_idx on public.accounting_exports(store_id);
+create index if not exists integration_configs_store_id_idx on public.integration_configs(store_id);
+create index if not exists subsidy_impact_reports_store_id_idx on public.subsidy_impact_reports(store_id);

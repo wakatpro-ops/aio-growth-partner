@@ -56,6 +56,16 @@ alter table public.estimates enable row level security;
 alter table public.estimate_items enable row level security;
 alter table public.invoices enable row level security;
 alter table public.invoice_items enable row level security;
+alter table public.invoice_number_sequences enable row level security;
+alter table public.invoice_tax_lines enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_status_logs enable row level security;
+alter table public.payments enable row level security;
+alter table public.invoice_pdf_issues enable row level security;
+alter table public.audit_logs enable row level security;
+alter table public.accounting_exports enable row level security;
+alter table public.integration_configs enable row level security;
+alter table public.subsidy_impact_reports enable row level security;
 
 create or replace function public.is_platform_admin()
 returns boolean
@@ -183,6 +193,26 @@ drop policy if exists "read org invoices" on public.invoices;
 drop policy if exists "write org invoices" on public.invoices;
 drop policy if exists "read org invoice items" on public.invoice_items;
 drop policy if exists "write org invoice items" on public.invoice_items;
+drop policy if exists "read org invoice number sequences" on public.invoice_number_sequences;
+drop policy if exists "write org invoice number sequences" on public.invoice_number_sequences;
+drop policy if exists "read org invoice tax lines" on public.invoice_tax_lines;
+drop policy if exists "write org invoice tax lines" on public.invoice_tax_lines;
+drop policy if exists "read org orders" on public.orders;
+drop policy if exists "write org orders" on public.orders;
+drop policy if exists "read org order status logs" on public.order_status_logs;
+drop policy if exists "write org order status logs" on public.order_status_logs;
+drop policy if exists "read org payments" on public.payments;
+drop policy if exists "write org payments" on public.payments;
+drop policy if exists "read org invoice pdf issues" on public.invoice_pdf_issues;
+drop policy if exists "write org invoice pdf issues" on public.invoice_pdf_issues;
+drop policy if exists "read org audit logs" on public.audit_logs;
+drop policy if exists "write org audit logs" on public.audit_logs;
+drop policy if exists "read org accounting exports" on public.accounting_exports;
+drop policy if exists "write org accounting exports" on public.accounting_exports;
+drop policy if exists "read org integration configs" on public.integration_configs;
+drop policy if exists "write org integration configs" on public.integration_configs;
+drop policy if exists "read org subsidy impact reports" on public.subsidy_impact_reports;
+drop policy if exists "write org subsidy impact reports" on public.subsidy_impact_reports;
 
 create policy "read own profile or admin" on public.user_profiles
 for select using (user_id = auth.uid() or public.is_platform_admin());
@@ -564,3 +594,91 @@ with check (
       and (public.is_org_member(invoices.organization_id) or public.is_platform_admin())
   )
 );
+
+create policy "read org invoice number sequences" on public.invoice_number_sequences
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org invoice number sequences" on public.invoice_number_sequences
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org invoice tax lines" on public.invoice_tax_lines
+for select using (
+  exists (
+    select 1 from public.invoices
+    where invoices.id = invoice_tax_lines.invoice_id
+      and (public.is_org_member(invoices.organization_id) or public.is_platform_admin())
+  )
+);
+
+create policy "write org invoice tax lines" on public.invoice_tax_lines
+for all using (
+  exists (
+    select 1 from public.invoices
+    where invoices.id = invoice_tax_lines.invoice_id
+      and (public.is_org_member(invoices.organization_id) or public.is_platform_admin())
+  )
+)
+with check (
+  exists (
+    select 1 from public.invoices
+    where invoices.id = invoice_tax_lines.invoice_id
+      and (public.is_org_member(invoices.organization_id) or public.is_platform_admin())
+  )
+);
+
+create policy "read org orders" on public.orders
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org orders" on public.orders
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org order status logs" on public.order_status_logs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org order status logs" on public.order_status_logs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org payments" on public.payments
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org payments" on public.payments
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org invoice pdf issues" on public.invoice_pdf_issues
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org invoice pdf issues" on public.invoice_pdf_issues
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org audit logs" on public.audit_logs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org audit logs" on public.audit_logs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org accounting exports" on public.accounting_exports
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org accounting exports" on public.accounting_exports
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org integration configs" on public.integration_configs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org integration configs" on public.integration_configs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org subsidy impact reports" on public.subsidy_impact_reports
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org subsidy impact reports" on public.subsidy_impact_reports
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
