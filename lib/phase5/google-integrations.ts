@@ -585,7 +585,7 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
   });
   const accountsResult = await accountsResponse.json() as Record<string, unknown>;
   if (!accountsResponse.ok) {
-    const message = googleApiErrorMessage(accountsResult, "Googleビジネスプロフィールのアカウント一覧を取得できませんでした。");
+    const message = googleBusinessProfileApiErrorMessage(accountsResult, "Googleビジネスプロフィールのアカウント一覧を取得できませんでした。");
     await logIntegration(supabase, resolved, "gbp_accounts_sync_failed", "error", message, { response: accountsResult });
     throw new Error(message);
   }
@@ -609,7 +609,7 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
         resolved,
         "gbp_locations_sync_warning",
         "warning",
-        googleApiErrorMessage(result, `${account.name} のロケーション一覧を取得できませんでした。`),
+        googleBusinessProfileApiErrorMessage(result, `${account.name} のロケーション一覧を取得できませんでした。`),
         { account: account.name, response: result }
       );
       continue;
@@ -852,10 +852,22 @@ function friendlyGoogleApiError(message: string) {
   return message || "Google連携の実行に失敗しました。設定を確認してからもう一度実行してください。";
 }
 
-function googleApiErrorMessage(result: Record<string, unknown>, fallback: string) {
+function googleBusinessProfileApiErrorMessage(result: Record<string, unknown>, fallback: string) {
   const error = asRecord(result.error);
-  if (typeof error.message === "string") return friendlyGoogleApiError(error.message);
-  return friendlyGoogleApiError(fallback);
+  const rawMessage = typeof error.message === "string" ? error.message : fallback;
+  const message = rawMessage.toLowerCase();
+  if (
+    message.includes("quota") ||
+    message.includes("429") ||
+    message.includes("resource_exhausted") ||
+    message.includes("permission_denied") ||
+    message.includes("access") ||
+    message.includes("not been used") ||
+    message.includes("disabled")
+  ) {
+    return "GoogleビジネスプロフィールAPIはGoogle側のBasic API Access / quota付与、または対象ビジネスプロフィールのオーナー・管理者権限が必要です。Gmailやカレンダー接続が成功していても、GBP候補取得だけ失敗する場合はアプリ不具合ではなくGoogle承認待ちとして扱い、承認完了までは手動投稿支援モードを使ってください。";
+  }
+  return friendlyGoogleApiError(rawMessage);
 }
 
 async function createExternalPublishJob(

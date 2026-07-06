@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGrowthAction, growthActionStatusLabel } from "@/lib/phase5/growth-actions";
+import { getGoogleIntegrationState } from "@/lib/phase5/google-integrations";
 import { getStore } from "@/lib/stores";
 import { markGoogleBusinessProfileManualPostAction } from "../../actions";
 import type { GrowthActionDraft } from "@/types/phase5";
@@ -29,9 +30,10 @@ const ctaTypes = [
 const checklist = [
   "投稿対象のGoogleビジネスプロフィール店舗が正しい",
   "投稿タイプが内容に合っている",
+  "CTAとリンク先URLの内容が一致している",
   "本文に古い営業時間・価格・期限が入っていない",
   "CTAのリンク先または電話導線を確認した",
-  "画像を使う場合、権利と内容を確認した",
+  "画像を使う場合、権利・内容・見切れを確認した",
   "承認済みまたは責任者確認済み"
 ];
 
@@ -66,6 +68,7 @@ export default async function GoogleBusinessManualPostPage({
   if (!isFeatureEnabled(flags, "google_business_profile_drafts")) notFound();
   const action = await getGrowthAction(store.id, actionId);
   if (!action) notFound();
+  const googleState = await getGoogleIntegrationState(store.id);
   const draft = googleDraft(action);
   if (!draft) notFound();
   const industry = getIndustryConfig(store.industry_type_key);
@@ -93,6 +96,19 @@ export default async function GoogleBusinessManualPostPage({
           </label>
         </div>
         <p className="notice">Google Business Profile APIはBasic API Access / quota付与待ちのため、ここでは手動投稿を前提にします。外部APIへの投稿は実行しません。</p>
+        <p className="muted">
+          Google接続済みアカウント: {googleState.connection?.email ?? "未接続"} / 保存済みロケーション: {googleState.businessProfile?.location_name ?? googleState.businessProfile?.location_id ?? "未設定"}
+        </p>
+      </section>
+
+      <section className="card">
+        <h2>手動投稿の流れ</h2>
+        <ul className="compact-list">
+          <li>下の本文をコピーし、「Google管理画面を開く」から対象店舗の投稿画面へ移動します。</li>
+          <li>投稿種別、CTA、URL、画像をGoogle側で確認してから投稿します。</li>
+          <li>投稿後、この画面で投稿URL、担当者、チェックリストを保存します。</li>
+          <li>将来GBP APIが承認されたら、保存済みのGoogleアカウントID / ロケーションIDを使ってAPI投稿へ切り替えます。</li>
+        </ul>
       </section>
 
       <section className="grid cols-2">
@@ -142,6 +158,12 @@ export default async function GoogleBusinessManualPostPage({
           </label>
           <label className="field">投稿URLまたは管理メモ用URL
             <input name="public_url" defaultValue={typeof manual?.public_url === "string" ? manual.public_url : ""} placeholder="https://..." />
+          </label>
+          <label className="field">対象店舗メモ
+            <input name="target_location_note" defaultValue={typeof manual?.target_location_note === "string" ? manual.target_location_note : ""} placeholder="例: AIOオート整備 本店" />
+          </label>
+          <label className="field">画像メモ
+            <input name="image_note" defaultValue={typeof manual?.image_note === "string" ? manual.image_note : ""} placeholder="例: 点検作業写真、外観写真、画像なし" />
           </label>
           <label className="field">担当者
             <input name="operator_name" defaultValue={typeof manual?.operator_name === "string" ? manual.operator_name : ""} placeholder="担当者名" />

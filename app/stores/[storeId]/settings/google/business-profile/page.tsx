@@ -61,9 +61,25 @@ export default async function GoogleBusinessProfilePage({
       </section>
 
       <section className="card">
+        <h2>現在の扱い</h2>
+        <ul className="compact-list">
+          <li>Gmail下書き作成とGoogleカレンダー予定作成は本番成功済みのため、Google OAuth接続は合格扱いです。</li>
+          <li><code>codexwakazono@gmail.com</code> は追加の検証用Googleアカウントとして扱います。</li>
+          <li>Googleビジネスプロフィール候補取得には、接続したGoogleアカウントが対象ビジネスプロフィールのオーナーまたは管理者である必要があります。</li>
+          <li>API有効化済みでも、Google側のBasic API Access / quota付与が未承認の場合は候補取得が失敗します。この場合はアプリ不具合ではなくGoogle承認待ちです。</li>
+          <li>承認待ちの間は、集客アクション詳細の「Google手動投稿補助」からコピー、チェックリスト、手動投稿済み記録を使って運用します。</li>
+        </ul>
+        <div className="form-actions">
+          <Link className="button secondary" href={`/stores/${store.id}/growth-actions`}>集客アクションへ</Link>
+          <Link className="button secondary" href="https://business.google.com/" target="_blank">Google管理画面を開く</Link>
+        </div>
+      </section>
+
+      <section className="card">
         <h2>実投稿前の確認</h2>
         <ul className="compact-list">
           <li>Google Business Profile API と対象ロケーションへのアクセス権限を確認します。</li>
+          <li>接続したGoogleアカウントが、投稿対象ビジネスプロフィールのオーナーまたは管理者であることを確認します。</li>
           <li>Google側のアカウントIDとロケーションIDを取得して、この画面に保存します。</li>
           <li>投稿は「最新情報」「イベント」「特典」などの対応形式から開始します。</li>
           <li>商品投稿はAPIで作成できない制限があるため、別導線として扱います。</li>

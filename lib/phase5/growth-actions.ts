@@ -531,6 +531,8 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
     post_type: String(formData.get("post_type") ?? "standard"),
     cta_type: String(formData.get("cta_type") ?? "learn_more"),
     public_url: String(formData.get("public_url") ?? "") || null,
+    image_note: String(formData.get("image_note") ?? "") || null,
+    target_location_note: String(formData.get("target_location_note") ?? "") || null,
     posted_at: postedAt,
     operator_name: String(formData.get("operator_name") ?? "") || null,
     memo: String(formData.get("memo") ?? "") || null,
