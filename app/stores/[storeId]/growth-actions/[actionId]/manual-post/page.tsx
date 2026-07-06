@@ -92,7 +92,11 @@ export default async function GoogleBusinessManualPostPage({
   const packedText = copyPack(draft);
   const manual = postedMetadata(action);
   const defaultPostedAt = new Date().toISOString().slice(0, 16);
-  const manualStatus = typeof manual?.status === "string" ? manual.status : action.external_status === "manual_published" ? "manual_published" : "pending_manual_post";
+  const manualStatus = typeof manual?.status === "string"
+    ? manual.status
+    : action.external_status === "manual_published" || action.status === "done"
+      ? "manual_published"
+      : "pending_manual_post";
 
   return (
     <AppShell>
@@ -207,7 +211,7 @@ export default async function GoogleBusinessManualPostPage({
           ))}
         </div>
         <div className="form-actions">
-          <button className="button" type="submit">手動投稿済みとして記録</button>
+          <button className="button" type="submit">手動投稿状態を保存</button>
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細へ戻る</Link>
         </div>
       </form>
