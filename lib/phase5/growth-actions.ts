@@ -527,13 +527,17 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
   if (!draft) throw new Error("Google投稿下書きが見つかりませんでした。");
 
   const postedAt = String(formData.get("posted_at") ?? "") || new Date().toISOString();
+  const manualStatus = String(formData.get("manual_status") ?? "manual_published");
+  const isPublished = manualStatus === "manual_published";
+  const actionStatus = manualStatus === "awaiting_approval" ? "pending_approval" : isPublished ? "done" : "drafted";
   const manualPost = {
+    status: manualStatus,
     post_type: String(formData.get("post_type") ?? "standard"),
     cta_type: String(formData.get("cta_type") ?? "learn_more"),
     public_url: String(formData.get("public_url") ?? "") || null,
     image_note: String(formData.get("image_note") ?? "") || null,
     target_location_note: String(formData.get("target_location_note") ?? "") || null,
-    posted_at: postedAt,
+    posted_at: isPublished ? postedAt : null,
     operator_name: String(formData.get("operator_name") ?? "") || null,
     memo: String(formData.get("memo") ?? "") || null,
     checklist: formData.getAll("checklist").map(String),
@@ -545,11 +549,11 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
   const { error } = await supabase
     .from("growth_actions")
     .update({
-      status: "done",
+      status: actionStatus,
       external_provider: "google_business_profile",
-      external_status: "manual_published",
-      external_post_id: manualPost.public_url,
-      published_at: postedAt,
+      external_status: manualStatus,
+      external_post_id: isPublished ? manualPost.public_url : null,
+      published_at: isPublished ? postedAt : null,
       failed_reason: null,
       metadata: { ...actionMetadata, manual_google_business_profile: manualPost },
       updated_at: new Date().toISOString()
@@ -562,9 +566,9 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
     .from("growth_action_drafts")
     .update({
       external_provider: "google_business_profile",
-      external_status: "manual_published",
-      external_post_id: manualPost.public_url,
-      published_at: postedAt,
+      external_status: manualStatus,
+      external_post_id: isPublished ? manualPost.public_url : null,
+      published_at: isPublished ? postedAt : null,
       failed_reason: null,
       metadata: { ...draftMetadata, manual_google_business_profile: manualPost },
       updated_at: new Date().toISOString()
@@ -575,11 +579,11 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
   await supabase
     .from("growth_action_schedule_items")
     .update({
-      status: "done",
+      status: actionStatus,
       external_provider: "google_business_profile",
-      external_status: "manual_published",
-      external_post_id: manualPost.public_url,
-      published_at: postedAt,
+      external_status: manualStatus,
+      external_post_id: isPublished ? manualPost.public_url : null,
+      published_at: isPublished ? postedAt : null,
       metadata: { manual_google_business_profile: manualPost },
       updated_at: new Date().toISOString()
     })
@@ -592,10 +596,10 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
     growth_action_id: actionId,
     channel: "google_business_profile",
     provider: "manual_google_business_profile",
-    target_id: manualPost.public_url,
-    status: "manual_published",
+    target_id: isPublished ? manualPost.public_url : null,
+    status: manualStatus,
     scheduled_at: action.scheduled_at ?? null,
-    sent_at: postedAt,
+    sent_at: isPublished ? postedAt : null,
     payload_json: {
       title: draft.title,
       body: draft.body,
@@ -603,15 +607,15 @@ export async function markGoogleBusinessProfileManualPost(storeId: string, actio
       call_to_action: draft.call_to_action,
       manual_post: manualPost
     },
-    response_json: { manual: true, public_url: manualPost.public_url }
+    response_json: { manual: true, public_url: manualPost.public_url, status: manualStatus }
   });
 
   await supabase.from("growth_action_logs").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
     growth_action_id: actionId,
-    event_type: "manual_google_business_profile_posted",
-    message: "Googleビジネスプロフィールへ手動投稿済みとして記録しました。",
+    event_type: `manual_google_business_profile_${manualStatus}`,
+    message: isPublished ? "Googleビジネスプロフィールへ手動投稿済みとして記録しました。" : "Googleビジネスプロフィール手動投稿の進行状態を保存しました。",
     metadata: manualPost
   });
 }

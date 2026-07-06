@@ -27,6 +27,12 @@ const ctaTypes = [
   { value: "call", label: "電話" }
 ];
 
+const manualStatuses = [
+  { value: "pending_manual_post", label: "投稿待ち" },
+  { value: "awaiting_approval", label: "承認待ち" },
+  { value: "manual_published", label: "手動投稿済み" }
+];
+
 const checklist = [
   "投稿対象のGoogleビジネスプロフィール店舗が正しい",
   "投稿タイプが内容に合っている",
@@ -47,6 +53,16 @@ function copyText(draft: GrowthActionDraft) {
     draft.hashtags.length ? draft.hashtags.join(" ") : null,
     draft.call_to_action
   ].filter(Boolean).join("\n\n");
+}
+
+function copyPack(draft: GrowthActionDraft) {
+  return [
+    `タイトル: ${draft.title}`,
+    "",
+    draft.body,
+    draft.hashtags.length ? draft.hashtags.join(" ") : null,
+    draft.call_to_action ? `CTA: ${draft.call_to_action}` : null
+  ].filter(Boolean).join("\n");
 }
 
 function postedMetadata(action: NonNullable<Awaited<ReturnType<typeof getGrowthAction>>>) {
@@ -73,8 +89,10 @@ export default async function GoogleBusinessManualPostPage({
   if (!draft) notFound();
   const industry = getIndustryConfig(store.industry_type_key);
   const text = copyText(draft);
+  const packedText = copyPack(draft);
   const manual = postedMetadata(action);
   const defaultPostedAt = new Date().toISOString().slice(0, 16);
+  const manualStatus = typeof manual?.status === "string" ? manual.status : action.external_status === "manual_published" ? "manual_published" : "pending_manual_post";
 
   return (
     <AppShell>
@@ -89,13 +107,13 @@ export default async function GoogleBusinessManualPostPage({
             <input value={growthActionStatusLabel(action.status)} readOnly />
           </label>
           <label className="field">外部状態
-            <input value={action.external_status ?? "not_connected"} readOnly />
+            <input value={manualStatuses.find((status) => status.value === manualStatus)?.label ?? action.external_status ?? "not_connected"} readOnly />
           </label>
           <label className="field">手動投稿日時
             <input value={typeof manual?.posted_at === "string" ? new Date(manual.posted_at).toLocaleString("ja-JP") : "-"} readOnly />
           </label>
         </div>
-        <p className="notice">Google Business Profile APIはBasic API Access / quota付与待ちのため、ここでは手動投稿を前提にします。外部APIへの投稿は実行しません。</p>
+        <p className="notice">Google Business Profile APIはBasic API Access審査待ちのため、ここでは手動投稿を前提にします。外部APIへの投稿は実行しません。</p>
         <p className="muted">
           Google接続済みアカウント: {googleState.connection?.email ?? "未接続"} / 保存済みロケーション: {googleState.businessProfile?.location_name ?? googleState.businessProfile?.location_id ?? "未設定"}
         </p>
@@ -120,6 +138,9 @@ export default async function GoogleBusinessManualPostPage({
           <label className="field">Google投稿本文
             <textarea rows={14} value={text} readOnly />
           </label>
+          <label className="field">まとめてコピー
+            <textarea rows={10} value={packedText} readOnly />
+          </label>
           {draft.short_body ? (
             <label className="field">短縮版
               <textarea rows={4} value={draft.short_body} readOnly />
@@ -143,6 +164,11 @@ export default async function GoogleBusinessManualPostPage({
       <form className="card form" action={markGoogleBusinessProfileManualPostAction.bind(null, store.id, action.id)}>
         <h2>投稿前チェックリスト</h2>
         <div className="grid cols-2">
+          <label className="field">手動投稿ステータス
+            <select name="manual_status" defaultValue={manualStatus}>
+              {manualStatuses.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
+            </select>
+          </label>
           <label className="field">投稿タイプ
             <select name="post_type" defaultValue={typeof manual?.post_type === "string" ? manual.post_type : "standard"}>
               {postTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}

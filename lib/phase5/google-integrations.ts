@@ -531,9 +531,18 @@ export async function upsertGoogleBusinessProfile(storeId: string, formData: For
     location_id: String(formData.get("location_id") ?? "") || null,
     location_name: String(formData.get("location_name") ?? "") || null,
     address: String(formData.get("address") ?? "") || null,
-    status: "ready",
+    status: String(formData.get("api_status") ?? "") || "api_review_pending",
     last_synced_at: new Date().toISOString(),
-    metadata: { ...currentMetadata, memo: String(formData.get("memo") ?? "") },
+    metadata: {
+      ...currentMetadata,
+      memo: String(formData.get("memo") ?? ""),
+      api_status: String(formData.get("api_status") ?? "") || "api_review_pending",
+      basic_api_access_case_id: String(formData.get("basic_api_access_case_id") ?? "") || null,
+      basic_api_access_submitted_at: String(formData.get("basic_api_access_submitted_at") ?? "") || null,
+      basic_api_access_expected_review: String(formData.get("basic_api_access_expected_review") ?? "") || null,
+      manual_posting_mode: String(formData.get("manual_posting_mode") ?? "enabled") === "enabled",
+      review_note: String(formData.get("review_note") ?? "") || null
+    },
     updated_at: new Date().toISOString()
   }, { onConflict: "store_id" });
   if (error) throw new Error(`Googleビジネスプロフィール設定を保存できませんでした: ${error.message}`);
@@ -1173,7 +1182,11 @@ export function googleConnectionStatusLabel(status: string | null | undefined) {
     error: "エラー",
     disconnected: "解除済み",
     ready: "準備済み",
-    needs_location: "ロケーション確認待ち"
+    needs_location: "ロケーション確認待ち",
+    api_review_pending: "Google審査待ち",
+    manual_mode: "手動投稿支援モード",
+    approved: "API承認済み",
+    not_applied: "未申請"
   };
   return labels[status ?? "not_connected"] ?? status ?? "未接続";
 }

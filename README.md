@@ -506,6 +506,8 @@ Phase 5-C-5:
 - Gmail下書き作成とGoogleカレンダー予定作成が成功していても、Googleビジネスプロフィール候補取得には別途、対象ビジネスプロフィールのオーナー/管理者権限とGoogle側のBasic API Access / quota付与が必要です。
 - `codexwakazono@gmail.com` のような追加Googleアカウントは、OAuth接続の追加テストユーザーとして扱えます。ただし、そのアカウントが対象ビジネスプロフィールの管理者でない場合、GBP候補は取得できません。
 - API有効化済みでもBasic API Access / quota未承認で候補取得が失敗する場合は、AIO Growth Partner側の不具合ではなくGoogle承認待ちとして扱います。承認完了まではPhase 5-Dの手動投稿支援モードを使います。
+- Basic API Access申請済みケースIDは `3-6455000041311` です。審査目安は7〜10営業日で、承認待ちの間は `/stores/[storeId]/settings/google/business-profile` に「Google審査待ち」として記録します。
+- 承認後は同じ画面でAPI statusを「API承認済み」に変更し、`account_id` / `location_id` 候補取得へ戻ります。
 - 参考: https://developers.google.com/my-business/reference/accountmanagement/rest/v1/accounts/list
 - 参考: https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations/list
 - 参考: https://developers.google.com/my-business/content/posts-data
@@ -517,8 +519,10 @@ Phase 5-D:
 - `/stores/[storeId]/growth-actions/[actionId]/manual-post` で、Googleビジネスプロフィール投稿用のコピー本文、投稿タイプ、CTA、プレビュー、投稿前チェックリストを確認できます。
 - 「Google管理画面を開く」からGoogleビジネスプロフィール管理画面へ移動し、コピーした本文を手動投稿します。
 - 手動投稿前に、投稿種別、CTA、URL、画像、対象店舗、古い営業時間・価格・期限が本文に残っていないかを確認します。
+- 投稿文は本文だけでなく、タイトル、本文、ハッシュタグ、CTAをまとめたコピー欄でも確認できます。
+- 手動投稿の進行状態は「投稿待ち」「承認待ち」「手動投稿済み」で管理できます。
 - 手動投稿後は、投稿日時、担当者、投稿URLまたは管理メモ、対象店舗メモ、画像メモ、チェックリストを保存できます。
-- 保存すると `growth_actions`、`growth_action_drafts`、`growth_action_schedule_items` を手動投稿済みに更新し、`external_publish_jobs` にも `manual_published` として履歴を残します。
+- 保存すると `growth_actions`、`growth_action_drafts`、`growth_action_schedule_items` に進行状態を反映し、`external_publish_jobs` にも `pending_manual_post` / `awaiting_approval` / `manual_published` として履歴を残します。
 - 将来GBP API quotaが付与されたら、同じ下書き・承認・履歴データを使って実API投稿に切り替えます。
 
 ## Vercel Notes
