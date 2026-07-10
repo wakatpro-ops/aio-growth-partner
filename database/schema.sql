@@ -1157,5 +1157,9 @@ create index if not exists accounting_exports_store_id_idx on public.accounting_
 create index if not exists integration_configs_store_id_idx on public.integration_configs(store_id);
 create index if not exists subsidy_impact_reports_store_id_idx on public.subsidy_impact_reports(store_id);
 
+alter table public.customers add column if not exists vehicle_info jsonb not null default '{}'::jsonb;
+alter table public.customers add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table public.customers add column if not exists updated_at timestamptz not null default now();
+
 alter table public.orders add column if not exists work_status text default 'not_started';
 alter table public.invoice_pdf_issues add column if not exists reissue_reason text;

@@ -52,6 +52,12 @@ function asDateText(value: FormDataEntryValue | null) {
   return asText(value) ?? new Date().toISOString().slice(0, 10);
 }
 
+function assertMutation(error: { message?: string } | null, fallback: string) {
+  if (error) {
+    throw new Error(error.message ? `${fallback}: ${error.message}` : fallback);
+  }
+}
+
 async function nextInvoiceNumber(supabase: SupabaseClient, organizationId: string, storeId: string, requested: string | null) {
   if (requested) return { documentNumber: requested, sequenceNumber: null, prefix: null };
 
@@ -424,7 +430,7 @@ export async function createCustomerFromForm(storeId: string, formData: FormData
   if (!supabase) return;
   const resolved = await resolveStoreForWrite(supabase, store);
 
-  await supabase.from("customers").insert({
+  const { error } = await supabase.from("customers").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
     name: String(formData.get("name") ?? ""),
@@ -438,6 +444,7 @@ export async function createCustomerFromForm(storeId: string, formData: FormData
       plate: asText(formData.get("vehicle_plate"))
     }
   });
+  assertMutation(error, "顧客を保存できませんでした");
 }
 
 export async function updateCustomerFromForm(storeId: string, customerId: string, formData: FormData) {
@@ -445,7 +452,7 @@ export async function updateCustomerFromForm(storeId: string, customerId: string
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
 
-  await supabase
+  const { error } = await supabase
     .from("customers")
     .update({
       name: String(formData.get("name") ?? ""),
@@ -462,6 +469,7 @@ export async function updateCustomerFromForm(storeId: string, customerId: string
     })
     .eq("store_id", resolved.storeId)
     .eq("id", customerId);
+  assertMutation(error, "顧客を更新できませんでした");
 }
 
 export async function deleteCustomer(storeId: string, customerId: string) {
