@@ -1,3 +1,50 @@
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  estimate_id uuid references public.estimates(id) on delete set null,
+  invoice_id uuid references public.invoices(id) on delete set null,
+  customer_id uuid references public.customers(id) on delete set null,
+  order_number text not null,
+  title text not null,
+  status text not null default 'ordered',
+  work_status text not null default 'not_started',
+  ordered_at date,
+  completed_at date,
+  total numeric(12,2) not null default 0,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, order_number)
+);
+
+create table if not exists public.order_status_logs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete cascade,
+  from_status text,
+  to_status text not null,
+  comment text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.invoice_pdf_issues (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  invoice_id uuid references public.invoices(id) on delete set null,
+  document_number text not null,
+  issue_type text not null default 'issue',
+  reissue_reason text,
+  file_name text,
+  storage_path text,
+  metadata jsonb not null default '{}'::jsonb,
+  issued_by uuid references auth.users(id) on delete set null,
+  issued_at timestamptz not null default now()
+);
+
 alter table public.orders add column if not exists work_status text default 'not_started';
 alter table public.invoice_pdf_issues add column if not exists reissue_reason text;
 
@@ -15,9 +62,44 @@ create table if not exists public.integration_configs (
 );
 
 alter table public.integration_configs enable row level security;
+alter table public.orders enable row level security;
+alter table public.order_status_logs enable row level security;
+alter table public.invoice_pdf_issues enable row level security;
 
+create index if not exists orders_store_id_idx on public.orders(store_id);
+create index if not exists order_status_logs_store_id_idx on public.order_status_logs(store_id);
+create index if not exists invoice_pdf_issues_store_id_idx on public.invoice_pdf_issues(store_id);
+create index if not exists integration_configs_store_id_idx on public.integration_configs(store_id);
+
+drop policy if exists "read org orders" on public.orders;
+drop policy if exists "write org orders" on public.orders;
+drop policy if exists "read org order status logs" on public.order_status_logs;
+drop policy if exists "write org order status logs" on public.order_status_logs;
+drop policy if exists "read org invoice pdf issues" on public.invoice_pdf_issues;
+drop policy if exists "write org invoice pdf issues" on public.invoice_pdf_issues;
 drop policy if exists "read org integration configs" on public.integration_configs;
 drop policy if exists "write org integration configs" on public.integration_configs;
+
+create policy "read org orders" on public.orders
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org orders" on public.orders
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org order status logs" on public.order_status_logs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org order status logs" on public.order_status_logs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org invoice pdf issues" on public.invoice_pdf_issues
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org invoice pdf issues" on public.invoice_pdf_issues
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "read org integration configs" on public.integration_configs
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
