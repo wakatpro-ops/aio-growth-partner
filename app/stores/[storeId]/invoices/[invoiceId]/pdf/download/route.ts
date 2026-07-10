@@ -5,7 +5,7 @@ import { createBusinessDocumentPdf } from "@/lib/phase2/pdf-document";
 import { listPdfIssues, recordPdfIssue } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
 
-export async function GET(_: Request, { params }: { params: Promise<{ storeId: string; invoiceId: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ storeId: string; invoiceId: string }> }) {
   const { storeId, invoiceId } = await params;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
@@ -22,7 +22,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ storeId: s
   const pdf = createBusinessDocumentPdf({ document: invoice, industry, kind: "invoice", store });
   const fileName = encodeURIComponent(`${invoice.document_number}.pdf`);
   const previousIssues = await listPdfIssues(store.id, invoice.id);
-  await recordPdfIssue(store.id, invoice, previousIssues.length > 0 ? "reissue" : "issue");
+  const reissueReason = new URL(request.url).searchParams.get("reissueReason");
+  await recordPdfIssue(store.id, invoice, previousIssues.length > 0 ? "reissue" : "issue", reissueReason);
 
   return new Response(pdf, {
     headers: {

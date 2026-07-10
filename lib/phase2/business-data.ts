@@ -2,6 +2,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import { demoCustomers, demoEstimates, demoInvoices, demoItems, demoStocks } from "@/lib/phase2/demo-data";
+import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import type { BusinessDocument, BusinessItem, Customer, InventoryStock } from "@/types/phase2";
 import type { Store } from "@/types/domain";
 
@@ -518,10 +519,17 @@ export async function createDocumentFromForm(storeId: string, kind: DocumentKind
         issued_at: String(formData.get("status") ?? "draft") === "issued" ? new Date().toISOString() : null
       };
 
-  const { error } = await supabase.from(kind).insert({ ...payload, ...dateFields });
+  const { data, error } = await supabase.from(kind).insert({ ...payload, ...dateFields }).select("id").single();
   if (error) {
     throw new Error(`${kind}の保存に失敗しました: ${error.message}`);
   }
+  await logAuditEvent({
+    storeId,
+    actionType: kind === "estimates" ? "estimate_created" : "invoice_created",
+    targetType: kind === "estimates" ? "estimate" : "invoice",
+    targetId: data.id,
+    message: `${payload.document_number} を作成しました。`
+  });
 }
 
 export async function updateDocumentFromForm(storeId: string, documentId: string, kind: DocumentKind, formData: FormData) {
@@ -568,6 +576,13 @@ export async function updateDocumentFromForm(storeId: string, documentId: string
   if (error) {
     throw new Error(`${kind}の更新に失敗しました: ${error.message}`);
   }
+  await logAuditEvent({
+    storeId,
+    actionType: kind === "estimates" ? "estimate_updated" : "invoice_updated",
+    targetType: kind === "estimates" ? "estimate" : "invoice",
+    targetId: documentId,
+    message: `${payload.document_number} を更新しました。`
+  });
 }
 
 export async function deleteDocument(storeId: string, documentId: string, kind: DocumentKind) {
@@ -575,4 +590,11 @@ export async function deleteDocument(storeId: string, documentId: string, kind: 
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
   await supabase.from(kind).delete().eq("store_id", resolved.storeId).eq("id", documentId);
+  await logAuditEvent({
+    storeId,
+    actionType: kind === "estimates" ? "estimate_deleted" : "invoice_deleted",
+    targetType: kind === "estimates" ? "estimate" : "invoice",
+    targetId: documentId,
+    message: `${kind} を削除しました。`
+  });
 }

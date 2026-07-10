@@ -26,6 +26,7 @@ export function DocumentPrintView({
   const documentLabel = kind === "estimate" ? industry.businessLabels.estimate : industry.businessLabels.invoice;
   const limitLabel = kind === "estimate" ? "有効期限" : "支払期限";
   const limitValue = kind === "estimate" ? document.expiry_date : document.due_date;
+  const issuerName = kind === "invoice" ? document.qualified_invoice_issuer_name || store.name : store.name;
 
   return (
     <main className="print-page">
@@ -41,7 +42,7 @@ export function DocumentPrintView({
             <h1>{documentLabel}</h1>
           </div>
           <div className="print-store">
-            <strong>{store.name}</strong>
+            <strong>{issuerName}</strong>
             <span>{store.address || "住所未設定"}</span>
             <span>{store.phone || "電話番号未設定"}</span>
           </div>

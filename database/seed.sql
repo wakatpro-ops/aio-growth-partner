@@ -287,12 +287,16 @@ values
   ('invoice_numbering', '請求書番号連番管理', '店舗ごとに請求書番号を連番管理します。', 'accounting', false),
   ('tax_rate_breakdown', '税率別内訳', '10%と8%の対象額、消費税額を管理します。', 'accounting', false),
   ('order_workflow', '受注・作業フロー', '見積、受注、作業完了、請求、入金の流れを管理します。', 'operations', false),
+  ('order_management', '受注管理', '見積から受注、作業完了、請求化までを管理します。', 'operations', false),
   ('payment_management', '入金管理', '入金状態と支払方法を管理します。', 'payment', false),
   ('accounting_csv_export', '会計CSV出力', '請求・税額・入金状態をCSV出力します。', 'accounting', false),
+  ('accounting_export', '会計・売上CSV出力', '売上日、税率、入金状態を含む汎用CSVを出力します。', 'accounting', false),
   ('pdf_issue_logs', 'PDF発行履歴', '請求書PDFの発行、再発行履歴を残します。', 'audit', false),
   ('audit_logs', '操作ログ', '請求、入金、CSV出力などの操作証跡を残します。', 'audit', false),
+  ('audit_log', '証跡管理', '重要操作、ステータス変更、出力履歴を確認します。', 'audit', false),
   ('subsidy_impact_report', '導入効果レポート', '電子化、売上管理、入金管理、AI活用件数を可視化します。', 'report', false),
-  ('invoice_tool_map', '補助金対応機能マップ', '会計・受発注・決済・データ連携・AI活用・証跡を説明しやすく整理します。', 'report', false)
+  ('invoice_tool_map', '補助金対応機能マップ', '会計・受発注・決済・データ連携・AI活用・証跡を説明しやすく整理します。', 'report', false),
+  ('future_accounting_integrations', '将来の会計・決済連携', 'freee、マネーフォワード、Stripeへの将来拡張枠です。', 'integration', false)
 on conflict (key) do update set
   name = excluded.name,
   description = excluded.description,
@@ -303,19 +307,19 @@ insert into public.industry_modules (industry_type_key, module_key, is_enabled)
 select industry.key, module.key, true
 from public.industry_types industry
 cross join public.modules module
-where module.key in ('invoice_compliance','invoice_numbering','tax_rate_breakdown','order_workflow','payment_management','accounting_csv_export','pdf_issue_logs','audit_logs','subsidy_impact_report','invoice_tool_map')
+where module.key in ('invoice_compliance','invoice_numbering','tax_rate_breakdown','order_workflow','order_management','payment_management','accounting_csv_export','accounting_export','pdf_issue_logs','audit_logs','audit_log','subsidy_impact_report','invoice_tool_map','future_accounting_integrations')
 on conflict (industry_type_key, module_key) do update set is_enabled = true;
 
 update public.industry_types
-set default_feature_flags = default_feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"payment_management":true,"accounting_csv_export":true,"pdf_issue_logs":true,"audit_logs":true,"subsidy_impact_report":true,"invoice_tool_map":true}'::jsonb
+set default_feature_flags = default_feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true}'::jsonb
 where key in ('general_store', 'auto_repair');
 
 update public.stores
-set feature_flags = feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"payment_management":true,"accounting_csv_export":true,"pdf_issue_logs":true,"audit_logs":true,"subsidy_impact_report":true,"invoice_tool_map":true}'::jsonb
+set feature_flags = feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true}'::jsonb
 where industry_type_key in ('general_store', 'auto_repair');
 
 insert into public.plan_limits (plan_key, limit_key, limit_value)
-values ('starter', 'phase6a_invoice_ready_modules', '["invoice_compliance","invoice_numbering","tax_rate_breakdown","order_workflow","payment_management","accounting_csv_export","pdf_issue_logs","audit_logs","subsidy_impact_report","invoice_tool_map"]')
+values ('starter', 'phase6a_invoice_ready_modules', '["invoice_compliance","invoice_numbering","tax_rate_breakdown","order_workflow","order_management","payment_management","accounting_csv_export","accounting_export","pdf_issue_logs","audit_logs","audit_log","subsidy_impact_report","invoice_tool_map","future_accounting_integrations"]')
 on conflict (plan_key, limit_key) do update set limit_value = excluded.limit_value;
 
 insert into public.invoice_number_sequences (organization_id, store_id, prefix, next_number, registration_number, qualified_invoice_issuer_name)

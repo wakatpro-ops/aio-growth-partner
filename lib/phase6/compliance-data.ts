@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
-import type { AuditLog, BusinessDocument, BusinessOrder, PaymentMethod, PaymentRecord } from "@/types/phase2";
+import type { AuditLog, BusinessDocument, BusinessOrder, OrderStatusLog, PaymentMethod, PaymentRecord } from "@/types/phase2";
 
 const demoStoreIds: Record<string, { organizationId: string; storeId: string }> = {
   "store-general-demo": {
@@ -69,7 +69,7 @@ export async function logAuditEvent({
   });
 }
 
-export async function recordPdfIssue(storeId: string, invoice: BusinessDocument, issueType: "issue" | "reissue" = "issue") {
+export async function recordPdfIssue(storeId: string, invoice: BusinessDocument, issueType: "issue" | "reissue" = "issue", reissueReason?: string | null) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStore(supabase, storeId);
@@ -79,8 +79,9 @@ export async function recordPdfIssue(storeId: string, invoice: BusinessDocument,
     invoice_id: invoice.id,
     document_number: invoice.document_number,
     issue_type: issueType,
+    reissue_reason: reissueReason ?? null,
     file_name: `${invoice.document_number}.pdf`,
-    metadata: { title: invoice.title, total: invoice.total }
+    metadata: { title: invoice.title, total: invoice.total, reissue_reason: reissueReason ?? null }
   });
   await supabase.from("invoices").update({ last_pdf_issued_at: new Date().toISOString() }).eq("id", invoice.id);
   await logAuditEvent({
@@ -108,10 +109,36 @@ export async function listOrders(storeId: string): Promise<BusinessOrder[]> {
   const resolved = await resolveStore(supabase, storeId);
   const { data } = await supabase
     .from("orders")
-    .select("*, customer:customers(name, company_name)")
+    .select("*, customer:customers(name, company_name), estimate:estimates(document_number, title, total), invoice:invoices(document_number, title, total)")
     .eq("store_id", resolved.storeId)
     .order("created_at", { ascending: false });
   return (data ?? []) as BusinessOrder[];
+}
+
+export async function getOrder(storeId: string, orderId: string): Promise<BusinessOrder | null> {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return null;
+  const resolved = await resolveStore(supabase, storeId);
+  const { data } = await supabase
+    .from("orders")
+    .select("*, customer:customers(name, company_name), estimate:estimates(document_number, title, total), invoice:invoices(document_number, title, total)")
+    .eq("store_id", resolved.storeId)
+    .eq("id", orderId)
+    .maybeSingle();
+  return data as BusinessOrder | null;
+}
+
+export async function listOrderStatusLogs(storeId: string, orderId: string): Promise<OrderStatusLog[]> {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return [];
+  const resolved = await resolveStore(supabase, storeId);
+  const { data } = await supabase
+    .from("order_status_logs")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: false });
+  return (data ?? []) as OrderStatusLog[];
 }
 
 export async function createOrderFromForm(storeId: string, formData: FormData) {
@@ -128,13 +155,134 @@ export async function createOrderFromForm(storeId: string, formData: FormData) {
     order_number: orderNumber,
     title,
     status: String(formData.get("status") ?? "ordered"),
+    work_status: String(formData.get("work_status") ?? "not_started"),
     ordered_at: text(formData.get("ordered_at")) ?? today(),
     completed_at: text(formData.get("completed_at")),
     total: number(formData.get("total")),
     notes: text(formData.get("notes"))
   }).select("id").single();
   if (error) throw new Error(`受注の保存に失敗しました: ${error.message}`);
+  await supabase.from("order_status_logs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    order_id: data.id,
+    to_status: String(formData.get("status") ?? "ordered"),
+    comment: "受注を作成しました。"
+  });
   await logAuditEvent({ storeId, actionType: "order_created", targetType: "order", targetId: data.id, message: `${orderNumber} を作成しました。` });
+}
+
+export async function createOrderFromEstimate(storeId: string, estimate: BusinessDocument) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return null;
+  const resolved = await resolveStore(supabase, storeId);
+  const orderNumber = `ORD-${Date.now()}`;
+  const { data, error } = await supabase.from("orders").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    customer_id: estimate.customer_id,
+    estimate_id: estimate.id,
+    order_number: orderNumber,
+    title: estimate.title,
+    status: "ordered",
+    work_status: "not_started",
+    ordered_at: today(),
+    total: estimate.total,
+    notes: `見積 ${estimate.document_number} から受注化`
+  }).select("id").single();
+  if (error) throw new Error(`見積から受注化できませんでした: ${error.message}`);
+  await supabase.from("estimates").update({ status: "ordered", updated_at: new Date().toISOString() }).eq("id", estimate.id);
+  await supabase.from("order_status_logs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    order_id: data.id,
+    to_status: "ordered",
+    comment: `見積 ${estimate.document_number} から受注化しました。`
+  });
+  await logAuditEvent({ storeId, actionType: "estimate_converted_to_order", targetType: "order", targetId: data.id, message: `${estimate.document_number} を受注化しました。` });
+  return data.id as string;
+}
+
+export async function updateOrderFromForm(storeId: string, orderId: string, formData: FormData) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return;
+  const resolved = await resolveStore(supabase, storeId);
+  const previous = await getOrder(storeId, orderId);
+  const nextStatus = String(formData.get("status") ?? "ordered");
+  const { error } = await supabase.from("orders").update({
+    title: String(formData.get("title") ?? ""),
+    status: nextStatus,
+    work_status: String(formData.get("work_status") ?? "not_started"),
+    ordered_at: text(formData.get("ordered_at")),
+    completed_at: text(formData.get("completed_at")),
+    total: number(formData.get("total")),
+    notes: text(formData.get("notes")),
+    updated_at: new Date().toISOString()
+  }).eq("store_id", resolved.storeId).eq("id", orderId);
+  if (error) throw new Error(`受注の更新に失敗しました: ${error.message}`);
+  if (previous?.status !== nextStatus) {
+    await supabase.from("order_status_logs").insert({
+      organization_id: resolved.organizationId,
+      store_id: resolved.storeId,
+      order_id: orderId,
+      from_status: previous?.status ?? null,
+      to_status: nextStatus,
+      comment: text(formData.get("status_comment")) ?? "ステータスを変更しました。"
+    });
+  }
+  await logAuditEvent({ storeId, actionType: "order_updated", targetType: "order", targetId: orderId, message: "受注を更新しました。" });
+}
+
+export async function createInvoiceFromOrder(storeId: string, orderId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return null;
+  const resolved = await resolveStore(supabase, storeId);
+  const order = await getOrder(storeId, orderId);
+  if (!order) throw new Error("受注が見つかりません。");
+  const settings = await getInvoiceSettings(storeId);
+  const prefix = settings?.prefix ?? "INV";
+  const nextNumber = Number(settings?.next_number ?? 1);
+  const documentNumber = `${prefix}-${String(nextNumber).padStart(6, "0")}`;
+  const subtotal = Math.round(order.total / 1.1);
+  const taxTotal = order.total - subtotal;
+  const { data, error } = await supabase.from("invoices").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    customer_id: order.customer_id,
+    document_number: documentNumber,
+    title: order.title,
+    issue_date: today(),
+    transaction_date: order.completed_at ?? today(),
+    due_date: today(),
+    status: "issued",
+    subtotal,
+    tax_total: taxTotal,
+    total: order.total,
+    tax_10_subtotal: subtotal,
+    tax_10_amount: taxTotal,
+    tax_8_subtotal: 0,
+    tax_8_amount: 0,
+    payment_status: "unpaid",
+    invoice_registration_number: settings?.registration_number ?? null,
+    qualified_invoice_issuer_name: settings?.qualified_invoice_issuer_name ?? null,
+    invoice_sequence_number: nextNumber,
+    invoice_number_prefix: prefix,
+    issued_at: new Date().toISOString(),
+    notes: `受注 ${order.order_number} から作成`
+  }).select("id").single();
+  if (error) throw new Error(`受注から請求書を作成できませんでした: ${error.message}`);
+  await supabase.from("invoice_number_sequences").update({ next_number: nextNumber + 1, updated_at: new Date().toISOString() }).eq("store_id", resolved.storeId);
+  await supabase.from("orders").update({ invoice_id: data.id, status: "invoiced", updated_at: new Date().toISOString() }).eq("id", orderId);
+  await supabase.from("order_status_logs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    order_id: orderId,
+    from_status: order.status,
+    to_status: "invoiced",
+    comment: `請求書 ${documentNumber} を作成しました。`
+  });
+  await logAuditEvent({ storeId, actionType: "invoice_created_from_order", targetType: "invoice", targetId: data.id, message: `${order.order_number} から請求書を作成しました。` });
+  return data.id as string;
 }
 
 export async function getInvoiceSettings(storeId: string) {
@@ -223,26 +371,45 @@ export async function getSubsidyImpactReport(storeId: string) {
     return { invoiceCount: 0, salesCount: 0, paymentCount: 0, aiCount: 0, pdfCount: 0, estimatedMinutesSaved: 0 };
   }
   const resolved = await resolveStore(supabase, storeId);
-  const [invoices, sales, payments, aiLogs, pdfIssues] = await Promise.all([
+  const [invoices, sales, payments, aiLogs, pdfIssues, exports, googleJobs] = await Promise.all([
     supabase.from("invoices").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
     supabase.from("sales_transactions").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
     supabase.from("payments").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
     supabase.from("ai_generation_logs").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
-    supabase.from("invoice_pdf_issues").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId)
+    supabase.from("invoice_pdf_issues").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
+    supabase.from("accounting_exports").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
+    supabase.from("external_publish_jobs").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId)
   ]);
   const invoiceCount = invoices.count ?? 0;
   const salesCount = sales.count ?? 0;
   const paymentCount = payments.count ?? 0;
   const aiCount = aiLogs.count ?? 0;
   const pdfCount = pdfIssues.count ?? 0;
+  const exportCount = exports.count ?? 0;
+  const googleSupportCount = googleJobs.count ?? 0;
   return {
     invoiceCount,
     salesCount,
     paymentCount,
     aiCount,
     pdfCount,
-    estimatedMinutesSaved: invoiceCount * 8 + salesCount * 2 + paymentCount * 4 + aiCount * 6
+    exportCount,
+    googleSupportCount,
+    estimatedMinutesSaved: invoiceCount * 8 + salesCount * 2 + paymentCount * 4 + aiCount * 6 + exportCount * 10 + googleSupportCount * 5
   };
+}
+
+export async function listAccountingExports(storeId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return [];
+  const resolved = await resolveStore(supabase, storeId);
+  const { data } = await supabase
+    .from("accounting_exports")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  return data ?? [];
 }
 
 export async function buildAccountingCsv(storeId: string) {
@@ -255,25 +422,37 @@ export async function buildAccountingCsv(storeId: string) {
     .eq("store_id", resolved.storeId)
     .order("issue_date", { ascending: false });
   const rows = [
-    ["発行日", "取引年月日", "請求書番号", "顧客名", "10%対象", "10%消費税", "8%対象", "8%消費税", "小計", "消費税", "合計", "入金状態", "支払方法"]
+    ["売上日", "請求書番号", "顧客名", "摘要", "税率", "税抜金額", "消費税額", "税込金額", "入金日", "支払方法", "ステータス"]
   ];
   for (const invoice of data ?? []) {
+    const taxRows = [
+      { rate: "10%", subtotal: invoice.tax_10_subtotal ?? invoice.subtotal ?? 0, tax: invoice.tax_10_amount ?? invoice.tax_total ?? 0 },
+      { rate: "8%", subtotal: invoice.tax_8_subtotal ?? 0, tax: invoice.tax_8_amount ?? 0 }
+    ].filter((row) => Number(row.subtotal) > 0 || Number(row.tax) > 0);
+    for (const taxRow of taxRows.length > 0 ? taxRows : [{ rate: "", subtotal: invoice.subtotal ?? 0, tax: invoice.tax_total ?? 0 }]) {
     rows.push([
-      invoice.issue_date ?? "",
-      invoice.transaction_date ?? "",
+      invoice.transaction_date ?? invoice.issue_date ?? "",
       invoice.document_number ?? "",
       invoice.customer?.name ?? "",
-      String(invoice.tax_10_subtotal ?? 0),
-      String(invoice.tax_10_amount ?? 0),
-      String(invoice.tax_8_subtotal ?? 0),
-      String(invoice.tax_8_amount ?? 0),
-      String(invoice.subtotal ?? 0),
-      String(invoice.tax_total ?? 0),
-      String(invoice.total ?? 0),
-      invoice.payment_status ?? "",
-      invoice.payment_method ?? ""
+      invoice.title ?? "",
+      taxRow.rate,
+      String(taxRow.subtotal),
+      String(taxRow.tax),
+      String(Number(taxRow.subtotal) + Number(taxRow.tax)),
+      invoice.paid_at ?? "",
+      invoice.payment_method ?? "",
+      invoice.payment_status ?? invoice.status ?? ""
     ]);
+    }
   }
+  await supabase.from("accounting_exports").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    export_type: "invoice_csv",
+    file_name: `accounting-export-${storeId}.csv`,
+    row_count: Math.max(rows.length - 1, 0),
+    metadata: { format: "phase_5e_invoice_business_foundation" }
+  });
   await logAuditEvent({ storeId, actionType: "accounting_csv_exported", targetType: "accounting_export", message: "会計CSVを出力しました。" });
   return rows.map((row) => row.map((cell) => `"${String(cell).replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
 }

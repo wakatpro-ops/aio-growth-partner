@@ -58,12 +58,13 @@ export function createBusinessDocumentPdf({ document, industry, kind, store }: P
   const limitLabel = kind === "estimate" ? "有効期限" : "支払期限";
   const limitValue = kind === "estimate" ? document.expiry_date : document.due_date;
   const customerName = document.customer?.name ?? "未選択";
+  const issuerName = kind === "invoice" ? document.qualified_invoice_issuer_name || store.name : store.name;
   const notes = document.notes || "備考はありません。";
 
   let content = "";
   content += "0.2 w\n";
   content += textLine(48, 790, 22, label);
-  content += textLine(360, 802, 11, store.name);
+  content += textLine(360, 802, 11, issuerName);
   content += textLine(360, 784, 10, store.address || "住所未設定");
   content += textLine(360, 766, 10, store.phone || "電話番号未設定");
   content += line(48, 748, 547, 748);

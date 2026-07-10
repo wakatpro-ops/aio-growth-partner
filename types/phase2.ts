@@ -118,6 +118,7 @@ export type BusinessOrder = {
   order_number: string;
   title: string;
   status: "ordered" | "in_progress" | "completed" | "invoiced" | "cancelled";
+  work_status?: "not_started" | "working" | "done" | "on_hold" | null;
   ordered_at: string | null;
   completed_at: string | null;
   total: number;
@@ -125,6 +126,17 @@ export type BusinessOrder = {
   created_at: string;
   updated_at: string;
   customer?: Pick<Customer, "name" | "company_name"> | null;
+  estimate?: Pick<BusinessDocument, "document_number" | "title" | "total"> | null;
+  invoice?: Pick<BusinessDocument, "document_number" | "title" | "total"> | null;
+};
+
+export type OrderStatusLog = {
+  id: string;
+  order_id: string | null;
+  from_status: string | null;
+  to_status: string;
+  comment: string | null;
+  created_at: string;
 };
 
 export type AuditLog = {

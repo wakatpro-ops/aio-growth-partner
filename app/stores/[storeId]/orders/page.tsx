@@ -5,6 +5,7 @@ import { getIndustryConfig } from "@/config/industries";
 import { listCustomers, listDocuments } from "@/lib/phase2/business-data";
 import { listOrders } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
+import Link from "next/link";
 import { createOrderAction } from "../compliance/actions";
 
 function yen(value: number) {
@@ -62,6 +63,15 @@ export default async function OrdersPage({ params }: { params: Promise<{ storeId
             </select>
           </div>
           <div className="field">
+            <label htmlFor="work_status">作業状態</label>
+            <select id="work_status" name="work_status" defaultValue="not_started">
+              <option value="not_started">未着手</option>
+              <option value="working">作業中</option>
+              <option value="done">作業完了</option>
+              <option value="on_hold">保留</option>
+            </select>
+          </div>
+          <div className="field">
             <label htmlFor="total">金額</label>
             <input id="total" name="total" type="number" min="0" step="1" defaultValue="0" />
           </div>
@@ -84,7 +94,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ storeId
       <section className="card">
         <h2>受注一覧</h2>
         <table className="table">
-          <thead><tr><th>番号</th><th>件名</th><th>顧客</th><th>状態</th><th>金額</th><th>作業完了日</th></tr></thead>
+          <thead><tr><th>番号</th><th>件名</th><th>顧客</th><th>状態</th><th>作業</th><th>金額</th><th>操作</th></tr></thead>
           <tbody>
             {orders.map((order) => (
               <tr key={order.id}>
@@ -92,11 +102,12 @@ export default async function OrdersPage({ params }: { params: Promise<{ storeId
                 <td>{order.title}</td>
                 <td>{order.customer?.name ?? "未選択"}</td>
                 <td><span className="badge">{order.status}</span></td>
+                <td><span className="badge">{order.work_status ?? "not_started"}</span></td>
                 <td>{yen(order.total)}</td>
-                <td>{order.completed_at ?? "-"}</td>
+                <td><Link className="button secondary" href={`/stores/${store.id}/orders/${order.id}`}>詳細</Link></td>
               </tr>
             ))}
-            {orders.length === 0 ? <tr><td colSpan={6}>まだ受注はありません。</td></tr> : null}
+            {orders.length === 0 ? <tr><td colSpan={7}>まだ受注はありません。</td></tr> : null}
           </tbody>
         </table>
       </section>

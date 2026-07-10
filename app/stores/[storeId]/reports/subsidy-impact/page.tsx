@@ -19,7 +19,9 @@ export default async function SubsidyImpactPage({ params }: { params: Promise<{ 
         <article className="card"><p className="muted">電子化した請求書</p><div className="metric">{report.invoiceCount.toLocaleString("ja-JP")}件</div></article>
         <article className="card"><p className="muted">売上管理件数</p><div className="metric">{report.salesCount.toLocaleString("ja-JP")}件</div></article>
         <article className="card"><p className="muted">入金管理件数</p><div className="metric">{report.paymentCount.toLocaleString("ja-JP")}件</div></article>
+        <article className="card"><p className="muted">CSV出力件数</p><div className="metric">{(report.exportCount ?? 0).toLocaleString("ja-JP")}件</div></article>
         <article className="card"><p className="muted">AI提案件数</p><div className="metric">{report.aiCount.toLocaleString("ja-JP")}件</div></article>
+        <article className="card"><p className="muted">Google/Gmail/Calendar支援</p><div className="metric">{(report.googleSupportCount ?? 0).toLocaleString("ja-JP")}件</div></article>
         <article className="card"><p className="muted">PDF発行件数</p><div className="metric">{report.pdfCount.toLocaleString("ja-JP")}件</div></article>
         <article className="card"><p className="muted">手作業削減見込み</p><div className="metric">{report.estimatedMinutesSaved.toLocaleString("ja-JP")}分</div></article>
       </section>

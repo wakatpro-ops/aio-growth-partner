@@ -1042,6 +1042,7 @@ create table if not exists public.orders (
   order_number text not null,
   title text not null,
   status text not null default 'ordered',
+  work_status text not null default 'not_started',
   ordered_at date,
   completed_at date,
   total numeric(12,2) not null default 0,
@@ -1084,6 +1085,7 @@ create table if not exists public.invoice_pdf_issues (
   invoice_id uuid references public.invoices(id) on delete set null,
   document_number text not null,
   issue_type text not null default 'issue',
+  reissue_reason text,
   file_name text,
   storage_path text,
   metadata jsonb not null default '{}'::jsonb,
@@ -1154,3 +1156,6 @@ create index if not exists audit_logs_store_id_idx on public.audit_logs(store_id
 create index if not exists accounting_exports_store_id_idx on public.accounting_exports(store_id);
 create index if not exists integration_configs_store_id_idx on public.integration_configs(store_id);
 create index if not exists subsidy_impact_reports_store_id_idx on public.subsidy_impact_reports(store_id);
+
+alter table public.orders add column if not exists work_status text default 'not_started';
+alter table public.invoice_pdf_issues add column if not exists reissue_reason text;

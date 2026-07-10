@@ -537,6 +537,21 @@ Phase 5-D: SNS投稿支援:
 - 保存内容は `growth_actions`、`growth_action_drafts`、`growth_action_schedule_items` に反映し、`external_publish_jobs` に `manual_instagram`、`manual_line`、`manual_x`、`manual_facebook` などの履歴を残します。
 - 現段階ではSNS APIへの実投稿は行いません。将来Meta Graph APIやLINE APIへ接続できるよう、投稿先、外部ステータス、投稿URL、履歴を分けて保存します。
 
+Phase 5-E: インボイス型・業務基盤強化:
+
+- AIO Growth Partnerを、AI集客だけでなく、会計・受発注・決済・証跡管理を持つ店舗業務管理SaaSとして説明しやすくするための強化です。
+- 補助金採択、ITツール登録、審査通過を保証するものではありません。あくまで、インボイス型・業務デジタル化の説明に耐える業務基盤として整理しています。
+- 請求書には、適格請求書発行事業者登録番号、事業者名、取引日、請求書番号、10% / 8%の税率別内訳、税抜金額、消費税額、税込金額、発行日時、PDF発行日時を持てるようにしています。
+- `/stores/[storeId]/settings/invoice` で、店舗ごとの請求書番号プレフィックスと次回番号を管理できます。
+- `/stores/[storeId]/orders` と `/stores/[storeId]/orders/[orderId]` で、見積から受注化し、受注ステータス、作業ステータス、請求書作成、ステータス履歴を管理できます。
+- `/stores/[storeId]/payments` で、未入金、一部入金、入金済み、取消と、現金、クレジットカード、QR決済、銀行振込、その他の支払方法を管理できます。
+- 請求書PDFの発行・再発行は `invoice_pdf_issues` に保存し、再発行理由も残せます。
+- `/stores/[storeId]/audit-logs` で、受注化、請求書作成、PDF発行、入金登録、CSV出力、ステータス変更などの証跡を確認できます。
+- `/stores/[storeId]/accounting/exports` では、売上日、請求書番号、顧客名、摘要、税率、税抜金額、消費税額、税込金額、入金日、支払方法、ステータスを含む汎用CSVを出力し、出力履歴も保存します。
+- `/stores/[storeId]/reports/subsidy-impact` では、請求書発行件数、PDF発行件数、入金管理件数、CSV出力件数、AI提案件数、Google/Gmail/Calendar支援件数、手作業削減見込みを表示します。
+- freee、マネーフォワード、Stripeは実連携せず、`integration_configs` に将来拡張枠として保持します。
+- Phase 5-Eだけを追加反映する場合は、`database/migrations/phase-5e-invoice-business-foundation.sql` をSupabase SQL Editorで実行してください。
+
 Phase 6-A: 補助金説明を意識したインボイス対応強化:
 
 - AIO Growth Partnerを「AI集客つきインボイス対応 店舗業務管理SaaS」として説明しやすくするため、会計・受発注・決済・データ連携・AI活用・証跡管理の機能整理を追加しました。

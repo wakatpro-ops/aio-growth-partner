@@ -8,6 +8,7 @@ import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resol
 import { getDocument, listCustomers } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
 import { deleteEstimateAction, updateEstimateAction } from "../../business/actions";
+import { createOrderFromEstimateAction } from "../../compliance/actions";
 
 export default async function EstimateDetailPage({ params }: { params: Promise<{ storeId: string; estimateId: string }> }) {
   const { storeId, estimateId } = await params;
@@ -29,6 +30,9 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
         description={`${industry.businessLabels.estimate}を編集します。`}
         action={isFeatureEnabled(flags, "pdf_export") ? (
           <div className="action-row">
+            <form action={createOrderFromEstimateAction.bind(null, store.id, estimate.id)}>
+              <button className="button" type="submit">受注化</button>
+            </form>
             <Link className="button" href={`/stores/${store.id}/estimates/${estimate.id}/pdf/download`}>PDF出力</Link>
             <Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}/pdf`}>印刷プレビュー</Link>
           </div>

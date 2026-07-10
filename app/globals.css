@@ -200,6 +200,14 @@ p {
   gap: 14px;
 }
 
+.form-inline {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(160px, 1fr) minmax(220px, 2fr) auto;
+  margin-bottom: 14px;
+}
+
 .field {
   display: grid;
   gap: 7px;
@@ -655,7 +663,8 @@ p {
   }
 
   .grid.cols-2,
-  .grid.cols-3 {
+  .grid.cols-3,
+  .form-inline {
     grid-template-columns: 1fr;
   }
 

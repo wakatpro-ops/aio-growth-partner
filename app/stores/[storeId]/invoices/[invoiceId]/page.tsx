@@ -53,17 +53,23 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
       <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" />
       <section className="card">
         <h2>PDF発行・再発行履歴</h2>
+        <form className="form-inline" action={`/stores/${store.id}/invoices/${invoice.id}/pdf/download`} method="get">
+          <label htmlFor="reissueReason">再発行理由</label>
+          <input id="reissueReason" name="reissueReason" placeholder="例: 金額修正後の再発行" />
+          <button className="button secondary" type="submit">理由を記録してPDF出力</button>
+        </form>
         <table className="table compact">
-          <thead><tr><th>日時</th><th>種別</th><th>ファイル名</th></tr></thead>
+          <thead><tr><th>日時</th><th>種別</th><th>理由</th><th>ファイル名</th></tr></thead>
           <tbody>
             {pdfIssues.map((issue) => (
               <tr key={issue.id}>
                 <td>{new Date(issue.issued_at).toLocaleString("ja-JP")}</td>
                 <td>{issue.issue_type === "reissue" ? "再発行" : "発行"}</td>
+                <td>{issue.reissue_reason ?? issue.metadata?.reissue_reason ?? "-"}</td>
                 <td>{issue.file_name ?? "-"}</td>
               </tr>
             ))}
-            {pdfIssues.length === 0 ? <tr><td colSpan={3}>まだPDF発行履歴はありません。</td></tr> : null}
+            {pdfIssues.length === 0 ? <tr><td colSpan={4}>まだPDF発行履歴はありません。</td></tr> : null}
           </tbody>
         </table>
       </section>
