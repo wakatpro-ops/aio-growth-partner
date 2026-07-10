@@ -11,7 +11,7 @@ import { listPdfIssues } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
 import { deleteInvoiceAction, updateInvoiceAction } from "../../business/actions";
 
-export default async function InvoiceDetailPage({ params, searchParams }: { params: Promise<{ storeId: string; invoiceId: string }>; searchParams: Promise<{ stripeSaved?: string; paid?: string }> }) {
+export default async function InvoiceDetailPage({ params, searchParams }: { params: Promise<{ storeId: string; invoiceId: string }>; searchParams: Promise<{ stripeSaved?: string; paid?: string; stripeError?: string }> }) {
   const { storeId, invoiceId } = await params;
   const notices = await searchParams;
   const store = await getStore(storeId);
@@ -41,6 +41,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
       />
       {notices.stripeSaved ? <p className="notice success">Stripe決済URLを保存しました。</p> : null}
       {notices.paid ? <p className="notice success">Stripe決済を入金済みとして記録しました。</p> : null}
+      {notices.stripeError ? <p className="notice danger">Stripe連携の保存に失敗しました。{decodeURIComponent(notices.stripeError)}</p> : null}
       <section className="grid cols-3">
         <article className="card">
           <p className="muted">登録番号</p>
