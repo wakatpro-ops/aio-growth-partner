@@ -621,6 +621,55 @@ MVPでできること:
 - Google Business ProfileはAPI Basic Accessが承認されていない場合でも、手動投稿支援モードで投稿文、CTA、URL、画像メモ、チェックリスト、手動投稿済みログを管理できます。
 - `/settings` でFree / Starter / Proのプラン設計案と利用状況の下地を確認できます。Stripeは未接続です。
 
+## Phase MVP-Release-Prep: 実ユーザーβリリース準備
+
+β版は、伴走ありで実店舗に触ってもらうための状態です。新機能の完全自動化よりも、初期導線、手動運用の説明、安全性、管理者確認を優先します。
+
+初回導入の順番:
+
+1. `/stores/new` で実店舗を作成します。
+2. 業態を選びます。まずは汎用店舗または自動車修理です。
+3. `/stores/[storeId]/settings/invoice` で請求書設定を確認します。
+4. 顧客、商品/サービスを登録します。
+5. 見積、請求、PDF、入金登録を確認します。
+6. `/stores/[storeId]/settings/payments/stripe` でStripe手動連携を確認します。
+7. `/stores/[storeId]/settings/accounting/freee` と `/stores/[storeId]/accounting/exports` でfreee向けCSVを確認します。
+8. `/stores/[storeId]/settings/google` でGoogle / Gmail / Calendar連携状態を確認します。
+9. `/stores/[storeId]/growth-actions` でSNS手動投稿支援と集客アクションを確認します。
+
+β版でできること:
+
+- 店舗管理、顧客管理、商品/サービス管理
+- 見積書、請求書、PDF出力、入金管理
+- Stripe決済URLの手動登録
+- freee向けCSV出力
+- 売上CSV / Excel取込
+- AI月次レポート、AI集客アクション
+- Gmail下書き作成、Googleカレンダー予定作成
+- SNS手動投稿支援
+
+まだできないこと:
+
+- AIO利用料の自動Stripe課金
+- Stripe Connect完全OAuth
+- Stripe Webhook自動入金反映
+- freee API自動送信
+- Google Business Profile API自動投稿
+- Instagram API自動投稿
+
+管理者向け:
+
+- `/admin/beta-release` で、登録ユーザー、組織、店舗、デモ/本番区分、外部連携状態、AI利用状況、CSV取込、エラー、直近操作ログ、βチェックリストを確認します。
+- `/admin/billing-integrations` で、AIO運営側課金と店舗側Stripe/freee連携の分離を確認します。
+
+重要な注意:
+
+- Google Business Profile APIはGoogle側の審査やquotaの都合により、現在は手動投稿支援モードです。
+- Stripeは現時点では店舗ごとの決済URL手動登録モードです。
+- freeeは現時点ではCSV出力モードです。
+- AI生成文は必ず人間が確認してから使用してください。
+- 補助金やITツール登録の採択・登録を保証するものではありません。
+
 まだできないこと:
 
 - Stripeによる自動課金、決済、プラン変更。

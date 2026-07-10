@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { modules } from "@/config/modules";
+import { betaCautions, betaManualOrPlannedFeatures, betaReadyFeatures } from "@/lib/mvp/release-prep";
 import { mvpPlans, planForKey } from "@/lib/mvp/status";
 import { getMvpWorkspaceSummary } from "@/lib/stores";
 
@@ -63,6 +64,21 @@ export default async function SettingsPage() {
             <span className="badge">store_accounting_integrations: 店舗側freee等</span>
           </div>
           <p className="muted">店舗側の決済・会計トークンはstore_id / organization_id単位で保存し、AIO運営会社のStripe/freeeとは混ぜません。</p>
+        </section>
+        <section className="card">
+          <h3>β版でできること</h3>
+          <div className="grid">
+            {betaReadyFeatures.map((feature) => <span className="badge badge-strong" key={feature}>{feature}</span>)}
+          </div>
+        </section>
+        <section className="card">
+          <h3>準備中 / 手動支援モード</h3>
+          <div className="grid">
+            {betaManualOrPlannedFeatures.map((feature) => <span className="badge" key={feature}>{feature}</span>)}
+          </div>
+          <ul className="compact-list">
+            {betaCautions.map((caution) => <li key={caution}>{caution}</li>)}
+          </ul>
         </section>
       </div>
     </AppShell>

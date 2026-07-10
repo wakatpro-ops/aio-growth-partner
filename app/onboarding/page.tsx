@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isDemoStore, planForKey, storeDataModeDescription, storeDataModeLabel } from "@/lib/mvp/status";
+import { betaCautions, betaManualOrPlannedFeatures, betaOnboardingSteps, betaReadyFeatures, getStoreBetaChecklist } from "@/lib/mvp/release-prep";
 import { getMvpWorkspaceSummary, getStore, listProductionStores } from "@/lib/stores";
 
 const steps = [
@@ -50,6 +51,7 @@ export default async function OnboardingPage({
   const summary = await getMvpWorkspaceSummary();
   const plan = planForKey(summary.planKey);
   const industry = selectedStore ? getIndustryConfig(selectedStore.industry_type_key) : null;
+  const betaChecklist = selectedStore ? await getStoreBetaChecklist(selectedStore) : [];
 
   return (
     <AppShell>
@@ -95,6 +97,59 @@ export default async function OnboardingPage({
 
           <section className="card">
             <h2>初回にやること</h2>
+            <ol className="compact-list">
+              {betaOnboardingSteps.map((step) => {
+                const href = typeof step.href === "function" ? step.href(selectedStore.id) : step.href;
+                return (
+                  <li key={step.label}>
+                    <strong>{step.label}</strong>
+                    <p className="muted">{step.detail}</p>
+                    <Link className="button secondary" href={href}>開く</Link>
+                  </li>
+                );
+              })}
+            </ol>
+          </section>
+
+          <section className="grid cols-2">
+            <article className="card">
+              <h2>β版でできること</h2>
+              <div className="grid">
+                {betaReadyFeatures.map((feature) => <span className="badge badge-strong" key={feature}>{feature}</span>)}
+              </div>
+            </article>
+            <article className="card">
+              <h2>まだできないこと</h2>
+              <p className="muted">β版では準備中または手動支援モードとして扱います。</p>
+              <div className="grid">
+                {betaManualOrPlannedFeatures.map((feature) => <span className="badge" key={feature}>{feature}</span>)}
+              </div>
+            </article>
+          </section>
+
+          <section className="card">
+            <h2>βリリース前チェックリスト</h2>
+            <table className="table">
+              <tbody>
+                {betaChecklist.map((item) => (
+                  <tr key={item.label}>
+                    <th>{item.label}</th>
+                    <td><span className={item.done ? "badge badge-strong" : "badge"}>{item.done ? "OK" : "未確認"}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="card">
+            <h2>重要な注意</h2>
+            <ul className="compact-list">
+              {betaCautions.map((caution) => <li key={caution}>{caution}</li>)}
+            </ul>
+          </section>
+
+          <section className="card">
+            <h2>機能別ショートカット</h2>
             <div className="grid cols-3">
               {steps.map((step) => (
                 <article className="card" key={step.title}>

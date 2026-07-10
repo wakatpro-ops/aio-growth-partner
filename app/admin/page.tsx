@@ -9,6 +9,7 @@ const items = [
   { href: "/admin/stores", label: "店舗管理" },
   { href: "/admin/ai-logs", label: "AI利用ログ" },
   { href: "/admin/billing-integrations", label: "課金・外部連携分離" },
+  { href: "/admin/beta-release", label: "βリリース運用" },
   { href: "/settings", label: "プラン・利用状況" }
 ];
 

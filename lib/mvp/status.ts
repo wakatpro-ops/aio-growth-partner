@@ -1,9 +1,16 @@
 import type { Store } from "@/types/domain";
 
-export const demoStoreIds = new Set(["store-general-demo", "store-auto-demo"]);
+export const demoOrganizationIds = new Set(["org-demo", "00000000-0000-4000-8000-000000000001"]);
+
+export const demoStoreIds = new Set([
+  "store-general-demo",
+  "store-auto-demo",
+  "00000000-0000-4000-8000-000000000101",
+  "00000000-0000-4000-8000-000000000102"
+]);
 
 export function isDemoStore(store: Pick<Store, "id" | "profile_data" | "organization_id">) {
-  return demoStoreIds.has(store.id) || store.profile_data?.data_mode === "demo" || store.organization_id === "org-demo";
+  return demoStoreIds.has(store.id) || store.profile_data?.data_mode === "demo" || demoOrganizationIds.has(store.organization_id);
 }
 
 export function storeDataModeLabel(store: Pick<Store, "id" | "profile_data" | "organization_id">) {
