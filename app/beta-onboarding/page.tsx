@@ -176,6 +176,12 @@ export default function BetaOnboardingPage() {
           <li>重要データは定期的に確認し、必要に応じてCSVやPDFで控えてください。</li>
           <li>Gmail下書きやGoogleカレンダー予定は、Google側でも内容を確認してから運用してください。</li>
         </ul>
+        <div className="button-row">
+          <Link className="button secondary" href="/terms">利用規約</Link>
+          <Link className="button secondary" href="/privacy">プライバシーポリシー</Link>
+          <Link className="button secondary" href="/beta-notes">β版の注意事項</Link>
+          <Link className="button secondary" href="/help">操作方法</Link>
+        </div>
       </section>
 
       <section className="card">

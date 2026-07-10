@@ -14,6 +14,14 @@ const navItems = [
   { href: "/apply", label: "公開申し込み" }
 ];
 
+const footerLinks = [
+  { href: "/help", label: "操作方法" },
+  { href: "/legal", label: "規約・ポリシー" },
+  { href: "/terms", label: "利用規約" },
+  { href: "/privacy", label: "プライバシー" },
+  { href: "/beta-notes", label: "β版注意" }
+];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
@@ -33,6 +41,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
+        <footer className="sidebar-footer">
+          {footerLinks.map((item) => (
+            <Link key={item.href} href={item.href}>{item.label}</Link>
+          ))}
+        </footer>
       </aside>
       <main className="main">{children}</main>
     </div>

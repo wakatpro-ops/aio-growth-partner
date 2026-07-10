@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { modules } from "@/config/modules";
@@ -79,6 +80,15 @@ export default async function SettingsPage() {
           <ul className="compact-list">
             {betaCautions.map((caution) => <li key={caution}>{caution}</li>)}
           </ul>
+        </section>
+        <section className="card">
+          <h3>規約・ヘルプ</h3>
+          <p>β版の利用前に、利用規約、プライバシーポリシー、操作方法、β版の注意事項を確認してください。</p>
+          <div className="button-row">
+            <Link className="button secondary" href="/legal">規約・ポリシー</Link>
+            <Link className="button secondary" href="/help">操作方法</Link>
+            <Link className="button secondary" href="/beta-notes">β版の注意事項</Link>
+          </div>
         </section>
       </div>
     </AppShell>

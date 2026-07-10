@@ -146,6 +146,11 @@ export default async function OnboardingPage({
             <ul className="compact-list">
               {betaCautions.map((caution) => <li key={caution}>{caution}</li>)}
             </ul>
+            <div className="button-row">
+              <Link className="button secondary" href="/legal">規約・ポリシー</Link>
+              <Link className="button secondary" href="/help">操作方法</Link>
+              <Link className="button secondary" href="/beta-notes">β版の注意事項</Link>
+            </div>
           </section>
 
           <section className="card">
