@@ -44,15 +44,6 @@ function csv(rows: Array<Array<string | number | null | undefined>>) {
   return rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
 }
 
-function relationEmail(value: unknown) {
-  if (Array.isArray(value)) return relationEmail(value[0]);
-  if (value && typeof value === "object" && "email" in value) {
-    const email = (value as { email?: unknown }).email;
-    return typeof email === "string" ? email : null;
-  }
-  return null;
-}
-
 export async function logAuditEvent({
   storeId,
   actionType,
@@ -472,7 +463,7 @@ export async function updateInvoiceStripePaymentFromForm(storeId: string, invoic
     })
     .eq("store_id", resolved.storeId)
     .eq("id", invoiceId)
-    .select("id, document_number, total, customer:customers(email)")
+    .select("id, document_number, total")
     .single();
   if (error) throw new Error(`Stripe決済URLを保存できませんでした: ${error.message}`);
 
@@ -485,7 +476,7 @@ export async function updateInvoiceStripePaymentFromForm(storeId: string, invoic
     amount: Number(invoice.total ?? 0),
     currency: "jpy",
     status: stripePaymentStatus,
-    customer_email: relationEmail(invoice.customer),
+    customer_email: null,
     raw_payload: {
       mode: "manual_payment_link",
       payment_url: stripePaymentUrl,
