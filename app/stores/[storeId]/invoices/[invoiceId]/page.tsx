@@ -9,7 +9,6 @@ import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resol
 import { getDocument, listCustomers } from "@/lib/phase2/business-data";
 import { listPdfIssues } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
-import { markStripeInvoicePaidAction, updateInvoiceStripePaymentAction } from "../../compliance/actions";
 import { deleteInvoiceAction, updateInvoiceAction } from "../../business/actions";
 
 export default async function InvoiceDetailPage({ params, searchParams }: { params: Promise<{ storeId: string; invoiceId: string }>; searchParams: Promise<{ stripeSaved?: string; paid?: string }> }) {
@@ -73,7 +72,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
             <strong>{invoice.stripe_payment_url ? "登録済み" : "未登録"}</strong>
           </article>
         </div>
-        <form action={updateInvoiceStripePaymentAction.bind(null, store.id, invoice.id)} className="grid cols-2">
+        <form action={`/stores/${store.id}/invoices/${invoice.id}/stripe-payment`} method="post" className="grid cols-2">
           <div className="field full-span">
             <label htmlFor="stripe_payment_url">Stripe決済URL</label>
             <input id="stripe_payment_url" name="stripe_payment_url" defaultValue={invoice.stripe_payment_url ?? ""} placeholder="https://buy.stripe.com/..." />
@@ -99,7 +98,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
             {invoice.stripe_payment_url ? <Link className="button secondary" href={invoice.stripe_payment_url} target="_blank">決済URLを開く</Link> : null}
           </div>
         </form>
-        <form action={markStripeInvoicePaidAction.bind(null, store.id, invoice.id)} className="grid cols-3">
+        <form action={`/stores/${store.id}/invoices/${invoice.id}/stripe-payment/paid`} method="post" className="grid cols-3">
           <input type="hidden" name="external_payment_url" value={invoice.stripe_payment_url ?? ""} />
           <div className="field">
             <label htmlFor="stripe_paid_amount">入金額</label>
