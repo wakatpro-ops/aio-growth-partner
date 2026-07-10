@@ -76,6 +76,22 @@ export default async function PaymentsPage({ params }: { params: Promise<{ store
             </select>
           </div>
           <div className="field">
+            <label htmlFor="external_provider">外部決済</label>
+            <select id="external_provider" name="external_provider" defaultValue="">
+              <option value="">なし</option>
+              <option value="stripe">Stripe</option>
+              <option value="other">その他</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="external_payment_id">外部決済ID</label>
+            <input id="external_payment_id" name="external_payment_id" placeholder="pi_... / cs_... / 手動ID" />
+          </div>
+          <div className="field full-span">
+            <label htmlFor="external_payment_url">外部決済URL</label>
+            <input id="external_payment_url" name="external_payment_url" placeholder="https://..." />
+          </div>
+          <div className="field">
             <label htmlFor="memo">メモ</label>
             <input id="memo" name="memo" />
           </div>
@@ -86,7 +102,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ store
       <section className="card">
         <h2>入金履歴</h2>
         <table className="table">
-          <thead><tr><th>入金日</th><th>請求書</th><th>金額</th><th>方法</th><th>状態</th><th>メモ</th></tr></thead>
+          <thead><tr><th>入金日</th><th>請求書</th><th>金額</th><th>方法</th><th>外部決済</th><th>状態</th><th>メモ</th></tr></thead>
           <tbody>
             {payments.map((payment) => (
               <tr key={payment.id}>
@@ -94,11 +110,12 @@ export default async function PaymentsPage({ params }: { params: Promise<{ store
                 <td>{payment.invoice?.document_number ?? "-"}</td>
                 <td>{yen(payment.amount)}</td>
                 <td>{methodLabels[payment.payment_method] ?? payment.payment_method}</td>
+                <td>{payment.external_provider ? `${payment.external_provider} / ${payment.external_payment_id ?? "-"}` : "-"}</td>
                 <td><span className="badge">{payment.status}</span></td>
                 <td>{payment.memo ?? "-"}</td>
               </tr>
             ))}
-            {payments.length === 0 ? <tr><td colSpan={6}>まだ入金記録はありません。</td></tr> : null}
+            {payments.length === 0 ? <tr><td colSpan={7}>まだ入金記録はありません。</td></tr> : null}
           </tbody>
         </table>
       </section>

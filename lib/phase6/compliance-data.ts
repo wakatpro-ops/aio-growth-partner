@@ -40,6 +40,19 @@ function number(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function csv(rows: Array<Array<string | number | null | undefined>>) {
+  return rows.map((row) => row.map((cell) => `"${String(cell ?? "").replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
+}
+
+function relationEmail(value: unknown) {
+  if (Array.isArray(value)) return relationEmail(value[0]);
+  if (value && typeof value === "object" && "email" in value) {
+    const email = (value as { email?: unknown }).email;
+    return typeof email === "string" ? email : null;
+  }
+  return null;
+}
+
 export async function logAuditEvent({
   storeId,
   actionType,
@@ -343,6 +356,9 @@ export async function createPaymentFromForm(storeId: string, formData: FormData)
     amount,
     payment_method: paymentMethod,
     status: String(formData.get("status") ?? "received"),
+    external_provider: text(formData.get("external_provider")),
+    external_payment_id: text(formData.get("external_payment_id")),
+    external_payment_url: text(formData.get("external_payment_url")),
     memo: text(formData.get("memo"))
   }).select("id").single();
   if (error) throw new Error(`入金の保存に失敗しました: ${error.message}`);
@@ -355,6 +371,201 @@ export async function createPaymentFromForm(storeId: string, formData: FormData)
     }).eq("id", invoiceId);
   }
   await logAuditEvent({ storeId, actionType: "payment_recorded", targetType: "payment", targetId: data.id, message: `${amount.toLocaleString("ja-JP")}円の入金を記録しました。` });
+}
+
+export async function getStorePaymentIntegration(storeId: string, provider = "stripe") {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return null;
+  const resolved = await resolveStore(supabase, storeId);
+  const { data } = await supabase
+    .from("store_payment_integrations")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .eq("provider", provider)
+    .maybeSingle();
+  return data ?? null;
+}
+
+export async function updateStripeIntegrationFromForm(storeId: string, formData: FormData) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return;
+  const resolved = await resolveStore(supabase, storeId);
+  const { error } = await supabase.from("store_payment_integrations").upsert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    provider: "stripe",
+    connection_type: "stripe_connect",
+    status: String(formData.get("status") ?? "manual_ready"),
+    external_account_id: text(formData.get("external_account_id")),
+    account_name: text(formData.get("account_name")),
+    charges_enabled: formData.get("charges_enabled") === "on",
+    payouts_enabled: formData.get("payouts_enabled") === "on",
+    config: {
+      dashboard_url: text(formData.get("dashboard_url")),
+      manual_mode: true,
+      note: text(formData.get("note"))
+    },
+    metadata: {
+      operation_mode: "manual_payment_link",
+      platform_billing_separated: true
+    },
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id,provider" });
+  if (error) throw new Error(`Stripe連携情報を保存できませんでした: ${error.message}`);
+  await logAuditEvent({ storeId, actionType: "store_stripe_integration_updated", targetType: "store_payment_integration", message: "店舗側Stripe連携情報を更新しました。" });
+}
+
+export async function getStoreAccountingIntegration(storeId: string, provider = "freee") {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return null;
+  const resolved = await resolveStore(supabase, storeId);
+  const { data } = await supabase
+    .from("store_accounting_integrations")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .eq("provider", provider)
+    .maybeSingle();
+  return data ?? null;
+}
+
+export async function updateFreeeIntegrationFromForm(storeId: string, formData: FormData) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return;
+  const resolved = await resolveStore(supabase, storeId);
+  const { error } = await supabase.from("store_accounting_integrations").upsert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    provider: "freee",
+    status: String(formData.get("status") ?? "manual_csv"),
+    external_company_id: text(formData.get("external_company_id")),
+    office_name: text(formData.get("office_name")),
+    config: {
+      export_template: "freee_csv",
+      target_data: ["invoices", "payments", "sales_transactions"],
+      note: text(formData.get("note"))
+    },
+    metadata: {
+      operation_mode: "manual_csv_export",
+      api_send_deferred: true
+    },
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id,provider" });
+  if (error) throw new Error(`freee連携情報を保存できませんでした: ${error.message}`);
+  await logAuditEvent({ storeId, actionType: "store_freee_integration_updated", targetType: "store_accounting_integration", message: "店舗側freee連携情報を更新しました。" });
+}
+
+export async function updateInvoiceStripePaymentFromForm(storeId: string, invoiceId: string, formData: FormData) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return;
+  const resolved = await resolveStore(supabase, storeId);
+  const stripePaymentUrl = text(formData.get("stripe_payment_url"));
+  const stripePaymentStatus = String(formData.get("stripe_payment_status") ?? "payment_link_created");
+  const stripePaymentId = text(formData.get("stripe_payment_id"));
+  const { data: invoice, error } = await supabase
+    .from("invoices")
+    .update({
+      stripe_payment_url: stripePaymentUrl,
+      stripe_payment_status: stripePaymentStatus,
+      stripe_payment_id: stripePaymentId,
+      payment_status: stripePaymentStatus === "paid" ? "paid" : "unpaid",
+      updated_at: new Date().toISOString()
+    })
+    .eq("store_id", resolved.storeId)
+    .eq("id", invoiceId)
+    .select("id, document_number, total, customer:customers(email)")
+    .single();
+  if (error) throw new Error(`Stripe決済URLを保存できませんでした: ${error.message}`);
+
+  await supabase.from("store_payment_transactions").upsert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    invoice_id: invoiceId,
+    provider: "stripe",
+    external_payment_intent_id: stripePaymentId ?? `manual-${invoiceId}`,
+    amount: Number(invoice.total ?? 0),
+    currency: "jpy",
+    status: stripePaymentStatus,
+    customer_email: relationEmail(invoice.customer),
+    raw_payload: {
+      mode: "manual_payment_link",
+      payment_url: stripePaymentUrl,
+      document_number: invoice.document_number
+    },
+    paid_at: stripePaymentStatus === "paid" ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id,provider,external_payment_intent_id" });
+  await logAuditEvent({ storeId, actionType: "stripe_payment_link_saved", targetType: "invoice", targetId: invoiceId, message: `${invoice.document_number} のStripe決済URLを保存しました。` });
+}
+
+export async function markStripeInvoicePaidFromForm(storeId: string, invoiceId: string, formData: FormData) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return;
+  const resolved = await resolveStore(supabase, storeId);
+  const { data: invoice, error: invoiceError } = await supabase
+    .from("invoices")
+    .select("id, document_number, total, stripe_payment_url, stripe_payment_id")
+    .eq("store_id", resolved.storeId)
+    .eq("id", invoiceId)
+    .single();
+  if (invoiceError || !invoice) throw new Error(`請求書が見つかりません: ${invoiceError?.message ?? ""}`);
+  const externalPaymentId = text(formData.get("external_payment_id")) ?? invoice.stripe_payment_id ?? `manual-${invoiceId}`;
+  const paymentDate = text(formData.get("payment_date")) ?? today();
+  const amount = number(formData.get("amount")) || Number(invoice.total ?? 0);
+  const { data: payment, error } = await supabase.from("payments").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    invoice_id: invoiceId,
+    payment_date: paymentDate,
+    amount,
+    payment_method: "credit_card",
+    status: "received",
+    external_provider: "stripe",
+    external_payment_id: externalPaymentId,
+    external_payment_url: text(formData.get("external_payment_url")) ?? invoice.stripe_payment_url,
+    memo: text(formData.get("memo")) ?? "Stripe手動連携で入金済みに変更"
+  }).select("id").single();
+  if (error) throw new Error(`Stripe入金を保存できませんでした: ${error.message}`);
+  await supabase.from("invoices").update({
+    payment_status: "paid",
+    payment_method: "credit_card",
+    paid_at: new Date().toISOString(),
+    stripe_payment_status: "paid",
+    stripe_payment_id: externalPaymentId,
+    updated_at: new Date().toISOString()
+  }).eq("id", invoiceId);
+  await supabase.from("store_payment_transactions").upsert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    invoice_id: invoiceId,
+    payment_id: payment.id,
+    provider: "stripe",
+    external_payment_intent_id: externalPaymentId,
+    amount,
+    currency: "jpy",
+    status: "paid",
+    paid_at: new Date().toISOString(),
+    raw_payload: {
+      mode: "manual_paid_confirmation",
+      payment_url: text(formData.get("external_payment_url")) ?? invoice.stripe_payment_url,
+      document_number: invoice.document_number
+    },
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id,provider,external_payment_intent_id" });
+  await logAuditEvent({ storeId, actionType: "stripe_payment_marked_paid", targetType: "invoice", targetId: invoiceId, message: `${invoice.document_number} をStripe入金済みにしました。` });
+}
+
+export async function listStripePaymentTransactions(storeId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return [];
+  const resolved = await resolveStore(supabase, storeId);
+  const { data } = await supabase
+    .from("store_payment_transactions")
+    .select("*, invoice:invoices(document_number, title)")
+    .eq("store_id", resolved.storeId)
+    .eq("provider", "stripe")
+    .order("created_at", { ascending: false })
+    .limit(80);
+  return data ?? [];
 }
 
 export async function listAuditLogs(storeId: string): Promise<AuditLog[]> {
@@ -412,15 +623,36 @@ export async function listAccountingExports(storeId: string) {
   return data ?? [];
 }
 
-export async function buildAccountingCsv(storeId: string) {
+export async function listAccountingExportJobs(storeId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return [];
+  const resolved = await resolveStore(supabase, storeId);
+  const { data } = await supabase
+    .from("accounting_export_jobs")
+    .select("*")
+    .eq("store_id", resolved.storeId)
+    .order("created_at", { ascending: false })
+    .limit(30);
+  return data ?? [];
+}
+
+export async function buildAccountingCsv(storeId: string, format: "standard" | "freee" = "standard") {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return "発行日,請求書番号,顧客名,小計,消費税,合計,入金状態,支払方法\n";
   const resolved = await resolveStore(supabase, storeId);
-  const { data } = await supabase
+  const [{ data }, { data: sales }] = await Promise.all([
+    supabase
     .from("invoices")
     .select("*, customer:customers(name)")
     .eq("store_id", resolved.storeId)
-    .order("issue_date", { ascending: false });
+      .order("issue_date", { ascending: false }),
+    supabase
+      .from("sales_transactions")
+      .select("*")
+      .eq("store_id", resolved.storeId)
+      .order("business_date", { ascending: false })
+      .limit(1000)
+  ]);
   const rows = [
     ["売上日", "請求書番号", "顧客名", "摘要", "税率", "税抜金額", "消費税額", "税込金額", "入金日", "支払方法", "ステータス"]
   ];
@@ -445,14 +677,45 @@ export async function buildAccountingCsv(storeId: string) {
     ]);
     }
   }
+  if (format === "freee") {
+    for (const sale of sales ?? []) {
+      rows.push([
+        sale.business_date ?? "",
+        sale.external_transaction_id ?? "",
+        sale.customer_name ?? "",
+        `外部売上データ ${sale.channel ?? ""}`.trim(),
+        "",
+        String(sale.net_amount ?? 0),
+        String(sale.tax_amount ?? 0),
+        String(sale.gross_amount ?? 0),
+        sale.business_date ?? "",
+        sale.payment_method ?? "",
+        "imported"
+      ]);
+    }
+  }
+  const exportType = format === "freee" ? "freee_csv" : "invoice_csv";
+  const fileName = `${format === "freee" ? "freee" : "accounting"}-export-${storeId}.csv`;
   await supabase.from("accounting_exports").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
-    export_type: "invoice_csv",
-    file_name: `accounting-export-${storeId}.csv`,
+    export_type: exportType,
+    file_name: fileName,
     row_count: Math.max(rows.length - 1, 0),
-    metadata: { format: "phase_5e_invoice_business_foundation" }
+    metadata: { format: format === "freee" ? "freee_manual_csv" : "phase_5e_invoice_business_foundation" }
   });
-  await logAuditEvent({ storeId, actionType: "accounting_csv_exported", targetType: "accounting_export", message: "会計CSVを出力しました。" });
-  return rows.map((row) => row.map((cell) => `"${String(cell).replaceAll("\"", "\"\"")}"`).join(",")).join("\n");
+  await supabase.from("accounting_export_jobs").insert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    provider: format === "freee" ? "freee" : "generic_csv",
+    export_type: exportType,
+    status: "completed",
+    row_count: Math.max(rows.length - 1, 0),
+    file_name: fileName,
+    request_payload: { format, sources: format === "freee" ? ["invoices", "payments", "sales_transactions"] : ["invoices"] },
+    response_payload: { mode: "manual_csv_download" },
+    completed_at: new Date().toISOString()
+  });
+  await logAuditEvent({ storeId, actionType: "accounting_csv_exported", targetType: "accounting_export", message: format === "freee" ? "freee向けCSVを出力しました。" : "会計CSVを出力しました。" });
+  return csv(rows);
 }

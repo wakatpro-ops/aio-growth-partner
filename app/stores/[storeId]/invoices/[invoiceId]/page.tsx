@@ -2,16 +2,19 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { DocumentForm } from "@/components/phase2/document-form";
+import { CopyButton } from "@/components/ui/copy-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getDocument, listCustomers } from "@/lib/phase2/business-data";
 import { listPdfIssues } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
+import { markStripeInvoicePaidAction, updateInvoiceStripePaymentAction } from "../../compliance/actions";
 import { deleteInvoiceAction, updateInvoiceAction } from "../../business/actions";
 
-export default async function InvoiceDetailPage({ params }: { params: Promise<{ storeId: string; invoiceId: string }> }) {
+export default async function InvoiceDetailPage({ params, searchParams }: { params: Promise<{ storeId: string; invoiceId: string }>; searchParams: Promise<{ stripeSaved?: string; paid?: string }> }) {
   const { storeId, invoiceId } = await params;
+  const notices = await searchParams;
   const store = await getStore(storeId);
   const [invoice, customers, pdfIssues] = await Promise.all([
     getDocument(store.id, invoiceId, "invoices"),
@@ -22,6 +25,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   const industry = getIndustryConfig(store.industry_type_key);
   const flags = resolveFeatureFlags(store);
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <AppShell>
@@ -36,6 +40,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           </div>
         ) : undefined}
       />
+      {notices.stripeSaved ? <p className="notice success">Stripe決済URLを保存しました。</p> : null}
+      {notices.paid ? <p className="notice success">Stripe決済を入金済みとして記録しました。</p> : null}
       <section className="grid cols-3">
         <article className="card">
           <p className="muted">登録番号</p>
@@ -49,6 +55,70 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
           <p className="muted">入金状態</p>
           <strong>{invoice.payment_status ?? "未設定"}</strong>
         </article>
+      </section>
+      <section className="card form">
+        <h2>Stripe決済URL</h2>
+        <p className="muted">店舗自身のStripe決済リンクを手動登録します。AIO運営側の月額課金とは別です。</p>
+        <div className="grid cols-3">
+          <article className="mini-card">
+            <p className="muted">決済ステータス</p>
+            <strong>{invoice.stripe_payment_status ?? "not_created"}</strong>
+          </article>
+          <article className="mini-card">
+            <p className="muted">Stripe外部ID</p>
+            <strong>{invoice.stripe_payment_id ?? "未登録"}</strong>
+          </article>
+          <article className="mini-card">
+            <p className="muted">決済URL</p>
+            <strong>{invoice.stripe_payment_url ? "登録済み" : "未登録"}</strong>
+          </article>
+        </div>
+        <form action={updateInvoiceStripePaymentAction.bind(null, store.id, invoice.id)} className="grid cols-2">
+          <div className="field full-span">
+            <label htmlFor="stripe_payment_url">Stripe決済URL</label>
+            <input id="stripe_payment_url" name="stripe_payment_url" defaultValue={invoice.stripe_payment_url ?? ""} placeholder="https://buy.stripe.com/..." />
+          </div>
+          <div className="field">
+            <label htmlFor="stripe_payment_id">Stripe外部決済ID</label>
+            <input id="stripe_payment_id" name="stripe_payment_id" defaultValue={invoice.stripe_payment_id ?? ""} placeholder="pi_... / cs_... / 手動ID" />
+          </div>
+          <div className="field">
+            <label htmlFor="stripe_payment_status">決済ステータス</label>
+            <select id="stripe_payment_status" name="stripe_payment_status" defaultValue={invoice.stripe_payment_status ?? "payment_link_created"}>
+              <option value="not_created">未作成</option>
+              <option value="payment_link_created">決済URL作成済み</option>
+              <option value="pending">支払い待ち</option>
+              <option value="paid">決済済み</option>
+              <option value="failed">失敗</option>
+              <option value="cancelled">取消</option>
+            </select>
+          </div>
+          <div className="action-row full-span">
+            <button className="button" type="submit">Stripe情報を保存</button>
+            <CopyButton value={invoice.stripe_payment_url} label="決済URLをコピー" />
+            {invoice.stripe_payment_url ? <Link className="button secondary" href={invoice.stripe_payment_url} target="_blank">決済URLを開く</Link> : null}
+          </div>
+        </form>
+        <form action={markStripeInvoicePaidAction.bind(null, store.id, invoice.id)} className="grid cols-3">
+          <input type="hidden" name="external_payment_url" value={invoice.stripe_payment_url ?? ""} />
+          <div className="field">
+            <label htmlFor="stripe_paid_amount">入金額</label>
+            <input id="stripe_paid_amount" name="amount" type="number" defaultValue={invoice.total} />
+          </div>
+          <div className="field">
+            <label htmlFor="stripe_paid_date">入金日</label>
+            <input id="stripe_paid_date" name="payment_date" type="date" defaultValue={today} />
+          </div>
+          <div className="field">
+            <label htmlFor="stripe_paid_id">外部決済ID</label>
+            <input id="stripe_paid_id" name="external_payment_id" defaultValue={invoice.stripe_payment_id ?? ""} />
+          </div>
+          <div className="field full-span">
+            <label htmlFor="stripe_paid_memo">メモ</label>
+            <input id="stripe_paid_memo" name="memo" defaultValue="Stripe管理画面で決済済みを確認し、手動で入金済みに変更" />
+          </div>
+          <button className="button secondary" type="submit">Stripe決済済みとして入金登録</button>
+        </form>
       </section>
       <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" />
       <section className="card">

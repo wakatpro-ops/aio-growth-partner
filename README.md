@@ -582,6 +582,19 @@ Phase 6-A: 補助金説明を意識したインボイス対応強化:
 - `/admin/billing-integrations` で、AIO運営側課金、店舗側Stripe決済連携、店舗側会計連携を分けて確認できます。
 - この分離だけをSupabaseへ追加反映する場合は、`database/migrations/phase-mvp-billing-integration-separation.sql` をSQL Editorで実行してください。
 
+店舗側Stripe / freee手動連携MVP:
+
+- AIO運営側のStripe課金はMVP期間中、請求書ベースで運用します。Stripe Checkout / Subscription実装は後回しです。
+- `/stores/[storeId]/settings/integrations` で、店舗側Stripe決済連携、店舗側freee会計連携、AIO運営側課金を分けて確認できます。
+- `/stores/[storeId]/settings/payments/stripe` で、店舗自身のStripe connected account ID、アカウント名、管理画面URL、接続状態を手動保存できます。
+- `/stores/[storeId]/invoices/[invoiceId]` で、請求書ごとにStripe決済URLと外部決済IDを手動登録できます。決済URLはコピーでき、Stripe管理画面で決済済みを確認した後、AIO上で入金済みに変更できます。
+- Stripe手動入金は `payments` と `store_payment_transactions` に保存します。Webhook自動反映は次フェーズです。
+- `/stores/[storeId]/payments/stripe-transactions` で、手動登録したStripe外部決済履歴を確認できます。
+- `/stores/[storeId]/settings/accounting/freee` で、店舗自身のfreee事業所ID、事業所名、接続状態を保存できます。
+- `/stores/[storeId]/accounting/exports` から汎用CSVとfreee向けCSVを出力できます。freee向けCSVは、取引日、請求書番号、顧客名、摘要、税率、税抜金額、消費税額、税込金額、入金日、支払方法、ステータスを含みます。
+- freee API実送信、freee OAuth、Stripe Connect OAuth、Stripe Webhookは Phase Store-Integrations-B で扱います。
+- このMVP連携をSupabaseへ反映する場合は、`database/migrations/phase-store-integrations-a-manual-stripe-freee.sql` をSQL Editorで実行してください。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。

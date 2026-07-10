@@ -1035,6 +1035,9 @@ alter table public.invoices add column if not exists tax_8_subtotal numeric(12,2
 alter table public.invoices add column if not exists tax_8_amount numeric(12,2) default 0;
 alter table public.invoices add column if not exists payment_status text default 'unpaid';
 alter table public.invoices add column if not exists payment_method text;
+alter table public.invoices add column if not exists stripe_payment_url text;
+alter table public.invoices add column if not exists stripe_payment_status text default 'not_created';
+alter table public.invoices add column if not exists stripe_payment_id text;
 alter table public.invoices add column if not exists issued_at timestamptz;
 alter table public.invoices add column if not exists last_pdf_issued_at timestamptz;
 alter table public.invoices add column if not exists notes text;
@@ -1104,6 +1107,9 @@ create table if not exists public.payments (
   amount numeric(12,2) not null default 0,
   payment_method text not null default 'bank_transfer',
   status text not null default 'received',
+  external_provider text,
+  external_payment_id text,
+  external_payment_url text,
   memo text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1178,6 +1184,9 @@ create table if not exists public.store_payment_integrations (
   refresh_token_encrypted text,
   token_expires_at timestamptz,
   config jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  last_synced_at timestamptz,
+  error_message text,
   connected_at timestamptz,
   disconnected_at timestamptz,
   created_at timestamptz not null default now(),
@@ -1198,6 +1207,9 @@ create table if not exists public.store_accounting_integrations (
   refresh_token_encrypted text,
   token_expires_at timestamptz,
   config jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
+  last_synced_at timestamptz,
+  error_message text,
   connected_at timestamptz,
   disconnected_at timestamptz,
   created_at timestamptz not null default now(),
@@ -1238,9 +1250,11 @@ create table if not exists public.accounting_export_jobs (
   target_period_end date,
   row_count integer not null default 0,
   file_name text,
+  download_url text,
   storage_path text,
   request_payload jsonb not null default '{}'::jsonb,
   response_payload jsonb not null default '{}'::jsonb,
+  metadata jsonb not null default '{}'::jsonb,
   error_message text,
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -1278,6 +1292,17 @@ create index if not exists store_payment_integrations_store_id_idx on public.sto
 create index if not exists store_accounting_integrations_store_id_idx on public.store_accounting_integrations(store_id);
 create index if not exists store_payment_transactions_store_id_idx on public.store_payment_transactions(store_id);
 create index if not exists accounting_export_jobs_store_id_idx on public.accounting_export_jobs(store_id);
+create index if not exists store_payment_transactions_invoice_id_idx on public.store_payment_transactions(invoice_id);
+create index if not exists accounting_export_jobs_provider_idx on public.accounting_export_jobs(provider);
+
+alter table public.store_payment_integrations add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table public.store_payment_integrations add column if not exists last_synced_at timestamptz;
+alter table public.store_payment_integrations add column if not exists error_message text;
+alter table public.store_accounting_integrations add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table public.store_accounting_integrations add column if not exists last_synced_at timestamptz;
+alter table public.store_accounting_integrations add column if not exists error_message text;
+alter table public.accounting_export_jobs add column if not exists download_url text;
+alter table public.accounting_export_jobs add column if not exists metadata jsonb not null default '{}'::jsonb;
 
 alter table public.customers add column if not exists vehicle_info jsonb not null default '{}'::jsonb;
 alter table public.customers add column if not exists metadata jsonb not null default '{}'::jsonb;

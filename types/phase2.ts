@@ -86,6 +86,9 @@ export type BusinessDocument = {
   tax_8_amount?: number;
   payment_status?: PaymentStatus | null;
   payment_method?: PaymentMethod | null;
+  stripe_payment_url?: string | null;
+  stripe_payment_status?: string | null;
+  stripe_payment_id?: string | null;
   issued_at?: string | null;
   last_pdf_issued_at?: string | null;
   notes: string | null;
@@ -103,6 +106,9 @@ export type PaymentRecord = {
   amount: number;
   payment_method: PaymentMethod;
   status: "received" | "partial" | "cancelled";
+  external_provider?: string | null;
+  external_payment_id?: string | null;
+  external_payment_url?: string | null;
   memo: string | null;
   created_at: string;
   invoice?: Pick<BusinessDocument, "document_number" | "title" | "total"> | null;

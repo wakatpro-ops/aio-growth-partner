@@ -73,6 +73,9 @@ export type ModuleKey =
   | "store_stripe_connect"
   | "store_accounting_integration"
   | "accounting_export_jobs"
+  | "store_integrations"
+  | "manual_stripe_payment_links"
+  | "freee_csv_export"
   | "admin"
   | "billing"
   | "accounting";

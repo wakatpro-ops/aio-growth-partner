@@ -8,8 +8,12 @@ import {
   createOrderFromEstimate,
   createOrderFromForm,
   createPaymentFromForm,
+  markStripeInvoicePaidFromForm,
   updateInvoiceSettingsFromForm,
-  updateOrderFromForm
+  updateInvoiceStripePaymentFromForm,
+  updateOrderFromForm,
+  updateFreeeIntegrationFromForm,
+  updateStripeIntegrationFromForm
 } from "@/lib/phase6/compliance-data";
 
 export async function createOrderAction(storeId: string, formData: FormData) {
@@ -52,4 +56,33 @@ export async function updateInvoiceSettingsAction(storeId: string, formData: For
   await updateInvoiceSettingsFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/settings/invoice`);
   redirect(`/stores/${storeId}/settings/invoice?saved=1`);
+}
+
+export async function updateStripeIntegrationAction(storeId: string, formData: FormData) {
+  await updateStripeIntegrationFromForm(storeId, formData);
+  revalidatePath(`/stores/${storeId}/settings/payments/stripe`);
+  revalidatePath(`/stores/${storeId}/settings/integrations`);
+  redirect(`/stores/${storeId}/settings/payments/stripe?saved=1`);
+}
+
+export async function updateFreeeIntegrationAction(storeId: string, formData: FormData) {
+  await updateFreeeIntegrationFromForm(storeId, formData);
+  revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
+  revalidatePath(`/stores/${storeId}/settings/integrations`);
+  redirect(`/stores/${storeId}/settings/accounting/freee?saved=1`);
+}
+
+export async function updateInvoiceStripePaymentAction(storeId: string, invoiceId: string, formData: FormData) {
+  await updateInvoiceStripePaymentFromForm(storeId, invoiceId, formData);
+  revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);
+  revalidatePath(`/stores/${storeId}/payments/stripe-transactions`);
+  redirect(`/stores/${storeId}/invoices/${invoiceId}?stripeSaved=1`);
+}
+
+export async function markStripeInvoicePaidAction(storeId: string, invoiceId: string, formData: FormData) {
+  await markStripeInvoicePaidFromForm(storeId, invoiceId, formData);
+  revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);
+  revalidatePath(`/stores/${storeId}/payments`);
+  revalidatePath(`/stores/${storeId}/payments/stripe-transactions`);
+  redirect(`/stores/${storeId}/invoices/${invoiceId}?paid=1`);
 }
