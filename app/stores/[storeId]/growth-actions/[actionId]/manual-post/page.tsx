@@ -117,7 +117,7 @@ export default async function GoogleBusinessManualPostPage({
             <input value={typeof manual?.posted_at === "string" ? new Date(manual.posted_at).toLocaleString("ja-JP") : "-"} readOnly />
           </label>
         </div>
-        <p className="notice">Google Business Profile APIはBasic API Access審査待ちのため、ここでは手動投稿を前提にします。外部APIへの投稿は実行しません。</p>
+        <p className="notice">Google Business Profile APIはBasic API Access未承認または却下確認済みの場合でも、ここでは正式な手動投稿支援モードとして運用できます。外部APIへの投稿は実行しません。</p>
         <p className="muted">
           Google接続済みアカウント: {googleState.connection?.email ?? "未接続"} / 保存済みロケーション: {googleState.businessProfile?.location_name ?? googleState.businessProfile?.location_id ?? "未設定"}
         </p>

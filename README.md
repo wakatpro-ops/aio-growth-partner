@@ -505,8 +505,9 @@ Phase 5-C-5:
 - Google Business Profile APIのquotaが0の場合は、Google側でBasic API Access申請が必要です。quota超過時は `429 Too Many Requests` または `RESOURCE_EXHAUSTED` が返る前提で、実投稿前に連続実行を避けます。
 - Gmail下書き作成とGoogleカレンダー予定作成が成功していても、Googleビジネスプロフィール候補取得には別途、対象ビジネスプロフィールのオーナー/管理者権限とGoogle側のBasic API Access / quota付与が必要です。
 - `codexwakazono@gmail.com` のような追加Googleアカウントは、OAuth接続の追加テストユーザーとして扱えます。ただし、そのアカウントが対象ビジネスプロフィールの管理者でない場合、GBP候補は取得できません。
-- API有効化済みでもBasic API Access / quota未承認で候補取得が失敗する場合は、AIO Growth Partner側の不具合ではなくGoogle承認待ちとして扱います。承認完了まではPhase 5-Dの手動投稿支援モードを使います。
-- Basic API Access申請済みケースIDは `3-6455000041311` です。審査目安は7〜10営業日で、承認待ちの間は `/stores/[storeId]/settings/google/business-profile` に「Google審査待ち」として記録します。
+- API有効化済みでもBasic API Access / quota未承認で候補取得が失敗する場合は、AIO Growth Partner側の不具合ではありません。Gmail / Calendar API と Google Business Profile API は審査・quotaが別で、Gmail下書き作成とGoogleカレンダー予定作成が成功していても、GBP候補取得だけ失敗することがあります。
+- Basic API Access申請済みケースID `3-6455000041311` は、Google内部の品質チェックにより承認されていません。デモ店舗では `/stores/[storeId]/settings/google/business-profile` に「却下確認済み / 手動投稿支援モード」として記録します。
+- 再申請前には、公式サイト情報、運営者情報、プライバシーポリシー、API利用目的、ユーザー承認フロー、投稿履歴・操作ログ、対象ビジネスプロフィールのオーナー/管理者権限を整理します。
 - 承認後は同じ画面でAPI statusを「API承認済み」に変更し、`account_id` / `location_id` 候補取得へ戻ります。
 - 参考: https://developers.google.com/my-business/reference/accountmanagement/rest/v1/accounts/list
 - 参考: https://developers.google.com/my-business/reference/businessinformation/rest/v1/accounts.locations/list
@@ -515,7 +516,8 @@ Phase 5-C-5:
 
 Phase 5-C-6: GBP手動投稿支援:
 
-- Google Business Profile APIのBasic API Access / quota付与待ちの間は、実API投稿ではなく手動投稿運用を行います。
+- Google Business Profile APIのBasic API Access / quotaが未承認または却下確認済みの場合は、実API投稿ではなく手動投稿運用を行います。
+- 手動投稿支援モードは一時的な代替ではなく、API制限がある状態でも使える正式な運用モードです。
 - `/stores/[storeId]/growth-actions/[actionId]/manual-post` で、Googleビジネスプロフィール投稿用のコピー本文、投稿タイプ、CTA、プレビュー、投稿前チェックリストを確認できます。
 - 「Google管理画面を開く」からGoogleビジネスプロフィール管理画面へ移動し、コピーした本文を手動投稿します。
 - 手動投稿前に、投稿種別、CTA、URL、画像、対象店舗、古い営業時間・価格・期限が本文に残っていないかを確認します。

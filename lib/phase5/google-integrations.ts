@@ -537,9 +537,11 @@ export async function upsertGoogleBusinessProfile(storeId: string, formData: For
       ...currentMetadata,
       memo: String(formData.get("memo") ?? ""),
       api_status: String(formData.get("api_status") ?? "") || "api_review_pending",
+      api_application_result: String(formData.get("api_application_result") ?? "") || null,
       basic_api_access_case_id: String(formData.get("basic_api_access_case_id") ?? "") || null,
       basic_api_access_submitted_at: String(formData.get("basic_api_access_submitted_at") ?? "") || null,
       basic_api_access_expected_review: String(formData.get("basic_api_access_expected_review") ?? "") || null,
+      rejection_reason: String(formData.get("rejection_reason") ?? "") || null,
       manual_posting_mode: String(formData.get("manual_posting_mode") ?? "enabled") === "enabled",
       review_note: String(formData.get("review_note") ?? "") || null
     },
@@ -874,7 +876,7 @@ function googleBusinessProfileApiErrorMessage(result: Record<string, unknown>, f
     message.includes("not been used") ||
     message.includes("disabled")
   ) {
-    return "GoogleビジネスプロフィールAPIはGoogle側のBasic API Access / quota付与、または対象ビジネスプロフィールのオーナー・管理者権限が必要です。Gmailやカレンダー接続が成功していても、GBP候補取得だけ失敗する場合はアプリ不具合ではなくGoogle承認待ちとして扱い、承認完了までは手動投稿支援モードを使ってください。";
+    return "Google Business Profile API のBasic API Accessが未承認、または却下されているため、候補取得はできません。Gmail / Calendar が接続済みでも、GBP APIは別審査です。承認までは手動投稿支援モードをご利用ください。";
   }
   return friendlyGoogleApiError(rawMessage);
 }
@@ -1183,10 +1185,13 @@ export function googleConnectionStatusLabel(status: string | null | undefined) {
     disconnected: "解除済み",
     ready: "準備済み",
     needs_location: "ロケーション確認待ち",
-    api_review_pending: "Google審査待ち",
+    api_review_pending: "審査待ち",
+    pending: "審査待ち",
+    rejected: "却下確認済み",
     manual_mode: "手動投稿支援モード",
     approved: "API承認済み",
-    not_applied: "未申請"
+    not_applied: "未申請",
+    not_requested: "未申請"
   };
   return labels[status ?? "not_connected"] ?? status ?? "未接続";
 }
