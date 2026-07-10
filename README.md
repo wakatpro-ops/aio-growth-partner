@@ -697,6 +697,24 @@ MVPでできること:
 - AI生成文は、店舗担当者が確認してから利用します。
 - 補助金採択、ITツール登録、Google API承認を保証するものではありません。
 
+## Phase First-Customer-Ready: 1社目導入前の最終整理
+
+実店舗1社目へ案内する前に、販売前、契約前、導入前、運用前の確認を行うための管理者向け資料を用意しています。
+
+- アプリ内ページ: `/admin/first-customer-ready`
+- Markdown資料: `docs/first-customer-ready.md`
+
+含まれるもの:
+
+- 1社目導入前チェックリスト
+- β利用前の確認事項
+- β価格メモ
+- 問い合わせ・不具合対応メモ
+- バックアップ・復旧メモ
+- 1社目向けデモシナリオ
+
+MVP期間中のAIO利用料は請求書ベースで運用します。AIO運営側Stripe課金、店舗側Stripe Connect OAuth、Stripe Webhook、freee API自動送信は正式版または次フェーズで扱います。
+
 まだできないこと:
 
 - Stripeによる自動課金、決済、プラン変更。

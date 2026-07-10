@@ -10,6 +10,7 @@ const items = [
   { href: "/admin/ai-logs", label: "AI利用ログ" },
   { href: "/admin/billing-integrations", label: "課金・外部連携分離" },
   { href: "/admin/beta-release", label: "βリリース運用" },
+  { href: "/admin/first-customer-ready", label: "1社目導入前チェック" },
   { href: "/beta-onboarding", label: "β導入パック" },
   { href: "/settings", label: "プラン・利用状況" }
 ];
