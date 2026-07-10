@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "ダッシュボード" },
+  { href: "/onboarding", label: "初回導入" },
   { href: "/stores", label: "店舗管理" },
   { href: "/settings", label: "設定" },
   { href: "/admin", label: "管理者画面" },

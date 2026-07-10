@@ -579,3 +579,81 @@ Phase 6-A: 補助金説明を意識したインボイス対応強化:
 - Phase 4-AのCSV / Excel取り込みにはSupabase Storage bucket `import-files` が必要です。
 - 日本語フォントを完全埋め込みする方式へ移行する場合は、フォントファイルをリポジトリに含め、サーバー側だけでPDF生成してください。
 - `SUPABASE_SERVICE_ROLE_KEY` はサーバー側のみで使用し、`NEXT_PUBLIC_` を付けません。
+
+## MVP Release Readiness
+
+AIO Growth PartnerのMVPは、地域店舗・中小店舗が最初の1店舗を登録し、顧客、商品・サービス、見積、請求、入金、外部売上データ、月次レポート、集客アクションまで一通り確認できる状態を目標にします。
+
+MVPでできること:
+
+- `/onboarding` で初回導入手順を確認できます。
+- `/stores/new` で実店舗を作成できます。作成店舗は `profile_data.data_mode = production` として扱います。
+- `store-auto-demo` と `store-general-demo` はデモ専用です。実店舗とは画面上で「デモ」「本番」として区別します。
+- 店舗プロフィール、商品・部品・サービス、在庫、顧客、見積、請求、受注、入金、会計CSV、証跡ログを管理できます。
+- CSV / Excelの売上データを取り込み、売上一覧と簡易レポートへ反映できます。
+- AI月次レポート、需要予測、在庫アラート、集客アクションを生成できます。
+- Gmail下書き作成とGoogleカレンダー予定作成はGoogle OAuth接続後に利用できます。
+- Google Business ProfileはAPI Basic Accessが承認されていない場合でも、手動投稿支援モードで投稿文、CTA、URL、画像メモ、チェックリスト、手動投稿済みログを管理できます。
+- `/settings` でFree / Starter / Proのプラン設計案と利用状況の下地を確認できます。Stripeは未接続です。
+
+まだできないこと:
+
+- Stripeによる自動課金、決済、プラン変更。
+- Google Business Profile APIによる実投稿。Basic API Access / quotaが必要です。
+- Instagram、LINE、X、Facebookへの実API投稿。
+- freee、マネーフォワードへの直接API連携。
+- 大量CSV / Excelの非同期取り込み。
+- 複数ユーザー招待、細かいロール別UI制御、完全なセルフサインアップ組織作成。
+
+初期導入手順:
+
+1. Supabase SQLを最新化します。全量の場合は `database/schema.sql`、`database/policies.sql`、`database/seed.sql` の順に実行します。
+2. 差分だけの場合は、必要な `database/migrations/*.sql` を実行します。
+3. Supabase Storageにprivate bucket `import-files` を作成します。
+4. Vercel Environment Variablesを設定します。
+5. `/login` でログインします。
+6. `/onboarding` を開きます。
+7. `/stores/new` から実店舗を作成します。
+8. 請求書設定、商品・顧客、見積・請求、入金、CSV取込、Google連携、集客アクションの順に確認します。
+
+Vercel環境変数:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `OPENAI_API_KEY`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+- `GOOGLE_OAUTH_SCOPES`
+- `GOOGLE_TOKEN_ENCRYPTION_KEY`
+
+管理者向け運用手順:
+
+- `/admin/stores` でデモ店舗と本番店舗の区分を確認します。
+- `/admin/ai-logs` でAI生成ログを確認します。
+- `/settings` で現在のプランと利用状況を確認します。
+- Stripe接続前は、Supabaseの `organizations.plan_key` を管理者が手動更新する運用を想定します。
+- Google Business Profileは、Basic API Accessが承認されるまでは手動投稿支援モードを正式運用とします。
+
+トラブル時の確認項目:
+
+- `Could not find table` が出る場合は、Supabase SQLの反映漏れを確認します。
+- 保存後に一覧へ戻るがデータが残らない場合は、Server Actionのinsert/updateエラー、RLS、対象store_idを確認します。
+- CSV / Excel取り込みで失敗する場合は、文字コード、区切り文字、列マッピング、エラー行を確認します。
+- Google候補取得が失敗する場合は、Gmail / Calendarとは別にGBP API Basic API Access / quota / 対象ビジネスプロフィール管理権限を確認します。
+- Gmail / Calendarが失敗する場合は、Google CloudでAPIが有効か、OAuth scope、接続期限、Vercel環境変数を確認します。
+- AI生成が失敗する場合は、`OPENAI_API_KEY`、`ai_prompt_templates`、`ai_generation_logs.error_message` を確認します。
+
+課金前に必ず確認すること:
+
+- 実ユーザーの認証、組織作成、organization_membersの作成フロー。
+- service role keyを使うサーバー処理で、ユーザーが自分の組織以外のstore_idを指定できないこと。
+- 管理者画面をplatform_admin以外が開けないこと。
+- Free / Starter / Proの制限を画面だけでなく保存処理でも強制すること。
+- Google refresh tokenの暗号化キー `GOOGLE_TOKEN_ENCRYPTION_KEY` を本番で設定すること。
+
+補助金・ITツール登録について:
+
+- AIO Growth Partnerは、会計、受発注、決済、データ連携、AI活用、証跡管理を説明しやすい業務基盤として整理しています。
+- 補助金採択、ITツール登録、審査通過を保証するものではありません。

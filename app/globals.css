@@ -277,6 +277,12 @@ p {
   padding: 4px 9px;
 }
 
+.badge.badge-strong {
+  background: #e8f2ff;
+  border-color: #c8dcf2;
+  color: var(--blue);
+}
+
 .muted {
   color: var(--muted);
   font-size: 12px;
@@ -293,6 +299,11 @@ p {
 .notice.danger {
   border-color: rgba(184, 74, 74, 0.35);
   color: var(--danger);
+}
+
+.notice.success {
+  border-color: rgba(40, 122, 95, 0.35);
+  color: var(--accent-strong);
 }
 
 .quick-nav {
