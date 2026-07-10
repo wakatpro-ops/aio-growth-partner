@@ -147,6 +147,37 @@ create table if not exists public.plan_limits (
   unique (plan_key, limit_key)
 );
 
+create table if not exists public.platform_billing_customers (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  provider text not null default 'stripe',
+  provider_customer_id text,
+  billing_email text,
+  status text not null default 'pending',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organization_id, provider)
+);
+
+create table if not exists public.platform_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  billing_customer_id uuid references public.platform_billing_customers(id) on delete set null,
+  plan_key text references public.plans(key),
+  provider text not null default 'stripe',
+  provider_subscription_id text,
+  status text not null default 'manual',
+  current_period_start timestamptz,
+  current_period_end timestamptz,
+  cancel_at_period_end boolean not null default false,
+  trial_ends_at timestamptz,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organization_id, provider)
+);
+
 create table if not exists public.billing_integrations (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -1131,6 +1162,91 @@ create table if not exists public.integration_configs (
   unique (store_id, provider, integration_type)
 );
 
+create table if not exists public.store_payment_integrations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  provider text not null default 'stripe',
+  connection_type text not null default 'stripe_connect',
+  status text not null default 'not_connected',
+  external_account_id text,
+  account_name text,
+  charges_enabled boolean not null default false,
+  payouts_enabled boolean not null default false,
+  scopes text[] not null default '{}',
+  access_token_encrypted text,
+  refresh_token_encrypted text,
+  token_expires_at timestamptz,
+  config jsonb not null default '{}'::jsonb,
+  connected_at timestamptz,
+  disconnected_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, provider)
+);
+
+create table if not exists public.store_accounting_integrations (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  provider text not null,
+  status text not null default 'not_connected',
+  external_company_id text,
+  office_name text,
+  scopes text[] not null default '{}',
+  access_token_encrypted text,
+  refresh_token_encrypted text,
+  token_expires_at timestamptz,
+  config jsonb not null default '{}'::jsonb,
+  connected_at timestamptz,
+  disconnected_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, provider)
+);
+
+create table if not exists public.store_payment_transactions (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  invoice_id uuid references public.invoices(id) on delete set null,
+  payment_id uuid references public.payments(id) on delete set null,
+  provider text not null default 'stripe',
+  external_payment_intent_id text,
+  external_checkout_session_id text,
+  external_charge_id text,
+  amount numeric(12,2) not null default 0,
+  currency text not null default 'jpy',
+  status text not null default 'pending',
+  customer_email text,
+  paid_at timestamptz,
+  raw_payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (store_id, provider, external_payment_intent_id)
+);
+
+create table if not exists public.accounting_export_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  accounting_integration_id uuid references public.store_accounting_integrations(id) on delete set null,
+  provider text not null,
+  export_type text not null default 'journal_entries',
+  status text not null default 'pending',
+  target_period_start date,
+  target_period_end date,
+  row_count integer not null default 0,
+  file_name text,
+  storage_path text,
+  request_payload jsonb not null default '{}'::jsonb,
+  response_payload jsonb not null default '{}'::jsonb,
+  error_message text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  completed_at timestamptz
+);
+
 create table if not exists public.subsidy_impact_reports (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -1156,6 +1272,12 @@ create index if not exists audit_logs_store_id_idx on public.audit_logs(store_id
 create index if not exists accounting_exports_store_id_idx on public.accounting_exports(store_id);
 create index if not exists integration_configs_store_id_idx on public.integration_configs(store_id);
 create index if not exists subsidy_impact_reports_store_id_idx on public.subsidy_impact_reports(store_id);
+create index if not exists platform_billing_customers_org_idx on public.platform_billing_customers(organization_id);
+create index if not exists platform_subscriptions_org_idx on public.platform_subscriptions(organization_id);
+create index if not exists store_payment_integrations_store_id_idx on public.store_payment_integrations(store_id);
+create index if not exists store_accounting_integrations_store_id_idx on public.store_accounting_integrations(store_id);
+create index if not exists store_payment_transactions_store_id_idx on public.store_payment_transactions(store_id);
+create index if not exists accounting_export_jobs_store_id_idx on public.accounting_export_jobs(store_id);
 
 alter table public.customers add column if not exists vehicle_info jsonb not null default '{}'::jsonb;
 alter table public.customers add column if not exists metadata jsonb not null default '{}'::jsonb;

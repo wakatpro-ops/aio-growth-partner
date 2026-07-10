@@ -570,6 +570,18 @@ Phase 6-A: 補助金説明を意識したインボイス対応強化:
 - この機能マップは補助金説明に使いやすい機能整理です。補助金採択、ITツール登録、審査通過を保証するものではありません。
 - SupabaseにPhase 6-Aだけを反映する場合は、`database/migrations/phase-6a-invoice-compliance.sql` をSQL Editorで実行してください。全量反映する場合は、従来どおり `database/schema.sql`、`database/policies.sql`、`database/seed.sql` の順に実行してください。
 
+課金・外部連携の分離:
+
+- AIO運営側の課金と、店舗ユーザー側のStripe/freee連携は絶対に混同しません。
+- AIO運営側の課金は、AIO Growth PartnerのSaaS利用料を店舗から徴収するためのStripeです。AIO運営会社のStripeアカウントを使い、`plans`、`plan_limits`、`platform_billing_customers`、`platform_subscriptions` で管理します。
+- `organizations.plan_key` は、店舗が契約しているAIO利用プランを示します。これは店舗のお客様からの決済ではありません。
+- 店舗ユーザー側のStripe連携は、各店舗が自分のStripeアカウントを接続し、店舗のお客様から決済を受けるための領域です。将来のStripe Connectを前提に、`store_payment_integrations`、`store_payment_transactions`、`payments`、`invoices` で管理します。
+- 店舗ユーザー側のfreee / マネーフォワード連携は、各店舗が自分の会計事業所へ請求、売上、入金、会計CSV、取引データを送るための領域です。`store_accounting_integrations`、`accounting_export_jobs`、`accounting_exports` で管理します。
+- `integration_configs` は既存の将来拡張メモとして残しますが、正式実装では店舗側のStripe/freee接続情報は `store_payment_integrations` と `store_accounting_integrations` を優先します。
+- 店舗側のOAuth token、refresh token、secretはstore_id / organization_id単位でサーバー側に保存します。クライアントへ返さず、暗号化キーを使う前提です。
+- `/admin/billing-integrations` で、AIO運営側課金、店舗側Stripe決済連携、店舗側会計連携を分けて確認できます。
+- この分離だけをSupabaseへ追加反映する場合は、`database/migrations/phase-mvp-billing-integration-separation.sql` をSQL Editorで実行してください。
+
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。

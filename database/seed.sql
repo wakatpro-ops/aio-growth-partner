@@ -303,24 +303,45 @@ on conflict (key) do update set
   category = excluded.category,
   is_core = excluded.is_core;
 
+insert into public.modules (key, name, description, category, is_core)
+values
+  ('platform_billing', 'AIO運営側課金', 'AIO Growth PartnerのSaaS利用料を管理するStripe課金です。店舗側決済とは分離します。', 'billing', false),
+  ('store_stripe_connect', '店舗側Stripe Connect', '各店舗が自分のStripeアカウントを接続し、店舗のお客様から決済を受けるための拡張枠です。', 'integration', false),
+  ('store_accounting_integration', '店舗側会計連携', '各店舗が自分のfreee、マネーフォワード等の事業所へ会計データを送るための拡張枠です。', 'integration', false),
+  ('accounting_export_jobs', '会計連携ジョブ', 'freee等への送信履歴、CSV出力履歴、エラーを店舗ごとに管理します。', 'accounting', false)
+on conflict (key) do update set
+  name = excluded.name,
+  description = excluded.description,
+  category = excluded.category,
+  is_core = excluded.is_core;
+
 insert into public.industry_modules (industry_type_key, module_key, is_enabled)
 select industry.key, module.key, true
 from public.industry_types industry
 cross join public.modules module
-where module.key in ('invoice_compliance','invoice_numbering','tax_rate_breakdown','order_workflow','order_management','payment_management','accounting_csv_export','accounting_export','pdf_issue_logs','audit_logs','audit_log','subsidy_impact_report','invoice_tool_map','future_accounting_integrations')
+where module.key in ('invoice_compliance','invoice_numbering','tax_rate_breakdown','order_workflow','order_management','payment_management','accounting_csv_export','accounting_export','pdf_issue_logs','audit_logs','audit_log','subsidy_impact_report','invoice_tool_map','future_accounting_integrations','platform_billing','store_stripe_connect','store_accounting_integration','accounting_export_jobs')
 on conflict (industry_type_key, module_key) do update set is_enabled = true;
 
 update public.industry_types
-set default_feature_flags = default_feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true}'::jsonb
+set default_feature_flags = default_feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true,"platform_billing":false,"store_stripe_connect":false,"store_accounting_integration":false,"accounting_export_jobs":true}'::jsonb
 where key in ('general_store', 'auto_repair');
 
 update public.stores
-set feature_flags = feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true}'::jsonb
+set feature_flags = feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true,"platform_billing":false,"store_stripe_connect":false,"store_accounting_integration":false,"accounting_export_jobs":true}'::jsonb
 where industry_type_key in ('general_store', 'auto_repair');
 
 insert into public.plan_limits (plan_key, limit_key, limit_value)
 values ('starter', 'phase6a_invoice_ready_modules', '["invoice_compliance","invoice_numbering","tax_rate_breakdown","order_workflow","order_management","payment_management","accounting_csv_export","accounting_export","pdf_issue_logs","audit_logs","audit_log","subsidy_impact_report","invoice_tool_map","future_accounting_integrations"]')
 on conflict (plan_key, limit_key) do update set limit_value = excluded.limit_value;
+
+insert into public.plan_limits (plan_key, limit_key, limit_value)
+values
+  ('starter', 'platform_billing_model', '"aio_saas_subscription"'),
+  ('starter', 'store_payment_integrations', '["stripe_connect"]'),
+  ('starter', 'store_accounting_integrations', '["freee","money_forward"]')
+on conflict (plan_key, limit_key) do update
+set limit_value = excluded.limit_value,
+    updated_at = now();
 
 insert into public.invoice_number_sequences (organization_id, store_id, prefix, next_number, registration_number, qualified_invoice_issuer_name)
 select

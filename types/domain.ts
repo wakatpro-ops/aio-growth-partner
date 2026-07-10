@@ -69,6 +69,10 @@ export type ModuleKey =
   | "subsidy_impact_report"
   | "invoice_tool_map"
   | "future_accounting_integrations"
+  | "platform_billing"
+  | "store_stripe_connect"
+  | "store_accounting_integration"
+  | "accounting_export_jobs"
   | "admin"
   | "billing"
   | "accounting";

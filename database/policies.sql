@@ -10,6 +10,8 @@ alter table public.ai_prompt_templates enable row level security;
 alter table public.dashboard_layouts enable row level security;
 alter table public.role_permissions enable row level security;
 alter table public.plan_limits enable row level security;
+alter table public.platform_billing_customers enable row level security;
+alter table public.platform_subscriptions enable row level security;
 alter table public.billing_integrations enable row level security;
 alter table public.accounting_integrations enable row level security;
 alter table public.applications enable row level security;
@@ -65,6 +67,10 @@ alter table public.invoice_pdf_issues enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.accounting_exports enable row level security;
 alter table public.integration_configs enable row level security;
+alter table public.store_payment_integrations enable row level security;
+alter table public.store_accounting_integrations enable row level security;
+alter table public.store_payment_transactions enable row level security;
+alter table public.accounting_export_jobs enable row level security;
 alter table public.subsidy_impact_reports enable row level security;
 
 create or replace function public.is_platform_admin()
@@ -107,6 +113,10 @@ drop policy if exists "admin write prompts" on public.ai_prompt_templates;
 drop policy if exists "read dashboard layouts authenticated" on public.dashboard_layouts;
 drop policy if exists "read role permissions authenticated" on public.role_permissions;
 drop policy if exists "read plan limits authenticated" on public.plan_limits;
+drop policy if exists "read org platform billing customers" on public.platform_billing_customers;
+drop policy if exists "write admin platform billing customers" on public.platform_billing_customers;
+drop policy if exists "read org platform subscriptions" on public.platform_subscriptions;
+drop policy if exists "write admin platform subscriptions" on public.platform_subscriptions;
 drop policy if exists "read billing org" on public.billing_integrations;
 drop policy if exists "read accounting org" on public.accounting_integrations;
 drop policy if exists "anonymous applications insert" on public.applications;
@@ -211,6 +221,14 @@ drop policy if exists "read org accounting exports" on public.accounting_exports
 drop policy if exists "write org accounting exports" on public.accounting_exports;
 drop policy if exists "read org integration configs" on public.integration_configs;
 drop policy if exists "write org integration configs" on public.integration_configs;
+drop policy if exists "read org store payment integrations" on public.store_payment_integrations;
+drop policy if exists "write org store payment integrations" on public.store_payment_integrations;
+drop policy if exists "read org store accounting integrations" on public.store_accounting_integrations;
+drop policy if exists "write org store accounting integrations" on public.store_accounting_integrations;
+drop policy if exists "read org store payment transactions" on public.store_payment_transactions;
+drop policy if exists "write org store payment transactions" on public.store_payment_transactions;
+drop policy if exists "read org accounting export jobs" on public.accounting_export_jobs;
+drop policy if exists "write org accounting export jobs" on public.accounting_export_jobs;
 drop policy if exists "read org subsidy impact reports" on public.subsidy_impact_reports;
 drop policy if exists "write org subsidy impact reports" on public.subsidy_impact_reports;
 
@@ -257,6 +275,20 @@ for select to authenticated using (true);
 
 create policy "read plan limits authenticated" on public.plan_limits
 for select to authenticated using (true);
+
+create policy "read org platform billing customers" on public.platform_billing_customers
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write admin platform billing customers" on public.platform_billing_customers
+for all using (public.is_platform_admin())
+with check (public.is_platform_admin());
+
+create policy "read org platform subscriptions" on public.platform_subscriptions
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write admin platform subscriptions" on public.platform_subscriptions
+for all using (public.is_platform_admin())
+with check (public.is_platform_admin());
 
 create policy "read billing org" on public.billing_integrations
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
@@ -673,6 +705,34 @@ create policy "read org integration configs" on public.integration_configs
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org integration configs" on public.integration_configs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org store payment integrations" on public.store_payment_integrations
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org store payment integrations" on public.store_payment_integrations
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org store accounting integrations" on public.store_accounting_integrations
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org store accounting integrations" on public.store_accounting_integrations
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org store payment transactions" on public.store_payment_transactions
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org store payment transactions" on public.store_payment_transactions
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org accounting export jobs" on public.accounting_export_jobs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org accounting export jobs" on public.accounting_export_jobs
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 

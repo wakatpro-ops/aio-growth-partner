@@ -54,12 +54,15 @@ export default async function SettingsPage() {
           </table>
         </section>
         <section className="card">
-          <h3>将来連携</h3>
-          <p>Stripe と freee は Phase 1 では実装せず、billing_integrations と accounting_integrations を拡張ポイントとして用意します。</p>
+          <h3>課金と業務連携の分離</h3>
+          <p>AIO運営側のStripe課金と、店舗が自分のStripe/freeeを接続する業務連携は別管理です。</p>
           <div className="grid">
-            <span className="badge">billing_integrations: disabled</span>
-            <span className="badge">accounting_integrations: disabled</span>
+            <span className="badge">platform_subscriptions: AIO利用料</span>
+            <span className="badge">platform_billing_customers: 運営側Stripe顧客</span>
+            <span className="badge">store_payment_integrations: 店舗側Stripe Connect</span>
+            <span className="badge">store_accounting_integrations: 店舗側freee等</span>
           </div>
+          <p className="muted">店舗側の決済・会計トークンはstore_id / organization_id単位で保存し、AIO運営会社のStripe/freeeとは混ぜません。</p>
         </section>
       </div>
     </AppShell>
