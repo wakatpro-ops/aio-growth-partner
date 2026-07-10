@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 const navItems = [
@@ -12,6 +15,8 @@ const navItems = [
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -19,11 +24,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           AIO Growth Partner
         </Link>
         <nav className="nav" aria-label="main">
-          {navItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const active = item.href === "/" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link aria-current={active ? "page" : undefined} className={active ? "active" : undefined} key={item.href} href={item.href}>
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
       </aside>
       <main className="main">{children}</main>

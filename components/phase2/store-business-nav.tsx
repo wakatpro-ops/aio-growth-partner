@@ -7,6 +7,7 @@ export function StoreBusinessNav({ store }: { store: Store }) {
   const industry = getIndustryConfig(store.industry_type_key);
   const flags = resolveFeatureFlags(store);
   const links = [
+    { href: `/stores/${store.id}`, label: "店舗トップ", feature: "__always_on" },
     { href: `/stores/${store.id}/items`, label: industry.businessLabels.item, feature: "product_management" },
     { href: `/stores/${store.id}/inventory`, label: industry.businessLabels.stock, feature: "inventory_management" },
     { href: `/stores/${store.id}/customers`, label: industry.businessLabels.customer, feature: "customer_management" },
@@ -33,13 +34,16 @@ export function StoreBusinessNav({ store }: { store: Store }) {
     { href: `/stores/${store.id}/growth-calendar`, label: "集客カレンダー", feature: "growth_calendar" },
     { href: `/stores/${store.id}/settings/channels`, label: "チャネル設定", feature: "external_channel_accounts" },
     { href: `/stores/${store.id}/settings/google`, label: "Google連携", feature: "google_integrations" }
-  ].filter((link) => isFeatureEnabled(flags, link.feature));
+  ].filter((link) => link.feature === "__always_on" || isFeatureEnabled(flags, link.feature));
 
   return (
-    <div className="quick-nav">
-      {links.map((link) => (
-        <Link key={link.href} className="button secondary" href={link.href}>{link.label}</Link>
-      ))}
-    </div>
+    <nav className="quick-nav" aria-label="店舗内メニュー">
+      <span className="quick-nav-label">店舗内メニュー</span>
+      <div className="quick-nav-links">
+        {links.map((link) => (
+          <Link key={link.href} className="button secondary" href={link.href}>{link.label}</Link>
+        ))}
+      </div>
+    </nav>
   );
 }
