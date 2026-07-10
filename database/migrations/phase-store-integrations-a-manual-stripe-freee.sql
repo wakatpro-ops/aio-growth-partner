@@ -1,6 +1,9 @@
 alter table public.invoices add column if not exists stripe_payment_url text;
 alter table public.invoices add column if not exists stripe_payment_status text default 'not_created';
 alter table public.invoices add column if not exists stripe_payment_id text;
+alter table public.invoices add column if not exists payment_status text default 'unpaid';
+alter table public.invoices add column if not exists payment_method text;
+alter table public.invoices add column if not exists paid_at timestamptz;
 
 alter table public.payments add column if not exists external_provider text;
 alter table public.payments add column if not exists external_payment_id text;
