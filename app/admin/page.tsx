@@ -19,7 +19,7 @@ export default function AdminPage() {
   return (
     <AppShell>
       <PageHeader title="管理者画面" description="platform_admin が全体の状態を確認するための運営画面です。" />
-      <p className="notice danger">MVP運用では、この画面は管理者だけが使う前提です。Supabase側では platform_admin とRLSで管理者データを制御します。アプリ側の厳密な権限ガードは課金開始前に追加確認してください。</p>
+      <p className="notice success">この配下の画面はサーバー側で platform_admin を確認します。一般ユーザーは管理者画面を表示できません。</p>
       <div className="grid cols-3">
         {items.map((item) => (
           <Link className="card" key={item.href} href={item.href}>

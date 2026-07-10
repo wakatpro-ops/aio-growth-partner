@@ -1,6 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { notFound, redirect } from "next/navigation";
 import { getIndustryConfig } from "@/config/industries";
+import { canAccessOrganization, getCurrentUserAccess } from "@/lib/auth/server";
 import { demoStores, getDemoStore } from "@/lib/industry/demo-data";
 import { isDemoStore } from "@/lib/mvp/status";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -17,7 +19,15 @@ export async function listStores(): Promise<Store[]> {
     return demoStores;
   }
 
-  return data as Store[];
+  const stores = data as Store[];
+  const access = await getCurrentUserAccess();
+  if (!access) {
+    return stores.filter((store) => isDemoStore(store));
+  }
+  if (access.isPlatformAdmin) {
+    return stores;
+  }
+  return stores.filter((store) => isDemoStore(store) || access.organizationIds.includes(store.organization_id));
 }
 
 export async function listProductionStores(): Promise<Store[]> {
@@ -36,7 +46,19 @@ export async function getStore(storeId: string): Promise<Store> {
     return getDemoStore(storeId);
   }
 
-  return data as Store;
+  const store = data as Store;
+  if (isDemoStore(store)) {
+    return store;
+  }
+  const access = await getCurrentUserAccess();
+  if (!access) {
+    redirect("/login");
+  }
+  if (!access.isPlatformAdmin && !access.organizationIds.includes(store.organization_id)) {
+    notFound();
+  }
+
+  return store;
 }
 
 export async function getMvpWorkspaceSummary() {
@@ -95,6 +117,8 @@ export async function getMvpWorkspaceSummary() {
 export async function createStoreFromForm(formData: FormData) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const access = await getCurrentUserAccess();
+  if (!access) throw new Error("ログインが必要です。もう一度ログインしてください。");
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) throw new Error("店舗名を入力してください。");
@@ -104,23 +128,28 @@ export async function createStoreFromForm(formData: FormData) {
   const industry = getIndustryConfig(industryTypeKey);
   const useSampleData = String(formData.get("use_sample_data") ?? "") === "yes";
 
-  const { data: existingOrg } = await supabase
-    .from("organizations")
-    .select("id, name, plan_key")
-    .neq("id", "00000000-0000-4000-8000-000000000001")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  let organizationId = existingOrg?.id as string | undefined;
+  let organizationId = access.organizationIds[0];
+  let createdOwnOrganization = false;
   if (!organizationId) {
     organizationId = randomUUID();
+    createdOwnOrganization = true;
     const { error: orgError } = await supabase.from("organizations").insert({
       id: organizationId,
       name: `${name} 運用組織`,
+      owner_user_id: access.userId,
       plan_key: "starter"
     });
     if (orgError) throw new Error(`組織を作成できませんでした: ${orgError.message}`);
+    const { error: memberError } = await supabase.from("organization_members").insert({
+      organization_id: organizationId,
+      user_id: access.userId,
+      role_key: "org_owner"
+    });
+    if (memberError) throw new Error(`組織メンバーを作成できませんでした: ${memberError.message}`);
+  }
+
+  if (!createdOwnOrganization && !(await canAccessOrganization(organizationId))) {
+    throw new Error("この組織に店舗を作成する権限がありません。");
   }
 
   const storeId = randomUUID();

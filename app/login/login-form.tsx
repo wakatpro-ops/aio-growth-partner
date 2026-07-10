@@ -16,9 +16,29 @@ export function LoginForm() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       setMessage(error.message);
+      return;
+    }
+
+    const session = data.session;
+    if (!session?.access_token) {
+      setMessage("ログイン情報を保存できませんでした。もう一度ログインしてください。");
+      return;
+    }
+
+    const sessionResponse = await fetch("/api/auth/session", {
+      body: JSON.stringify({
+        access_token: session.access_token,
+        expires_in: session.expires_in
+      }),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    });
+    if (!sessionResponse.ok) {
+      const result = await sessionResponse.json().catch(() => null);
+      setMessage(result?.error ?? "ログイン状態を保存できませんでした。もう一度ログインしてください。");
       return;
     }
 
