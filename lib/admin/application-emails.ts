@@ -27,7 +27,24 @@ export const applicationEmailTemplates = [
   ["account_started", "利用開始案内"]
 ] as const;
 
-export type ApplicationEmailTemplateKey = typeof applicationEmailTemplates[number][0] | "applicant_auto_reply" | "admin_new_application";
+export const applicationEmailTemplateLabels: Record<string, string> = {
+  application_received: "申込者自動返信",
+  applicant_auto_reply: "申込者自動返信",
+  admin_new_application: "管理者通知",
+  demo_invitation: "オンライン説明案内",
+  invoice_issued: "請求書発行案内",
+  payment_approved: "入金確認・承認完了案内",
+  account_started: "利用開始案内"
+};
+
+export const applicationEmailStatusLabels: Record<string, string> = {
+  sent: "送信成功",
+  failed: "送信失敗",
+  skipped: "未送信",
+  queued: "送信待ち"
+};
+
+export type ApplicationEmailTemplateKey = typeof applicationEmailTemplates[number][0] | "application_received" | "admin_new_application";
 
 function formatDateTime(value: string | null | undefined) {
   const date = value ? new Date(value) : new Date();
@@ -174,7 +191,7 @@ export async function sendApplicationReceivedEmails(application: SalesApplicatio
       to: application.email,
       subject: applicant.subject,
       text: applicant.text,
-      templateKey: "applicant_auto_reply"
+      templateKey: "application_received"
     }),
     sendAndLog(application.id, {
       to: config.adminEmail,
@@ -253,6 +270,25 @@ export function applicationGuideEmail(application: SalesApplication, templateKey
   };
 
   return templates[templateKey] ?? templates.demo_invitation;
+}
+
+export function recommendedApplicationEmailTemplates(application: SalesApplication) {
+  const recommendations: Array<{ templateKey: typeof applicationEmailTemplates[number][0]; reason: string }> = [];
+
+  if (application.status === "demo_scheduled") {
+    recommendations.push({ templateKey: "demo_invitation", reason: "説明予定になったため、参加方法や確認事項を案内します。" });
+  }
+  if (application.status === "invoice_issued" || application.billing_status === "issued") {
+    recommendations.push({ templateKey: "invoice_issued", reason: "請求書発行後の支払い方法と利用開始までの流れを案内します。" });
+  }
+  if (application.status === "payment_confirmed" || application.status === "approved" || application.payment_status === "paid") {
+    recommendations.push({ templateKey: "payment_approved", reason: "入金確認後、利用開始準備を進めていることを案内します。" });
+  }
+  if (application.status === "account_issued" || application.account_status === "invited" || application.account_status === "issued") {
+    recommendations.push({ templateKey: "account_started", reason: "アカウント準備後、ログインと初回導入ガイドを案内します。" });
+  }
+
+  return recommendations;
 }
 
 export async function sendApplicationGuideEmailAction(applicationId: string, formData: FormData) {

@@ -12,6 +12,7 @@ create table if not exists public.application_email_logs (
   created_at timestamptz not null default now()
 );
 
+alter table public.application_email_logs add column if not exists application_id uuid references public.applications(id) on delete cascade;
 alter table public.application_email_logs add column if not exists to_email text;
 alter table public.application_email_logs add column if not exists from_email text;
 alter table public.application_email_logs add column if not exists subject text;
@@ -24,6 +25,10 @@ alter table public.application_email_logs add column if not exists created_at ti
 
 create index if not exists application_email_logs_application_idx
 on public.application_email_logs(application_id, created_at desc);
+
+update public.application_email_logs
+set template_key = 'application_received'
+where template_key = 'applicant_auto_reply';
 
 alter table public.application_email_logs enable row level security;
 

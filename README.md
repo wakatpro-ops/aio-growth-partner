@@ -106,6 +106,20 @@ APP_BASE_URL=https://app.aioboost.jp
 
 送信元 `info@aioboost.jp` は、SendGrid側でSender AuthenticationまたはSingle Sender Verificationを完了してから使います。送信履歴は `application_email_logs` に保存され、`/admin/applications/[applicationId]` で確認できます。
 
+メール送信ポイント:
+
+| タイミング | 宛先 | テンプレート | 送信方法 |
+| --- | --- | --- | --- |
+| 申し込み受付時 | 申込者 | 申込者自動返信 (`application_received`) | 自動送信 |
+| 申し込み受付時 | 管理者 | 管理者通知 (`admin_new_application`) | 自動送信 |
+| 説明予定 | 申込者 | オンライン説明案内 (`demo_invitation`) | 管理者が確認して送信 |
+| 請求書発行済み | 申込者 | 請求書発行案内 (`invoice_issued`) | 管理者が確認して送信 |
+| 入金確認済み / 承認済み | 申込者 | 入金確認・承認完了案内 (`payment_approved`) | 管理者が確認して送信 |
+| アカウント発行済み | 申込者 | 利用開始案内 (`account_started`) | 管理者が確認して送信 |
+| 必要に応じて | 申込者 | 各テンプレート | 管理者が再送 |
+
+営業ステータス変更だけでは申込者への案内メールは自動送信しません。管理者が申込詳細で件名・本文を確認し、必要に応じて編集してから送信します。
+
 反映手順:
 
 1. Supabase SQL Editorで `database/migrations/phase-email-notifications-sendgrid.sql` を実行します。

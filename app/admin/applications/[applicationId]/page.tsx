@@ -5,7 +5,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import {
   applicationEmailTemplates,
+  applicationEmailStatusLabels,
+  applicationEmailTemplateLabels,
   applicationGuideEmail,
+  recommendedApplicationEmailTemplates,
   sendApplicationGuideEmailAction
 } from "@/lib/admin/application-emails";
 import {
@@ -127,6 +130,7 @@ export default async function AdminApplicationDetailPage({
   const enrichment = applicationEnrichment(application);
   const reflectedStoreId = application.approved_store_id ?? application.store_id;
   const reflectedOrganizationId = application.approved_organization_id ?? application.organization_id;
+  const recommendedEmails = recommendedApplicationEmailTemplates(application);
 
   return (
     <AppShell>
@@ -320,6 +324,20 @@ export default async function AdminApplicationDetailPage({
         <article className="card">
           <h2>申込者への案内メール</h2>
           <p className="muted">テンプレートを選び、必要に応じて件名・本文を調整して送信できます。</p>
+          {recommendedEmails.length ? (
+            <div className="notice">
+              <strong>現在の状態でおすすめの案内</strong>
+              <ul className="compact-list">
+                {recommendedEmails.map((item) => (
+                  <li key={item.templateKey}>
+                    {applicationEmailTemplateLabels[item.templateKey]}: {item.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="notice">ステータスを進めた後、必要な案内メールを管理者が確認して送信します。自動送信は行いません。</p>
+          )}
           <form className="form" action={sendApplicationGuideEmailAction.bind(null, application.id)}>
             <div className="field">
               <label htmlFor="template_key">テンプレート</label>
@@ -370,6 +388,7 @@ export default async function AdminApplicationDetailPage({
               <th>件名</th>
               <th>状態</th>
               <th>エラー</th>
+              <th>再送</th>
             </tr>
           </thead>
           <tbody>
@@ -377,10 +396,11 @@ export default async function AdminApplicationDetailPage({
               <tr key={log.id}>
                 <td>{formatDateTime(log.sent_at ?? log.created_at)}</td>
                 <td>{displayValue(log.to_email)}</td>
-                <td>{displayValue(log.template_key)}</td>
+                <td>{applicationEmailTemplateLabels[log.template_key] ?? displayValue(log.template_key)}</td>
                 <td>{displayValue(log.subject)}</td>
-                <td><span className="badge">{displayValue(log.status)}</span></td>
+                <td><span className="badge">{applicationEmailStatusLabels[log.status] ?? displayValue(log.status)}</span></td>
                 <td>{displayValue(log.error_message)}</td>
+                <td>{log.status === "failed" || log.status === "skipped" ? "可" : "必要時に可"}</td>
               </tr>
             ))}
           </tbody>
