@@ -89,6 +89,18 @@ export default function FirstCustomerReadyPage() {
       />
 
       <section className="card">
+        <h2>営業から承認、利用開始までの運用</h2>
+        <ol className="compact-list">
+          <li>広告LPまたは紹介導線から、公開申し込みフォームへ誘導します。</li>
+          <li>管理者は `/admin/applications` で申し込みを確認します。</li>
+          <li>説明予定、説明済み、請求書発行済み、入金確認済み、承認済み、アカウント発行済み、見送りを管理します。</li>
+          <li>入金確認後にだけ、管理者が「承認して利用開始準備」を行います。</li>
+          <li>ユーザーはログイン後、初回オンボーディングから店舗情報、請求書設定、商品、顧客を登録します。</li>
+        </ol>
+        <p className="notice">AIO利用料はMVP期間中、Stripe Subscriptionではなく請求書ベースです。店舗側Stripe/freee連携とは別に扱います。</p>
+      </section>
+
+      <section className="card">
         <h2>1社目導入前チェックリスト</h2>
         <table className="table">
           <tbody>

@@ -287,7 +287,7 @@ set feature_flags = feature_flags || '{"google_integrations":true,"google_oauth_
 where industry_type_key in ('general_store', 'auto_repair');
 
 update public.plan_limits
-set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","growth_action_center","google_business_profile_drafts","instagram_drafts","review_reply_drafts","customer_message_drafts","pop_copy_drafts","line_message_drafts","growth_calendar","draft_approval_flow","draft_editing","channel_previews","external_channel_accounts","google_integrations","google_oauth_connection","google_business_profile_integration","gmail_draft_integration","google_calendar_integration","external_publish_jobs","sales_report_pdf","store_integrations","manual_stripe_payment_links","freee_csv_export"]'
+set limit_value = '["store_profile","multi_store","ai_post_generation","ai_review_reply","aio_diagnosis","product_management","inventory_management","customer_management","estimate_management","invoice_management","pdf_export","monthly_report","marketing_drafts","instagram_draft_generation","google_business_profile_draft","ai_monthly_recommendations","demand_alerts","data_imports","csv_import","excel_import","column_mapping","sales_normalization","sales_reports","sales_ai_report","sales_anomaly_detection","demand_forecast","inventory_alerts","recommended_actions","growth_action_center","google_business_profile_drafts","instagram_drafts","review_reply_drafts","customer_message_drafts","pop_copy_drafts","line_message_drafts","growth_calendar","draft_approval_flow","draft_editing","channel_previews","external_channel_accounts","google_integrations","google_oauth_connection","google_business_profile_integration","gmail_draft_integration","google_calendar_integration","external_publish_jobs","sales_report_pdf","store_integrations","manual_stripe_payment_links","freee_csv_export","sales_approval_flow"]'
 where plan_key = 'starter' and limit_key = 'enabled_modules';
 
 insert into public.modules (key, name, description, category, is_core)
@@ -317,7 +317,8 @@ values
   ('platform_billing', 'AIO運営側課金', 'AIO Growth PartnerのSaaS利用料を管理するStripe課金です。店舗側決済とは分離します。', 'billing', false),
   ('store_stripe_connect', '店舗側Stripe Connect', '各店舗が自分のStripeアカウントを接続し、店舗のお客様から決済を受けるための拡張枠です。', 'integration', false),
   ('store_accounting_integration', '店舗側会計連携', '各店舗が自分のfreee、マネーフォワード等の事業所へ会計データを送るための拡張枠です。', 'integration', false),
-  ('accounting_export_jobs', '会計連携ジョブ', 'freee等への送信履歴、CSV出力履歴、エラーを店舗ごとに管理します。', 'accounting', false)
+  ('accounting_export_jobs', '会計連携ジョブ', 'freee等への送信履歴、CSV出力履歴、エラーを店舗ごとに管理します。', 'accounting', false),
+  ('sales_approval_flow', '営業・承認フロー', '公開申し込みから説明、請求、入金確認、承認、利用開始準備までを管理します。', 'admin', true)
 on conflict (key) do update set
   name = excluded.name,
   description = excluded.description,
@@ -328,15 +329,15 @@ insert into public.industry_modules (industry_type_key, module_key, is_enabled)
 select industry.key, module.key, true
 from public.industry_types industry
 cross join public.modules module
-where module.key in ('invoice_compliance','invoice_numbering','tax_rate_breakdown','order_workflow','order_management','payment_management','accounting_csv_export','accounting_export','pdf_issue_logs','audit_logs','audit_log','subsidy_impact_report','invoice_tool_map','future_accounting_integrations','platform_billing','store_stripe_connect','store_accounting_integration','accounting_export_jobs')
+where module.key in ('invoice_compliance','invoice_numbering','tax_rate_breakdown','order_workflow','order_management','payment_management','accounting_csv_export','accounting_export','pdf_issue_logs','audit_logs','audit_log','subsidy_impact_report','invoice_tool_map','future_accounting_integrations','platform_billing','store_stripe_connect','store_accounting_integration','accounting_export_jobs','sales_approval_flow')
 on conflict (industry_type_key, module_key) do update set is_enabled = true;
 
 update public.industry_types
-set default_feature_flags = default_feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true,"platform_billing":false,"store_stripe_connect":false,"store_accounting_integration":false,"accounting_export_jobs":true}'::jsonb
+set default_feature_flags = default_feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true,"platform_billing":false,"store_stripe_connect":false,"store_accounting_integration":false,"accounting_export_jobs":true,"sales_approval_flow":true}'::jsonb
 where key in ('general_store', 'auto_repair');
 
 update public.stores
-set feature_flags = feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true,"platform_billing":false,"store_stripe_connect":false,"store_accounting_integration":false,"accounting_export_jobs":true}'::jsonb
+set feature_flags = feature_flags || '{"invoice_compliance":true,"invoice_numbering":true,"tax_rate_breakdown":true,"order_workflow":true,"order_management":true,"payment_management":true,"accounting_csv_export":true,"accounting_export":true,"pdf_issue_logs":true,"audit_logs":true,"audit_log":true,"subsidy_impact_report":true,"invoice_tool_map":true,"future_accounting_integrations":true,"platform_billing":false,"store_stripe_connect":false,"store_accounting_integration":false,"accounting_export_jobs":true,"sales_approval_flow":true}'::jsonb
 where industry_type_key in ('general_store', 'auto_repair');
 
 insert into public.plan_limits (plan_key, limit_key, limit_value)

@@ -103,6 +103,19 @@ export default function BetaOnboardingPage() {
         </article>
       </section>
 
+      <section className="card">
+        <h2>導入申し込みから利用開始まで</h2>
+        <ol className="compact-list">
+          <li>広告用ランディングページや紹介導線から、公開申し込みフォームへ進みます。</li>
+          <li>AIO運営側がオンライン説明・営業を行います。</li>
+          <li>契約意思確認後、AIO運営側が請求書を発行します。</li>
+          <li>入金確認後、管理者が申し込みを承認します。</li>
+          <li>承認後、ログイン案内または招待リンクを発行します。</li>
+          <li>ユーザーはログイン後、初回オンボーディングから店舗設定を進めます。</li>
+        </ol>
+        <p className="notice">申し込みだけで自動的に利用開始にはなりません。MVP期間中のAIO利用料は請求書ベースで運用します。</p>
+      </section>
+
       <section className="grid cols-2">
         <article className="card">
           <h2>AIO Growth Partnerでできること</h2>

@@ -131,6 +131,19 @@ export async function createStoreFromForm(formData: FormData) {
   let organizationId = access.organizationIds[0];
   let createdOwnOrganization = false;
   if (!organizationId) {
+    const { data: approvedApplication } = await supabase
+      .from("applications")
+      .select("id, status, approval_status, payment_status")
+      .eq("email", access.email ?? "")
+      .in("status", ["approved", "account_issued"])
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!approvedApplication || approvedApplication.approval_status !== "approved" || approvedApplication.payment_status !== "paid") {
+      throw new Error("実店舗の作成には、AIO運営側の承認と入金確認が必要です。公開申し込み後、案内をお待ちください。");
+    }
+
     organizationId = randomUUID();
     createdOwnOrganization = true;
     const { error: orgError } = await supabase.from("organizations").insert({
