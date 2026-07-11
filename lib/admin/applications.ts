@@ -163,6 +163,8 @@ async function insertApplicationLog(
 }
 
 export async function updateApplicationSalesAction(applicationId: string, formData: FormData) {
+  "use server";
+
   const access = await requirePlatformAdmin();
   const supabase = createSupabaseAdminClient();
   if (!supabase) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("Supabase環境変数が未設定です。")}`);
@@ -208,6 +210,8 @@ export async function updateApplicationSalesAction(applicationId: string, formDa
 }
 
 export async function prepareApplicationAccountAction(applicationId: string) {
+  "use server";
+
   await requirePlatformAdmin();
   const supabase = createSupabaseAdminClient();
   if (!supabase) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("Supabase環境変数が未設定です。")}`);
