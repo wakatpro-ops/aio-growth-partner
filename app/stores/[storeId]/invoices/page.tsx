@@ -6,8 +6,9 @@ import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
 
-export default async function InvoicesPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function InvoicesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { storeId } = await params;
+  const { saved } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const invoices = await listDocuments(store.id, "invoices");
@@ -21,6 +22,7 @@ export default async function InvoicesPage({ params }: { params: Promise<{ store
         action={<Link className="button" href={`/stores/${store.id}/invoices/new`}>新規追加</Link>}
       />
       <StoreBusinessNav store={store} />
+      {saved ? <p className="notice success">請求書を保存しました。入金管理や会計CSVに使える情報が増えました。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -46,7 +48,7 @@ export default async function InvoicesPage({ params }: { params: Promise<{ store
                 <td><Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}`}>編集</Link></td>
               </tr>
             ))}
-            {invoices.length === 0 ? <tr><td colSpan={7}>まだ登録がありません。</td></tr> : null}
+            {invoices.length === 0 ? <tr><td colSpan={7}>まだ登録がありません。最初の請求書を作ると、入金管理と売上確認を始められます。</td></tr> : null}
           </tbody>
         </table>
       </div>

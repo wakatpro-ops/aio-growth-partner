@@ -6,8 +6,9 @@ import { getIndustryConfig } from "@/config/industries";
 import { listBusinessItems } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
 
-export default async function ItemsPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function ItemsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { storeId } = await params;
+  const { saved } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const items = await listBusinessItems(store.id);
@@ -21,6 +22,7 @@ export default async function ItemsPage({ params }: { params: Promise<{ storeId:
         action={<Link className="button" href={`/stores/${store.id}/items/new`}>新規追加</Link>}
       />
       <StoreBusinessNav store={store} />
+      {saved ? <p className="notice success">保存しました。AIOは商品・サービス名を、見積作成や投稿提案に反映しやすくなりました。</p> : null}
       <p className="notice success">
         {items.length > 0
           ? `${industry.businessLabels.item}が入ったため、AIは見積作成や投稿提案に具体的なメニュー名を反映できます。`
@@ -50,7 +52,7 @@ export default async function ItemsPage({ params }: { params: Promise<{ storeId:
               </tr>
             ))}
             {items.length === 0 ? (
-              <tr><td colSpan={6}>まだ登録がありません。</td></tr>
+              <tr><td colSpan={6}>まだ登録がありません。最初の商品・サービスを追加すると、AI提案と見積作成に使える情報が増えます。</td></tr>
             ) : null}
           </tbody>
         </table>

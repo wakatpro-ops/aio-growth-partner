@@ -18,7 +18,7 @@ import {
 export async function createItemAction(storeId: string, formData: FormData) {
   await createItemFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/items`);
-  redirect(`/stores/${storeId}/items`);
+  redirect(`/stores/${storeId}/items?saved=item`);
 }
 
 export async function updateItemAction(storeId: string, itemId: string, formData: FormData) {
@@ -42,7 +42,7 @@ export async function updateStockAction(storeId: string, formData: FormData) {
 export async function createCustomerAction(storeId: string, formData: FormData) {
   await createCustomerFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/customers`);
-  redirect(`/stores/${storeId}/customers`);
+  redirect(`/stores/${storeId}/customers?saved=customer`);
 }
 
 export async function updateCustomerAction(storeId: string, customerId: string, formData: FormData) {
@@ -60,7 +60,7 @@ export async function deleteCustomerAction(storeId: string, customerId: string) 
 export async function createEstimateAction(storeId: string, formData: FormData) {
   await createDocumentFromForm(storeId, "estimates", formData);
   revalidatePath(`/stores/${storeId}/estimates`);
-  redirect(`/stores/${storeId}/estimates`);
+  redirect(`/stores/${storeId}/estimates?saved=estimate`);
 }
 
 export async function updateEstimateAction(storeId: string, estimateId: string, formData: FormData) {
@@ -78,7 +78,7 @@ export async function deleteEstimateAction(storeId: string, estimateId: string) 
 export async function createInvoiceAction(storeId: string, formData: FormData) {
   await createDocumentFromForm(storeId, "invoices", formData);
   revalidatePath(`/stores/${storeId}/invoices`);
-  redirect(`/stores/${storeId}/invoices`);
+  redirect(`/stores/${storeId}/invoices?saved=invoice`);
 }
 
 export async function updateInvoiceAction(storeId: string, invoiceId: string, formData: FormData) {

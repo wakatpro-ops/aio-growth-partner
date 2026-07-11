@@ -208,7 +208,7 @@ export async function listGrowthActions(storeId: string): Promise<GrowthAction[]
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [];
-  const resolved = await ensureDemoPersistence(supabase, store);
+  const resolved = persistenceFor(store);
   const { data } = await supabase
     .from("growth_actions")
     .select("*")

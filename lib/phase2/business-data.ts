@@ -127,7 +127,11 @@ async function ensureDemoPersistence(supabase: SupabaseClient, storeId: string) 
 }
 
 async function resolveStoreForRead(supabase: SupabaseClient, storeId: string) {
-  return ensureDemoPersistence(supabase, storeId);
+  const config = demoConfigFor(storeId);
+  return {
+    organizationId: config?.organizationId ?? null,
+    storeId: config?.storeId ?? storeId
+  };
 }
 
 async function resolveStoreForWrite(supabase: SupabaseClient, store: Store) {

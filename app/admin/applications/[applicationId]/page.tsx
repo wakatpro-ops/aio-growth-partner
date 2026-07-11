@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import {
   accountStatusLabels,
   applicationStatuses,
@@ -175,9 +176,7 @@ export default async function AdminApplicationDetailPage({
             パスワードや秘密情報は管理画面に平文表示しません。
           </p>
           <form action={prepareApplicationAccountAction.bind(null, application.id)}>
-            <button className="button" type="submit" disabled={!canPrepareAccount}>
-              承認して利用開始準備
-            </button>
+            <PendingSubmitButton pendingLabel="利用開始準備を作成しています..." disabled={!canPrepareAccount}>承認して利用開始準備</PendingSubmitButton>
           </form>
           {!canPrepareAccount ? <p className="muted">入金確認済みにしてから実行してください。</p> : null}
         </article>
@@ -290,7 +289,7 @@ export default async function AdminApplicationDetailPage({
             <label htmlFor="sales_notes">営業メモ</label>
             <textarea id="sales_notes" name="sales_notes" defaultValue={application.sales_notes ?? ""} placeholder="説明内容、懸念点、次回対応、見送り理由など" />
           </div>
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="申込情報を保存しています...">保存</PendingSubmitButton>
         </form>
       </section>
 

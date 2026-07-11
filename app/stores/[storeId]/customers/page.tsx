@@ -6,8 +6,9 @@ import { getIndustryConfig } from "@/config/industries";
 import { listCustomers } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
 
-export default async function CustomersPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function CustomersPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { storeId } = await params;
+  const { saved } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const customers = await listCustomers(store.id);
@@ -21,6 +22,7 @@ export default async function CustomersPage({ params }: { params: Promise<{ stor
         action={<Link className="button" href={`/stores/${store.id}/customers/new`}>新規追加</Link>}
       />
       <StoreBusinessNav store={store} />
+      {saved ? <p className="notice success">保存しました。AIOは顧客傾向を、再来店案内やフォロー文の提案に使いやすくなりました。</p> : null}
       <p className="notice success">
         {customers.length > 0
           ? `${industry.businessLabels.customer}が入ったため、AIは再来店案内やフォロー文の提案に顧客傾向を反映できます。`
@@ -45,7 +47,7 @@ export default async function CustomersPage({ params }: { params: Promise<{ stor
                 <td><Link className="button secondary" href={`/stores/${store.id}/customers/${customer.id}`}>編集</Link></td>
               </tr>
             ))}
-            {customers.length === 0 ? <tr><td colSpan={4}>まだ登録がありません。</td></tr> : null}
+            {customers.length === 0 ? <tr><td colSpan={4}>まだ登録がありません。最初の顧客を追加すると、見積・請求とフォロー提案の土台になります。</td></tr> : null}
           </tbody>
         </table>
       </div>
