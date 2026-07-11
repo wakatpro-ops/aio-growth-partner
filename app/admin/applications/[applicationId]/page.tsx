@@ -306,7 +306,7 @@ export default async function AdminApplicationDetailPage({
       <section className="grid cols-2">
         <article className="card">
           <h2>ログイン案内テンプレート</h2>
-          <p>自動メール送信はまだ行いません。MVPでは管理者が内容を確認して、メールやチャットで手動案内します。</p>
+          <p>利用開始時に申込者へ案内する文面です。送信前に内容を確認し、必要に応じて調整してください。</p>
           <textarea className="copy-box" readOnly value={guide} />
         </article>
         <article className="card">
