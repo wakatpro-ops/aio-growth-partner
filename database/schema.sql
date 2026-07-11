@@ -271,9 +271,24 @@ create table if not exists public.application_activity_logs (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.application_email_logs (
+  id uuid primary key default gen_random_uuid(),
+  application_id uuid not null references public.applications(id) on delete cascade,
+  to_email text not null,
+  from_email text not null,
+  subject text not null,
+  template_key text not null,
+  status text not null default 'queued',
+  error_message text,
+  provider_message_id text,
+  sent_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists applications_status_created_at_idx on public.applications(status, created_at desc);
 create index if not exists applications_email_idx on public.applications(email);
 create index if not exists applications_org_store_idx on public.applications(organization_id, store_id);
+create index if not exists application_email_logs_application_idx on public.application_email_logs(application_id, created_at desc);
 alter table public.stores add column if not exists source_application_id uuid references public.applications(id) on delete set null;
 create index if not exists stores_source_application_idx on public.stores(source_application_id);
 

@@ -16,6 +16,7 @@ alter table public.billing_integrations enable row level security;
 alter table public.accounting_integrations enable row level security;
 alter table public.applications enable row level security;
 alter table public.application_activity_logs enable row level security;
+alter table public.application_email_logs enable row level security;
 alter table public.onboarding_snapshots enable row level security;
 alter table public.ai_generation_logs enable row level security;
 alter table public.post_generations enable row level security;
@@ -126,6 +127,8 @@ drop policy if exists "admin read applications" on public.applications;
 drop policy if exists "admin update applications" on public.applications;
 drop policy if exists "admin read application activity logs" on public.application_activity_logs;
 drop policy if exists "admin write application activity logs" on public.application_activity_logs;
+drop policy if exists "admin read application email logs" on public.application_email_logs;
+drop policy if exists "admin write application email logs" on public.application_email_logs;
 drop policy if exists "read org onboarding snapshots" on public.onboarding_snapshots;
 drop policy if exists "write org onboarding snapshots" on public.onboarding_snapshots;
 drop policy if exists "read own ai logs or admin" on public.ai_generation_logs;
@@ -316,6 +319,12 @@ create policy "admin read application activity logs" on public.application_activ
 for select using (public.is_platform_admin());
 
 create policy "admin write application activity logs" on public.application_activity_logs
+for all using (public.is_platform_admin()) with check (public.is_platform_admin());
+
+create policy "admin read application email logs" on public.application_email_logs
+for select using (public.is_platform_admin());
+
+create policy "admin write application email logs" on public.application_email_logs
 for all using (public.is_platform_admin()) with check (public.is_platform_admin());
 
 create policy "read org onboarding snapshots" on public.onboarding_snapshots

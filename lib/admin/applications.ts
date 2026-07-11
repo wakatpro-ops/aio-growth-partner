@@ -6,6 +6,7 @@ import { getIndustryConfig } from "@/config/industries";
 import { requirePlatformAdmin } from "@/lib/auth/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey } from "@/types/domain";
+import type { ApplicationEmailLog } from "@/lib/admin/application-emails";
 
 const productionAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.aioboost.jp";
 
@@ -198,13 +199,19 @@ export async function listApplications() {
 export async function getApplication(applicationId: string) {
   await requirePlatformAdmin();
   const supabase = createSupabaseAdminClient();
-  if (!supabase) return { application: null, logs: [] as ApplicationActivityLog[] };
+  if (!supabase) return { application: null, logs: [] as ApplicationActivityLog[], emailLogs: [] as ApplicationEmailLog[] };
 
-  const [applicationResult, logsResult] = await Promise.all([
+  const [applicationResult, logsResult, emailLogsResult] = await Promise.all([
     supabase.from("applications").select("*").eq("id", applicationId).maybeSingle(),
     supabase
       .from("application_activity_logs")
       .select("id, application_id, action_type, from_status, to_status, message, created_at")
+      .eq("application_id", applicationId)
+      .order("created_at", { ascending: false })
+      .limit(30),
+    supabase
+      .from("application_email_logs")
+      .select("id, application_id, to_email, from_email, subject, template_key, status, error_message, provider_message_id, sent_at, created_at")
       .eq("application_id", applicationId)
       .order("created_at", { ascending: false })
       .limit(30)
@@ -212,7 +219,8 @@ export async function getApplication(applicationId: string) {
 
   return {
     application: applicationResult.data as SalesApplication | null,
-    logs: (logsResult.data ?? []) as ApplicationActivityLog[]
+    logs: (logsResult.data ?? []) as ApplicationActivityLog[],
+    emailLogs: (emailLogsResult.data ?? []) as ApplicationEmailLog[]
   };
 }
 

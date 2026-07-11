@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { analyzePublicApplication } from "@/lib/applications/analysis";
 import { findPublicIndustryOption } from "@/lib/applications/options";
+import { sendApplicationReceivedEmails } from "@/lib/admin/application-emails";
+import type { SalesApplication } from "@/lib/admin/applications";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const applicationSchema = z.object({
@@ -78,6 +80,7 @@ export async function POST(request: Request) {
 
   const supabase = createSupabaseAdminClient();
   let applicationId: string | null = null;
+  let savedApplication: Record<string, unknown> | null = null;
   if (supabase) {
     const basePayload = {
       industry_type_key: industryOption.internalIndustryType,
@@ -99,7 +102,7 @@ export async function POST(request: Request) {
       }
     };
 
-    const result = await supabase.from("applications").insert(fullPayload).select("id").single();
+    const result = await supabase.from("applications").insert(fullPayload).select("*").single();
 
     if (result.error) {
       const fallbackResult = await supabase
@@ -110,7 +113,7 @@ export async function POST(request: Request) {
             public_application_enrichment: enrichment
           }
         })
-        .select("id")
+        .select("*")
         .single();
 
       if (fallbackResult.error) {
@@ -118,8 +121,14 @@ export async function POST(request: Request) {
       }
 
       applicationId = fallbackResult.data?.id ?? null;
+      savedApplication = fallbackResult.data ?? null;
     } else {
       applicationId = result.data?.id ?? null;
+      savedApplication = result.data ?? null;
+    }
+
+    if (applicationId && savedApplication) {
+      await sendApplicationReceivedEmails(savedApplication as SalesApplication).catch(() => undefined);
     }
   }
 

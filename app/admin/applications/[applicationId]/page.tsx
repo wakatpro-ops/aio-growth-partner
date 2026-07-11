@@ -4,6 +4,11 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import {
+  applicationEmailTemplates,
+  applicationGuideEmail,
+  sendApplicationGuideEmailAction
+} from "@/lib/admin/application-emails";
+import {
   accountStatusLabels,
   applicationStatuses,
   applicationStatusLabel,
@@ -106,11 +111,11 @@ export default async function AdminApplicationDetailPage({
   searchParams
 }: {
   params: Promise<{ applicationId: string }>;
-  searchParams: Promise<{ saved?: string; prepared?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; prepared?: string; email?: string; error?: string }>;
 }) {
   const { applicationId } = await params;
   const query = await searchParams;
-  const { application, logs } = await getApplication(applicationId);
+  const { application, logs, emailLogs } = await getApplication(applicationId);
   if (!application) notFound();
 
   const canPrepareAccount = (
@@ -132,6 +137,7 @@ export default async function AdminApplicationDetailPage({
       />
       {query.saved ? <p className="notice success">申込情報を保存しました。</p> : null}
       {query.prepared ? <p className="notice success">利用開始準備を更新しました。パスワードは管理画面に表示しません。</p> : null}
+      {query.email === "sent" ? <p className="notice success">案内メールを送信しました。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
 
       <section className="grid cols-4">
@@ -308,6 +314,78 @@ export default async function AdminApplicationDetailPage({
             <li>入金確認前に本利用開始しない運用にしてください。</li>
           </ul>
         </article>
+      </section>
+
+      <section className="grid cols-2">
+        <article className="card">
+          <h2>申込者への案内メール</h2>
+          <p className="muted">テンプレートを選び、必要に応じて件名・本文を調整して送信できます。</p>
+          <form className="form" action={sendApplicationGuideEmailAction.bind(null, application.id)}>
+            <div className="field">
+              <label htmlFor="template_key">テンプレート</label>
+              <select id="template_key" name="template_key" defaultValue="demo_invitation">
+                {applicationEmailTemplates.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="to_email">送信先</label>
+              <input id="to_email" name="to_email" type="email" defaultValue={application.email} />
+            </div>
+            <div className="field">
+              <label htmlFor="subject">件名</label>
+              <input id="subject" name="subject" placeholder="空欄の場合は選択したテンプレートの件名を使います" />
+            </div>
+            <div className="field">
+              <label htmlFor="body">本文</label>
+              <textarea id="body" name="body" className="copy-box" placeholder="空欄の場合は選択したテンプレート本文を使います。送信前に右側のテンプレート確認を見て、必要な場合だけ調整してください。" />
+            </div>
+            <PendingSubmitButton pendingLabel="案内メールを送信しています...">案内メールを送信</PendingSubmitButton>
+          </form>
+        </article>
+        <article className="card">
+          <h2>テンプレート確認</h2>
+          <div className="stack">
+            {applicationEmailTemplates.map(([value, label]) => {
+              const template = applicationGuideEmail(application, value);
+              return (
+                <details key={value} className="mini-card">
+                  <summary>{label}</summary>
+                  <p className="muted">{template.subject}</p>
+                  <textarea className="copy-box" readOnly value={template.text} />
+                </details>
+              );
+            })}
+          </div>
+        </article>
+      </section>
+
+      <section className="card">
+        <h2>メール送信履歴</h2>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>日時</th>
+              <th>送信先</th>
+              <th>テンプレート</th>
+              <th>件名</th>
+              <th>状態</th>
+              <th>エラー</th>
+            </tr>
+          </thead>
+          <tbody>
+            {emailLogs.map((log) => (
+              <tr key={log.id}>
+                <td>{formatDateTime(log.sent_at ?? log.created_at)}</td>
+                <td>{displayValue(log.to_email)}</td>
+                <td>{displayValue(log.template_key)}</td>
+                <td>{displayValue(log.subject)}</td>
+                <td><span className="badge">{displayValue(log.status)}</span></td>
+                <td>{displayValue(log.error_message)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {emailLogs.length === 0 ? <p className="empty">まだメール送信履歴はありません。</p> : null}
       </section>
 
       <section className="card">

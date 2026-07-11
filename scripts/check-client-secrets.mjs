@@ -4,7 +4,13 @@ import { join } from "node:path";
 const root = process.cwd();
 const blockedDirs = new Set(["node_modules", ".next", ".git"]);
 const clientPatterns = [/app\/.*\.(tsx|ts)$/u, /components\/.*\.(tsx|ts)$/u, /lib\/supabase\/browser\.ts$/u];
-const forbidden = ["SUPABASE_SERVICE_ROLE_KEY", "OPENAI_API_KEY", "STRIPE_SECRET_KEY", "FREEE_CLIENT_SECRET"];
+const forbidden = [
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "OPENAI_API_KEY",
+  "SENDGRID_API_KEY",
+  "STRIPE_SECRET_KEY",
+  "FREEE_CLIENT_SECRET"
+];
 const allowedFiles = new Set([
   "lib/supabase/admin.ts",
   "lib/openai/generate.ts",

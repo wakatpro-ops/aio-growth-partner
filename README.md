@@ -80,10 +80,39 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
 OPENAI_MODEL=
+SENDGRID_API_KEY=
+SENDGRID_FROM_EMAIL=info@aioboost.jp
+SENDGRID_FROM_NAME=AIO Growth Partner
+ADMIN_NOTIFICATION_EMAIL=info@aioboost.jp
+APP_BASE_URL=https://app.aioboost.jp
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` と `OPENAI_API_KEY` はサーバー側だけで使用します。クライアント側に露出させないため、`NEXT_PUBLIC_` を付けません。
+`SUPABASE_SERVICE_ROLE_KEY`、`OPENAI_API_KEY`、`SENDGRID_API_KEY` はサーバー側だけで使用します。クライアント側に露出させないため、`NEXT_PUBLIC_` を付けません。
 GitHubにはキーの実値を含めず、ローカルでは `.env.local`、VercelではProject SettingsのEnvironment Variablesに設定します。
+
+## SendGrid Email Notifications
+
+公開申し込みフォームから導入相談が届いたときに、申込者への自動返信とAIO管理者への通知を送れます。管理者画面の申込詳細から、オンライン説明案内、請求書発行案内、入金確認・承認完了案内、利用開始案内も送信できます。
+
+Vercel Productionに設定する環境変数:
+
+```env
+SENDGRID_API_KEY=SendGridで作成したAPI Key
+SENDGRID_FROM_EMAIL=info@aioboost.jp
+SENDGRID_FROM_NAME=AIO Growth Partner
+ADMIN_NOTIFICATION_EMAIL=info@aioboost.jp
+APP_BASE_URL=https://app.aioboost.jp
+```
+
+送信元 `info@aioboost.jp` は、SendGrid側でSender AuthenticationまたはSingle Sender Verificationを完了してから使います。送信履歴は `application_email_logs` に保存され、`/admin/applications/[applicationId]` で確認できます。
+
+反映手順:
+
+1. Supabase SQL Editorで `database/migrations/phase-email-notifications-sendgrid.sql` を実行します。
+2. Vercel Productionに上記環境変数を追加します。
+3. ProductionをRedeployします。
+4. `https://app.aioboost.jp/apply` からテスト申し込みを送信します。
+5. 申込者向け自動返信、管理者通知、申込詳細のメール送信履歴を確認します。
 
 ## Production Domain
 
