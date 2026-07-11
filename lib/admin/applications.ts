@@ -7,6 +7,8 @@ import { requirePlatformAdmin } from "@/lib/auth/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey } from "@/types/domain";
 
+const productionAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.aioboost.jp";
+
 export const applicationStatuses = [
   ["new", "新規申込"],
   ["demo_scheduled", "説明予定"],
@@ -286,7 +288,7 @@ export async function prepareApplicationAccountAction(applicationId: string) {
         organization_id: organizationId,
         store_id: storeId
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? "https://aio-growth-partner.vercel.app"}/onboarding?storeId=${storeId}`
+      redirectTo: `${productionAppUrl}/onboarding?storeId=${storeId}`
     }
   });
 
@@ -344,8 +346,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
 
 export function loginGuideTemplate(application: SalesApplication) {
   const storeUrl = application.store_id
-    ? `https://aio-growth-partner.vercel.app/stores/${application.store_id}`
-    : "https://aio-growth-partner.vercel.app/onboarding";
+    ? `${productionAppUrl}/stores/${application.store_id}`
+    : `${productionAppUrl}/onboarding`;
   return [
     `${application.contact_name} 様`,
     "",
@@ -357,8 +359,8 @@ export function loginGuideTemplate(application: SalesApplication) {
     "3. 初回オンボーディングを開く",
     "4. 店舗プロフィール、請求書設定、商品・サービス、顧客を登録する",
     "",
-    `ログインURL: https://aio-growth-partner.vercel.app/login`,
-    `初回オンボーディング: https://aio-growth-partner.vercel.app/onboarding${application.store_id ? `?storeId=${application.store_id}` : ""}`,
+    `ログインURL: ${productionAppUrl}/login`,
+    `初回オンボーディング: ${productionAppUrl}/onboarding${application.store_id ? `?storeId=${application.store_id}` : ""}`,
     `店舗画面: ${storeUrl}`,
     "",
     "注意:",
