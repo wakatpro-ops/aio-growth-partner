@@ -21,6 +21,11 @@ export default async function CustomersPage({ params }: { params: Promise<{ stor
         action={<Link className="button" href={`/stores/${store.id}/customers/new`}>新規追加</Link>}
       />
       <StoreBusinessNav store={store} />
+      <p className="notice success">
+        {customers.length > 0
+          ? `${industry.businessLabels.customer}が入ったため、AIは再来店案内やフォロー文の提案に顧客傾向を反映できます。`
+          : `${industry.businessLabels.customer}を登録すると、AIが再来店案内やフォロー文を店舗に合わせて考えやすくなります。`}
+      </p>
       <div className="card">
         <table className="table">
           <thead>

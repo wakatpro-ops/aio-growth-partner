@@ -8,7 +8,7 @@ export default function LoginPage() {
         <div>
           <div className="eyebrow">AIO Growth Partner</div>
           <h1>ログイン</h1>
-          <p>Supabase Auth を使ったメール・パスワードログインです。</p>
+          <p>登録済みのメールアドレスとパスワードでログインしてください。</p>
         </div>
         <LoginForm />
         <Link href="/signup">アカウント作成へ</Link>

@@ -21,6 +21,11 @@ export default async function ItemsPage({ params }: { params: Promise<{ storeId:
         action={<Link className="button" href={`/stores/${store.id}/items/new`}>新規追加</Link>}
       />
       <StoreBusinessNav store={store} />
+      <p className="notice success">
+        {items.length > 0
+          ? `${industry.businessLabels.item}が入ったため、AIは見積作成や投稿提案に具体的なメニュー名を反映できます。`
+          : `${industry.businessLabels.item}を登録すると、AIが売れ筋提案や投稿文、見積作成に反映できるようになります。`}
+      </p>
       <div className="card">
         <table className="table">
           <thead>

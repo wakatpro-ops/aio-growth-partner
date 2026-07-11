@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { ApplicationIntakeSummary } from "@/components/onboarding/application-intake-summary";
+import {
+  StoreAiLearnedFeedback,
+  StoreAiNextActions,
+  StoreAiReadinessPanel
+} from "@/components/store-ai/store-ai-readiness-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isDemoStore, planForKey, storeDataModeDescription, storeDataModeLabel } from "@/lib/mvp/status";
 import { betaCautions, betaManualOrPlannedFeatures, betaOnboardingSteps, betaReadyFeatures, getStoreBetaChecklist } from "@/lib/mvp/release-prep";
 import { getMvpWorkspaceSummary, getStore, getStoreOnboardingSnapshot, listProductionStores } from "@/lib/stores";
+import { getStoreAiReadiness } from "@/lib/store-ai/readiness";
 
 const steps = [
   {
@@ -54,6 +60,7 @@ export default async function OnboardingPage({
   const industry = selectedStore ? getIndustryConfig(selectedStore.industry_type_key) : null;
   const betaChecklist = selectedStore ? await getStoreBetaChecklist(selectedStore) : [];
   const intakeSnapshot = selectedStore ? await getStoreOnboardingSnapshot(selectedStore.id) : null;
+  const readiness = selectedStore ? await getStoreAiReadiness(selectedStore) : null;
 
   return (
     <AppShell>
@@ -97,7 +104,14 @@ export default async function OnboardingPage({
             <p className="notice danger">現在の対象は確認用店舗です。実際に利用する店舗は `/stores/new` から作成してください。</p>
           ) : null}
 
+          {readiness ? <StoreAiReadinessPanel readiness={readiness} storeId={selectedStore.id} /> : null}
           {intakeSnapshot ? <ApplicationIntakeSummary content={intakeSnapshot.content} /> : null}
+          {readiness ? (
+            <section className="grid cols-2">
+              <StoreAiNextActions readiness={readiness} />
+              <StoreAiLearnedFeedback readiness={readiness} />
+            </section>
+          ) : null}
 
           <section className="card">
             <h2>初回にやること</h2>

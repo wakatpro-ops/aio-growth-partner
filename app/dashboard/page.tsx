@@ -1,25 +1,35 @@
 import Link from "next/link";
 import { IndustryDashboard } from "@/components/dashboard/industry-dashboard";
 import { AppShell } from "@/components/layout/app-shell";
+import {
+  StoreAiDataStatus,
+  StoreAiLearnedFeedback,
+  StoreAiNextActions,
+  StoreAiReadinessPanel
+} from "@/components/store-ai/store-ai-readiness-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { planForKey, storeDataModeLabel } from "@/lib/mvp/status";
 import { getMvpWorkspaceSummary } from "@/lib/stores";
+import { getStoreAiReadiness } from "@/lib/store-ai/readiness";
 
 export default async function DashboardPage() {
   const summary = await getMvpWorkspaceSummary();
   const store = summary.productionStores[0] ?? summary.stores[0];
   const industry = getIndustryConfig(store.industry_type_key);
   const plan = planForKey(summary.planKey);
+  const readiness = await getStoreAiReadiness(store);
 
   return (
     <AppShell>
       <PageHeader
         eyebrow={industry.name}
-        title={industry.dashboardTitle}
-        description={`${store.name} の業態設定に合わせて、表示カードと機能が切り替わります。`}
+        title="経営の次の一手"
+        description={`${store.name} の店舗データをもとに、今整えると効果が高い情報と次のアクションを表示します。`}
         action={<Link className="button" href="/onboarding">初回導入を確認</Link>}
       />
+      <StoreAiReadinessPanel readiness={readiness} storeId={store.id} />
+      <StoreAiNextActions readiness={readiness} />
       <section className="grid cols-3">
         <article className="card">
           <p className="muted">データ区分</p>
@@ -32,10 +42,14 @@ export default async function DashboardPage() {
           <p>店舗 {summary.productionStores.length} / {plan.limits.stores}、AI {summary.counts.aiLogs} / {plan.limits.aiGenerations}</p>
         </article>
         <article className="card">
-          <p className="muted">次の一手</p>
-          <h2>初期設定</h2>
-          <p>請求書設定、Google接続、商品・顧客の順に整えるとスムーズです。</p>
+          <p className="muted">今月の注目ポイント</p>
+          <h2>{readiness.nextBestActions[0]?.label ?? "改善提案"}</h2>
+          <p>{readiness.nextBestActions[0]?.benefit ?? "集まった店舗データから、投稿・請求・売上の次アクションを確認できます。"}</p>
         </article>
+      </section>
+      <section className="grid cols-2">
+        <StoreAiDataStatus readiness={readiness} />
+        <StoreAiLearnedFeedback readiness={readiness} />
       </section>
       <IndustryDashboard store={store} />
     </AppShell>

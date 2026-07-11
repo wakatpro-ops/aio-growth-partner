@@ -30,6 +30,11 @@ export default async function SalesPage({ params }: { params: Promise<{ storeId:
         action={<Link className="button" href={`/stores/${store.id}/sales/reports`}>売上レポート</Link>}
       />
       <StoreBusinessNav store={store} />
+      <p className="notice success">
+        {transactions.length > 0
+          ? "売上データが入ったため、AI月次レポート、需要予測、販促アクションの提案が具体化します。"
+          : "売上データを取り込むと、月次レポートと改善提案が数字に基づいて具体化します。"}
+      </p>
       <div className="card">
         <table className="table">
           <thead>

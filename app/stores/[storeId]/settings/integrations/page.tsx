@@ -23,7 +23,7 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
         description="店舗で利用する決済URL、会計CSV、Google連携などを管理します。"
       />
       <StoreBusinessNav store={store} />
-      <p className="notice">この店舗で利用する外部サービス情報を登録します。請求書、入金管理、会計CSV出力とあわせて確認できます。</p>
+      <p className="notice success">外部連携情報を整えると、AIOが請求・入金・会計・集客導線をひとつの店舗データとして扱いやすくなります。</p>
       <section className="grid cols-3">
         <article className="card">
           <h3>Stripe決済連携</h3>
