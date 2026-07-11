@@ -90,6 +90,9 @@ export type SalesApplication = {
   approval_status?: string | null;
   approved_at?: string | null;
   account_status?: string | null;
+  approved_organization_id?: string | null;
+  approved_store_id?: string | null;
+  approved_user_id?: string | null;
   organization_id?: string | null;
   store_id?: string | null;
   invited_user_id?: string | null;
@@ -122,6 +125,59 @@ function statusTimestamp(status: string) {
     invoice_issued_at: status === "invoice_issued" ? now : undefined,
     payment_confirmed_at: status === "payment_confirmed" ? now : undefined,
     approved_at: status === "approved" ? now : undefined
+  };
+}
+
+function listFromJson(value: unknown) {
+  if (!Array.isArray(value)) return [] as string[];
+  return value.map(String).map((item) => item.trim()).filter(Boolean);
+}
+
+function recordFromJson(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function buildApplicationHandoff(application: SalesApplication, applicationId: string) {
+  const socialUrls = recordFromJson(application.social_urls);
+  const otherSocialUrls = listFromJson(socialUrls.other);
+  const referenceUrls = listFromJson(application.reference_urls);
+  const currentTools = listFromJson(application.current_tools);
+  const improvementGoals = listFromJson(application.improvement_goals);
+  const setupSteps = listFromJson(application.ai_recommended_setup_steps);
+  const growthOpportunities = listFromJson(application.ai_growth_opportunities);
+  const meetingPoints = listFromJson(application.ai_first_meeting_points);
+
+  return {
+    application_id: applicationId,
+    source: "public_application",
+    copied_at: new Date().toISOString(),
+    store_name: application.store_name,
+    contact_name: application.contact_name,
+    contact_email: application.email,
+    contact_phone: application.phone,
+    industry_label: application.industry_label,
+    industry_detail_key: application.industry_detail_key,
+    store_count: application.store_count,
+    pain_points: application.pain_points,
+    message: application.message,
+    website_url: application.website_url,
+    google_maps_url: application.google_maps_url,
+    social_urls: {
+      instagram: socialUrls.instagram ?? null,
+      line: socialUrls.line ?? null,
+      other: otherSocialUrls
+    },
+    reference_urls: referenceUrls,
+    current_tools: currentTools,
+    improvement_goals: improvementGoals,
+    ai: {
+      status: application.ai_analysis_status,
+      model: application.ai_analysis_model,
+      business_summary: application.ai_business_summary,
+      growth_opportunities: growthOpportunities,
+      recommended_setup_steps: setupSteps,
+      first_meeting_points: meetingPoints
+    }
   };
 }
 
@@ -255,6 +311,7 @@ export async function prepareApplicationAccountAction(applicationId: string) {
   const organizationId = application.organization_id ?? randomUUID();
   const storeId = application.store_id ?? randomUUID();
   const inviteEmail = application.invite_email ?? application.email;
+  const handoff = buildApplicationHandoff(application as SalesApplication, applicationId);
 
   if (!application.organization_id) {
     const { error } = await supabase.from("organizations").insert({
@@ -269,9 +326,12 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     const { error } = await supabase.from("stores").insert({
       id: storeId,
       organization_id: organizationId,
+      source_application_id: applicationId,
       industry_type_key: industryTypeKey,
       name: application.store_name,
       phone: application.phone,
+      website_url: application.website_url,
+      google_business_url: application.google_maps_url,
       description: application.pain_points,
       profile_data: {
         data_mode: "production",
@@ -279,7 +339,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
         created_from_application_id: applicationId,
         contact_name: application.contact_name,
         contact_email: application.email,
-        sales_approved: true
+        sales_approved: true,
+        application_intake: handoff
       },
       feature_flags: industry.defaultFeatureFlags,
       status: "active"
@@ -295,6 +356,43 @@ export async function prepareApplicationAccountAction(applicationId: string) {
       updated_at: new Date().toISOString()
     }, { onConflict: "store_id" });
   }
+
+  const { data: currentStore } = await supabase
+    .from("stores")
+    .select("profile_data")
+    .eq("id", storeId)
+    .maybeSingle();
+  const currentProfile = recordFromJson(currentStore?.profile_data);
+  const { error: storeUpdateError } = await supabase.from("stores").update({
+    source_application_id: applicationId,
+    website_url: application.website_url ?? null,
+    google_business_url: application.google_maps_url ?? null,
+    description: application.pain_points ?? null,
+    profile_data: {
+      ...currentProfile,
+      data_mode: currentProfile.data_mode ?? "production",
+      onboarding_status: currentProfile.onboarding_status ?? "not_started",
+      created_from_application_id: applicationId,
+      contact_name: application.contact_name,
+      contact_email: application.email,
+      contact_phone: application.phone,
+      application_intake: handoff
+    },
+    updated_at: new Date().toISOString()
+  }).eq("id", storeId);
+  if (storeUpdateError) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(`申込内容を店舗へ反映できませんでした: ${storeUpdateError.message}`)}`);
+
+  const { error: snapshotError } = await supabase.from("onboarding_snapshots").upsert({
+    organization_id: organizationId,
+    store_id: storeId,
+    application_id: applicationId,
+    snapshot_type: "application_intake",
+    title: "申込内容から作成した初期設定下書き",
+    content: handoff,
+    status: "active",
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id,snapshot_type" });
+  if (snapshotError) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(`初期設定下書きを保存できませんでした: ${snapshotError.message}`)}`);
 
   const { data: generatedLink } = await supabase.auth.admin.generateLink({
     type: "invite",
@@ -337,6 +435,9 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     approved_at: application.approved_at ?? new Date().toISOString(),
     organization_id: organizationId,
     store_id: storeId,
+    approved_organization_id: organizationId,
+    approved_store_id: storeId,
+    approved_user_id: invitedUserId,
     invited_user_id: invitedUserId,
     invite_email: inviteEmail,
     invitation_status: invitedUserId ? "invite_generated" : "manual_invite_required",

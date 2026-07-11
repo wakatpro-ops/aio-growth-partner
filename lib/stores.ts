@@ -8,6 +8,19 @@ import { isDemoStore } from "@/lib/mvp/status";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey, Store } from "@/types/domain";
 
+export type OnboardingSnapshot = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  application_id: string | null;
+  snapshot_type: string;
+  title: string;
+  content: Record<string, unknown>;
+  status: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function listStores(): Promise<Store[]> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
@@ -59,6 +72,23 @@ export async function getStore(storeId: string): Promise<Store> {
   }
 
   return store;
+}
+
+export async function getStoreOnboardingSnapshot(storeId: string): Promise<OnboardingSnapshot | null> {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("onboarding_snapshots")
+    .select("*")
+    .eq("store_id", store.id)
+    .eq("snapshot_type", "application_intake")
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data as OnboardingSnapshot;
 }
 
 export async function getMvpWorkspaceSummary() {

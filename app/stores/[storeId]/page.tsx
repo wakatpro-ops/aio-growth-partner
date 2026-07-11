@@ -1,15 +1,17 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { ApplicationIntakeSummary } from "@/components/onboarding/application-intake-summary";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { StoreProfileForm } from "@/components/stores/store-profile-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isDemoStore, storeDataModeDescription, storeDataModeLabel } from "@/lib/mvp/status";
-import { getStore } from "@/lib/stores";
+import { getStore, getStoreOnboardingSnapshot } from "@/lib/stores";
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
+  const intakeSnapshot = await getStoreOnboardingSnapshot(storeId);
 
   return (
     <AppShell>
@@ -19,6 +21,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
         <p>{storeDataModeDescription(store)}</p>
         {isDemoStore(store) ? <p className="notice danger">この店舗は確認用です。実際に利用する店舗は `/stores/new` から新しく作成してください。</p> : null}
       </section>
+      {intakeSnapshot ? <ApplicationIntakeSummary content={intakeSnapshot.content} /> : null}
       <StoreBusinessNav store={store} />
       <StoreProfileForm store={store} />
     </AppShell>

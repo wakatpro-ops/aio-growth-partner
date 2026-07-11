@@ -119,6 +119,8 @@ export default async function AdminApplicationDetailPage({
   );
   const guide = loginGuideTemplate(application);
   const enrichment = applicationEnrichment(application);
+  const reflectedStoreId = application.approved_store_id ?? application.store_id;
+  const reflectedOrganizationId = application.approved_organization_id ?? application.organization_id;
 
   return (
     <AppShell>
@@ -160,6 +162,8 @@ export default async function AdminApplicationDetailPage({
             <tbody>
               <tr><th>組織</th><td>{displayValue(application.organization_id, "未作成")}</td></tr>
               <tr><th>店舗</th><td>{application.store_id ? <Link href={`/stores/${application.store_id}`}>{application.store_id}</Link> : "未作成"}</td></tr>
+              <tr><th>反映先組織</th><td>{displayValue(reflectedOrganizationId, "未作成")}</td></tr>
+              <tr><th>反映先店舗</th><td>{reflectedStoreId ? <Link href={`/stores/${reflectedStoreId}`}>{reflectedStoreId}</Link> : "未作成"}</td></tr>
               <tr><th>招待メール</th><td>{displayValue(application.invite_email ?? application.email)}</td></tr>
               <tr><th>招待状態</th><td>{displayValue(application.invitation_status, "not_started")}</td></tr>
               <tr><th>アカウント</th><td>{accountStatusLabels[application.account_status ?? "not_created"] ?? application.account_status ?? "未発行"}</td></tr>

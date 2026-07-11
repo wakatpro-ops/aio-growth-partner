@@ -121,6 +121,7 @@ export type IndustryConfig = {
 export type Store = {
   id: string;
   organization_id: string;
+  source_application_id?: string | null;
   industry_type_key: IndustryTypeKey;
   name: string;
   address: string;
