@@ -52,6 +52,42 @@ function formatDateTime(value: unknown) {
   return date.toLocaleString("ja-JP");
 }
 
+function listFromUnknown(value: unknown) {
+  if (!Array.isArray(value)) return [] as string[];
+  return value.map(String).filter(Boolean);
+}
+
+function recordFromUnknown(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function applicationEnrichment(application: NonNullable<Awaited<ReturnType<typeof getApplication>>["application"]>) {
+  const fallback = recordFromUnknown(recordFromUnknown(application.admin_checklist)?.public_application_enrichment);
+  const social = recordFromUnknown(application.social_urls ?? fallback.social_urls);
+  const socialUrls = [
+    social.instagram ? `Instagram: ${String(social.instagram)}` : "",
+    social.line ? `LINE: ${String(social.line)}` : "",
+    ...listFromUnknown(social.other)
+  ].filter(Boolean);
+
+  return {
+    industryLabel: application.industry_label ?? String(fallback.industry_label ?? ""),
+    websiteUrl: application.website_url ?? String(fallback.website_url ?? ""),
+    googleMapsUrl: application.google_maps_url ?? String(fallback.google_maps_url ?? ""),
+    socialUrls,
+    referenceUrls: application.reference_urls ?? listFromUnknown(fallback.reference_urls),
+    currentTools: application.current_tools ?? listFromUnknown(fallback.current_tools),
+    improvementGoals: application.improvement_goals ?? listFromUnknown(fallback.improvement_goals),
+    businessSummary: application.ai_business_summary ?? String(fallback.ai_business_summary ?? ""),
+    setupSteps: application.ai_recommended_setup_steps ?? listFromUnknown(fallback.ai_recommended_setup_steps),
+    opportunities: application.ai_growth_opportunities ?? listFromUnknown(fallback.ai_growth_opportunities),
+    meetingPoints: application.ai_first_meeting_points ?? listFromUnknown(fallback.ai_first_meeting_points),
+    analysisStatus: application.ai_analysis_status ?? String(fallback.ai_analysis_status ?? ""),
+    analysisError: application.ai_analysis_error ?? String(fallback.ai_analysis_error ?? ""),
+    analyzedAt: application.ai_analyzed_at ?? String(fallback.ai_analyzed_at ?? "")
+  };
+}
+
 export default async function AdminApplicationDetailPage({
   params,
   searchParams
@@ -70,6 +106,7 @@ export default async function AdminApplicationDetailPage({
     application.payment_status === "paid"
   );
   const guide = loginGuideTemplate(application);
+  const enrichment = applicationEnrichment(application);
 
   return (
     <AppShell>
@@ -98,7 +135,7 @@ export default async function AdminApplicationDetailPage({
               <tr><th>担当者</th><td>{displayValue(application.contact_name)}</td></tr>
               <tr><th>メール</th><td>{displayValue(application.email)}</td></tr>
               <tr><th>電話</th><td>{displayValue(application.phone)}</td></tr>
-              <tr><th>業態</th><td>{displayValue(application.industry_type_key, "general_store")}</td></tr>
+              <tr><th>業態</th><td>{displayValue(enrichment.industryLabel || application.industry_type_key, "general_store")}</td></tr>
               <tr><th>店舗数</th><td>{displayValue(application.store_count)}</td></tr>
               <tr><th>課題</th><td>{displayValue(application.pain_points)}</td></tr>
               <tr><th>備考</th><td>{displayValue(application.message)}</td></tr>
@@ -128,6 +165,66 @@ export default async function AdminApplicationDetailPage({
           </form>
           {!canPrepareAccount ? <p className="muted">入金確認済みにしてから実行してください。</p> : null}
         </article>
+      </section>
+
+      <section className="grid cols-2">
+        <article className="card">
+          <h2>Web・SNS・参考URL</h2>
+          <table className="table compact">
+            <tbody>
+              <tr><th>公式サイト</th><td>{enrichment.websiteUrl ? <a href={enrichment.websiteUrl} target="_blank">{enrichment.websiteUrl}</a> : "-"}</td></tr>
+              <tr><th>Googleマップ</th><td>{enrichment.googleMapsUrl ? <a href={enrichment.googleMapsUrl} target="_blank">{enrichment.googleMapsUrl}</a> : "-"}</td></tr>
+              <tr><th>SNS</th><td>{enrichment.socialUrls.length ? enrichment.socialUrls.map((url) => <p key={url}>{url}</p>) : "-"}</td></tr>
+              <tr><th>参考URL</th><td>{enrichment.referenceUrls.length ? enrichment.referenceUrls.map((url) => <p key={url}>{url}</p>) : "-"}</td></tr>
+            </tbody>
+          </table>
+        </article>
+        <article className="card">
+          <h2>ツール・改善したいこと</h2>
+          <table className="table compact">
+            <tbody>
+              <tr><th>利用中ツール</th><td>{enrichment.currentTools.length ? enrichment.currentTools.join("、") : "-"}</td></tr>
+              <tr><th>改善テーマ</th><td>{enrichment.improvementGoals.length ? enrichment.improvementGoals.join("、") : "-"}</td></tr>
+              <tr><th>AI整理状態</th><td>{displayValue(enrichment.analysisStatus, "-")}</td></tr>
+              <tr><th>整理日時</th><td>{formatDateTime(enrichment.analyzedAt)}</td></tr>
+              {enrichment.analysisError ? <tr><th>AI補足</th><td>{enrichment.analysisError}</td></tr> : null}
+            </tbody>
+          </table>
+        </article>
+      </section>
+
+      <section className="card">
+        <h2>AIによる初期整理</h2>
+        <div className="grid cols-2">
+          <article className="mini-card">
+            <h3>お店のまとめ</h3>
+            <p>{enrichment.businessSummary || "まだ初期整理はありません。"}</p>
+          </article>
+          <article className="mini-card">
+            <h3>AIOで活かせそうな提案</h3>
+            {enrichment.opportunities.length ? (
+              <ul className="compact-list">
+                {enrichment.opportunities.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            ) : <p>-</p>}
+          </article>
+          <article className="mini-card">
+            <h3>最初に整える項目</h3>
+            {enrichment.setupSteps.length ? (
+              <ul className="compact-list">
+                {enrichment.setupSteps.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            ) : <p>-</p>}
+          </article>
+          <article className="mini-card">
+            <h3>初回商談で確認すること</h3>
+            {enrichment.meetingPoints.length ? (
+              <ul className="compact-list">
+                {enrichment.meetingPoints.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            ) : <p>-</p>}
+          </article>
+        </div>
       </section>
 
       <section className="card">

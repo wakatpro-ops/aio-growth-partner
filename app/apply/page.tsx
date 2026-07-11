@@ -7,8 +7,25 @@ export default function ApplyPage() {
         <div>
           <div className="eyebrow">Apply</div>
           <h1>導入相談・利用申し込み</h1>
-          <p>店舗業務の整理、請求・入金管理、売上分析、AI集客支援の導入についてご相談いただけます。内容を確認後、担当者よりご連絡します。</p>
+          <p>店舗業務の整理、請求・入金管理、売上分析、AI集客支援の導入についてご相談いただけます。入力内容をもとに、AIOが導入前の初期整理を行います。</p>
         </div>
+        <section className="grid cols-3">
+          <article className="card">
+            <p className="muted">1</p>
+            <h2>お店の情報を入力</h2>
+            <p>業態、URL、使っているツール、改善したいことを分かる範囲で入力します。</p>
+          </article>
+          <article className="card">
+            <p className="muted">2</p>
+            <h2>AIが初期整理</h2>
+            <p>お店の概要、活かせそうなポイント、最初に整える項目をまとめます。</p>
+          </article>
+          <article className="card">
+            <p className="muted">3</p>
+            <h2>担当者がご案内</h2>
+            <p>入力内容をもとに、より具体的な導入イメージをご案内します。</p>
+          </article>
+        </section>
         <section className="card">
           <h2>ご利用開始までの流れ</h2>
           <ol className="compact-list">
