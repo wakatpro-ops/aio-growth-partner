@@ -73,6 +73,8 @@ export type SalesApplication = {
   ai_first_meeting_points?: string[] | null;
   ai_analysis_status?: string | null;
   ai_analysis_error?: string | null;
+  ai_analysis_error_code?: string | null;
+  ai_analysis_model?: string | null;
   ai_analyzed_at?: string | null;
   admin_checklist?: Record<string, unknown> | null;
   status: string;

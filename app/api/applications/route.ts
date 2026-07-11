@@ -71,6 +71,8 @@ export async function POST(request: Request) {
     ai_first_meeting_points: aiResult.analysis.first_meeting_points,
     ai_analysis_status: aiResult.status,
     ai_analysis_error: aiResult.error,
+    ai_analysis_error_code: aiResult.errorCode,
+    ai_analysis_model: aiResult.model,
     ai_analyzed_at: new Date().toISOString()
   };
 

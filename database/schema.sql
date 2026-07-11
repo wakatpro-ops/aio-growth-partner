@@ -251,6 +251,8 @@ alter table public.applications add column if not exists ai_growth_opportunities
 alter table public.applications add column if not exists ai_first_meeting_points jsonb not null default '[]'::jsonb;
 alter table public.applications add column if not exists ai_analysis_status text not null default 'not_started';
 alter table public.applications add column if not exists ai_analysis_error text;
+alter table public.applications add column if not exists ai_analysis_error_code text;
+alter table public.applications add column if not exists ai_analysis_model text;
 alter table public.applications add column if not exists ai_analyzed_at timestamptz;
 alter table public.applications add column if not exists updated_at timestamptz not null default now();
 

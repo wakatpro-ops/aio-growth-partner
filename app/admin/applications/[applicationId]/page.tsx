@@ -61,6 +61,16 @@ function recordFromUnknown(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
+function aiAnalysisStatusLabel(value: string) {
+  const labels: Record<string, string> = {
+    success: "OpenAI解析成功",
+    fallback: "フォールバック",
+    error: "エラー",
+    not_started: "未実行"
+  };
+  return labels[value] ?? value;
+}
+
 function applicationEnrichment(application: NonNullable<Awaited<ReturnType<typeof getApplication>>["application"]>) {
   const fallback = recordFromUnknown(recordFromUnknown(application.admin_checklist)?.public_application_enrichment);
   const social = recordFromUnknown(application.social_urls ?? fallback.social_urls);
@@ -84,6 +94,8 @@ function applicationEnrichment(application: NonNullable<Awaited<ReturnType<typeo
     meetingPoints: application.ai_first_meeting_points ?? listFromUnknown(fallback.ai_first_meeting_points),
     analysisStatus: application.ai_analysis_status ?? String(fallback.ai_analysis_status ?? ""),
     analysisError: application.ai_analysis_error ?? String(fallback.ai_analysis_error ?? ""),
+    analysisErrorCode: application.ai_analysis_error_code ?? String(fallback.ai_analysis_error_code ?? ""),
+    analysisModel: application.ai_analysis_model ?? String(fallback.ai_analysis_model ?? ""),
     analyzedAt: application.ai_analyzed_at ?? String(fallback.ai_analyzed_at ?? "")
   };
 }
@@ -185,7 +197,9 @@ export default async function AdminApplicationDetailPage({
             <tbody>
               <tr><th>利用中ツール</th><td>{enrichment.currentTools.length ? enrichment.currentTools.join("、") : "-"}</td></tr>
               <tr><th>改善テーマ</th><td>{enrichment.improvementGoals.length ? enrichment.improvementGoals.join("、") : "-"}</td></tr>
-              <tr><th>AI整理状態</th><td>{displayValue(enrichment.analysisStatus, "-")}</td></tr>
+              <tr><th>AI整理状態</th><td>{aiAnalysisStatusLabel(displayValue(enrichment.analysisStatus, "not_started"))}</td></tr>
+              <tr><th>AIモデル</th><td>{displayValue(enrichment.analysisModel, "-")}</td></tr>
+              {enrichment.analysisErrorCode ? <tr><th>エラー分類</th><td>{enrichment.analysisErrorCode}</td></tr> : null}
               <tr><th>整理日時</th><td>{formatDateTime(enrichment.analyzedAt)}</td></tr>
               {enrichment.analysisError ? <tr><th>AI補足</th><td>{enrichment.analysisError}</td></tr> : null}
             </tbody>
