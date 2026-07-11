@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { growthActionChannelLabel, growthActionStatusLabel, listGrowthActions } from "@/lib/phase5/growth-actions";
@@ -46,7 +47,7 @@ export default async function GrowthActionsPage({
         <p>売上データ、AI月次売上レポート、需要予測、次アクション提案、店舗プロフィールをもとに作成します。</p>
         <div className="button-row">
           <form action={generateGrowthActionsAction.bind(null, store.id)}>
-            <button className="button" type="submit">集客アクションを生成</button>
+            <PendingSubmitButton pendingLabel="AIが集客アクションを作成しています...">集客アクションを生成</PendingSubmitButton>
           </form>
           <Link className="button secondary" href={`/stores/${store.id}/growth-calendar`}>カレンダーを見る</Link>
         </div>

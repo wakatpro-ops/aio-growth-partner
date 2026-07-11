@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listSalesAiReports } from "@/lib/phase4/sales-ai-report";
@@ -53,7 +54,7 @@ export default async function SalesAiReportsPage({
             <input name="target_month" type="month" defaultValue={currentMonth()} required />
           </label>
           <div className="form-actions">
-            <button className="button" type="submit">AIレポート生成</button>
+            <PendingSubmitButton pendingLabel="月次レポートを作成しています...">AIレポート生成</PendingSubmitButton>
           </div>
         </form>
       </section>

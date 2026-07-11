@@ -82,7 +82,7 @@ export default async function GoogleSettingsPage({
             </ul>
           </div>
         </div>
-        {!state.envReady ? <p className="notice danger">VercelにGoogle OAuth環境変数を設定すると接続を開始できます。</p> : null}
+        {!state.envReady ? <p className="notice danger">Google連携の準備がまだ完了していません。担当者へお問い合わせください。</p> : null}
         <div className="form-actions">
           <Link className="button" href={`/api/google/oauth/start?storeId=${store.id}`}>Googleに接続</Link>
           <form action={disconnectGoogleAction.bind(null, store.id)}>

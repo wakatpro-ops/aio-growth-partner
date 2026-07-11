@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { createStoreAction } from "../actions";
 
 export default async function NewStorePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -71,7 +72,7 @@ export default async function NewStorePage({ searchParams }: { searchParams: Pro
           <strong>保存後の流れ</strong>
           <p>請求書設定、Google接続状態、最初に見る画面をオンボーディングで確認します。</p>
         </div>
-        <button className="button" type="submit">店舗を作成</button>
+        <PendingSubmitButton pendingLabel="店舗情報を保存しています...">店舗を作成</PendingSubmitButton>
       </form>
     </AppShell>
   );

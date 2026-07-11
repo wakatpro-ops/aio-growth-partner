@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getInvoiceSettings } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
@@ -42,7 +43,7 @@ export default async function InvoiceSettingsPage({
             <label htmlFor="next_number">次の連番</label>
             <input id="next_number" name="next_number" type="number" min="1" step="1" defaultValue={settings?.next_number ?? 1} />
           </div>
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="請求書設定を保存しています...">保存</PendingSubmitButton>
         </form>
       </section>
       <section className="card">

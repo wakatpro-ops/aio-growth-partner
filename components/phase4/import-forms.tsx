@@ -1,3 +1,4 @@
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { standardSalesFields } from "@/lib/phase4/import-parser";
 import type { DataColumnMapping, DataImportJob } from "@/types/phase4";
 
@@ -28,7 +29,7 @@ export function ImportUploadForm({ action }: { action: (formData: FormData) => v
           <input id="file" name="file" type="file" accept=".csv,.tsv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
         </div>
       </div>
-      <button className="button" type="submit">アップロードしてプレビュー</button>
+      <PendingSubmitButton pendingLabel="ファイルを読み込んでいます...">アップロードしてプレビュー</PendingSubmitButton>
     </form>
   );
 }
@@ -71,7 +72,7 @@ export function ColumnMappingForm({
           })}
         </tbody>
       </table>
-      <button className="button" type="submit">マッピングを保存して正規化プレビュー</button>
+      <PendingSubmitButton pendingLabel="売上データを整理しています...">マッピングを保存して正規化プレビュー</PendingSubmitButton>
     </form>
   );
 }

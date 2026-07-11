@@ -220,14 +220,14 @@ async function seedAutoRepairDemoRows(
   });
 }
 
-export async function listBusinessItems(storeId: string): Promise<BusinessItem[]> {
+export async function listBusinessItems(storeId: string, limit = 80): Promise<BusinessItem[]> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
     return demoItems.filter((item) => item.store_id === storeId || storeId.startsWith("demo"));
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false }).limit(limit);
   if (error || !data) {
     return demoItems.filter((item) => item.store_id === storeId || storeId.startsWith("demo"));
   }
@@ -269,14 +269,14 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
   return data as InventoryStock[];
 }
 
-export async function listCustomers(storeId: string): Promise<Customer[]> {
+export async function listCustomers(storeId: string, limit = 80): Promise<Customer[]> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
     return demoCustomers.filter((customer) => customer.store_id === storeId || storeId.startsWith("demo"));
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false });
+  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false }).limit(limit);
   if (error || !data) {
     return demoCustomers.filter((customer) => customer.store_id === storeId || storeId.startsWith("demo"));
   }
@@ -299,7 +299,7 @@ export async function getCustomer(storeId: string, customerId: string): Promise<
   return data as Customer;
 }
 
-export async function listDocuments(storeId: string, kind: DocumentKind): Promise<BusinessDocument[]> {
+export async function listDocuments(storeId: string, kind: DocumentKind, limit = 80): Promise<BusinessDocument[]> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
     return documentFallback(kind, storeId);
@@ -310,7 +310,8 @@ export async function listDocuments(storeId: string, kind: DocumentKind): Promis
     .from(kind)
     .select("*, customer:customers(name, company_name, email, phone)")
     .eq("store_id", resolved.storeId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(limit);
   if (error || !data) {
     return documentFallback(kind, storeId);
   }

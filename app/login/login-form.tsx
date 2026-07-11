@@ -5,8 +5,11 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function LoginForm() {
   const [message, setMessage] = useState("メールアドレスとパスワードを入力してログインしてください。");
+  const [loading, setLoading] = useState(false);
 
   async function submit(formData: FormData) {
+    setLoading(true);
+    setMessage("ログイン情報を確認しています。");
     const email = String(formData.get("email") ?? "");
     const password = String(formData.get("password") ?? "");
     const supabase = createSupabaseBrowserClient();
@@ -18,12 +21,14 @@ export function LoginForm() {
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
-      setMessage(error.message);
+      setLoading(false);
+      setMessage("ログインできませんでした。メールアドレスとパスワードを確認してください。");
       return;
     }
 
     const session = data.session;
     if (!session?.access_token) {
+      setLoading(false);
       setMessage("ログイン情報を保存できませんでした。もう一度ログインしてください。");
       return;
     }
@@ -38,6 +43,7 @@ export function LoginForm() {
     });
     if (!sessionResponse.ok) {
       const result = await sessionResponse.json().catch(() => null);
+      setLoading(false);
       setMessage(result?.error ?? "ログイン状態を保存できませんでした。もう一度ログインしてください。");
       return;
     }
@@ -55,7 +61,9 @@ export function LoginForm() {
         <label htmlFor="password">パスワード</label>
         <input id="password" name="password" type="password" required />
       </div>
-      <button className="button" type="submit">ログイン</button>
+      <button className="button" type="submit" disabled={loading} aria-busy={loading}>
+        {loading ? "ログインしています..." : "ログイン"}
+      </button>
       <p>{message}</p>
     </form>
   );

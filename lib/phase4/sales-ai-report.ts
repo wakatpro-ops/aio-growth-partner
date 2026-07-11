@@ -222,7 +222,8 @@ export async function listSalesAiReports(storeId: string): Promise<SalesAiReport
     .select("*")
     .eq("store_id", resolved.storeId)
     .order("target_month", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(24);
   return (data ?? []) as SalesAiReport[];
 }
 

@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { ColumnMappingForm } from "@/components/phase4/import-forms";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getImportJob } from "@/lib/phase4/sales-import-data";
@@ -104,7 +105,7 @@ export default async function DataImportDetailPage({
           </table>
         ) : <p className="muted">列マッピングを保存すると正規化プレビューが表示されます。</p>}
         <form action={executeImportJobAction.bind(null, store.id, job.id)}>
-          <button className="button" type="submit" disabled={job.mapping_status !== "confirmed"}>取り込みを実行</button>
+          <PendingSubmitButton pendingLabel="売上データを取り込んでいます..." disabled={job.mapping_status !== "confirmed"}>取り込みを実行</PendingSubmitButton>
         </form>
       </section>
 

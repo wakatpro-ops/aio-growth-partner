@@ -1,7 +1,5 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { listBusinessItems, listCustomers } from "@/lib/phase2/business-data";
-import { listSalesTransactions } from "@/lib/phase4/sales-import-data";
 import type { Store } from "@/types/domain";
 
 export type StoreAiReadinessItem = {
@@ -33,6 +31,15 @@ export type StoreAiReadiness = {
     growthActions: number;
   };
 };
+
+const demoStorePersistenceIds: Record<string, string> = {
+  "store-general-demo": "00000000-0000-4000-8000-000000000101",
+  "store-auto-demo": "00000000-0000-4000-8000-000000000102"
+};
+
+function readStoreId(storeId: string) {
+  return demoStorePersistenceIds[storeId] ?? storeId;
+}
 
 function hasText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
@@ -66,7 +73,7 @@ function headlineFor(score: number) {
 async function countRows(table: string, storeId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return 0;
-  const { count } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("store_id", storeId);
+  const { count } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("store_id", readStoreId(storeId));
   return count ?? 0;
 }
 
@@ -76,7 +83,7 @@ async function hasInvoiceSettings(storeId: string) {
   const { data } = await supabase
     .from("invoice_number_sequences")
     .select("store_id, qualified_invoice_issuer_name, qualified_invoice_registration_number")
-    .eq("store_id", storeId)
+    .eq("store_id", readStoreId(storeId))
     .maybeSingle();
   return Boolean(data?.store_id && (data.qualified_invoice_issuer_name || data.qualified_invoice_registration_number));
 }
@@ -86,17 +93,17 @@ async function hasGoogleConnection(store: Store) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return false;
   const [{ data: google }, { data: businessProfile }] = await Promise.all([
-    supabase.from("google_oauth_connections").select("id").eq("store_id", store.id).eq("status", "connected").limit(1).maybeSingle(),
-    supabase.from("google_business_profiles").select("id, status").eq("store_id", store.id).limit(1).maybeSingle()
+    supabase.from("google_oauth_connections").select("id").eq("store_id", readStoreId(store.id)).eq("status", "connected").limit(1).maybeSingle(),
+    supabase.from("google_business_profiles").select("id, status").eq("store_id", readStoreId(store.id)).limit(1).maybeSingle()
   ]);
   return Boolean(google?.id || businessProfile?.id);
 }
 
 export async function getStoreAiReadiness(store: Store): Promise<StoreAiReadiness> {
-  const [items, customers, salesTransactions, invoiceSettings, googleReady, invoices, dataImports, growthActions] = await Promise.all([
-    listBusinessItems(store.id),
-    listCustomers(store.id),
-    listSalesTransactions(store.id),
+  const [itemCount, customerCount, salesCount, invoiceSettings, googleReady, invoices, dataImports, growthActions] = await Promise.all([
+    countRows("items", store.id),
+    countRows("customers", store.id),
+    countRows("sales_transactions", store.id),
     hasInvoiceSettings(store.id),
     hasGoogleConnection(store),
     countRows("invoices", store.id),
@@ -104,9 +111,6 @@ export async function getStoreAiReadiness(store: Store): Promise<StoreAiReadines
     countRows("growth_actions", store.id)
   ]);
 
-  const itemCount = items.length;
-  const customerCount = customers.length;
-  const salesCount = salesTransactions.length;
   const profileReady = profileScoreReady(store);
   const snsReady = hasText(store.website_url) || hasText(store.google_business_url) || googleReady;
 

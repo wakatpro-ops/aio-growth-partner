@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DocumentForm } from "@/components/phase2/document-form";
 import { CopyButton } from "@/components/ui/copy-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getDocument, listCustomers } from "@/lib/phase2/business-data";
@@ -94,7 +95,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
             </select>
           </div>
           <div className="action-row full-span">
-            <button className="button" type="submit">Stripe情報を保存</button>
+            <PendingSubmitButton pendingLabel="Stripe情報を保存しています...">Stripe情報を保存</PendingSubmitButton>
             <CopyButton value={invoice.stripe_payment_url} label="決済URLをコピー" />
             {invoice.stripe_payment_url ? <Link className="button secondary" href={invoice.stripe_payment_url} target="_blank">決済URLを開く</Link> : null}
           </div>
@@ -117,7 +118,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
             <label htmlFor="stripe_paid_memo">メモ</label>
             <input id="stripe_paid_memo" name="memo" defaultValue="Stripe管理画面で決済済みを確認し、手動で入金済みに変更" />
           </div>
-          <button className="button secondary" type="submit">Stripe決済済みとして入金登録</button>
+          <PendingSubmitButton className="button secondary" pendingLabel="入金済みとして記録しています...">Stripe決済済みとして入金登録</PendingSubmitButton>
         </form>
       </section>
       <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" />
@@ -126,7 +127,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
         <form className="form-inline" action={`/stores/${store.id}/invoices/${invoice.id}/pdf/download`} method="get">
           <label htmlFor="reissueReason">再発行理由</label>
           <input id="reissueReason" name="reissueReason" placeholder="例: 金額修正後の再発行" />
-          <button className="button secondary" type="submit">理由を記録してPDF出力</button>
+          <PendingSubmitButton className="button secondary" pendingLabel="PDFを準備しています...">理由を記録してPDF出力</PendingSubmitButton>
         </form>
         <table className="table compact">
           <thead><tr><th>日時</th><th>種別</th><th>理由</th><th>ファイル名</th></tr></thead>
@@ -144,7 +145,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
         </table>
       </section>
       <form action={deleteInvoiceAction.bind(null, store.id, invoice.id)} className="danger-zone">
-        <button className="button danger" type="submit">削除</button>
+        <PendingSubmitButton className="button danger" pendingLabel="削除しています...">削除</PendingSubmitButton>
       </form>
     </AppShell>
   );

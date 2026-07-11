@@ -1,3 +1,4 @@
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { Customer } from "@/types/phase2";
 
 function vehicleValue(customer: Customer | null | undefined, key: string) {
@@ -57,7 +58,7 @@ export function CustomerForm({
           </div>
         </section>
       ) : null}
-      <button className="button" type="submit">保存</button>
+      <PendingSubmitButton pendingLabel="顧客情報を保存しています...">保存</PendingSubmitButton>
     </form>
   );
 }

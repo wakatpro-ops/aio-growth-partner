@@ -200,7 +200,7 @@ export function ApplyForm() {
         </section>
 
         <div className="form-actions">
-          <button className="button" type="submit" disabled={state.status === "loading"}>
+          <button className="button" type="submit" disabled={state.status === "loading"} aria-busy={state.status === "loading"}>
             {state.status === "loading" ? "AIが整理中..." : "導入相談を送信"}
           </button>
         </div>

@@ -5,7 +5,7 @@ import { hasSupabaseBrowserEnv } from "@/lib/supabase/env";
 
 export async function POST(request: Request) {
   if (!hasSupabaseBrowserEnv()) {
-    return NextResponse.json({ ok: false, error: "Supabase Authの環境変数が未設定です。" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "ログイン機能の準備が完了していません。担当者へお問い合わせください。" }, { status: 500 });
   }
 
   const body = await request.json().catch(() => ({}));

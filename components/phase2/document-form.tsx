@@ -1,3 +1,4 @@
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { BusinessDocument, Customer } from "@/types/phase2";
 
 export function DocumentForm({
@@ -130,7 +131,7 @@ export function DocumentForm({
         <label htmlFor="notes">備考</label>
         <textarea id="notes" name="notes" defaultValue={document?.notes ?? ""} />
       </div>
-      <button className="button" type="submit">保存</button>
+      <PendingSubmitButton pendingLabel="書類を保存しています...">保存</PendingSubmitButton>
     </form>
   );
 }

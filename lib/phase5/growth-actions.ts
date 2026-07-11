@@ -211,9 +211,10 @@ export async function listGrowthActions(storeId: string): Promise<GrowthAction[]
   const resolved = await ensureDemoPersistence(supabase, store);
   const { data } = await supabase
     .from("growth_actions")
-    .select("*, drafts:growth_action_drafts(*), schedule_items:growth_action_schedule_items(*), approvals:growth_action_approvals(*)")
+    .select("*")
     .eq("store_id", resolved.storeId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(60);
   return (data ?? []) as GrowthAction[];
 }
 

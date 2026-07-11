@@ -1,3 +1,4 @@
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { BusinessItem } from "@/types/phase2";
 
 export function ItemForm({
@@ -72,7 +73,7 @@ export function ItemForm({
           </div>
         </div>
       ) : null}
-      <button className="button" type="submit">保存</button>
+      <PendingSubmitButton pendingLabel="入力内容を保存しています...">保存</PendingSubmitButton>
     </form>
   );
 }

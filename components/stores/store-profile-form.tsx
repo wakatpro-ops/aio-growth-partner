@@ -2,6 +2,15 @@ import { getIndustryConfig } from "@/config/industries";
 import { resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import type { Store } from "@/types/domain";
 
+const featureLabels = [
+  { key: "invoice_compliance", label: "請求書・入金管理" },
+  { key: "data_imports", label: "売上データ取り込み" },
+  { key: "sales_ai_report", label: "AI月次レポート" },
+  { key: "growth_action_center", label: "集客アクション" },
+  { key: "google_integrations", label: "Google連携" },
+  { key: "monthly_report", label: "月次レポート" }
+];
+
 export function StoreProfileForm({ store }: { store: Store }) {
   const industry = getIndustryConfig(store.industry_type_key);
   const flags = resolveFeatureFlags(store);
@@ -74,19 +83,12 @@ export function StoreProfileForm({ store }: { store: Store }) {
         })}
       </div>
       <section className="card">
-        <h3>有効な機能</h3>
-        <p>Instagram投稿のような業態によって不要な機能は、削除ではなく feature_flags で制御します。</p>
+        <h3>この店舗で使える主な機能</h3>
+        <p>業態や利用状況に合わせて、日常業務と集客支援に使う機能を表示しています。</p>
         <div className="grid cols-3">
-          {Object.entries(flags).map(([key, enabled]) => (
-            <span className="badge" key={key}>
-              {key}: {enabled ? "ON" : "OFF"}
-            </span>
-          ))}
+          {featureLabels.map((feature) => <span className="badge" key={feature.key}>{feature.label}: {flags[feature.key] ? "利用可" : "未設定"}</span>)}
         </div>
       </section>
-      <button className="button" type="button">
-        保存
-      </button>
     </form>
   );
 }

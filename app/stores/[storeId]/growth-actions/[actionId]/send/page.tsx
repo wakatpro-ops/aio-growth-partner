@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { googlePublishTargets } from "@/lib/phase5/google-adapters";
@@ -139,7 +140,7 @@ export default async function GrowthActionSendPage({
           <textarea name="note" rows={3} placeholder="送信前に確認したこと、担当者へのメモなど" />
         </label>
         <div className="form-actions">
-          <button className="button" type="submit">送信準備を保存</button>
+          <PendingSubmitButton pendingLabel="送信前の確認内容を保存しています...">送信準備を保存</PendingSubmitButton>
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細へ戻る</Link>
         </div>
       </form>
@@ -168,7 +169,7 @@ export default async function GrowthActionSendPage({
             同じ内容でも再作成する
           </label>
           <p className="muted">成功済みの同じ下書きがある場合は、誤作成を防ぐため通常は停止します。</p>
-          <button className="button" type="submit">Gmail下書きを作成</button>
+          <PendingSubmitButton pendingLabel="Gmailへ安全に接続しています...">Gmail下書きを作成</PendingSubmitButton>
         </form>
 
         <form className="card form" action={executeGoogleIntegrationAction.bind(null, store.id, action.id, "google_calendar")}>
@@ -188,7 +189,7 @@ export default async function GrowthActionSendPage({
             同じ内容でも再作成する
           </label>
           <p className="muted">成功済みの同じ予定がある場合は、誤作成を防ぐため通常は停止します。</p>
-          <button className="button" type="submit">カレンダー予定を作成</button>
+          <PendingSubmitButton pendingLabel="カレンダーへ安全に接続しています...">カレンダー予定を作成</PendingSubmitButton>
         </form>
       </section>
 

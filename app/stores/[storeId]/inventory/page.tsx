@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { listBusinessItems, listInventoryStocks } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
@@ -58,7 +59,7 @@ export default async function InventoryPage({ params }: { params: Promise<{ stor
             <label htmlFor="reorder_point">発注目安</label>
             <input id="reorder_point" name="reorder_point" type="number" step="0.01" defaultValue="0" />
           </div>
-          <button className="button" type="submit" disabled={stockItems.length === 0}>保存</button>
+          <PendingSubmitButton pendingLabel="在庫情報を保存しています..." disabled={stockItems.length === 0}>保存</PendingSubmitButton>
         </form>
       </div>
     </AppShell>

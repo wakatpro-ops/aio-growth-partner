@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getStorePaymentIntegration } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
@@ -49,7 +50,7 @@ export default async function StripeSettingsPage({ params, searchParams }: { par
             <label htmlFor="note">運用メモ</label>
             <textarea id="note" name="note" defaultValue={typeof config.note === "string" ? config.note : ""} />
           </div>
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="Stripe情報を保存しています...">保存</PendingSubmitButton>
         </form>
       </section>
       <section className="card">

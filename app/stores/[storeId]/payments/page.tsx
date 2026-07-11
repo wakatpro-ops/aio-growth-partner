@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
 import { listPayments } from "@/lib/phase6/compliance-data";
@@ -95,7 +96,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ store
             <label htmlFor="memo">メモ</label>
             <input id="memo" name="memo" />
           </div>
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="入金情報を保存しています...">保存</PendingSubmitButton>
         </form>
       </section>
 
