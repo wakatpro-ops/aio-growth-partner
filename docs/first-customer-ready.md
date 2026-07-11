@@ -4,9 +4,13 @@
 
 アプリ内ページ: `/admin/first-customer-ready`
 
+本番運用URL: `https://app.aioboost.jp`
+公開申し込みURL: `https://app.aioboost.jp/apply`
+旧Vercel URL `https://aio-growth-partner.vercel.app` は移行期間中の確認用です。
+
 ## 営業から承認、利用開始までの運用
 
-1. 広告LPまたは紹介導線から、公開申し込みフォーム `/apply` へ誘導します。
+1. 広告LPまたは紹介導線から、公開申し込みフォーム `https://app.aioboost.jp/apply` へ誘導します。
 2. 管理者は `/admin/applications` で申し込みを確認します。
 3. `/admin/applications/[applicationId]` で説明予定、説明済み、請求書発行済み、入金確認済み、承認済み、アカウント発行済み、見送りを管理します。
 4. 契約意思が固まったら、AIO運営側が請求書を発行します。
@@ -41,6 +45,7 @@
 - AIO Growth Partnerはβ版であり、伴走しながら改善する前提です。
 - 一部機能は手動運用です。Stripeは決済URL手動登録、freeeはCSV出力、Google Business ProfileとSNSは手動投稿支援です。
 - 外部サービス連携は、Google、Stripe、freeeなど各社の仕様、審査、権限、利用制限の影響を受けます。
+- Google OAuthは `https://app.aioboost.jp/api/google/oauth/callback` で本番接続確認済みです。Gmail下書き作成とGoogleカレンダー予定作成も本番成功済みです。
 - AI生成文は提案であり、店舗担当者が内容を確認してから利用します。
 - 補助金採択、ITツール登録、Google API承認、外部サービス審査通過を保証するものではありません。
 - 重要データは利用者側でも内容確認し、必要に応じてPDF、CSV、会計ソフト側で保管します。

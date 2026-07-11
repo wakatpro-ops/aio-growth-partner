@@ -4,9 +4,13 @@
 
 アプリ内ページ: `/beta-onboarding`
 
+本番運用URL: `https://app.aioboost.jp`
+公開申し込みURL: `https://app.aioboost.jp/apply`
+旧Vercel URL `https://aio-growth-partner.vercel.app` は移行期間中の確認用として残します。
+
 ## 導入申し込みから利用開始まで
 
-1. 広告用ランディングページや紹介導線から、公開申し込みフォーム `/apply` へ進みます。
+1. 広告用ランディングページや紹介導線から、公開申し込みフォーム `https://app.aioboost.jp/apply` へ進みます。
 2. 店舗担当者が申し込み内容を送信します。
 3. AIO運営側がオンライン説明・営業を行います。
 4. 契約意思が固まったら、AIO運営側が請求書を発行します。
@@ -116,6 +120,8 @@
 - 新規店舗作成後は、デモ店舗ではなく実店舗として表示されているか確認します。
 - 店舗名、業態、請求書設定、登録番号、顧客、商品/サービスが入っているか確認します。
 - Google接続はGmail下書きとGoogleカレンダー予定作成まで確認します。
+- Google OAuthは `https://app.aioboost.jp/api/google/oauth/callback` で本番接続確認済みです。
+- 2026/07/11 12:12 にGmail下書き作成、2026/07/11 12:13 にGoogleカレンダー予定作成が成功済みです。
 - Google Business ProfileはAPI自動投稿ではなく、手動投稿支援モードとして説明します。
 - Stripeは店舗側の決済URL手動登録モードです。AIO運営側の月額課金とは分けて説明します。
 - freeeはCSV出力モードです。API自動送信は未対応です。
