@@ -35,6 +35,23 @@ const approvalStatuses = [
   ["rejected", "見送り"]
 ] as const;
 
+function displayValue(value: unknown, fallback = "-") {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
+  return JSON.stringify(value);
+}
+
+function dateTimeLocalValue(value: unknown) {
+  return typeof value === "string" ? value.slice(0, 16) : "";
+}
+
+function formatDateTime(value: unknown) {
+  if (typeof value !== "string" || value.length === 0) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ja-JP");
+}
+
 export default async function AdminApplicationDetailPage({
   params,
   searchParams
@@ -77,14 +94,14 @@ export default async function AdminApplicationDetailPage({
           <h2>申込内容</h2>
           <table className="table compact">
             <tbody>
-              <tr><th>店舗名</th><td>{application.store_name}</td></tr>
-              <tr><th>担当者</th><td>{application.contact_name}</td></tr>
-              <tr><th>メール</th><td>{application.email}</td></tr>
-              <tr><th>電話</th><td>{application.phone ?? "-"}</td></tr>
-              <tr><th>業態</th><td>{application.industry_type_key ?? "general_store"}</td></tr>
-              <tr><th>店舗数</th><td>{application.store_count}</td></tr>
-              <tr><th>課題</th><td>{application.pain_points ?? "-"}</td></tr>
-              <tr><th>備考</th><td>{application.message ?? "-"}</td></tr>
+              <tr><th>店舗名</th><td>{displayValue(application.store_name)}</td></tr>
+              <tr><th>担当者</th><td>{displayValue(application.contact_name)}</td></tr>
+              <tr><th>メール</th><td>{displayValue(application.email)}</td></tr>
+              <tr><th>電話</th><td>{displayValue(application.phone)}</td></tr>
+              <tr><th>業態</th><td>{displayValue(application.industry_type_key, "general_store")}</td></tr>
+              <tr><th>店舗数</th><td>{displayValue(application.store_count)}</td></tr>
+              <tr><th>課題</th><td>{displayValue(application.pain_points)}</td></tr>
+              <tr><th>備考</th><td>{displayValue(application.message)}</td></tr>
             </tbody>
           </table>
         </article>
@@ -92,12 +109,12 @@ export default async function AdminApplicationDetailPage({
           <h2>利用開始準備</h2>
           <table className="table compact">
             <tbody>
-              <tr><th>組織</th><td>{application.organization_id ?? "未作成"}</td></tr>
+              <tr><th>組織</th><td>{displayValue(application.organization_id, "未作成")}</td></tr>
               <tr><th>店舗</th><td>{application.store_id ? <Link href={`/stores/${application.store_id}`}>{application.store_id}</Link> : "未作成"}</td></tr>
-              <tr><th>招待メール</th><td>{application.invite_email ?? application.email}</td></tr>
-              <tr><th>招待状態</th><td>{application.invitation_status ?? "not_started"}</td></tr>
+              <tr><th>招待メール</th><td>{displayValue(application.invite_email ?? application.email)}</td></tr>
+              <tr><th>招待状態</th><td>{displayValue(application.invitation_status, "not_started")}</td></tr>
               <tr><th>アカウント</th><td>{accountStatusLabels[application.account_status ?? "not_created"] ?? application.account_status ?? "未発行"}</td></tr>
-              <tr><th>オンボーディング</th><td>{application.onboarding_status ?? "not_started"}</td></tr>
+              <tr><th>オンボーディング</th><td>{displayValue(application.onboarding_status, "not_started")}</td></tr>
             </tbody>
           </table>
           <p className="notice">
@@ -125,7 +142,7 @@ export default async function AdminApplicationDetailPage({
             </div>
             <div className="field">
               <label htmlFor="scheduled_demo_at">説明予定日時</label>
-              <input id="scheduled_demo_at" name="scheduled_demo_at" type="datetime-local" defaultValue={application.scheduled_demo_at?.slice(0, 16) ?? ""} />
+              <input id="scheduled_demo_at" name="scheduled_demo_at" type="datetime-local" defaultValue={dateTimeLocalValue(application.scheduled_demo_at)} />
             </div>
             <div className="field">
               <label htmlFor="billing_status">請求状況</label>
@@ -135,7 +152,7 @@ export default async function AdminApplicationDetailPage({
             </div>
             <div className="field">
               <label htmlFor="billing_amount">請求金額メモ</label>
-              <input id="billing_amount" name="billing_amount" type="number" defaultValue={application.billing_amount ?? ""} placeholder="例: 30000" />
+              <input id="billing_amount" name="billing_amount" type="number" defaultValue={application.billing_amount == null ? "" : String(application.billing_amount)} placeholder="例: 30000" />
             </div>
             <div className="field">
               <label htmlFor="payment_status">入金状況</label>
@@ -193,10 +210,10 @@ export default async function AdminApplicationDetailPage({
           <tbody>
             {logs.map((log) => (
               <tr key={log.id}>
-                <td>{new Date(log.created_at).toLocaleString("ja-JP")}</td>
-                <td>{log.action_type}</td>
-                <td>{log.from_status ?? "-"} → {log.to_status ?? "-"}</td>
-                <td>{log.message ?? "-"}</td>
+                <td>{formatDateTime(log.created_at)}</td>
+                <td>{displayValue(log.action_type)}</td>
+                <td>{displayValue(log.from_status)} → {displayValue(log.to_status)}</td>
+                <td>{displayValue(log.message)}</td>
               </tr>
             ))}
           </tbody>
