@@ -8,8 +8,8 @@ export default function BetaNotesPage() {
     <AppShell>
       <PageHeader
         eyebrow="Beta Notes"
-        title="β版利用時の注意事項"
-        description="伴走ありβ版として利用する際の手動運用、AI確認、外部サービス連携の制限をまとめています。"
+        title="利用時の注意事項"
+        description="AI生成文の確認、外部サービス連携、重要データの保管についてまとめています。"
         action={<Link className="button secondary" href="/legal">文書一覧へ</Link>}
       />
       <section className="card legal-card">
@@ -20,8 +20,8 @@ export default function BetaNotesPage() {
       </section>
       <section className="grid cols-3">
         <article className="card">
-          <h2>手動運用</h2>
-          <p>Stripe、freee、Google Business Profile、SNS投稿は、MVPでは一部手動支援モードです。</p>
+          <h2>外部サービス連携</h2>
+          <p>Stripe、freee、Google Business Profile、SNS投稿は、各サービス側でも内容を確認して利用してください。</p>
         </article>
         <article className="card">
           <h2>AI確認</h2>

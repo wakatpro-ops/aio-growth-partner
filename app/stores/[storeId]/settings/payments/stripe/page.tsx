@@ -16,11 +16,11 @@ export default async function StripeSettingsPage({ params, searchParams }: { par
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="店舗側Stripe連携" description="店舗自身のStripeアカウント情報を管理します。AIO運営側課金とは別です。" />
+      <PageHeader eyebrow={industry.name} title="Stripe決済設定" description="店舗で利用するStripe情報と、請求書に登録する決済URLを管理します。" />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">Stripe連携情報を保存しました。</p> : null}
       <section className="card form">
-        <h2>Stripe Connect準備情報</h2>
+        <h2>Stripe情報</h2>
         <form action={updateStripeIntegrationAction.bind(null, store.id)} className="grid cols-2">
           <div className="field">
             <label htmlFor="status">接続状態</label>
@@ -53,11 +53,11 @@ export default async function StripeSettingsPage({ params, searchParams }: { par
         </form>
       </section>
       <section className="card">
-        <h2>今回のMVPでできること</h2>
+        <h2>この画面でできること</h2>
         <ul className="compact-list">
-          <li>請求書ごとにStripe決済URLを手動登録できます。</li>
-          <li>Stripeで決済済みになった請求書を、AIO上で手動で入金済みにできます。</li>
-          <li>外部決済履歴は `store_payment_transactions` に残します。</li>
+          <li>請求書ごとにStripe決済URLを登録できます。</li>
+          <li>Stripeで決済済みになった請求書を、AIO上で入金済みとして記録できます。</li>
+          <li>外部決済履歴を残し、入金管理で確認できます。</li>
         </ul>
       </section>
     </AppShell>

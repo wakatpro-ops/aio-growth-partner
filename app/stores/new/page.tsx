@@ -9,7 +9,7 @@ export default async function NewStorePage({ searchParams }: { searchParams: Pro
     <AppShell>
       <PageHeader
         title="店舗追加"
-        description="実店舗として使う最初の店舗を登録します。デモ店舗とは分けて本番データとして管理されます。"
+        description="利用する店舗を登録します。店舗名、業態、連絡先、主な商品・サービスを入力してください。"
         action={<Link className="button secondary" href="/onboarding">導入手順を見る</Link>}
       />
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}

@@ -100,7 +100,7 @@ export default async function GoogleBusinessManualPostPage({
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="Google手動投稿補助" description="API実投稿を使わず、Googleビジネスプロフィール管理画面へ手動投稿するための確認と記録を行います。" />
+      <PageHeader eyebrow={industry.name} title="Google投稿支援" description="Googleビジネスプロフィール管理画面へ反映する前に、投稿内容とチェック項目を確認します。" />
       <StoreBusinessNav store={store} />
       {posted ? <p className="notice success">手動投稿済みとして記録しました。</p> : null}
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
@@ -113,23 +113,22 @@ export default async function GoogleBusinessManualPostPage({
           <label className="field">外部状態
             <input value={manualStatuses.find((status) => status.value === manualStatus)?.label ?? action.external_status ?? "not_connected"} readOnly />
           </label>
-          <label className="field">手動投稿日時
+          <label className="field">投稿記録日時
             <input value={typeof manual?.posted_at === "string" ? new Date(manual.posted_at).toLocaleString("ja-JP") : "-"} readOnly />
           </label>
         </div>
-        <p className="notice">Google Business Profile APIはBasic API Access未承認または却下確認済みの場合でも、ここでは正式な手動投稿支援モードとして運用できます。外部APIへの投稿は実行しません。</p>
+        <p className="notice">投稿文、CTA、URL、画像、投稿先店舗を確認し、Google管理画面へ反映した内容を記録できます。</p>
         <p className="muted">
           Google接続済みアカウント: {googleState.connection?.email ?? "未接続"} / 保存済みロケーション: {googleState.businessProfile?.location_name ?? googleState.businessProfile?.location_id ?? "未設定"}
         </p>
       </section>
 
       <section className="card">
-        <h2>手動投稿の流れ</h2>
+        <h2>投稿の流れ</h2>
         <ul className="compact-list">
           <li>下の本文をコピーし、「Google管理画面を開く」から対象店舗の投稿画面へ移動します。</li>
           <li>投稿種別、CTA、URL、画像をGoogle側で確認してから投稿します。</li>
           <li>投稿後、この画面で投稿URL、担当者、チェックリストを保存します。</li>
-          <li>将来GBP APIが承認されたら、保存済みのGoogleアカウントID / ロケーションIDを使ってAPI投稿へ切り替えます。</li>
         </ul>
       </section>
 

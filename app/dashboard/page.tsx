@@ -24,7 +24,7 @@ export default async function DashboardPage() {
         <article className="card">
           <p className="muted">データ区分</p>
           <h2>{storeDataModeLabel(store)}</h2>
-          <p>実店舗はデモ店舗と分けて管理します。</p>
+          <p>確認用店舗と実際に運用する店舗を分けて管理できます。</p>
         </article>
         <article className="card">
           <p className="muted">現在のプラン</p>

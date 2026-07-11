@@ -876,7 +876,7 @@ function googleBusinessProfileApiErrorMessage(result: Record<string, unknown>, f
     message.includes("not been used") ||
     message.includes("disabled")
   ) {
-    return "Google Business Profile API のBasic API Accessが未承認、または却下されているため、候補取得はできません。Gmail / Calendar が接続済みでも、GBP APIは別審査です。承認までは手動投稿支援モードをご利用ください。";
+    return "Googleビジネスプロフィールの候補取得に必要な権限または利用条件を満たしていないため、候補を取得できません。接続したGoogleアカウントが対象店舗の管理者になっているか確認してください。投稿文はコピーしてGoogle管理画面から反映できます。";
   }
   return friendlyGoogleApiError(rawMessage);
 }
@@ -1187,7 +1187,7 @@ export function googleConnectionStatusLabel(status: string | null | undefined) {
     needs_location: "ロケーション確認待ち",
     api_review_pending: "審査待ち",
     pending: "審査待ち",
-    rejected: "却下確認済み",
+    rejected: "投稿支援で利用中",
     manual_mode: "手動投稿支援モード",
     approved: "API承認済み",
     not_applied: "未申請",

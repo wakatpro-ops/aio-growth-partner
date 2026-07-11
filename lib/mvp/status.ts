@@ -14,13 +14,13 @@ export function isDemoStore(store: Pick<Store, "id" | "profile_data" | "organiza
 }
 
 export function storeDataModeLabel(store: Pick<Store, "id" | "profile_data" | "organization_id">) {
-  return isDemoStore(store) ? "デモ" : "本番";
+  return isDemoStore(store) ? "確認用" : "運用中";
 }
 
 export function storeDataModeDescription(store: Pick<Store, "id" | "profile_data" | "organization_id">) {
   return isDemoStore(store)
-    ? "検証用のデモ店舗です。実店舗の請求・顧客・Google連携データとは分けて扱います。"
-    : "実店舗データです。顧客、請求、入金、Google連携情報を本番運用として扱います。";
+    ? "操作確認用の店舗です。実際の請求・顧客・Google連携データとは分けて扱います。"
+    : "実際に利用する店舗です。顧客、請求、入金、Google連携情報を運用データとして扱います。";
 }
 
 export type MvpPlanKey = "free" | "starter" | "pro";
@@ -38,12 +38,12 @@ export const mvpPlans: Record<MvpPlanKey, {
 }> = {
   free: {
     name: "Free",
-    monthlyPriceLabel: "無料検証",
+    monthlyPriceLabel: "無料",
     limits: {
       stores: 1,
       aiGenerations: 20,
       csvImports: 3,
-      google: "手動投稿支援のみ",
+      google: "投稿支援",
       pdf: "プレビュー"
     }
   },

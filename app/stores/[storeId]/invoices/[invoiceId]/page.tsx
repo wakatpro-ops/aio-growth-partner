@@ -58,7 +58,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
       </section>
       <section className="card form">
         <h2>Stripe決済URL</h2>
-        <p className="muted">店舗自身のStripe決済リンクを手動登録します。AIO運営側の月額課金とは別です。</p>
+        <p className="muted">この請求書に紐づくStripe決済リンクを登録し、入金状況を管理します。</p>
         <div className="grid cols-3">
           <article className="mini-card">
             <p className="muted">決済ステータス</p>

@@ -40,30 +40,30 @@ function gbpApiStatusLabel(value: unknown) {
       return "未申請";
     case "pending":
     case "api_review_pending":
-      return "審査待ち";
+      return "確認中";
     case "rejected":
-      return "却下確認済み / 手動投稿支援モード";
+      return "投稿支援で利用中";
     case "approved":
-      return "API承認済み";
+      return "連携利用可能";
     case "manual_mode":
-      return "手動投稿支援モード";
+      return "投稿支援で利用中";
     default:
-      return "手動投稿支援モード";
+      return "投稿支援で利用中";
   }
 }
 
 function applicationResultLabel(value: unknown) {
   switch (value) {
     case "rejected":
-      return "却下確認済み";
+      return "投稿支援で利用中";
     case "pending":
-      return "審査待ち";
+      return "確認中";
     case "approved":
-      return "承認済み";
+      return "連携利用可能";
     case "not_requested":
       return "未申請";
     default:
-      return "却下確認済み";
+      return "投稿支援で利用中";
   }
 }
 
@@ -71,8 +71,8 @@ const retryChecklist = [
   "公式サイトにサービス概要がある",
   "運営者情報が明確",
   "プライバシーポリシーがある",
-  "Google Business Profile APIの利用目的が明確",
-  "スパム投稿・自動大量投稿をしない設計である",
+  "Googleビジネスプロフィールの利用目的が明確",
+  "投稿内容を店舗担当者が確認してから反映する運用である",
   "ユーザー承認フローがある",
   "投稿履歴・操作ログが残る",
   "対象ビジネスプロフィールのオーナー/管理者権限がある"
@@ -99,11 +99,11 @@ export default async function GoogleBusinessProfilePage({
   const apiStatus = textValue(setting?.metadata?.api_status) || textValue(setting?.status) || "manual_mode";
   const applicationResult = textValue(setting?.metadata?.api_application_result) || (apiStatus === "approved" ? "approved" : "rejected");
   const caseId = textValue(setting?.metadata?.basic_api_access_case_id) || "3-6455000041311";
-  const rejectionReason = textValue(setting?.metadata?.rejection_reason) || "Google内部の品質チェックにより、現時点ではAPI利用申請を進められない状態";
+  const rejectionReason = textValue(setting?.metadata?.rejection_reason) || "Google側の利用条件や権限設定により、現在は投稿文をコピーして反映する運用です。";
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="Googleビジネスプロフィール連携準備" description="API承認状況と、承認されるまでの手動投稿支援モードを管理します。" />
+      <PageHeader eyebrow={industry.name} title="Googleビジネスプロフィール投稿支援" description="投稿文、CTA、URL、チェックリストを整理し、Google管理画面に反映しやすくします。" />
       <StoreBusinessNav store={store} />
       {synced ? <p className="notice success">Googleから候補を取得しました。アカウント {accounts ?? "0"} 件、ロケーション {locations ?? "0"} 件です。</p> : null}
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
@@ -111,21 +111,18 @@ export default async function GoogleBusinessProfilePage({
       <section className="card">
         <p>Google接続状態: <span className="badge">{googleConnectionStatusLabel(state.connection?.status)}</span></p>
         <p>プロフィール設定: <span className="badge">{googleConnectionStatusLabel(setting?.status)}</span></p>
-        <p>GBP API申請結果: <span className="badge">{applicationResultLabel(applicationResult)}</span></p>
-        <p>Google Business Profile API status: <span className="badge">{gbpApiStatusLabel(apiStatus)}</span></p>
-        <p>Basic API Access ケースID: <span className="badge">{caseId}</span></p>
-        <p>理由: {rejectionReason}</p>
+        <p>投稿支援の状態: <span className="badge">{applicationResultLabel(applicationResult)}</span></p>
+        <p>連携状態: <span className="badge">{gbpApiStatusLabel(apiStatus)}</span></p>
+        <p>補足: {rejectionReason}</p>
       </section>
 
       <section className="card">
-        <h2>現在の扱い</h2>
+        <h2>この画面でできること</h2>
         <ul className="compact-list">
-          <li>Gmail下書き作成とGoogleカレンダー予定作成は本番成功済みのため、Google OAuth接続は合格扱いです。</li>
-          <li><code>codexwakazono@gmail.com</code> は追加の検証用Googleアカウントとして扱います。</li>
-          <li>Googleビジネスプロフィール候補取得には、接続したGoogleアカウントが対象ビジネスプロフィールのオーナーまたは管理者である必要があります。</li>
-          <li>My Business系APIのquotaが0の場合、APIが有効化済みでも候補取得はできません。Gmail / Calendar APIとは審査とquotaが別です。</li>
-          <li>ケースID <code>{caseId}</code> は承認されていないため、現時点では「却下確認済み」として扱います。</li>
-          <li>承認までは、集客アクション詳細の「Google手動投稿補助」からコピー、チェックリスト、手動投稿済み記録を使って運用します。</li>
+          <li>Google投稿向けの本文、CTA、URL、投稿種別を確認できます。</li>
+          <li>投稿前チェックリストを見ながら、Google管理画面に反映できます。</li>
+          <li>投稿待ち、承認待ち、投稿済みの状態を記録できます。</li>
+          <li>Googleアカウントが対象ビジネスプロフィールのオーナーまたは管理者であるか確認できます。</li>
         </ul>
         <div className="form-actions">
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions`}>集客アクションへ</Link>
@@ -134,14 +131,13 @@ export default async function GoogleBusinessProfilePage({
       </section>
 
       <section className="card">
-        <h2>次の対応</h2>
+        <h2>利用前の確認</h2>
         <ul className="compact-list">
           <li>公式サイト情報を整備します。</li>
           <li>ビジネスプロフィール情報を整備します。</li>
-          <li>申請主体とサービス内容の整合性を見直します。</li>
-          <li>再申請文面を準備します。</li>
-          <li>承認までは手動投稿支援モードで運用します。</li>
-          <li>API承認後は、同じ画面で状態を「API承認済み」に変更し、account_id / location_id 候補取得へ戻ります。</li>
+          <li>投稿内容を店舗担当者が確認してから反映します。</li>
+          <li>Google管理画面で投稿先の店舗が正しいことを確認します。</li>
+          <li>必要に応じて、Googleアカウントの権限や店舗管理者権限を確認します。</li>
         </ul>
         <div className="form-actions">
           <Link className="button secondary" href="https://developers.google.com/my-business/content/posts-data" target="_blank">投稿APIの公式情報</Link>
@@ -150,8 +146,8 @@ export default async function GoogleBusinessProfilePage({
       </section>
 
       <section className="card">
-        <h2>手動投稿支援モード</h2>
-        <p className="notice">Google Business Profile APIが未承認または却下済みでも、投稿文の作成・確認・手動投稿記録はこのまま運用できます。</p>
+        <h2>投稿支援</h2>
+        <p className="notice">投稿文の作成、確認、Google管理画面への反映、投稿済み記録までを整理できます。</p>
         <div className="grid cols-3">
           <article>
             <p className="muted">作成</p>
@@ -177,8 +173,8 @@ export default async function GoogleBusinessProfilePage({
 
       <section className="card">
         <h2>Googleから候補を取得</h2>
-        <p className="muted">接続済みGoogleアカウントでアクセスできるビジネスプロフィールのアカウントIDとロケーションIDを取得します。実投稿は行いません。</p>
-        <p className="notice">現在はBasic API Accessが承認されていないため、候補取得は失敗する可能性が高い状態です。Gmail / Calendar が接続済みでも、GBP APIは別審査です。</p>
+        <p className="muted">接続済みGoogleアカウントでアクセスできるビジネスプロフィールの候補を取得します。投稿は行いません。</p>
+        <p className="notice">候補取得には、Googleアカウントが対象ビジネスプロフィールのオーナーまたは管理者である必要があります。</p>
         <form action={syncGoogleBusinessProfileCandidatesAction.bind(null, store.id)}>
           <button className="button" type="submit">アカウント・ロケーション候補を取得</button>
         </form>
@@ -243,47 +239,47 @@ export default async function GoogleBusinessProfilePage({
       </section>
 
       <section className="card">
-        <h2>再申請準備チェックリスト</h2>
+        <h2>投稿前チェックリスト</h2>
         <ul className="compact-list">
           {retryChecklist.map((item) => <li key={item}>{item}</li>)}
         </ul>
       </section>
 
       <form className="card form" action={upsertGoogleBusinessProfileAction.bind(null, store.id)}>
-        <h2>Google審査・API状態</h2>
+        <h2>Google店舗情報</h2>
         <div className="grid cols-2">
-          <label className="field">API status
+          <label className="field">連携状態
             <select name="api_status" defaultValue={apiStatus}>
-              <option value="not_requested">未申請</option>
-              <option value="pending">審査待ち</option>
-              <option value="rejected">却下確認済み</option>
-              <option value="manual_mode">手動投稿支援モード</option>
-              <option value="approved">API承認済み</option>
+              <option value="not_requested">未設定</option>
+              <option value="pending">確認中</option>
+              <option value="rejected">投稿支援で利用中</option>
+              <option value="manual_mode">投稿支援で利用中</option>
+              <option value="approved">連携利用可能</option>
             </select>
           </label>
-          <label className="field">Basic API Access ケースID
-            <input name="basic_api_access_case_id" defaultValue={caseId} placeholder="3-xxxxxxxxxxxx" />
+          <label className="field">管理メモID
+            <input name="basic_api_access_case_id" defaultValue={caseId} placeholder="任意の管理番号" />
           </label>
-          <label className="field">申請日
+          <label className="field">確認日
             <input name="basic_api_access_submitted_at" defaultValue={textValue(setting?.metadata?.basic_api_access_submitted_at)} placeholder="例: 2026-07-06" />
           </label>
-          <label className="field">申請結果
+          <label className="field">確認結果
             <select name="api_application_result" defaultValue={applicationResult}>
-              <option value="not_requested">未申請</option>
-              <option value="pending">審査待ち</option>
-              <option value="rejected">却下確認済み</option>
-              <option value="approved">承認済み</option>
+              <option value="not_requested">未設定</option>
+              <option value="pending">確認中</option>
+              <option value="rejected">投稿支援で利用中</option>
+              <option value="approved">連携利用可能</option>
             </select>
           </label>
         </div>
-        <label className="field">却下理由・現在の状態
+        <label className="field">現在の状態
           <textarea name="rejection_reason" rows={2} defaultValue={rejectionReason} />
         </label>
-        <label className="field">審査メモ
-          <textarea name="review_note" rows={3} defaultValue={textValue(setting?.metadata?.review_note) || "Basic API Accessは承認されていないため、承認までは手動投稿支援モードで運用。再申請前に公式サイト、運営者情報、プライバシーポリシー、ユーザー承認フロー、操作ログを整理する。"} />
+        <label className="field">運用メモ
+          <textarea name="review_note" rows={3} defaultValue={textValue(setting?.metadata?.review_note) || "投稿文、CTA、URL、画像、投稿先店舗を確認してからGoogle管理画面へ反映する。"} />
         </label>
         <input type="hidden" name="manual_posting_mode" value="enabled" />
-        <h2>account_id / location_id候補</h2>
+        <h2>Google店舗情報</h2>
         <div className="grid cols-2">
           <label className="field">GoogleアカウントID
             <input name="google_account_id" defaultValue={setting?.google_account_id ?? ""} placeholder="accounts/xxxx" />

@@ -13,7 +13,7 @@ export default async function StoresPage() {
     <AppShell>
       <PageHeader
         title="複数店舗管理"
-        description="1つの組織の中で複数店舗を管理します。デモ店舗と実店舗は区別して扱います。"
+        description="1つの組織の中で複数店舗を管理します。確認用店舗と実際に運用する店舗を分けて扱えます。"
         action={<Link className="button" href="/stores/new">実店舗を追加</Link>}
       />
       <section className="grid cols-2">
@@ -22,8 +22,8 @@ export default async function StoresPage() {
           <p>顧客、請求、入金、Google連携情報を本番運用として扱う店舗です。</p>
         </article>
         <article className="card">
-          <h2>デモ店舗</h2>
-          <p>機能説明と検証用です。実ユーザーの請求・顧客・連携データとは混ぜないでください。</p>
+          <h2>確認用店舗</h2>
+          <p>機能説明や操作確認に使う店舗です。実際の請求・顧客・連携データとは分けて管理してください。</p>
         </article>
       </section>
       <div className="card">

@@ -23,7 +23,7 @@ export default function HelpPage() {
         </article>
         <article className="card">
           <h2>集客支援</h2>
-          <p>AI提案、Gmail下書き、Googleカレンダー、SNS手動投稿支援を使います。</p>
+          <p>AI提案、Gmail下書き、Googleカレンダー、SNS投稿支援を使います。</p>
         </article>
       </section>
       <div className="legal-document">
@@ -43,10 +43,10 @@ export default function HelpPage() {
       </div>
       <section className="card">
         <h2>困ったときの連絡メモ</h2>
-        <p>エラーが出た場合は、画面URL、押したボタン、表示されたエラー、スクリーンショット、期待していた動作、実際の動作を伴走担当者へ共有してください。</p>
+        <p>エラーが出た場合は、画面URL、押したボタン、表示されたエラー、スクリーンショット、期待していた動作、実際の動作を担当者へ共有してください。</p>
         <div className="button-row">
-          <Link className="button secondary" href="/beta-onboarding">β導入パックを見る</Link>
-          <Link className="button secondary" href="/beta-notes">β版の注意事項を見る</Link>
+          <Link className="button secondary" href="/beta-onboarding">導入ガイドを見る</Link>
+          <Link className="button secondary" href="/beta-notes">利用時の注意事項を見る</Link>
         </div>
       </section>
     </AppShell>

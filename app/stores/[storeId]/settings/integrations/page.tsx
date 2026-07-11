@@ -20,10 +20,10 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
       <PageHeader
         eyebrow={industry.name}
         title="店舗外部連携"
-        description="店舗自身のStripe/freee連携を管理します。AIO運営側の月額課金とは別物です。"
+        description="店舗で利用する決済URL、会計CSV、Google連携などを管理します。"
       />
       <StoreBusinessNav store={store} />
-      <p className="notice">AIO運営会社のStripe/freeeではなく、この店舗が自分で使うStripeアカウント・freee事業所を扱います。</p>
+      <p className="notice">この店舗で利用する外部サービス情報を登録します。請求書、入金管理、会計CSV出力とあわせて確認できます。</p>
       <section className="grid cols-3">
         <article className="card">
           <h3>Stripe決済連携</h3>
@@ -33,14 +33,14 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
         </article>
         <article className="card">
           <h3>freee会計連携</h3>
-          <p>freee事業所情報と、freee向けCSV出力を管理します。API送信は次フェーズです。</p>
+          <p>freee事業所情報と、freee向けCSV出力を管理します。</p>
           <p><span className="badge">{freee?.status ?? "not_connected"}</span></p>
           <Link className="button secondary" href={`/stores/${store.id}/settings/accounting/freee`}>設定する</Link>
         </article>
         <article className="card">
-          <h3>AIO運営側課金</h3>
-          <p>AIO利用料はMVP期間中、請求書ベースで運用します。店舗決済とは分離します。</p>
-          <Link className="button secondary" href="/admin/billing-integrations">分離を確認</Link>
+          <h3>利用プラン</h3>
+          <p>契約中のプランや利用上限は、設定画面で確認できます。</p>
+          <Link className="button secondary" href="/settings">設定を確認</Link>
         </article>
       </section>
     </AppShell>

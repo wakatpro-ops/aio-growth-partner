@@ -5,9 +5,9 @@ export default function SignupPage() {
     <main className="main" style={{ maxWidth: 640, margin: "0 auto" }}>
       <div className="stack">
         <div>
-          <div className="eyebrow">Phase 1</div>
+          <div className="eyebrow">Sign up</div>
           <h1>新規登録</h1>
-          <p>本番では Supabase Auth のサインアップと organization 作成を接続します。Phase 1 の画面確認ではログインからデモに進めます。</p>
+          <p>利用開始には担当者からの案内が必要です。すでに案内を受けている場合は、ログイン画面からお進みください。</p>
         </div>
         <form className="card form">
           <div className="field">
@@ -22,7 +22,7 @@ export default function SignupPage() {
             <label htmlFor="password">パスワード</label>
             <input id="password" name="password" type="password" />
           </div>
-          <button className="button" type="button">登録</button>
+          <button className="button" type="button">登録内容を確認</button>
         </form>
         <Link href="/login">ログインへ</Link>
       </div>

@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 const navItems = [
   { href: "/dashboard", label: "ダッシュボード" },
   { href: "/onboarding", label: "初回導入" },
-  { href: "/beta-onboarding", label: "β導入パック" },
+  { href: "/beta-onboarding", label: "導入ガイド" },
   { href: "/stores", label: "店舗管理" },
   { href: "/settings", label: "設定" },
   { href: "/admin", label: "管理者画面" },
@@ -19,7 +19,7 @@ const footerLinks = [
   { href: "/legal", label: "規約・ポリシー" },
   { href: "/terms", label: "利用規約" },
   { href: "/privacy", label: "プライバシー" },
-  { href: "/beta-notes", label: "β版注意" }
+  { href: "/beta-notes", label: "利用時の注意" }
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

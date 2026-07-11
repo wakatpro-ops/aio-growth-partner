@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function LoginForm() {
-  const [message, setMessage] = useState("Supabase環境変数が未設定の場合はデモ画面へ進めます。");
+  const [message, setMessage] = useState("メールアドレスとパスワードを入力してログインしてください。");
 
   async function submit(formData: FormData) {
     const email = String(formData.get("email") ?? "");

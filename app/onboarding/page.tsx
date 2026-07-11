@@ -56,9 +56,9 @@ export default async function OnboardingPage({
   return (
     <AppShell>
       <PageHeader
-        eyebrow="MVP導入"
+        eyebrow="初回導入"
         title="初回オンボーディング"
-        description="最初の店舗を実運用できる状態にするための確認画面です。デモ店舗と実店舗を分けて進めます。"
+        description="最初の店舗を利用開始できる状態にするための確認画面です。"
         action={<Link className="button" href="/stores/new">実店舗を追加</Link>}
       />
       {created ? <p className="notice success">店舗を作成しました。次の順番で初期設定を進めてください。</p> : null}
@@ -66,7 +66,7 @@ export default async function OnboardingPage({
       {!selectedStore ? (
         <section className="card">
           <h2>まだ実店舗がありません</h2>
-          <p>デモ店舗ではなく、実ユーザー向けの店舗を1件作成してください。作成後、請求書設定、商品・顧客、Google連携の順に確認できます。</p>
+          <p>利用する店舗を1件作成してください。作成後、請求書設定、商品・顧客、Google連携の順に確認できます。</p>
           <Link className="button" href="/stores/new">最初の店舗を作成</Link>
         </section>
       ) : (
@@ -86,13 +86,13 @@ export default async function OnboardingPage({
             </article>
             <article className="card">
               <p className="muted">Google Business Profile</p>
-              <h2>手動投稿支援</h2>
-              <p>GBP APIはBasic API Accessが承認されるまで手動投稿支援モードで運用します。Gmail / Calendarとは別審査です。</p>
+              <h2>投稿支援</h2>
+              <p>投稿文、CTA、URLを整理し、Google管理画面に反映しやすい形で確認できます。</p>
             </article>
           </section>
 
           {isDemoStore(selectedStore) ? (
-            <p className="notice danger">現在の対象はデモ店舗です。実ユーザー導入では `/stores/new` から本番店舗を作成してください。</p>
+            <p className="notice danger">現在の対象は確認用店舗です。実際に利用する店舗は `/stores/new` から作成してください。</p>
           ) : null}
 
           <section className="card">
@@ -113,14 +113,14 @@ export default async function OnboardingPage({
 
           <section className="grid cols-2">
             <article className="card">
-              <h2>β版でできること</h2>
+              <h2>利用できること</h2>
               <div className="grid">
                 {betaReadyFeatures.map((feature) => <span className="badge badge-strong" key={feature}>{feature}</span>)}
               </div>
             </article>
             <article className="card">
-              <h2>まだできないこと</h2>
-              <p className="muted">β版では準備中または手動支援モードとして扱います。</p>
+              <h2>確認しながら使う機能</h2>
+              <p className="muted">外部サービス側の画面でも内容を確認しながら利用します。</p>
               <div className="grid">
                 {betaManualOrPlannedFeatures.map((feature) => <span className="badge" key={feature}>{feature}</span>)}
               </div>
@@ -128,7 +128,7 @@ export default async function OnboardingPage({
           </section>
 
           <section className="card">
-            <h2>βリリース前チェックリスト</h2>
+            <h2>導入チェックリスト</h2>
             <table className="table">
               <tbody>
                 {betaChecklist.map((item) => (
@@ -149,7 +149,7 @@ export default async function OnboardingPage({
             <div className="button-row">
               <Link className="button secondary" href="/legal">規約・ポリシー</Link>
               <Link className="button secondary" href="/help">操作方法</Link>
-              <Link className="button secondary" href="/beta-notes">β版の注意事項</Link>
+              <Link className="button secondary" href="/beta-notes">利用時の注意事項</Link>
             </div>
           </section>
 

@@ -16,7 +16,7 @@ export default async function FreeeSettingsPage({ params, searchParams }: { para
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="店舗側freee連携" description="店舗自身のfreee事業所を管理します。API送信は次フェーズで、MVPではCSV出力で実務利用します。" />
+      <PageHeader eyebrow={industry.name} title="freee会計設定" description="freee事業所情報と、会計ソフトに取り込むCSV出力を管理します。" />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">freee連携情報を保存しました。</p> : null}
       <section className="card form">

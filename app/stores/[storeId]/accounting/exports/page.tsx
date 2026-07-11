@@ -27,7 +27,7 @@ export default async function AccountingExportsPage({ params }: { params: Promis
       <PageHeader
         eyebrow={industry.name}
         title="会計CSV出力"
-        description="インボイス対応請求書の売上・税額・入金状態をCSVで出力します。freee、マネーフォワード連携の前段として使える形式です。"
+        description="インボイス対応請求書の売上・税額・入金状態を、会計ソフトへ取り込みやすいCSVで出力します。"
         action={(
           <div className="action-row">
             <Link className="button" href={`/stores/${store.id}/accounting/exports/download`}>汎用CSV</Link>
@@ -44,8 +44,8 @@ export default async function AccountingExportsPage({ params }: { params: Promis
       <section className="card">
         <h2>出力項目</h2>
         <p>取引日、請求書番号、顧客名、摘要、税率、税抜金額、消費税額、税込金額、入金日、支払方法、ステータスを出力します。</p>
-        <p>freee向けCSVでは、請求書に加えて外部売上データも取り込み前確認用の行として含めます。freee API送信は次フェーズです。</p>
-        <p className="muted">補助金採択やITツール登録を保証するものではありません。会計・受発注・決済を説明しやすくするための機能整理です。</p>
+        <p>freee向けCSVでは、請求書に加えて外部売上データも確認用の行として含めます。</p>
+        <p className="muted">出力したCSVは、会計ソフトへ取り込む前に内容を確認してください。</p>
       </section>
       <section className="card">
         <h2>連携ジョブ履歴</h2>

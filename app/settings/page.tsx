@@ -12,7 +12,7 @@ export default async function SettingsPage() {
 
   return (
     <AppShell>
-      <PageHeader title="設定" description="MVP運用に必要なモジュール、連携拡張ポイント、プラン制限の下地を確認できます。" />
+      <PageHeader title="設定" description="利用中のプラン、機能、外部連携、規約・ヘルプを確認できます。" />
       <div className="grid cols-2">
         <section className="card">
           <h3>現在のプラン</h3>
@@ -27,7 +27,7 @@ export default async function SettingsPage() {
               <tr><th>PDF</th><td>{currentPlan.limits.pdf}</td></tr>
             </tbody>
           </table>
-          <p className="muted">Stripeは未接続です。MVPでは管理者が手動でプラン付与する運用を前提にできます。</p>
+          <p className="muted">プラン内容や利用上限は、契約内容に応じて設定されます。</p>
         </section>
         <section className="card">
           <h3>プラン設計案</h3>
@@ -56,24 +56,24 @@ export default async function SettingsPage() {
           </table>
         </section>
         <section className="card">
-          <h3>課金と業務連携の分離</h3>
-          <p>AIO運営側のStripe課金と、店舗が自分のStripe/freeeを接続する業務連携は別管理です。</p>
+          <h3>外部連携</h3>
+          <p>店舗で利用するStripe決済URLやfreee向けCSV出力など、業務に使う連携情報を管理します。</p>
           <div className="grid">
-            <span className="badge">platform_subscriptions: AIO利用料</span>
-            <span className="badge">platform_billing_customers: 運営側Stripe顧客</span>
-            <span className="badge">store_payment_integrations: 店舗側Stripe Connect</span>
-            <span className="badge">store_accounting_integrations: 店舗側freee等</span>
+            <span className="badge">Stripe決済URL</span>
+            <span className="badge">freee向けCSV</span>
+            <span className="badge">Google連携</span>
+            <span className="badge">SNS投稿支援</span>
           </div>
-          <p className="muted">店舗側の決済・会計トークンはstore_id / organization_id単位で保存し、AIO運営会社のStripe/freeeとは混ぜません。</p>
+          <p className="muted">外部サービスへ反映する前に、店舗担当者が内容を確認して利用します。</p>
         </section>
         <section className="card">
-          <h3>β版でできること</h3>
+          <h3>利用できること</h3>
           <div className="grid">
             {betaReadyFeatures.map((feature) => <span className="badge badge-strong" key={feature}>{feature}</span>)}
           </div>
         </section>
         <section className="card">
-          <h3>準備中 / 手動支援モード</h3>
+          <h3>確認しながら使う機能</h3>
           <div className="grid">
             {betaManualOrPlannedFeatures.map((feature) => <span className="badge" key={feature}>{feature}</span>)}
           </div>
@@ -83,11 +83,11 @@ export default async function SettingsPage() {
         </section>
         <section className="card">
           <h3>規約・ヘルプ</h3>
-          <p>β版の利用前に、利用規約、プライバシーポリシー、操作方法、β版の注意事項を確認してください。</p>
+          <p>利用規約、プライバシーポリシー、操作方法、利用時の注意事項を確認できます。</p>
           <div className="button-row">
             <Link className="button secondary" href="/legal">規約・ポリシー</Link>
             <Link className="button secondary" href="/help">操作方法</Link>
-            <Link className="button secondary" href="/beta-notes">β版の注意事項</Link>
+            <Link className="button secondary" href="/beta-notes">利用時の注意事項</Link>
           </div>
         </section>
       </div>

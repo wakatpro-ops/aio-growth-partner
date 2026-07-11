@@ -103,7 +103,7 @@ export async function getMvpWorkspaceSummary() {
   return {
     stores,
     productionStores,
-    organizationName: organization.data?.name ?? "MVP運用組織",
+    organizationName: organization.data?.name ?? "AIO利用組織",
     planKey: organization.data?.plan_key ?? "starter",
     counts: {
       aiLogs: aiLogs.count ?? 0,
@@ -141,7 +141,7 @@ export async function createStoreFromForm(formData: FormData) {
       .maybeSingle();
 
     if (!approvedApplication || approvedApplication.approval_status !== "approved" || approvedApplication.payment_status !== "paid") {
-      throw new Error("実店舗の作成には、AIO運営側の承認と入金確認が必要です。公開申し込み後、案内をお待ちください。");
+      throw new Error("店舗の作成には利用開始手続きが必要です。公開申し込み後、担当者からの案内をお待ちください。");
     }
 
     organizationId = randomUUID();
@@ -211,7 +211,7 @@ export async function createStoreFromForm(formData: FormData) {
       api_status: "manual_mode",
       api_application_result: "not_requested",
       manual_posting_mode: true,
-      review_note: "MVPではGoogle Business Profile API承認前でも手動投稿支援モードで運用します。"
+      review_note: "Google投稿は、投稿文を確認してGoogle管理画面へ反映する運用です。"
     },
     updated_at: new Date().toISOString()
   }, { onConflict: "store_id" });

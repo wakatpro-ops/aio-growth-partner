@@ -66,9 +66,9 @@ export default async function InvoiceToolMapPage({ params }: { params: Promise<{
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="補助金対応機能マップ" description="補助金説明に使いやすいよう、AIO Growth Partnerの機能を会計・受発注・決済・データ連携・AI活用・証跡管理に整理します。" />
+      <PageHeader eyebrow={industry.name} title="業務機能マップ" description="AIO Growth Partnerの機能を、会計・受発注・決済・データ連携・AI活用・証跡管理に整理します。" />
       <StoreBusinessNav store={store} />
-      <p className="notice">この画面は機能整理と説明補助を目的としたものです。補助金採択やITツール登録を保証するものではありません。</p>
+      <p className="notice">業務で使っている機能を一覧で確認できます。制度利用や申請判断が必要な場合は、専門家や窓口へ確認してください。</p>
       <section className="grid cols-2">
         {groups.map((group) => (
           <article className="card" key={group.title}>

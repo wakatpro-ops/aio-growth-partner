@@ -13,7 +13,7 @@ export default async function SubsidyImpactPage({ params }: { params: Promise<{ 
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="導入効果レポート" description="電子化・データ化・AI活用の件数を整理し、説明資料に使いやすい形で表示します。" />
+      <PageHeader eyebrow={industry.name} title="導入効果レポート" description="電子化・データ化・AI活用の件数を整理し、業務改善の振り返りに使いやすい形で表示します。" />
       <StoreBusinessNav store={store} />
       <section className="grid cols-3">
         <article className="card"><p className="muted">電子化した請求書</p><div className="metric">{report.invoiceCount.toLocaleString("ja-JP")}件</div></article>
@@ -27,8 +27,8 @@ export default async function SubsidyImpactPage({ params }: { params: Promise<{ 
       </section>
       <section className="card">
         <h2>説明上の位置づけ</h2>
-        <p>AIO Growth Partnerが会計、受発注、決済、データ連携、AI活用、証跡管理をどの程度使っているかを整理するための画面です。</p>
-        <p className="muted">補助金採択、ITツール登録、審査通過を保証するものではありません。</p>
+        <p>AIO Growth Partnerで請求、入金、売上データ、AI提案、外部連携支援をどの程度使っているかを整理するための画面です。</p>
+        <p className="muted">補助金や制度利用の判断が必要な場合は、専門家や窓口へ確認してください。</p>
       </section>
     </AppShell>
   );

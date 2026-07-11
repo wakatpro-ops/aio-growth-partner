@@ -14,44 +14,43 @@ export const betaReadyFeatures = [
   "請求書",
   "PDF出力",
   "入金管理",
-  "Stripe決済URLの手動登録",
+  "Stripe決済URLの登録",
   "freee向けCSV出力",
   "売上CSV/Excel取込",
   "AI月次レポート",
   "AI集客アクション",
   "Gmail下書き作成",
   "Googleカレンダー予定作成",
-  "SNS手動投稿支援"
+  "SNS投稿支援"
 ];
 
 export const betaManualOrPlannedFeatures = [
-  "AIO利用料の自動Stripe課金",
-  "Stripe Connect完全OAuth",
-  "Stripe Webhook自動入金反映",
-  "freee API自動送信",
-  "Google Business Profile API自動投稿",
-  "Instagram API自動投稿"
+  "AIO利用料のオンライン決済",
+  "Stripe決済状態の自動反映",
+  "freeeへの自動送信",
+  "Googleビジネスプロフィールへの直接投稿",
+  "Instagramへの直接投稿"
 ];
 
 export const betaCautions = [
-  "Google Business Profile APIはGoogle側の審査やquotaの都合により、現在は手動投稿支援モードです。",
-  "Stripeは現時点では店舗ごとの決済URL手動登録モードです。",
-  "freeeは現時点ではCSV出力モードです。",
+  "Googleビジネスプロフィール投稿は、投稿文を確認してからGoogle管理画面へ反映します。",
+  "Stripe決済は、請求書に決済URLを登録して入金状況を管理できます。",
+  "freee向けには、会計ソフトに取り込めるCSVを出力できます。",
   "AI生成文は必ず人間が確認してから使用してください。",
-  "補助金やITツール登録の採択・登録を保証するものではありません。"
+  "補助金や制度利用に関する判断が必要な場合は、専門家や窓口へ確認してください。"
 ];
 
 export const betaOnboardingSteps = [
-  { label: "店舗作成", detail: "実店舗を作成し、デモ店舗と分けて管理します。", href: "/stores/new" },
+  { label: "店舗作成", detail: "利用する店舗を作成し、店舗名と業態を設定します。", href: "/stores/new" },
   { label: "業態選択", detail: "汎用店舗または自動車修理を選び、文言と機能を切り替えます。", href: "/stores/new" },
   { label: "請求書設定", detail: "登録番号、発行事業者名、請求書番号を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/invoice` },
   { label: "顧客登録", detail: "顧客または顧客・車両情報を登録します。", href: (storeId: string) => `/stores/${storeId}/customers` },
   { label: "商品/サービス登録", detail: "商品、部品、サービスを登録します。", href: (storeId: string) => `/stores/${storeId}/items` },
   { label: "見積/請求作成", detail: "見積書、請求書、PDF、入金まで確認します。", href: (storeId: string) => `/stores/${storeId}/invoices` },
-  { label: "Stripe手動連携", detail: "店舗側Stripe情報と決済URL手動登録を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/payments/stripe` },
+  { label: "Stripe決済URL", detail: "店舗のStripe情報と請求書ごとの決済URL登録を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/payments/stripe` },
   { label: "freee向けCSV出力", detail: "freee事業所情報とCSV出力を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/accounting/freee` },
-  { label: "Google連携", detail: "Gmail、Googleカレンダー、GBP手動投稿支援を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/google` },
-  { label: "SNS手動投稿支援", detail: "SNS向け下書きとコピー運用を確認します。", href: (storeId: string) => `/stores/${storeId}/growth-actions` }
+  { label: "Google連携", detail: "Gmail、Googleカレンダー、Google投稿支援を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/google` },
+  { label: "SNS投稿支援", detail: "SNS向け下書きとコピーしやすい投稿文を確認します。", href: (storeId: string) => `/stores/${storeId}/growth-actions` }
 ];
 
 export const betaChecklistLabels = [
@@ -67,8 +66,8 @@ export const betaChecklistLabels = [
   "freee向けCSV出力確認済み",
   "Gmail接続確認済み",
   "Googleカレンダー接続確認済み",
-  "Google Business Profileは手動投稿支援モードであることを説明済み",
-  "Stripeは手動URL登録モードであることを説明済み"
+  "Googleビジネスプロフィール投稿の反映方法を説明済み",
+  "Stripe決済URLの登録方法を説明済み"
 ];
 
 async function countRows(table: string, storeId?: string, filter?: { column: string; value: string }) {
@@ -136,8 +135,8 @@ export async function getStoreBetaChecklist(store: Store) {
     { label: "freee向けCSV出力確認済み", done: freeeExports > 0 },
     { label: "Gmail接続確認済み", done: gmailConnections > 0 },
     { label: "Googleカレンダー接続確認済み", done: calendarSettings > 0 || gmailConnections > 0 },
-    { label: "Google Business Profileは手動投稿支援モードであることを説明済み", done: true },
-    { label: "Stripeは手動URL登録モードであることを説明済み", done: stripeIntegrations > 0 }
+    { label: "Googleビジネスプロフィール投稿の反映方法を説明済み", done: true },
+    { label: "Stripe決済URLの登録方法を説明済み", done: stripeIntegrations > 0 }
   ];
 }
 

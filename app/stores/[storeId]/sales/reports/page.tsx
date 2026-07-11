@@ -82,7 +82,7 @@ export default async function SalesReportsPage({ params }: { params: Promise<{ s
 
       <section className="card">
         <h3>AIコメント</h3>
-        <p>Phase 4-Aでは集計までを実装しています。次フェーズで曜日別・時間帯別傾向とAI月次コメントを追加します。</p>
+        <p>AI月次レポート画面で、対象月の良かった点、注意点、来月の打ち手を確認できます。</p>
       </section>
 
       <div className="grid cols-2">
