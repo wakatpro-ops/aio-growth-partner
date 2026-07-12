@@ -1,4 +1,16 @@
-export type IndustryTypeKey = "general_store" | "auto_repair";
+export type IndustryTypeKey =
+  | "general_store"
+  | "auto_repair"
+  | "beauty_salon"
+  | "clinic_bodycare"
+  | "restaurant"
+  | "retail"
+  | "real_estate"
+  | "school"
+  | "hotel_tourism"
+  | "professional_service"
+  | "construction_renovation"
+  | "other_service";
 
 export type ModuleKey =
   | "store_profile"

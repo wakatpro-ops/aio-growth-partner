@@ -9,9 +9,7 @@ const navItems = [
   { href: "/onboarding", label: "初回導入" },
   { href: "/beta-onboarding", label: "導入ガイド" },
   { href: "/stores", label: "店舗管理" },
-  { href: "/settings", label: "設定" },
-  { href: "/admin", label: "管理者画面" },
-  { href: "/apply", label: "公開申し込み" }
+  { href: "/settings", label: "設定" }
 ];
 
 const footerLinks = [

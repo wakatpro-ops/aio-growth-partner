@@ -16,6 +16,26 @@ import { getStoreAiReadiness } from "@/lib/store-ai/readiness";
 export default async function DashboardPage() {
   const summary = await getMvpWorkspaceSummary();
   const store = summary.productionStores[0] ?? summary.stores[0];
+  if (!store) {
+    return (
+      <AppShell>
+        <PageHeader
+          eyebrow="利用開始準備"
+          title="店舗の準備を確認しています"
+          description="利用できる店舗がまだ紐づいていません。担当者からの案内に沿って、初回設定を進めてください。"
+          action={<Link className="button" href="/onboarding">初回導入を確認</Link>}
+        />
+        <section className="card">
+          <h2>店舗がまだ準備中です</h2>
+          <p>店舗情報の反映が完了すると、ここに店舗AI理解度、次に整える情報、売上・集客のおすすめが表示されます。</p>
+          <div className="button-row">
+            <Link className="button secondary" href="/onboarding">初回導入へ</Link>
+            <Link className="button secondary" href="/help">操作方法を見る</Link>
+          </div>
+        </section>
+      </AppShell>
+    );
+  }
   const industry = getIndustryConfig(store.industry_type_key);
   const plan = planForKey(summary.planKey);
   const readiness = await getStoreAiReadiness(store);

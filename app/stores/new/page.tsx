@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { publicIndustryOptions } from "@/lib/applications/options";
 import { createStoreAction } from "../actions";
 
 export default async function NewStorePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -18,13 +19,15 @@ export default async function NewStorePage({ searchParams }: { searchParams: Pro
         <div className="grid cols-2">
           <div className="field">
             <label htmlFor="name">店舗名</label>
-            <input id="name" name="name" required placeholder="例: 佐藤オート整備" />
+            <input id="name" name="name" required placeholder="例: cozysakura" />
           </div>
           <div className="field">
             <label htmlFor="industry_type_key">業態</label>
             <select id="industry_type_key" name="industry_type_key" defaultValue="general_store">
               <option value="general_store">汎用店舗</option>
-              <option value="auto_repair">自動車修理</option>
+              {publicIndustryOptions.map((option) => (
+                <option key={option.key} value={option.key}>{option.label}</option>
+              ))}
             </select>
           </div>
           <div className="field">

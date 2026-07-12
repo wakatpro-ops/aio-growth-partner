@@ -182,6 +182,56 @@ export const industries: Record<string, IndustryConfig> = {
   }
 };
 
+const serviceIndustryLabels = {
+  beauty_salon: {
+    name: "美容室・サロン",
+    dashboardTitle: "サロン運営ダッシュボード",
+    profileLabel: "サロンプロフィール",
+    postLabel: "サロン投稿文生成",
+    reviewLabel: "クチコミ返信",
+    diagnosisLabel: "集客導線診断",
+    businessLabels: {
+      item: "メニュー・商品",
+      product: "店販商品",
+      part: "材料・備品",
+      service: "施術メニュー",
+      stock: "店販・材料在庫",
+      customer: "顧客",
+      estimate: "見積書",
+      invoice: "請求書"
+    },
+    profileFields: [
+      { key: "services", label: "施術メニュー", type: "list" as const, placeholder: "カット、カラー、トリートメント" },
+      { key: "target_customer", label: "主なお客様", type: "text" as const, placeholder: "近隣女性、親子、メンズなど" },
+      { key: "reservation_method", label: "予約方法", type: "text" as const, placeholder: "電話、LINE、予約サイトなど" },
+      { key: "brand_tone", label: "投稿トーン", type: "text" as const, placeholder: "やわらかい、上品、親しみやすいなど" }
+    ]
+  },
+  clinic_bodycare: { name: "クリニック・整体・治療院", dashboardTitle: "来院管理ダッシュボード" },
+  restaurant: { name: "飲食店", dashboardTitle: "飲食店運営ダッシュボード" },
+  retail: { name: "小売店", dashboardTitle: "小売店運営ダッシュボード" },
+  real_estate: { name: "不動産", dashboardTitle: "不動産業務ダッシュボード" },
+  school: { name: "スクール・教室", dashboardTitle: "教室運営ダッシュボード" },
+  hotel_tourism: { name: "宿泊・観光", dashboardTitle: "宿泊・観光ダッシュボード" },
+  professional_service: { name: "士業・専門サービス", dashboardTitle: "専門サービスダッシュボード" },
+  construction_renovation: { name: "建設・リフォーム", dashboardTitle: "工事・リフォームダッシュボード" },
+  other_service: { name: "その他店舗・サービス業", dashboardTitle: "店舗運営ダッシュボード" }
+} satisfies Record<string, Partial<IndustryConfig>>;
+
+Object.entries(serviceIndustryLabels).forEach(([key, overrides]) => {
+  const industryOverrides = overrides as Partial<IndustryConfig>;
+  industries[key] = {
+    ...industries.general_store,
+    ...industryOverrides,
+    key: key as IndustryConfig["key"],
+    businessLabels: {
+      ...industries.general_store.businessLabels,
+      ...industryOverrides.businessLabels
+    },
+    profileFields: industryOverrides.profileFields ?? industries.general_store.profileFields
+  };
+});
+
 export function getIndustryConfig(key: string | null | undefined): IndustryConfig {
   return industries[key ?? ""] ?? industries.general_store;
 }

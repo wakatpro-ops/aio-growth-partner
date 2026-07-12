@@ -22,6 +22,32 @@ values
   )
 on conflict (key) do nothing;
 
+insert into public.industry_types (key, name, description, default_feature_flags, default_dashboard_layout, default_profile_schema)
+select industry.key, industry.name, industry.description, base.default_feature_flags, base.default_dashboard_layout, base.default_profile_schema
+from public.industry_types base
+cross join (
+  values
+    ('beauty_salon', '美容室・サロン', '美容室、サロン、リラクゼーション向けの業態。'),
+    ('clinic_bodycare', 'クリニック・整体・治療院', 'クリニック、整体、治療院向けの業態。'),
+    ('restaurant', '飲食店', '飲食店、カフェ、テイクアウト向けの業態。'),
+    ('retail', '小売店', '小売店、物販店舗向けの業態。'),
+    ('real_estate', '不動産', '不動産店舗、仲介、管理業向けの業態。'),
+    ('school', 'スクール・教室', 'スクール、教室、レッスン業向けの業態。'),
+    ('hotel_tourism', '宿泊・観光', '宿泊、観光、体験サービス向けの業態。'),
+    ('professional_service', '士業・専門サービス', '士業、専門サービス、相談業向けの業態。'),
+    ('construction_renovation', '建設・リフォーム', '建設、リフォーム、工事業向けの業態。'),
+    ('other_service', 'その他店舗・サービス業', 'その他店舗、地域サービス業向けの業態。')
+) as industry(key, name, description)
+where base.key = 'general_store'
+on conflict (key) do update set
+  name = excluded.name,
+  description = excluded.description,
+  default_feature_flags = excluded.default_feature_flags,
+  default_dashboard_layout = excluded.default_dashboard_layout,
+  default_profile_schema = excluded.default_profile_schema,
+  is_active = true,
+  updated_at = now();
+
 insert into public.modules (key, name, description, category, is_core)
 values
   ('store_profile', '店舗プロフィール', '店舗情報と業態別プロフィールを管理します。', 'core', true),

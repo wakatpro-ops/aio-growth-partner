@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { notFound, redirect } from "next/navigation";
 import { getIndustryConfig } from "@/config/industries";
 import { canAccessOrganization, getCurrentUserAccess } from "@/lib/auth/server";
+import { normalizeIndustryTypeKey } from "@/lib/applications/options";
 import { demoStores, getDemoStore } from "@/lib/industry/demo-data";
 import { isDemoStore } from "@/lib/mvp/status";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -40,7 +41,7 @@ export async function listStores(): Promise<Store[]> {
   if (access.isPlatformAdmin) {
     return stores;
   }
-  return stores.filter((store) => isDemoStore(store) || access.organizationIds.includes(store.organization_id));
+  return stores.filter((store) => !isDemoStore(store) && access.organizationIds.includes(store.organization_id));
 }
 
 export async function listProductionStores(): Promise<Store[]> {
@@ -56,13 +57,17 @@ export async function getStore(storeId: string): Promise<Store> {
 
   const { data, error } = await supabase.from("stores").select("*").eq("id", storeId).single();
   if (error || !data) {
-    return getDemoStore(storeId);
+    if (demoStores.some((store) => store.id === storeId)) {
+      return getDemoStore(storeId);
+    }
+    notFound();
   }
 
   const store = data as Store;
   if (isDemoStore(store)) {
-    return store;
+    return getDemoStore(storeId);
   }
+
   const access = await getCurrentUserAccess();
   if (!access) {
     redirect("/login");
@@ -154,7 +159,7 @@ export async function createStoreFromForm(formData: FormData) {
   if (!name) throw new Error("店舗名を入力してください。");
 
   const rawIndustry = String(formData.get("industry_type_key") ?? "general_store");
-  const industryTypeKey: IndustryTypeKey = rawIndustry === "auto_repair" ? "auto_repair" : "general_store";
+  const industryTypeKey: IndustryTypeKey = normalizeIndustryTypeKey(rawIndustry);
   const industry = getIndustryConfig(industryTypeKey);
   const useSampleData = String(formData.get("use_sample_data") ?? "") === "yes";
 

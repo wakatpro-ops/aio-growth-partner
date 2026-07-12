@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getIndustryConfig } from "@/config/industries";
+import { normalizeIndustryTypeKey } from "@/lib/applications/options";
 import { requirePlatformAdmin } from "@/lib/auth/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey } from "@/types/domain";
@@ -314,7 +315,9 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("入金確認後に承認してください。")}`);
   }
 
-  const industryTypeKey: IndustryTypeKey = application.industry_type_key === "auto_repair" ? "auto_repair" : "general_store";
+  const industryTypeKey: IndustryTypeKey = normalizeIndustryTypeKey(
+    String(application.industry_detail_key ?? application.industry_type_key ?? "general_store")
+  );
   const industry = getIndustryConfig(industryTypeKey);
   const organizationId = application.organization_id ?? randomUUID();
   const storeId = application.store_id ?? randomUUID();

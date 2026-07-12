@@ -1,15 +1,17 @@
-export const publicIndustryOptions = [
+import type { IndustryTypeKey } from "@/types/domain";
+
+export const publicIndustryOptions: Array<{ key: IndustryTypeKey; label: string; internalIndustryType: IndustryTypeKey }> = [
   { key: "auto_repair", label: "自動車整備", internalIndustryType: "auto_repair" },
-  { key: "beauty_salon", label: "美容室・サロン", internalIndustryType: "general_store" },
-  { key: "clinic_bodycare", label: "クリニック・整体・治療院", internalIndustryType: "general_store" },
-  { key: "restaurant", label: "飲食店", internalIndustryType: "general_store" },
-  { key: "retail", label: "小売店", internalIndustryType: "general_store" },
-  { key: "real_estate", label: "不動産", internalIndustryType: "general_store" },
-  { key: "school", label: "スクール・教室", internalIndustryType: "general_store" },
-  { key: "hotel_tourism", label: "宿泊・観光", internalIndustryType: "general_store" },
-  { key: "professional_service", label: "士業・専門サービス", internalIndustryType: "general_store" },
-  { key: "construction_renovation", label: "建設・リフォーム", internalIndustryType: "general_store" },
-  { key: "other_service", label: "その他店舗・サービス業", internalIndustryType: "general_store" }
+  { key: "beauty_salon", label: "美容室・サロン", internalIndustryType: "beauty_salon" },
+  { key: "clinic_bodycare", label: "クリニック・整体・治療院", internalIndustryType: "clinic_bodycare" },
+  { key: "restaurant", label: "飲食店", internalIndustryType: "restaurant" },
+  { key: "retail", label: "小売店", internalIndustryType: "retail" },
+  { key: "real_estate", label: "不動産", internalIndustryType: "real_estate" },
+  { key: "school", label: "スクール・教室", internalIndustryType: "school" },
+  { key: "hotel_tourism", label: "宿泊・観光", internalIndustryType: "hotel_tourism" },
+  { key: "professional_service", label: "士業・専門サービス", internalIndustryType: "professional_service" },
+  { key: "construction_renovation", label: "建設・リフォーム", internalIndustryType: "construction_renovation" },
+  { key: "other_service", label: "その他店舗・サービス業", internalIndustryType: "other_service" }
 ] as const;
 
 export const currentToolOptions = [
@@ -36,4 +38,8 @@ export const improvementGoalOptions = [
 
 export function findPublicIndustryOption(key: string) {
   return publicIndustryOptions.find((option) => option.key === key) ?? publicIndustryOptions[publicIndustryOptions.length - 1];
+}
+
+export function normalizeIndustryTypeKey(key: string | null | undefined): IndustryTypeKey {
+  return publicIndustryOptions.find((option) => option.key === key || option.internalIndustryType === key)?.internalIndustryType ?? "general_store";
 }
