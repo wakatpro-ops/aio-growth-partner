@@ -36,7 +36,7 @@ const steps = [
   },
   {
     title: "Google / SNS支援",
-    body: "Gmail、Googleカレンダー、GBP手動投稿支援、SNS下書きを確認します。",
+    body: "Gmail、Googleカレンダー、Google投稿文、SNS下書きを確認します。",
     href: (storeId: string) => `/stores/${storeId}/settings/google`
   },
   {

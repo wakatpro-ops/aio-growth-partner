@@ -25,10 +25,10 @@ export const betaReadyFeatures = [
 ];
 
 export const betaManualOrPlannedFeatures = [
-  "AIO利用料のオンライン決済",
-  "Stripe決済状態の自動反映",
-  "freeeへの自動送信",
-  "Googleビジネスプロフィールへの直接投稿",
+  "ご利用料金のお支払い方法案内",
+  "Stripe決済状況の自動反映",
+  "会計ソフトへの自動送信",
+  "Googleビジネスプロフィールへの直接反映",
   "Instagramへの直接投稿"
 ];
 
@@ -42,14 +42,14 @@ export const betaCautions = [
 
 export const betaOnboardingSteps = [
   { label: "店舗作成", detail: "利用する店舗を作成し、店舗名と業態を設定します。", href: "/stores/new" },
-  { label: "業態選択", detail: "汎用店舗または自動車修理を選び、文言と機能を切り替えます。", href: "/stores/new" },
+  { label: "業態確認", detail: "申込内容に合わせた業態と、店舗に合う表示名を確認します。", href: "/stores/new" },
   { label: "請求書設定", detail: "登録番号、発行事業者名、請求書番号を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/invoice` },
-  { label: "顧客登録", detail: "顧客または顧客・車両情報を登録します。", href: (storeId: string) => `/stores/${storeId}/customers` },
-  { label: "商品/サービス登録", detail: "商品、部品、サービスを登録します。", href: (storeId: string) => `/stores/${storeId}/items` },
+  { label: "顧客登録", detail: "顧客情報を登録し、見積・請求・再来店案内に使える状態にします。", href: (storeId: string) => `/stores/${storeId}/customers` },
+  { label: "商品/サービス登録", detail: "メニュー、商品、サービスを登録します。", href: (storeId: string) => `/stores/${storeId}/items` },
   { label: "見積/請求作成", detail: "見積書、請求書、PDF、入金まで確認します。", href: (storeId: string) => `/stores/${storeId}/invoices` },
   { label: "Stripe決済URL", detail: "店舗のStripe情報と請求書ごとの決済URL登録を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/payments/stripe` },
   { label: "freee向けCSV出力", detail: "freee事業所情報とCSV出力を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/accounting/freee` },
-  { label: "Google連携", detail: "Gmail、Googleカレンダー、Google投稿支援を確認します。", href: (storeId: string) => `/stores/${storeId}/settings/google` },
+  { label: "Google連携", detail: "Gmail、Googleカレンダー、Google投稿文の確認導線を整えます。", href: (storeId: string) => `/stores/${storeId}/settings/google` },
   { label: "SNS投稿支援", detail: "SNS向け下書きとコピーしやすい投稿文を確認します。", href: (storeId: string) => `/stores/${storeId}/growth-actions` }
 ];
 

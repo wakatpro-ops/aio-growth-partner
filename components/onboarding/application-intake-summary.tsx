@@ -35,10 +35,16 @@ export function ApplicationIntakeSummary({ content }: { content: Record<string, 
   ].filter(Boolean);
   const currentTools = listFromContent(content.current_tools);
   const improvementGoals = listFromContent(content.improvement_goals);
-  const opportunities = listFromContent(ai.growth_opportunities);
-  const setupSteps = listFromContent(ai.recommended_setup_steps);
-  const meetingPoints = listFromContent(ai.first_meeting_points);
-  const businessSummary = textValue(ai.business_summary);
+  const opportunities = listFromContent(ai.growth_opportunities).length
+    ? listFromContent(ai.growth_opportunities)
+    : listFromContent(content.ai_growth_opportunities);
+  const setupSteps = listFromContent(ai.recommended_setup_steps).length
+    ? listFromContent(ai.recommended_setup_steps)
+    : listFromContent(content.ai_recommended_setup_steps);
+  const meetingPoints = listFromContent(ai.first_meeting_points).length
+    ? listFromContent(ai.first_meeting_points)
+    : listFromContent(content.ai_first_meeting_points);
+  const businessSummary = textValue(ai.business_summary) || textValue(content.ai_business_summary);
 
   return (
     <section className="card">
@@ -56,8 +62,8 @@ export function ApplicationIntakeSummary({ content }: { content: Record<string, 
             <tbody>
               <tr><th>業態</th><td>{textValue(content.industry_label) || "-"}</td></tr>
               <tr><th>担当者</th><td>{textValue(content.contact_name) || "-"}</td></tr>
-              <tr><th>メール</th><td>{textValue(content.contact_email) || "-"}</td></tr>
-              <tr><th>電話</th><td>{textValue(content.contact_phone) || "-"}</td></tr>
+              <tr><th>メール</th><td>{textValue(content.contact_email) || textValue(content.email) || "-"}</td></tr>
+              <tr><th>電話</th><td>{textValue(content.contact_phone) || textValue(content.phone) || "-"}</td></tr>
               <tr><th>店舗数</th><td>{String(content.store_count ?? "-")}</td></tr>
             </tbody>
           </table>
