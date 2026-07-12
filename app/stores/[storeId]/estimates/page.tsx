@@ -4,6 +4,7 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
+import { documentStatusLabels, labelFor } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 
 export default async function EstimatesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
@@ -42,7 +43,7 @@ export default async function EstimatesPage({ params, searchParams }: { params: 
                 <td>{estimate.title}</td>
                 <td>{estimate.customer?.name ?? "未選択"}</td>
                 <td>{estimate.total.toLocaleString("ja-JP")}円</td>
-                <td><span className="badge">{estimate.status}</span></td>
+                <td><span className="badge">{labelFor(documentStatusLabels, estimate.status)}</span></td>
                 <td><Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}`}>編集</Link></td>
               </tr>
             ))}

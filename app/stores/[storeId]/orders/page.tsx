@@ -1,9 +1,11 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { listCustomers, listDocuments } from "@/lib/phase2/business-data";
 import { listOrders } from "@/lib/phase6/compliance-data";
+import { labelFor, orderStatusLabels, workStatusLabels } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 import Link from "next/link";
 import { createOrderAction } from "../compliance/actions";
@@ -12,8 +14,9 @@ function yen(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
 }
 
-export default async function OrdersPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function OrdersPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { storeId } = await params;
+  const { saved } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const [orders, estimates, customers] = await Promise.all([
@@ -26,6 +29,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ storeId
     <AppShell>
       <PageHeader eyebrow={industry.name} title="受注・作業管理" description="見積から受注、作業完了、請求化までの状態を管理します。" />
       <StoreBusinessNav store={store} />
+      {saved ? <p className="notice success">受注を保存しました。請求書作成までの流れに反映できます。</p> : null}
 
       <section className="card form">
         <h2>受注を追加</h2>
@@ -87,7 +91,7 @@ export default async function OrdersPage({ params }: { params: Promise<{ storeId
             <label htmlFor="notes">メモ</label>
             <textarea id="notes" name="notes" />
           </div>
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="受注情報を保存しています...">保存</PendingSubmitButton>
         </form>
       </section>
 
@@ -101,8 +105,8 @@ export default async function OrdersPage({ params }: { params: Promise<{ storeId
                 <td>{order.order_number}</td>
                 <td>{order.title}</td>
                 <td>{order.customer?.name ?? "未選択"}</td>
-                <td><span className="badge">{order.status}</span></td>
-                <td><span className="badge">{order.work_status ?? "not_started"}</span></td>
+                <td><span className="badge">{labelFor(orderStatusLabels, order.status)}</span></td>
+                <td><span className="badge">{labelFor(workStatusLabels, order.work_status)}</span></td>
                 <td>{yen(order.total)}</td>
                 <td><Link className="button secondary" href={`/stores/${store.id}/orders/${order.id}`}>詳細</Link></td>
               </tr>

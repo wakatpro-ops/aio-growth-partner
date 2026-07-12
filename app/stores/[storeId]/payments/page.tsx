@@ -5,6 +5,7 @@ import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
 import { listPayments } from "@/lib/phase6/compliance-data";
+import { labelFor, paymentRecordStatusLabels } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 import { createPaymentAction } from "../compliance/actions";
 
@@ -20,8 +21,9 @@ const methodLabels: Record<string, string> = {
   other: "その他"
 };
 
-export default async function PaymentsPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function PaymentsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
   const { storeId } = await params;
+  const { saved } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const [payments, invoices] = await Promise.all([
@@ -33,6 +35,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ store
     <AppShell>
       <PageHeader eyebrow={industry.name} title="入金管理" description="請求済み、未入金、一部入金、入金済みを確認します。" />
       <StoreBusinessNav store={store} />
+      {saved ? <p className="notice success">入金情報を保存しました。請求書の入金状態と売上確認に反映されます。</p> : null}
 
       <section className="grid cols-3">
         <article className="card"><p className="muted">入金記録</p><div className="metric">{payments.length.toLocaleString("ja-JP")}件</div></article>
@@ -112,7 +115,7 @@ export default async function PaymentsPage({ params }: { params: Promise<{ store
                 <td>{yen(payment.amount)}</td>
                 <td>{methodLabels[payment.payment_method] ?? payment.payment_method}</td>
                 <td>{payment.external_provider ? `${payment.external_provider} / ${payment.external_payment_id ?? "-"}` : "-"}</td>
-                <td><span className="badge">{payment.status}</span></td>
+                <td><span className="badge">{labelFor(paymentRecordStatusLabels, payment.status)}</span></td>
                 <td>{payment.memo ?? "-"}</td>
               </tr>
             ))}

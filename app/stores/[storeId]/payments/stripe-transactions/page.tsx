@@ -3,6 +3,7 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listStripePaymentTransactions } from "@/lib/phase6/compliance-data";
+import { labelFor, paymentRecordStatusLabels } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 
 function yen(value: number) {
@@ -17,7 +18,7 @@ export default async function StripeTransactionsPage({ params }: { params: Promi
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="Stripe外部決済履歴" description="手動登録したStripe決済URL、入金済み変更、将来Webhook反映予定の履歴です。" />
+      <PageHeader eyebrow={industry.name} title="Stripe外部決済履歴" description="登録したStripe決済URLや、入金状況を確認するための履歴です。" />
       <StoreBusinessNav store={store} />
       <section className="card">
         <table className="table">
@@ -29,7 +30,7 @@ export default async function StripeTransactionsPage({ params }: { params: Promi
                 <td>{transaction.invoice?.document_number ?? "-"}</td>
                 <td>{transaction.external_payment_intent_id ?? "-"}</td>
                 <td>{yen(Number(transaction.amount ?? 0))}</td>
-                <td><span className="badge">{transaction.status}</span></td>
+                <td><span className="badge">{labelFor(paymentRecordStatusLabels, transaction.status)}</span></td>
               </tr>
             ))}
             {transactions.length === 0 ? <tr><td colSpan={5}>まだStripe外部決済履歴はありません。</td></tr> : null}

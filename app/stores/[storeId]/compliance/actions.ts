@@ -19,7 +19,7 @@ import {
 export async function createOrderAction(storeId: string, formData: FormData) {
   await createOrderFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/orders`);
-  redirect(`/stores/${storeId}/orders`);
+  redirect(`/stores/${storeId}/orders?saved=order`);
 }
 
 export async function createOrderFromEstimateAction(storeId: string, estimateId: string) {
@@ -49,7 +49,7 @@ export async function createPaymentAction(storeId: string, formData: FormData) {
   await createPaymentFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/payments`);
   revalidatePath(`/stores/${storeId}/invoices`);
-  redirect(`/stores/${storeId}/payments`);
+  redirect(`/stores/${storeId}/payments?saved=payment`);
 }
 
 export async function updateInvoiceSettingsAction(storeId: string, formData: FormData) {

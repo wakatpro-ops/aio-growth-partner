@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
 import { listAccountingExportJobs, listAccountingExports } from "@/lib/phase6/compliance-data";
+import { accountingExportStatusLabels, labelFor } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 
 function yen(value: number) {
@@ -48,16 +49,16 @@ export default async function AccountingExportsPage({ params }: { params: Promis
         <p className="muted">出力したCSVは、会計ソフトへ取り込む前に内容を確認してください。</p>
       </section>
       <section className="card">
-        <h2>連携ジョブ履歴</h2>
+        <h2>出力処理履歴</h2>
         <table className="table">
           <thead><tr><th>日時</th><th>連携先</th><th>種類</th><th>状態</th><th>行数</th><th>ファイル名</th></tr></thead>
           <tbody>
             {jobs.map((item) => (
               <tr key={item.id}>
                 <td>{new Date(item.created_at).toLocaleString("ja-JP")}</td>
-                <td>{item.provider}</td>
-                <td>{item.export_type}</td>
-                <td><span className="badge">{item.status}</span></td>
+                <td>{item.provider === "freee" ? "freee" : item.provider}</td>
+                <td>{item.export_type === "csv" ? "CSV" : item.export_type}</td>
+                <td><span className="badge">{labelFor(accountingExportStatusLabels, item.status)}</span></td>
                 <td>{Number(item.row_count ?? 0).toLocaleString("ja-JP")}</td>
                 <td>{item.file_name ?? "-"}</td>
               </tr>

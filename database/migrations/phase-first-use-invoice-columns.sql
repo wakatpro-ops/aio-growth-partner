@@ -1,0 +1,15 @@
+alter table public.invoices add column if not exists total numeric(12,2) default 0;
+alter table public.invoices add column if not exists invoice_registration_number text;
+alter table public.invoices add column if not exists qualified_invoice_issuer_name text;
+alter table public.invoices add column if not exists transaction_date date;
+alter table public.invoices add column if not exists invoice_sequence_number integer;
+alter table public.invoices add column if not exists invoice_number_prefix text;
+alter table public.invoices add column if not exists tax_10_subtotal numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_10_amount numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_8_subtotal numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_8_amount numeric(12,2) default 0;
+alter table public.invoices add column if not exists stripe_payment_url text;
+alter table public.invoices add column if not exists stripe_payment_status text default 'not_created';
+alter table public.invoices add column if not exists stripe_payment_id text;
+alter table public.invoices add column if not exists issued_at timestamptz;
+alter table public.invoices add column if not exists last_pdf_issued_at timestamptz;

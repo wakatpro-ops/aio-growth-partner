@@ -4,6 +4,7 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { getStoreAccountingIntegration, getStorePaymentIntegration } from "@/lib/phase6/compliance-data";
+import { integrationStatusLabels, labelFor } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 
 export default async function StoreIntegrationsPage({ params }: { params: Promise<{ storeId: string }> }) {
@@ -28,13 +29,13 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
         <article className="card">
           <h3>Stripe決済連携</h3>
           <p>請求書ごとのStripe決済URL、手動入金反映、外部決済履歴を管理します。</p>
-          <p><span className="badge">{stripe?.status ?? "not_connected"}</span></p>
+          <p><span className="badge">{labelFor(integrationStatusLabels, stripe?.status)}</span></p>
           <Link className="button secondary" href={`/stores/${store.id}/settings/payments/stripe`}>設定する</Link>
         </article>
         <article className="card">
           <h3>freee会計連携</h3>
           <p>freee事業所情報と、freee向けCSV出力を管理します。</p>
-          <p><span className="badge">{freee?.status ?? "not_connected"}</span></p>
+          <p><span className="badge">{labelFor(integrationStatusLabels, freee?.status)}</span></p>
           <Link className="button secondary" href={`/stores/${store.id}/settings/accounting/freee`}>設定する</Link>
         </article>
         <article className="card">

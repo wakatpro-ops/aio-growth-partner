@@ -5,6 +5,7 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { getOrder, listOrderStatusLogs } from "@/lib/phase6/compliance-data";
+import { labelFor, orderStatusLabels } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 import { createInvoiceFromOrderAction, updateOrderAction } from "../../compliance/actions";
 
@@ -117,8 +118,8 @@ export default async function OrderDetailPage({
             {logs.map((log) => (
               <tr key={log.id}>
                 <td>{dateTime(log.created_at)}</td>
-                <td>{log.from_status ?? "-"}</td>
-                <td><span className="badge">{log.to_status}</span></td>
+                <td>{labelFor(orderStatusLabels, log.from_status, "-")}</td>
+                <td><span className="badge">{labelFor(orderStatusLabels, log.to_status)}</span></td>
                 <td>{log.comment ?? "-"}</td>
               </tr>
             ))}

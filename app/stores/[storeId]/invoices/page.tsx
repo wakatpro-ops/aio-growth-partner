@@ -4,6 +4,7 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
+import { documentStatusLabels, labelFor, paymentStatusLabels } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
 
 export default async function InvoicesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
@@ -43,8 +44,8 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
                 <td>{invoice.title}</td>
                 <td>{invoice.customer?.name ?? "未選択"}</td>
                 <td>{invoice.total.toLocaleString("ja-JP")}円</td>
-                <td><span className="badge">{invoice.status}</span></td>
-                <td><span className="badge">{invoice.payment_status ?? "未設定"}</span></td>
+                <td><span className="badge">{labelFor(documentStatusLabels, invoice.status)}</span></td>
+                <td><span className="badge">{labelFor(paymentStatusLabels, invoice.payment_status)}</span></td>
                 <td><Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}`}>編集</Link></td>
               </tr>
             ))}
