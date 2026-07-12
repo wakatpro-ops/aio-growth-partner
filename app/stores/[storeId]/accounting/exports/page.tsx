@@ -33,6 +33,7 @@ export default async function AccountingExportsPage({ params }: { params: Promis
           <div className="action-row">
             <Link className="button" href={`/stores/${store.id}/accounting/exports/download`}>汎用CSV</Link>
             <Link className="button secondary" href={`/stores/${store.id}/accounting/exports/download?format=freee`}>freee向けCSV</Link>
+            <Link className="button secondary" href={`/stores/${store.id}/accounting/receipts`}>経費レシート</Link>
           </div>
         )}
       />
@@ -46,6 +47,7 @@ export default async function AccountingExportsPage({ params }: { params: Promis
         <h2>出力項目</h2>
         <p>取引日、請求書番号、顧客名、摘要、税率、税抜金額、消費税額、税込金額、入金日、支払方法、ステータスを出力します。</p>
         <p>freee向けCSVでは、請求書に加えて外部売上データも確認用の行として含めます。</p>
+        <p>仕入れや経費のレシートは、経費レシート画面で読み取り、freeeへ反映する前の確認データとして管理できます。</p>
         <p className="muted">出力したCSVは、会計ソフトへ取り込む前に内容を確認してください。</p>
       </section>
       <section className="card">

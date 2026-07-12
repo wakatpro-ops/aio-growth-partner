@@ -90,6 +90,10 @@ export type ModuleKey =
   | "store_integrations"
   | "manual_stripe_payment_links"
   | "freee_csv_export"
+  | "freee_oauth_connection"
+  | "freee_accounting_api"
+  | "expense_receipt_ai"
+  | "freee_receipt_export"
   | "admin"
   | "billing"
   | "accounting";

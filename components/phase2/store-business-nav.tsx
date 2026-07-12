@@ -17,6 +17,7 @@ export function StoreBusinessNav({ store }: { store: Store }) {
     { href: `/stores/${store.id}/payments`, label: "入金管理", feature: "payment_management" },
     { href: `/stores/${store.id}/payments/stripe-transactions`, label: "Stripe履歴", feature: "manual_stripe_payment_links" },
     { href: `/stores/${store.id}/accounting/exports`, label: "会計CSV", feature: "accounting_csv_export" },
+    { href: `/stores/${store.id}/accounting/receipts`, label: "経費レシート", feature: "expense_receipt_ai" },
     { href: `/stores/${store.id}/settings`, label: "店舗AI設定", feature: "__always_on" },
     { href: `/stores/${store.id}/settings/integrations`, label: "外部連携", feature: "store_integrations" },
     { href: `/stores/${store.id}/settings/invoice`, label: "請求書設定", feature: "invoice_compliance" },

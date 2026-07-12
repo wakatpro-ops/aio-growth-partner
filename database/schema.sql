@@ -1358,6 +1358,39 @@ create table if not exists public.accounting_export_jobs (
   completed_at timestamptz
 );
 
+create table if not exists public.expense_receipts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  accounting_integration_id uuid references public.store_accounting_integrations(id) on delete set null,
+  storage_bucket text not null default 'receipt-files',
+  storage_path text,
+  original_file_name text,
+  mime_type text,
+  file_size integer,
+  status text not null default 'uploaded',
+  vendor_name text,
+  receipt_date date,
+  payment_method text,
+  category_name text,
+  subtotal_amount numeric(12,2) not null default 0,
+  tax_amount numeric(12,2) not null default 0,
+  total_amount numeric(12,2) not null default 0,
+  tax_rate text,
+  extracted_items jsonb not null default '[]'::jsonb,
+  ai_summary text,
+  ai_model text,
+  ai_analysis_status text not null default 'not_started',
+  ai_analysis_error text,
+  freee_status text not null default 'not_sent',
+  freee_payload jsonb not null default '{}'::jsonb,
+  freee_response jsonb not null default '{}'::jsonb,
+  freee_sent_at timestamptz,
+  uploaded_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.subsidy_impact_reports (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -1391,6 +1424,9 @@ create index if not exists store_payment_transactions_store_id_idx on public.sto
 create index if not exists accounting_export_jobs_store_id_idx on public.accounting_export_jobs(store_id);
 create index if not exists store_payment_transactions_invoice_id_idx on public.store_payment_transactions(invoice_id);
 create index if not exists accounting_export_jobs_provider_idx on public.accounting_export_jobs(provider);
+create index if not exists expense_receipts_store_created_idx on public.expense_receipts(store_id, created_at desc);
+create index if not exists expense_receipts_status_idx on public.expense_receipts(status);
+create index if not exists expense_receipts_freee_status_idx on public.expense_receipts(freee_status);
 
 alter table public.store_payment_integrations add column if not exists metadata jsonb not null default '{}'::jsonb;
 alter table public.store_payment_integrations add column if not exists last_synced_at timestamptz;
@@ -1400,6 +1436,33 @@ alter table public.store_accounting_integrations add column if not exists last_s
 alter table public.store_accounting_integrations add column if not exists error_message text;
 alter table public.accounting_export_jobs add column if not exists download_url text;
 alter table public.accounting_export_jobs add column if not exists metadata jsonb not null default '{}'::jsonb;
+alter table public.expense_receipts add column if not exists accounting_integration_id uuid references public.store_accounting_integrations(id) on delete set null;
+alter table public.expense_receipts add column if not exists storage_bucket text not null default 'receipt-files';
+alter table public.expense_receipts add column if not exists storage_path text;
+alter table public.expense_receipts add column if not exists original_file_name text;
+alter table public.expense_receipts add column if not exists mime_type text;
+alter table public.expense_receipts add column if not exists file_size integer;
+alter table public.expense_receipts add column if not exists status text not null default 'uploaded';
+alter table public.expense_receipts add column if not exists vendor_name text;
+alter table public.expense_receipts add column if not exists receipt_date date;
+alter table public.expense_receipts add column if not exists payment_method text;
+alter table public.expense_receipts add column if not exists category_name text;
+alter table public.expense_receipts add column if not exists subtotal_amount numeric(12,2) not null default 0;
+alter table public.expense_receipts add column if not exists tax_amount numeric(12,2) not null default 0;
+alter table public.expense_receipts add column if not exists total_amount numeric(12,2) not null default 0;
+alter table public.expense_receipts add column if not exists tax_rate text;
+alter table public.expense_receipts add column if not exists extracted_items jsonb not null default '[]'::jsonb;
+alter table public.expense_receipts add column if not exists ai_summary text;
+alter table public.expense_receipts add column if not exists ai_model text;
+alter table public.expense_receipts add column if not exists ai_analysis_status text not null default 'not_started';
+alter table public.expense_receipts add column if not exists ai_analysis_error text;
+alter table public.expense_receipts add column if not exists freee_status text not null default 'not_sent';
+alter table public.expense_receipts add column if not exists freee_payload jsonb not null default '{}'::jsonb;
+alter table public.expense_receipts add column if not exists freee_response jsonb not null default '{}'::jsonb;
+alter table public.expense_receipts add column if not exists freee_sent_at timestamptz;
+alter table public.expense_receipts add column if not exists uploaded_by uuid references auth.users(id) on delete set null;
+alter table public.expense_receipts add column if not exists created_at timestamptz not null default now();
+alter table public.expense_receipts add column if not exists updated_at timestamptz not null default now();
 
 alter table public.customers add column if not exists vehicle_info jsonb not null default '{}'::jsonb;
 alter table public.customers add column if not exists metadata jsonb not null default '{}'::jsonb;

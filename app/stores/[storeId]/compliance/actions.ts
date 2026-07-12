@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDocument } from "@/lib/phase2/business-data";
 import {
+  createReceiptFromForm,
+} from "@/lib/phase6/expense-receipts";
+import {
   createInvoiceFromOrder,
   createOrderFromEstimate,
   createOrderFromForm,
@@ -86,6 +89,13 @@ export async function disconnectFreeeIntegrationAction(storeId: string) {
   revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
   revalidatePath(`/stores/${storeId}/settings/integrations`);
   redirect(`/stores/${storeId}/settings/accounting/freee?disconnected=1`);
+}
+
+export async function createExpenseReceiptAction(storeId: string, formData: FormData) {
+  const receiptId = await createReceiptFromForm(storeId, formData);
+  revalidatePath(`/stores/${storeId}/accounting/receipts`);
+  revalidatePath(`/stores/${storeId}/accounting/exports`);
+  redirect(`/stores/${storeId}/accounting/receipts?uploaded=${receiptId}`);
 }
 
 export async function updateInvoiceStripePaymentAction(storeId: string, invoiceId: string, formData: FormData) {

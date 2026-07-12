@@ -74,6 +74,7 @@ alter table public.store_payment_integrations enable row level security;
 alter table public.store_accounting_integrations enable row level security;
 alter table public.store_payment_transactions enable row level security;
 alter table public.accounting_export_jobs enable row level security;
+alter table public.expense_receipts enable row level security;
 alter table public.subsidy_impact_reports enable row level security;
 
 create or replace function public.is_platform_admin()
@@ -239,6 +240,8 @@ drop policy if exists "read org store payment transactions" on public.store_paym
 drop policy if exists "write org store payment transactions" on public.store_payment_transactions;
 drop policy if exists "read org accounting export jobs" on public.accounting_export_jobs;
 drop policy if exists "write org accounting export jobs" on public.accounting_export_jobs;
+drop policy if exists "read org expense receipts" on public.expense_receipts;
+drop policy if exists "write org expense receipts" on public.expense_receipts;
 drop policy if exists "read org subsidy impact reports" on public.subsidy_impact_reports;
 drop policy if exists "write org subsidy impact reports" on public.subsidy_impact_reports;
 
@@ -765,6 +768,13 @@ create policy "read org accounting export jobs" on public.accounting_export_jobs
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org accounting export jobs" on public.accounting_export_jobs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org expense receipts" on public.expense_receipts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org expense receipts" on public.expense_receipts
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 
