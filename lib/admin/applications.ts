@@ -405,21 +405,30 @@ export async function prepareApplicationAccountAction(applicationId: string) {
   }, { onConflict: "store_id,snapshot_type" });
   if (snapshotError) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(`初期設定下書きを保存できませんでした: ${snapshotError.message}`)}`);
 
-  const { data: generatedLink } = await supabase.auth.admin.generateLink({
-    type: "invite",
-    email: inviteEmail,
-    options: {
-      data: {
-        display_name: application.contact_name,
-        application_id: applicationId,
-        organization_id: organizationId,
-        store_id: storeId
-      },
-      redirectTo: `${productionAppUrl}/onboarding?storeId=${storeId}`
-    }
+  const inviteData = {
+    display_name: application.contact_name,
+    application_id: applicationId,
+    organization_id: organizationId,
+    store_id: storeId
+  };
+  const redirectTo = `${productionAppUrl}/onboarding?storeId=${storeId}`;
+  const inviteResult = await supabase.auth.admin.inviteUserByEmail(inviteEmail, {
+    data: inviteData,
+    redirectTo
   });
+  const inviteAlreadyRegistered = inviteResult.error?.message.toLowerCase().includes("already") ?? false;
+  const generatedLink = inviteResult.error && inviteAlreadyRegistered
+    ? await supabase.auth.admin.generateLink({
+        type: "invite",
+        email: inviteEmail,
+        options: {
+          data: inviteData,
+          redirectTo
+        }
+      })
+    : null;
 
-  const invitedUserId = generatedLink?.user?.id ?? application.invited_user_id ?? null;
+  const invitedUserId = inviteResult.data?.user?.id ?? generatedLink?.data?.user?.id ?? application.invited_user_id ?? null;
   if (invitedUserId) {
     await supabase.from("user_profiles").upsert({
       user_id: invitedUserId,
@@ -451,7 +460,7 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     approved_user_id: invitedUserId,
     invited_user_id: invitedUserId,
     invite_email: inviteEmail,
-    invitation_status: invitedUserId ? "invite_generated" : "manual_invite_required",
+    invitation_status: inviteResult.error && !inviteAlreadyRegistered ? "manual_invite_required" : "invite_generated",
     account_status: invitedUserId ? "invited" : "preparing",
     onboarding_status: "not_started",
     updated_at: new Date().toISOString()
