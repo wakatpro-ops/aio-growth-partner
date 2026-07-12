@@ -87,7 +87,7 @@ ADMIN_NOTIFICATION_EMAIL=info@aioboost.jp
 APP_BASE_URL=https://app.aioboost.jp
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`、`OPENAI_API_KEY`、`SENDGRID_API_KEY` はサーバー側だけで使用します。クライアント側に露出させないため、`NEXT_PUBLIC_` を付けません。
+`SUPABASE_SERVICE_ROLE_KEY`、`OPENAI_API_KEY`、`SENDGRID_API_KEY`、`STRIPE_SECRET_KEY`、`STRIPE_WEBHOOK_SECRET` はサーバー側だけで使用します。クライアント側に露出させないため、`NEXT_PUBLIC_` を付けません。
 GitHubにはキーの実値を含めず、ローカルでは `.env.local`、VercelではProject SettingsのEnvironment Variablesに設定します。
 
 ## SendGrid Email Notifications
@@ -671,24 +671,42 @@ Phase 6-A: 補助金説明を意識したインボイス対応強化:
 - `/admin/billing-integrations` で、AIO運営側課金、店舗側Stripe決済連携、店舗側会計連携を分けて確認できます。
 - この分離だけをSupabaseへ追加反映する場合は、`database/migrations/phase-mvp-billing-integration-separation.sql` をSQL Editorで実行してください。
 
-店舗側Stripe / freee手動連携MVP:
+店舗側Stripe Connect / freee連携:
 
 - AIO運営側のStripe課金はMVP期間中、請求書ベースで運用します。Stripe Checkout / Subscription実装は後回しです。
 - `/stores/[storeId]/settings/integrations` で、店舗側Stripe決済連携、店舗側freee会計連携、AIO運営側課金を分けて確認できます。
-- `/stores/[storeId]/settings/payments/stripe` で、店舗自身のStripe connected account ID、アカウント名、管理画面URL、接続状態を手動保存できます。
+- `/stores/[storeId]/settings/payments/stripe` で、店舗自身のStripeアカウントをConnect OAuthで接続できます。接続後は `store_payment_integrations` に connected account ID、接続状態、決済受付・入金状態を保存します。
+- Stripe側のConnect OAuthリダイレクトURLには `https://app.aioboost.jp/api/stripe/oauth/callback` を登録します。
+- 店舗側Stripeは、店舗が自分のStripeアカウントで決済を受けるダイレクト支払い型です。AIO運営側の月額利用料課金とは分けて扱います。
+- Connect OAuthを使わない場合や移行期間中は、店舗自身のStripe connected account ID、アカウント名、管理画面URL、接続状態を手動保存できます。
 - `/stores/[storeId]/invoices/[invoiceId]` で、請求書ごとにStripe決済URLと外部決済IDを手動登録できます。決済URLはコピーでき、Stripe管理画面で決済済みを確認した後、AIO上で入金済みに変更できます。
-- Stripe手動入金は `payments` と `store_payment_transactions` に保存します。Webhook自動反映は次フェーズです。
+- Stripe手動入金は `payments` と `store_payment_transactions` に保存します。Webhook自動反映は後続の安全確認後に有効化します。
 - `/stores/[storeId]/payments/stripe-transactions` で、手動登録したStripe外部決済履歴を確認できます。
 - `/stores/[storeId]/settings/accounting/freee` で、店舗自身のfreee事業所ID、事業所名、接続状態を保存できます。
 - `/stores/[storeId]/accounting/exports` から汎用CSVとfreee向けCSVを出力できます。freee向けCSVは、取引日、請求書番号、顧客名、摘要、税率、税抜金額、消費税額、税込金額、入金日、支払方法、ステータスを含みます。
-- freee API実送信、freee OAuth、Stripe Connect OAuth、Stripe Webhookは Phase Store-Integrations-B で扱います。
+- freee API実送信、freee OAuth、Stripe Webhookは後続フェーズで扱います。
 - このMVP連携をSupabaseへ反映する場合は、`database/migrations/phase-store-integrations-a-manual-stripe-freee.sql` をSQL Editorで実行してください。
+- Stripe Connect OAuthをSupabaseへ反映する場合は、`database/migrations/phase-store-integrations-b-stripe-connect-oauth.sql` をSQL Editorで実行してください。
+
+Stripe Connectに必要なVercel環境変数:
+
+```env
+STRIPE_SECRET_KEY=
+STRIPE_PUBLISHABLE_KEY=
+STRIPE_CONNECT_CLIENT_ID=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_TOKEN_ENCRYPTION_KEY=
+APP_BASE_URL=https://app.aioboost.jp
+```
+
+`STRIPE_TOKEN_ENCRYPTION_KEY` はStripe OAuth tokenを保存する場合の暗号化キーです。未設定でもconnected account IDは保存できますが、token本体は保存しません。
 
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。
 - Phase 3-A以降のAI生成、Phase 4-BのAI月次売上レポート、Phase 4-Cの次アクション提案、Phase 5-A以降の集客アクション生成には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
 - Phase 5-CのGoogle OAuth接続には `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`GOOGLE_REDIRECT_URI`、`GOOGLE_TOKEN_ENCRYPTION_KEY` が必要です。
+- 店舗側Stripe Connect接続には `STRIPE_SECRET_KEY`、`STRIPE_PUBLISHABLE_KEY`、`STRIPE_CONNECT_CLIENT_ID`、`STRIPE_WEBHOOK_SECRET`、`STRIPE_TOKEN_ENCRYPTION_KEY` が必要です。Stripe側のConnect redirect URIは `https://app.aioboost.jp/api/stripe/oauth/callback` です。
 - SupabaseにPhase 3-Aのテーブルを追加してから、本番で投稿下書き作成やAI改善提案作成を確認してください。
 - Phase 4-AのCSV / Excel取り込みにはSupabase Storage bucket `import-files` が必要です。
 - 日本語フォントを完全埋め込みする方式へ移行する場合は、フォントファイルをリポジトリに含め、サーバー側だけでPDF生成してください。

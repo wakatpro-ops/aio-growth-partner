@@ -15,6 +15,7 @@ import {
   updateFreeeIntegrationFromForm,
   updateStripeIntegrationFromForm
 } from "@/lib/phase6/compliance-data";
+import { disconnectStripeConnect } from "@/lib/phase6/stripe-connect";
 
 export async function createOrderAction(storeId: string, formData: FormData) {
   await createOrderFromForm(storeId, formData);
@@ -63,6 +64,13 @@ export async function updateStripeIntegrationAction(storeId: string, formData: F
   revalidatePath(`/stores/${storeId}/settings/payments/stripe`);
   revalidatePath(`/stores/${storeId}/settings/integrations`);
   redirect(`/stores/${storeId}/settings/payments/stripe?saved=1`);
+}
+
+export async function disconnectStripeIntegrationAction(storeId: string) {
+  await disconnectStripeConnect(storeId);
+  revalidatePath(`/stores/${storeId}/settings/payments/stripe`);
+  revalidatePath(`/stores/${storeId}/settings/integrations`);
+  redirect(`/stores/${storeId}/settings/payments/stripe?disconnected=1`);
 }
 
 export async function updateFreeeIntegrationAction(storeId: string, formData: FormData) {

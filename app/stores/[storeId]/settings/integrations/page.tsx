@@ -28,7 +28,7 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
       <section className="grid cols-3">
         <article className="card">
           <h3>Stripe決済連携</h3>
-          <p>請求書ごとのStripe決済URL、入金状況の更新、外部決済履歴を管理します。</p>
+          <p>店舗自身のStripeアカウント接続、請求書ごとの決済URL、入金状況、外部決済履歴を管理します。</p>
           <p><span className="badge">{labelFor(integrationStatusLabels, stripe?.status)}</span></p>
           <Link className="button secondary" href={`/stores/${store.id}/settings/payments/stripe`}>設定する</Link>
         </article>

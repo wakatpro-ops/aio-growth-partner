@@ -83,6 +83,8 @@ export type ModuleKey =
   | "future_accounting_integrations"
   | "platform_billing"
   | "store_stripe_connect"
+  | "stripe_connect_oauth"
+  | "stripe_webhook_payments"
   | "store_accounting_integration"
   | "accounting_export_jobs"
   | "store_integrations"
