@@ -15,6 +15,7 @@ import {
   updateFreeeIntegrationFromForm,
   updateStripeIntegrationFromForm
 } from "@/lib/phase6/compliance-data";
+import { disconnectFreeeConnect } from "@/lib/phase6/freee-connect";
 import { disconnectStripeConnect } from "@/lib/phase6/stripe-connect";
 
 export async function createOrderAction(storeId: string, formData: FormData) {
@@ -78,6 +79,13 @@ export async function updateFreeeIntegrationAction(storeId: string, formData: Fo
   revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
   revalidatePath(`/stores/${storeId}/settings/integrations`);
   redirect(`/stores/${storeId}/settings/accounting/freee?saved=1`);
+}
+
+export async function disconnectFreeeIntegrationAction(storeId: string) {
+  await disconnectFreeeConnect(storeId);
+  revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
+  revalidatePath(`/stores/${storeId}/settings/integrations`);
+  redirect(`/stores/${storeId}/settings/accounting/freee?disconnected=1`);
 }
 
 export async function updateInvoiceStripePaymentAction(storeId: string, invoiceId: string, formData: FormData) {
