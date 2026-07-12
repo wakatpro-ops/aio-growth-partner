@@ -36,7 +36,7 @@ export async function listStores(): Promise<Store[]> {
   const stores = data as Store[];
   const access = await getCurrentUserAccess();
   if (!access) {
-    return stores.filter((store) => isDemoStore(store));
+    return [];
   }
   if (access.isPlatformAdmin) {
     return stores;

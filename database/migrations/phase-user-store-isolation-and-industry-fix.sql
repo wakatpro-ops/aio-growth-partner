@@ -69,8 +69,8 @@ on conflict (industry_type_key, module_key) do update set
   is_enabled = excluded.is_enabled,
   config = excluded.config;
 
-insert into public.dashboard_layouts (industry_type_key, layout_key, name, layout_json, is_default)
-select industry.key, layout.layout_key, layout.name, layout.layout_json, layout.is_default
+insert into public.dashboard_layouts (industry_type_key, layout_key, name, cards, is_default)
+select industry.key, layout.layout_key, layout.name, layout.cards, layout.is_default
 from (
   values
     ('beauty_salon'),
@@ -85,13 +85,13 @@ from (
     ('other_service')
 ) as industry(key)
 cross join (
-  select layout_key, name, layout_json, is_default
+  select layout_key, name, cards, is_default
   from public.dashboard_layouts
   where industry_type_key = 'general_store'
 ) as layout
 on conflict (industry_type_key, layout_key) do update set
   name = excluded.name,
-  layout_json = excluded.layout_json,
+  cards = excluded.cards,
   is_default = excluded.is_default;
 
 update public.applications
