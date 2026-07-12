@@ -156,7 +156,8 @@ APP_BASE_URL=https://app.aioboost.jp
 ```env
 # STRIPE_SECRET_KEY=
 # STRIPE_WEBHOOK_SECRET=
-# NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+# STRIPE_PUBLISHABLE_KEY=
+# STRIPE_CONNECT_CLIENT_ID=
 # FREEE_CLIENT_ID=
 # FREEE_CLIENT_SECRET=
 # FREEE_REDIRECT_URI=
@@ -758,7 +759,6 @@ MVPでできること:
 まだできないこと:
 
 - AIO利用料の自動Stripe課金
-- Stripe Connect完全OAuth
 - Stripe Webhook自動入金反映
 - freee API自動送信
 - Google Business Profile API自動投稿
@@ -797,7 +797,7 @@ MVPでできること:
 
 店舗ユーザーへ説明するポイント:
 
-- Stripeは店舗側の決済URLを手動登録する運用です。Stripe Connect OAuthとWebhook自動反映は次フェーズです。
+- Stripeは店舗自身のStripeアカウントを接続できます。決済URLの管理と入金確認は、現在は店舗担当者が確認して反映します。
 - freeeはfreee向けCSVを出力する運用です。freee API自動送信は次フェーズです。
 - Google Business Profileは手動投稿支援モードです。Gmail下書き作成とGoogleカレンダー予定作成は接続済みGoogleアカウントで利用できます。
 - SNS投稿は投稿文、CTA、ハッシュタグ、チェックリストをコピーして手動投稿します。
@@ -820,11 +820,12 @@ MVPでできること:
 - バックアップ・復旧メモ
 - 1社目向けデモシナリオ
 
-MVP期間中のAIO利用料は請求書ベースで運用します。AIO運営側Stripe課金、店舗側Stripe Connect OAuth、Stripe Webhook、freee API自動送信は正式版または次フェーズで扱います。
+AIO利用料の請求は管理者側で別管理します。AIO運営側の課金、店舗側Stripe Connect、freee連携は混同しないように運用してください。Stripe Webhookによる自動入金反映とfreee API自動送信は今後の拡張対象です。
 
 まだできないこと:
 
-- Stripeによる自動課金、決済、プラン変更。
+- AIO利用料の自動課金、プラン変更。
+- Stripe Webhookによる自動入金反映。
 - Google Business Profile APIによる実投稿。Basic API Access / quotaが必要です。
 - Instagram、LINE、X、Facebookへの実API投稿。
 - freee、マネーフォワードへの直接API連携。

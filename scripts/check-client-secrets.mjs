@@ -9,6 +9,8 @@ const forbidden = [
   "OPENAI_API_KEY",
   "SENDGRID_API_KEY",
   "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+  "STRIPE_TOKEN_ENCRYPTION_KEY",
   "FREEE_CLIENT_SECRET"
 ];
 const allowedFiles = new Set([
