@@ -20,6 +20,7 @@ const allowedFiles = new Set([
   "app/api/ai/post/route.ts",
   "app/api/ai/review-reply/route.ts",
   "app/api/ai/diagnosis/route.ts",
+  "app/api/stripe/webhook/route.ts",
   "scripts/check-client-secrets.mjs"
 ]);
 
