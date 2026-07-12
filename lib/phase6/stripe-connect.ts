@@ -80,6 +80,7 @@ export function isStripeConnectEnvReady(requestOrigin?: string) {
 }
 
 export function stripeRedirectUri(requestOrigin?: string) {
+  if (process.env.STRIPE_CONNECT_REDIRECT_URI) return process.env.STRIPE_CONNECT_REDIRECT_URI;
   const baseUrl = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || requestOrigin;
   if (!baseUrl) return null;
   return `${baseUrl.replace(/\/$/, "")}/api/stripe/oauth/callback`;

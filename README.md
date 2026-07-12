@@ -695,19 +695,23 @@ Stripe Connectに必要なVercel環境変数:
 STRIPE_SECRET_KEY=
 STRIPE_PUBLISHABLE_KEY=
 STRIPE_CONNECT_CLIENT_ID=
+STRIPE_CONNECT_REDIRECT_URI=https://app.aioboost.jp/api/stripe/oauth/callback
+STRIPE_ACCOUNT_LINK_RETURN_URL=https://app.aioboost.jp
+STRIPE_ACCOUNT_LINK_REFRESH_URL=https://app.aioboost.jp
 STRIPE_WEBHOOK_SECRET=
 STRIPE_TOKEN_ENCRYPTION_KEY=
 APP_BASE_URL=https://app.aioboost.jp
 ```
 
 `STRIPE_TOKEN_ENCRYPTION_KEY` はStripe OAuth tokenを保存する場合の暗号化キーです。未設定でもconnected account IDは保存できますが、token本体は保存しません。
+Webhook endpointは `https://app.aioboost.jp/api/stripe/webhook` を登録します。まずは `checkout.session.completed`、`payment_intent.succeeded`、`payment_intent.payment_failed` を対象にします。
 
 ## Vercel Notes
 
 - PDF出力に追加のVercel環境変数は不要です。
 - Phase 3-A以降のAI生成、Phase 4-BのAI月次売上レポート、Phase 4-Cの次アクション提案、Phase 5-A以降の集客アクション生成には `OPENAI_API_KEY` が必要です。未設定の場合はデモ出力で画面確認できます。
 - Phase 5-CのGoogle OAuth接続には `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`GOOGLE_REDIRECT_URI`、`GOOGLE_TOKEN_ENCRYPTION_KEY` が必要です。
-- 店舗側Stripe Connect接続には `STRIPE_SECRET_KEY`、`STRIPE_PUBLISHABLE_KEY`、`STRIPE_CONNECT_CLIENT_ID`、`STRIPE_WEBHOOK_SECRET`、`STRIPE_TOKEN_ENCRYPTION_KEY` が必要です。Stripe側のConnect redirect URIは `https://app.aioboost.jp/api/stripe/oauth/callback` です。
+- 店舗側Stripe Connect接続には `STRIPE_SECRET_KEY`、`STRIPE_PUBLISHABLE_KEY`、`STRIPE_CONNECT_CLIENT_ID`、`STRIPE_CONNECT_REDIRECT_URI`、`STRIPE_WEBHOOK_SECRET`、`STRIPE_TOKEN_ENCRYPTION_KEY` が必要です。Stripe側のConnect redirect URIは `https://app.aioboost.jp/api/stripe/oauth/callback` です。
 - SupabaseにPhase 3-Aのテーブルを追加してから、本番で投稿下書き作成やAI改善提案作成を確認してください。
 - Phase 4-AのCSV / Excel取り込みにはSupabase Storage bucket `import-files` が必要です。
 - 日本語フォントを完全埋め込みする方式へ移行する場合は、フォントファイルをリポジトリに含め、サーバー側だけでPDF生成してください。
