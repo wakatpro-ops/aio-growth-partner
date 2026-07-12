@@ -1,4 +1,5 @@
 import { getIndustryConfig } from "@/config/industries";
+import { publicIndustryOptions } from "@/lib/applications/options";
 import { resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import type { Store } from "@/types/domain";
 
@@ -26,7 +27,9 @@ export function StoreProfileForm({ store }: { store: Store }) {
           <label htmlFor="industry">業態</label>
           <select id="industry" name="industry" defaultValue={store.industry_type_key}>
             <option value="general_store">汎用店舗</option>
-            <option value="auto_repair">自動車修理</option>
+            {publicIndustryOptions.map((option) => (
+              <option key={option.key} value={option.key}>{option.label}</option>
+            ))}
           </select>
         </div>
         <div className="field">
