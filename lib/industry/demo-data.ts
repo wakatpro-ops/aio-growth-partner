@@ -59,7 +59,13 @@ export const demoStores: Store[] = [
       pos_api_integrations: false,
       sales_export: false,
       sales_report_pdf: true,
-      ai_sales_insights: false
+      ai_sales_insights: false,
+      accounting_csv_export: true,
+      store_integrations: true,
+      freee_csv_export: true,
+      freee_oauth_connection: true,
+      expense_receipt_ai: true,
+      freee_receipt_export: true
     },
     status: "active"
   },
@@ -123,7 +129,13 @@ export const demoStores: Store[] = [
       pos_api_integrations: false,
       sales_export: false,
       sales_report_pdf: true,
-      ai_sales_insights: false
+      ai_sales_insights: false,
+      accounting_csv_export: true,
+      store_integrations: true,
+      freee_csv_export: true,
+      freee_oauth_connection: true,
+      expense_receipt_ai: true,
+      freee_receipt_export: true
     },
     status: "active"
   }
