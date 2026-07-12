@@ -17,22 +17,39 @@ on conflict (key) do update set
   description = excluded.description,
   category = excluded.category;
 
-insert into public.feature_flags (industry_type_key, feature_key, is_enabled)
-values
-  ('general_store', 'freee_oauth_connection', true),
-  ('auto_repair', 'freee_oauth_connection', true),
-  ('general_store', 'freee_accounting_api', false),
-  ('auto_repair', 'freee_accounting_api', false)
-on conflict (industry_type_key, feature_key) do update set
-  is_enabled = excluded.is_enabled;
+insert into public.feature_flags (scope_type, scope_key, flag_key, is_enabled)
+select 'industry_type', industry.key, flag.flag_key, flag.is_enabled
+from public.industry_types industry
+cross join (
+  values
+    ('freee_oauth_connection', true),
+    ('freee_accounting_api', false)
+) as flag(flag_key, is_enabled)
+where industry.key in ('general_store', 'auto_repair', 'beauty_salon')
+on conflict (scope_type, scope_key, flag_key) do update set
+  is_enabled = excluded.is_enabled,
+  updated_at = now();
+
+insert into public.feature_flags (scope_type, scope_key, flag_key, is_enabled)
+select 'store', store.id::text, flag.flag_key, flag.is_enabled
+from public.stores store
+cross join (
+  values
+    ('freee_oauth_connection', true),
+    ('freee_accounting_api', false)
+) as flag(flag_key, is_enabled)
+where store.industry_type_key in ('general_store', 'auto_repair', 'beauty_salon')
+on conflict (scope_type, scope_key, flag_key) do update set
+  is_enabled = excluded.is_enabled,
+  updated_at = now();
 
 update public.industry_types
 set default_feature_flags = coalesce(default_feature_flags, '{}'::jsonb) || '{"freee_oauth_connection":true,"freee_accounting_api":false}'::jsonb
-where key in ('general_store', 'auto_repair');
+where key in ('general_store', 'auto_repair', 'beauty_salon');
 
 update public.stores
 set feature_flags = coalesce(feature_flags, '{}'::jsonb) || '{"freee_oauth_connection":true,"freee_accounting_api":false}'::jsonb
-where industry_type_key in ('general_store', 'auto_repair');
+where industry_type_key in ('general_store', 'auto_repair', 'beauty_salon');
 
 insert into public.plan_limits (plan_key, limit_key, limit_value)
 values
