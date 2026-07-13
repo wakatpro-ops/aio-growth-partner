@@ -596,9 +596,25 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
   });
   const accountsResult = await accountsResponse.json() as Record<string, unknown>;
   if (!accountsResponse.ok) {
-    const message = googleBusinessProfileApiErrorMessage(accountsResult, "Googleビジネスプロフィールのアカウント一覧を取得できませんでした。");
-    await logIntegration(supabase, resolved, "gbp_accounts_sync_failed", "error", message, { response: accountsResult });
-    throw new Error(message);
+    const details = googleBusinessProfileApiErrorDetails(accountsResult, "Googleビジネスプロフィールのアカウント一覧を取得できませんでした。");
+    await recordGoogleBusinessProfileSyncFailure(supabase, resolved, details);
+    await logIntegration(supabase, resolved, "gbp_accounts_sync_failed", "error", details.message, {
+      response: accountsResult,
+      error_code: details.code,
+      guidance: details.guidance
+    });
+    throw new Error(details.message);
+  }
+
+  if (!Array.isArray(accountsResult.accounts) || accountsResult.accounts.length === 0) {
+    const details = {
+      code: "gbp_no_accessible_accounts",
+      message: "接続中のGoogleアカウントで管理できるビジネスプロフィールが見つかりませんでした。対象店舗のオーナーまたは管理者権限があるGoogleアカウントで再接続してください。",
+      guidance: "Googleビジネスプロフィールの管理画面で、このGoogleアカウントが対象店舗のオーナーまたは管理者になっているか確認してください。"
+    };
+    await recordGoogleBusinessProfileSyncFailure(supabase, resolved, details);
+    await logIntegration(supabase, resolved, "gbp_accounts_empty", "warning", details.message, details);
+    throw new Error(details.message);
   }
 
   const accounts = Array.isArray(accountsResult.accounts)
@@ -615,13 +631,14 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
     });
     const result = await response.json() as Record<string, unknown>;
     if (!response.ok) {
+      const details = googleBusinessProfileApiErrorDetails(result, `${account.name} のロケーション一覧を取得できませんでした。`);
       await logIntegration(
         supabase,
         resolved,
         "gbp_locations_sync_warning",
         "warning",
-        googleBusinessProfileApiErrorMessage(result, `${account.name} のロケーション一覧を取得できませんでした。`),
-        { account: account.name, response: result }
+        details.message,
+        { account: account.name, response: result, error_code: details.code, guidance: details.guidance }
       );
       continue;
     }
@@ -637,6 +654,10 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
     .maybeSingle();
   const currentMetadata = asRecord(current?.metadata);
   const selectedLocation = locations[0] ?? null;
+  const syncStatus = locations.length ? "success" : "needs_location";
+  const syncNote = locations.length
+    ? "Google Business Profileの候補ロケーションを取得しました。"
+    : "アカウントは取得できましたが、投稿対象ロケーションは見つかりませんでした。対象店舗の管理権限とビジネスプロフィールの公開状態を確認してください。";
   const { error } = await supabase.from("google_business_profiles").upsert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
@@ -650,14 +671,18 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
       ...currentMetadata,
       accounts,
       locations,
-      last_sync_status: "success",
+      last_sync_status: syncStatus,
+      last_sync_error_code: null,
+      last_sync_error_message: null,
+      last_sync_guidance: null,
+      last_sync_failed_at: null,
       posting_capabilities: {
         supported_post_types: ["STANDARD", "EVENT", "OFFER"],
         supported_call_to_actions: ["BOOK", "ORDER", "SHOP", "LEARN_MORE", "SIGN_UP", "CALL"],
         product_posts_supported: false,
         requires_manual_review_before_publish: true
       },
-      sync_note: locations.length ? "Google Business Profileの候補ロケーションを取得しました。" : "アカウントは取得できましたが、投稿対象ロケーションは見つかりませんでした。"
+      sync_note: syncNote
     },
     updated_at: new Date().toISOString()
   }, { onConflict: "store_id" });
@@ -667,6 +692,34 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
     locations_count: locations.length
   });
   return { accountsCount: accounts.length, locationsCount: locations.length };
+}
+
+async function recordGoogleBusinessProfileSyncFailure(
+  supabase: SupabaseClient,
+  resolved: { organizationId: string; storeId: string },
+  details: { code: string; message: string; guidance: string }
+) {
+  const { data: current } = await supabase
+    .from("google_business_profiles")
+    .select("metadata")
+    .eq("store_id", resolved.storeId)
+    .maybeSingle();
+  const currentMetadata = asRecord(current?.metadata);
+  await supabase.from("google_business_profiles").upsert({
+    organization_id: resolved.organizationId,
+    store_id: resolved.storeId,
+    status: currentMetadata.api_status === "approved" ? "needs_attention" : "manual_mode",
+    metadata: {
+      ...currentMetadata,
+      last_sync_status: "error",
+      last_sync_error_code: details.code,
+      last_sync_error_message: details.message,
+      last_sync_guidance: details.guidance,
+      last_sync_failed_at: new Date().toISOString(),
+      manual_posting_mode: true
+    },
+    updated_at: new Date().toISOString()
+  }, { onConflict: "store_id" });
 }
 
 export async function upsertGoogleGmail(storeId: string, formData: FormData) {
@@ -863,10 +916,45 @@ function friendlyGoogleApiError(message: string) {
   return message || "Google連携の実行に失敗しました。設定を確認してからもう一度実行してください。";
 }
 
-function googleBusinessProfileApiErrorMessage(result: Record<string, unknown>, fallback: string) {
+function googleBusinessProfileApiErrorDetails(result: Record<string, unknown>, fallback: string) {
   const error = asRecord(result.error);
   const rawMessage = typeof error.message === "string" ? error.message : fallback;
   const message = rawMessage.toLowerCase();
+  if (message.includes("insufficient") || message.includes("insufficient authentication scopes") || message.includes("scope")) {
+    return {
+      code: "gbp_scope_missing",
+      message: "Google連携の権限が不足しています。Google連携画面で一度接続を解除し、Googleビジネスプロフィールの権限を含めて再接続してください。",
+      guidance: "Google連携の権限設定にビジネスプロフィール管理権限が含まれているか確認し、対象店舗のGoogleアカウントで再接続してください。"
+    };
+  }
+  if (message.includes("not been used") || message.includes("disabled")) {
+    return {
+      code: "gbp_api_disabled",
+      message: "Googleビジネスプロフィール候補取得に必要なGoogle側の機能が有効になっていない可能性があります。Google Cloud側のAPI有効化を確認してください。",
+      guidance: "Google側でビジネスプロフィールのアカウント管理と店舗情報取得が利用できる状態か確認してください。"
+    };
+  }
+  if (message.includes("quota") || message.includes("429") || message.includes("resource_exhausted")) {
+    return {
+      code: "gbp_quota_or_basic_access",
+      message: "Googleビジネスプロフィールの候補取得に必要な利用枠が付与されていない可能性があります。投稿文はコピーしてGoogle管理画面から反映できます。",
+      guidance: "Google側でビジネスプロフィール連携の利用枠が付与されているか確認してください。"
+    };
+  }
+  if (message.includes("permission_denied") || message.includes("permission") || message.includes("access") || message.includes("403")) {
+    return {
+      code: "gbp_permission_or_basic_access",
+      message: "Googleビジネスプロフィールの候補取得に必要な権限または利用条件を満たしていないため、候補を取得できません。接続したGoogleアカウントが対象店舗の管理者になっているか確認してください。",
+      guidance: "Googleビジネスプロフィール管理画面で、接続中のGoogleアカウントが対象店舗のオーナーまたは管理者になっているか確認してください。"
+    };
+  }
+  if (message.includes("unauthorized") || message.includes("401") || message.includes("invalid_grant")) {
+    return {
+      code: "gbp_google_connection_expired",
+      message: "Google接続の有効期限が切れている可能性があります。Google連携画面から再接続してください。",
+      guidance: "再接続後に候補取得をもう一度実行してください。"
+    };
+  }
   if (
     message.includes("quota") ||
     message.includes("429") ||
@@ -876,9 +964,17 @@ function googleBusinessProfileApiErrorMessage(result: Record<string, unknown>, f
     message.includes("not been used") ||
     message.includes("disabled")
   ) {
-    return "Googleビジネスプロフィールの候補取得に必要な権限または利用条件を満たしていないため、候補を取得できません。接続したGoogleアカウントが対象店舗の管理者になっているか確認してください。投稿文はコピーしてGoogle管理画面から反映できます。";
+    return {
+      code: "gbp_access_not_ready",
+      message: "Googleビジネスプロフィールの候補取得に必要な権限または利用条件を満たしていないため、候補を取得できません。投稿文はコピーしてGoogle管理画面から反映できます。",
+      guidance: "対象店舗の管理者権限と、Google側でビジネスプロフィール連携を利用できる状態か確認してください。"
+    };
   }
-  return friendlyGoogleApiError(rawMessage);
+  return {
+    code: "gbp_unknown_error",
+    message: friendlyGoogleApiError(rawMessage),
+    guidance: "Google接続状態と、対象店舗の管理者権限を確認してください。"
+  };
 }
 
 async function createExternalPublishJob(

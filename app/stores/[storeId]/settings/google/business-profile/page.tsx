@@ -100,6 +100,11 @@ export default async function GoogleBusinessProfilePage({
   const applicationResult = textValue(setting?.metadata?.api_application_result) || (apiStatus === "approved" ? "approved" : "rejected");
   const caseId = textValue(setting?.metadata?.basic_api_access_case_id) || "3-6455000041311";
   const rejectionReason = textValue(setting?.metadata?.rejection_reason) || "Google側の利用条件や権限設定により、現在は投稿文をコピーして反映する運用です。";
+  const lastSyncStatus = textValue(setting?.metadata?.last_sync_status);
+  const lastSyncErrorMessage = textValue(setting?.metadata?.last_sync_error_message);
+  const lastSyncGuidance = textValue(setting?.metadata?.last_sync_guidance);
+  const lastSyncFailedAt = textValue(setting?.metadata?.last_sync_failed_at);
+  const syncNote = textValue(setting?.metadata?.sync_note);
 
   return (
     <AppShell>
@@ -114,6 +119,23 @@ export default async function GoogleBusinessProfilePage({
         <p>投稿支援の状態: <span className="badge">{applicationResultLabel(applicationResult)}</span></p>
         <p>連携状態: <span className="badge">{gbpApiStatusLabel(apiStatus)}</span></p>
         <p>補足: {rejectionReason}</p>
+      </section>
+
+      <section className="card">
+        <h2>候補取得の確認結果</h2>
+        {lastSyncStatus === "success" ? (
+          <p className="notice success">{syncNote || "Googleから候補を取得できました。"}</p>
+        ) : lastSyncStatus === "needs_location" ? (
+          <p className="notice">{syncNote || "Googleアカウントは確認できましたが、投稿対象の店舗候補が見つかりませんでした。"}</p>
+        ) : lastSyncStatus === "error" ? (
+          <>
+            <p className="notice danger">{lastSyncErrorMessage || "Googleビジネスプロフィール候補を取得できませんでした。"}</p>
+            {lastSyncGuidance ? <p className="muted">確認ポイント: {lastSyncGuidance}</p> : null}
+            {lastSyncFailedAt ? <p className="muted">最終確認: {new Date(lastSyncFailedAt).toLocaleString("ja-JP")}</p> : null}
+          </>
+        ) : (
+          <p className="muted">まだ候補取得を実行していません。接続済みGoogleアカウントで対象店舗を管理している場合は、下のボタンから確認できます。</p>
+        )}
       </section>
 
       <section className="card">
