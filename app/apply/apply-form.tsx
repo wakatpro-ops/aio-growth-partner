@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { currentToolOptions, improvementGoalOptions, publicIndustryOptions } from "@/lib/applications/options";
 
 type AnalysisResult = {
@@ -27,13 +28,30 @@ function linesToList(value: FormDataEntryValue | null) {
 export function ApplyForm() {
   const [state, setState] = useState<SubmitState>({ status: "idle", message: "" });
   const [selectedIndustry, setSelectedIndustry] = useState<string>(publicIndustryOptions[0].key);
+  const submittingRef = useRef(false);
   const selectedIndustryLabel = useMemo(
     () => publicIndustryOptions.find((option) => option.key === selectedIndustry)?.label ?? "店舗・サービス業",
     [selectedIndustry]
   );
 
+  function showSubmittingState() {
+    setState({
+      status: "loading",
+      message: "送信内容を受け付けています。AIが店舗情報を整理していますので、このままお待ちください。"
+    });
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    if (submittingRef.current) {
+      event.preventDefault();
+      return;
+    }
+    submittingRef.current = true;
+    showSubmittingState();
+  }
+
   async function submit(formData: FormData) {
-    setState({ status: "loading", message: "AIが店舗情報を整理しています。Webサイトや入力内容から、お店の特徴を読み取っています。" });
+    showSubmittingState();
 
     const payload = {
       industry_detail_key: String(formData.get("industry_detail_key") ?? selectedIndustry),
@@ -54,29 +72,38 @@ export function ApplyForm() {
       message: String(formData.get("message") ?? "")
     };
 
-    const response = await fetch("/api/applications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const data = await response.json().catch(() => null);
+    try {
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json().catch(() => null);
 
-    if (!response.ok || !data?.ok) {
-      setState({ status: "error", message: data?.error ?? "送信に失敗しました。入力内容を確認してもう一度お試しください。" });
-      return;
+      if (!response.ok || !data?.ok) {
+        submittingRef.current = false;
+        setState({ status: "error", message: data?.error ?? "送信に失敗しました。入力内容を確認してもう一度お試しください。" });
+        return;
+      }
+
+      setState({
+        status: "success",
+        message: "導入相談を受け付けました。入力内容をもとに、AIOが初期整理を行いました。",
+        applicationId: data.application_id ?? null,
+        analysis: data.analysis
+      });
+    } catch {
+      submittingRef.current = false;
+      setState({
+        status: "error",
+        message: "送信中に通信が途切れました。時間をおいて、もう一度お試しください。"
+      });
     }
-
-    setState({
-      status: "success",
-      message: "導入相談を受け付けました。入力内容をもとに、AIOが初期整理を行いました。",
-      applicationId: data.application_id ?? null,
-      analysis: data.analysis
-    });
   }
 
   return (
     <div className="stack">
-      <form className="card form" action={submit}>
+      <form className="card form" action={submit} onSubmit={handleSubmit} data-submitting={state.status === "loading"}>
         <section className="stack">
           <div>
             <p className="muted">Step 1</p>
@@ -199,9 +226,24 @@ export function ApplyForm() {
           <p>入力内容をもとに、お店の概要、活かせそうなポイント、最初に整えると良さそうな項目をまとめます。</p>
         </section>
 
+        {state.status === "loading" ? (
+          <section className="submit-progress" aria-live="polite">
+            <div className="loading-mark" aria-hidden="true" />
+            <div>
+              <strong>送信を受け付けています</strong>
+              <p>{state.message}</p>
+              <ol className="compact-list">
+                <li>申込内容を保存しています。</li>
+                <li>店舗情報とURLをもとに初期整理を行っています。</li>
+                <li>完了後、この画面に受付結果を表示します。</li>
+              </ol>
+            </div>
+          </section>
+        ) : null}
+
         <div className="form-actions">
           <button className="button" type="submit" disabled={state.status === "loading"} aria-busy={state.status === "loading"}>
-            {state.status === "loading" ? "AIが整理中..." : "導入相談を送信"}
+            {state.status === "loading" ? "送信中です。そのままお待ちください..." : "導入相談を送信"}
           </button>
         </div>
       </form>
