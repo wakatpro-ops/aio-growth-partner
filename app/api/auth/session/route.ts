@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { authAccessTokenCookie } from "@/lib/auth/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/env";
 
 export async function POST(request: Request) {
@@ -29,6 +30,20 @@ export async function POST(request: Request) {
   const { data, error } = await authClient.auth.getUser(accessToken);
   if (error || !data.user) {
     return NextResponse.json({ ok: false, error: "ログイン情報が無効です。もう一度ログインしてください。" }, { status: 401 });
+  }
+
+  const admin = createSupabaseAdminClient();
+  if (admin) {
+    await admin
+      .from("applications")
+      .update({
+        invitation_status: "password_set",
+        account_status: "issued",
+        onboarding_status: "started",
+        updated_at: new Date().toISOString()
+      })
+      .eq("invited_user_id", data.user.id)
+      .in("invitation_status", ["invite_link_sent", "invite_generated"]);
   }
 
   const response = NextResponse.json({ ok: true });

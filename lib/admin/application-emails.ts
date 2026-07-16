@@ -31,6 +31,7 @@ export const applicationEmailTemplateLabels: Record<string, string> = {
   application_received: "申込者自動返信",
   applicant_auto_reply: "申込者自動返信",
   admin_new_application: "管理者通知",
+  account_invite: "初回パスワード設定案内",
   demo_invitation: "オンライン説明案内",
   invoice_issued: "請求書発行案内",
   payment_approved: "入金確認・承認完了案内",
@@ -44,7 +45,11 @@ export const applicationEmailStatusLabels: Record<string, string> = {
   queued: "送信待ち"
 };
 
-export type ApplicationEmailTemplateKey = typeof applicationEmailTemplates[number][0] | "application_received" | "admin_new_application";
+export type ApplicationEmailTemplateKey =
+  | typeof applicationEmailTemplates[number][0]
+  | "application_received"
+  | "admin_new_application"
+  | "account_invite";
 
 function formatDateTime(value: string | null | undefined) {
   const date = value ? new Date(value) : new Date();
@@ -200,6 +205,41 @@ export async function sendApplicationReceivedEmails(application: SalesApplicatio
       templateKey: "admin_new_application"
     })
   ]);
+}
+
+export function applicationInviteEmail(application: SalesApplication, passwordSetupUrl: string) {
+  const onboardingUrl = appUrl(application.store_id ? `/onboarding?storeId=${application.store_id}` : "/onboarding");
+
+  return {
+    subject: "AIO Growth Partner 利用開始のご案内",
+    text: [
+      `${application.contact_name} 様`,
+      "",
+      "AIO Growth Partnerの利用開始準備が整いました。",
+      "以下のリンクからログイン用パスワードを設定し、初回導入ガイドへお進みください。",
+      "",
+      `パスワード設定リンク: ${passwordSetupUrl}`,
+      `初回導入ガイド: ${onboardingUrl}`,
+      "",
+      "申込時の内容をもとに、店舗情報の下書きを用意しています。",
+      "ログイン後、店舗名・業態・Webサイト・SNS情報などを確認し、必要に応じて修正してください。",
+      "",
+      "リンクの有効期限が切れている場合は、担当者へ再発行をご依頼ください。",
+      "ご不明点がありましたら、このメールへの返信、または info@aioboost.jp までご連絡ください。",
+      "",
+      "AIO Growth Partner"
+    ].join("\n")
+  };
+}
+
+export async function sendApplicationInviteEmail(applicationId: string, application: SalesApplication, passwordSetupUrl: string) {
+  const message = applicationInviteEmail(application, passwordSetupUrl);
+  return sendAndLog(applicationId, {
+    to: application.email,
+    subject: message.subject,
+    text: message.text,
+    templateKey: "account_invite"
+  });
 }
 
 export function applicationGuideEmail(application: SalesApplication, templateKey: string) {

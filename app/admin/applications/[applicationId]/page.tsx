@@ -109,6 +109,18 @@ function applicationEnrichment(application: NonNullable<Awaited<ReturnType<typeo
   };
 }
 
+function applicationInviteInfo(application: NonNullable<Awaited<ReturnType<typeof getApplication>>["application"]>) {
+  const checklist = recordFromUnknown(application.admin_checklist);
+  const invite = recordFromUnknown(checklist.invite);
+  return {
+    url: typeof invite.last_url === "string" ? invite.last_url : "",
+    issuedAt: typeof invite.issued_at === "string" ? invite.issued_at : "",
+    sentTo: typeof invite.sent_to === "string" ? invite.sent_to : "",
+    mode: typeof invite.mode === "string" ? invite.mode : "",
+    redirectTo: typeof invite.redirect_to === "string" ? invite.redirect_to : ""
+  };
+}
+
 export default async function AdminApplicationDetailPage({
   params,
   searchParams
@@ -128,6 +140,7 @@ export default async function AdminApplicationDetailPage({
   );
   const guide = loginGuideTemplate(application);
   const enrichment = applicationEnrichment(application);
+  const inviteInfo = applicationInviteInfo(application);
   const reflectedStoreId = application.approved_store_id ?? application.store_id;
   const reflectedOrganizationId = application.approved_organization_id ?? application.organization_id;
   const recommendedEmails = recommendedApplicationEmailTemplates(application);
@@ -140,8 +153,9 @@ export default async function AdminApplicationDetailPage({
         action={<Link className="button secondary" href="/admin/applications">一覧へ戻る</Link>}
       />
       {query.saved ? <p className="notice success">申込情報を保存しました。</p> : null}
-      {query.prepared ? <p className="notice success">利用開始準備を更新しました。パスワードは管理画面に表示しません。</p> : null}
+      {query.prepared ? <p className="notice success">招待リンクを発行し、利用開始メールを送信しました。</p> : null}
       {query.email === "sent" ? <p className="notice success">案内メールを送信しました。</p> : null}
+      {query.email === "failed" ? <p className="notice danger">メール送信に失敗しました。送信履歴で詳細を確認してください。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
 
       <section className="grid cols-4">
@@ -183,10 +197,26 @@ export default async function AdminApplicationDetailPage({
           </table>
           <p className="notice">
             申し込みだけでは利用開始できません。入金確認後、管理者が承認して利用開始準備を行います。
-            パスワードや秘密情報は管理画面に平文表示しません。
+            招待リンクは申込者本人へ送信し、パスワードは本人が設定します。
           </p>
+          {inviteInfo.url ? (
+            <div className="mini-card">
+              <h3>発行済み招待リンク</h3>
+              <p className="muted">申込者へ送信済みの初回パスワード設定リンクです。必要な場合のみ再案内に使ってください。</p>
+              <textarea className="copy-box" readOnly value={inviteInfo.url} />
+              <table className="table compact">
+                <tbody>
+                  <tr><th>送信先</th><td>{displayValue(inviteInfo.sentTo)}</td></tr>
+                  <tr><th>発行日時</th><td>{formatDateTime(inviteInfo.issuedAt)}</td></tr>
+                  <tr><th>種別</th><td>{displayValue(inviteInfo.mode)}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           <form action={prepareApplicationAccountAction.bind(null, application.id)}>
-            <PendingSubmitButton pendingLabel="利用開始準備を作成しています..." disabled={!canPrepareAccount}>承認して利用開始準備</PendingSubmitButton>
+            <PendingSubmitButton pendingLabel="招待リンクを発行しています..." disabled={!canPrepareAccount}>
+              招待リンクを発行して利用開始メール送信
+            </PendingSubmitButton>
           </form>
           {!canPrepareAccount ? <p className="muted">入金確認済みにしてから実行してください。</p> : null}
         </article>

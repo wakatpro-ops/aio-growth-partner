@@ -5,11 +5,13 @@ import { redirect } from "next/navigation";
 import { getIndustryConfig } from "@/config/industries";
 import { normalizeIndustryTypeKey } from "@/lib/applications/options";
 import { requirePlatformAdmin } from "@/lib/auth/server";
+import { sendApplicationInviteEmail } from "@/lib/admin/application-emails";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey } from "@/types/domain";
 import type { ApplicationEmailLog } from "@/lib/admin/application-emails";
 
-const productionAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.aioboost.jp";
+const productionAppUrl = process.env.APP_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL ?? "https://app.aioboost.jp";
+type SupabaseAdminClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
 
 export const applicationStatuses = [
   ["new", "新規申込"],
@@ -180,6 +182,95 @@ function buildApplicationHandoff(application: SalesApplication, applicationId: s
       recommended_setup_steps: setupSteps,
       first_meeting_points: meetingPoints
     }
+  };
+}
+
+function passwordSetupRedirectUrl(storeId: string) {
+  const nextPath = `/onboarding?storeId=${storeId}`;
+  return `${productionAppUrl}/auth/set-password?next=${encodeURIComponent(nextPath)}`;
+}
+
+function inviteLinkFromGenerateResult(result: unknown) {
+  if (!result || typeof result !== "object") return null;
+  const data = (result as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return null;
+  const properties = (data as { properties?: unknown }).properties;
+  if (!properties || typeof properties !== "object") return null;
+  const actionLink = (properties as { action_link?: unknown }).action_link;
+  return typeof actionLink === "string" && actionLink.length > 0 ? actionLink : null;
+}
+
+function userIdFromGenerateResult(result: unknown) {
+  if (!result || typeof result !== "object") return null;
+  const data = (result as { data?: unknown }).data;
+  if (!data || typeof data !== "object") return null;
+  const user = (data as { user?: unknown }).user;
+  if (!user || typeof user !== "object") return null;
+  const id = (user as { id?: unknown }).id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+async function findAuthUserByEmail(supabase: SupabaseAdminClient, email: string) {
+  const normalized = email.trim().toLowerCase();
+  for (let page = 1; page <= 5; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) return null;
+    const user = data.users.find((item) => (item.email ?? "").toLowerCase() === normalized);
+    if (user) return user;
+    if (data.users.length < 1000) return null;
+  }
+  return null;
+}
+
+async function generatePasswordSetupLink(
+  supabase: SupabaseAdminClient,
+  email: string,
+  redirectTo: string,
+  inviteData: Record<string, unknown>
+) {
+  const inviteResult = await supabase.auth.admin.generateLink({
+    type: "invite",
+    email,
+    options: {
+      data: inviteData,
+      redirectTo
+    }
+  });
+
+  const inviteError = inviteResult.error?.message ?? "";
+  if (!inviteResult.error) {
+    return {
+      actionLink: inviteLinkFromGenerateResult(inviteResult),
+      userId: userIdFromGenerateResult(inviteResult),
+      mode: "invite",
+      errorMessage: null
+    };
+  }
+
+  const alreadyRegistered = inviteError.toLowerCase().includes("already") || inviteError.toLowerCase().includes("registered");
+  if (!alreadyRegistered) {
+    return {
+      actionLink: null,
+      userId: null,
+      mode: "invite_failed",
+      errorMessage: inviteError
+    };
+  }
+
+  const recoveryResult = await supabase.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: {
+      redirectTo
+    }
+  });
+  const existingUser = await findAuthUserByEmail(supabase, email);
+
+  return {
+    actionLink: inviteLinkFromGenerateResult(recoveryResult),
+    userId: userIdFromGenerateResult(recoveryResult) ?? existingUser?.id ?? null,
+    mode: "password_setup",
+    errorMessage: recoveryResult.error?.message ?? null
   };
 }
 
@@ -411,25 +502,18 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     organization_id: organizationId,
     store_id: storeId
   };
-  const redirectTo = `${productionAppUrl}/onboarding?storeId=${storeId}`;
-  const inviteResult = await supabase.auth.admin.inviteUserByEmail(inviteEmail, {
-    data: inviteData,
-    redirectTo
-  });
-  const inviteAlreadyRegistered = inviteResult.error?.message.toLowerCase().includes("already") ?? false;
-  const generatedLink = inviteResult.error && inviteAlreadyRegistered
-    ? await supabase.auth.admin.generateLink({
-        type: "invite",
-        email: inviteEmail,
-        options: {
-          data: inviteData,
-          redirectTo
-        }
-      })
-    : null;
+  const redirectTo = passwordSetupRedirectUrl(storeId);
+  const setupLink = await generatePasswordSetupLink(supabase, inviteEmail, redirectTo, inviteData);
+  const invitedUserId = setupLink.userId ?? application.invited_user_id ?? null;
+  if (!setupLink.actionLink) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(`招待リンクを発行できませんでした: ${setupLink.errorMessage ?? "リンク生成に失敗しました。"}`)}`);
+  }
 
-  const invitedUserId = inviteResult.data?.user?.id ?? generatedLink?.data?.user?.id ?? application.invited_user_id ?? null;
   if (invitedUserId) {
+    await supabase.auth.admin.updateUserById(invitedUserId, {
+      user_metadata: inviteData
+    });
+
     await supabase.from("user_profiles").upsert({
       user_id: invitedUserId,
       display_name: application.contact_name,
@@ -449,6 +533,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     }).eq("id", organizationId);
   }
 
+  const adminChecklist = recordFromJson(application.admin_checklist);
+  const issuedAt = new Date().toISOString();
   const { error: updateError } = await supabase.from("applications").update({
     status: "account_issued",
     approval_status: "approved",
@@ -460,27 +546,57 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     approved_user_id: invitedUserId,
     invited_user_id: invitedUserId,
     invite_email: inviteEmail,
-    invitation_status: inviteResult.error && !inviteAlreadyRegistered ? "manual_invite_required" : "invite_generated",
+    invitation_status: "invite_link_sent",
     account_status: invitedUserId ? "invited" : "preparing",
     onboarding_status: "not_started",
+    admin_checklist: {
+      ...adminChecklist,
+      invite: {
+        last_url: setupLink.actionLink,
+        issued_at: issuedAt,
+        sent_to: inviteEmail,
+        mode: setupLink.mode,
+        redirect_to: redirectTo
+      }
+    },
     updated_at: new Date().toISOString()
   }).eq("id", applicationId);
   if (updateError) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(updateError.message)}`);
 
+  const emailApplication = {
+    ...(application as SalesApplication),
+    status: "account_issued",
+    store_id: storeId,
+    organization_id: organizationId,
+    approved_store_id: storeId,
+    approved_organization_id: organizationId,
+    invited_user_id: invitedUserId,
+    invite_email: inviteEmail,
+    invitation_status: "invite_link_sent",
+    account_status: invitedUserId ? "invited" : "preparing"
+  } as SalesApplication;
+  const emailResult = await sendApplicationInviteEmail(applicationId, emailApplication, setupLink.actionLink);
+
   await insertApplicationLog(
     applicationId,
-    "account_prepared",
+    "invite_link_issued",
     invitedUserId
-      ? "組織・店舗・ユーザー招待の準備を行いました。パスワードは管理画面に表示しません。"
-      : "組織・店舗を作成しました。ユーザー招待は手動で行ってください。",
+      ? "組織・店舗・ユーザーを紐付け、初回パスワード設定リンクを発行しました。"
+      : "組織・店舗を作成し、初回パスワード設定リンクを発行しました。",
     application.status,
     "account_issued",
-    { organization_id: organizationId, store_id: storeId, invite_email: inviteEmail, invited_user_id: invitedUserId }
+    {
+      organization_id: organizationId,
+      store_id: storeId,
+      invite_email: inviteEmail,
+      invited_user_id: invitedUserId,
+      email_status: emailResult.status
+    }
   );
 
   revalidatePath("/admin/applications");
   revalidatePath(`/admin/applications/${applicationId}`);
-  redirect(`/admin/applications/${applicationId}?prepared=1`);
+  redirect(`/admin/applications/${applicationId}?prepared=1&email=${emailResult.ok ? "sent" : "failed"}`);
 }
 
 export function loginGuideTemplate(application: SalesApplication) {
