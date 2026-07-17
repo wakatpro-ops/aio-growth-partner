@@ -8,7 +8,7 @@ const navItems = [
   { href: "/dashboard", label: "ダッシュボード" },
   { href: "/onboarding", label: "初回導入" },
   { href: "/beta-onboarding", label: "導入ガイド" },
-  { href: "/stores", label: "店舗管理" },
+  { href: "/stores", label: "店舗トップ" },
   { href: "/settings", label: "設定" }
 ];
 
