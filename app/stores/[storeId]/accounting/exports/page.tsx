@@ -14,6 +14,11 @@ function yen(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
 }
 
+function shortMessage(value: unknown) {
+  if (typeof value !== "string" || value.trim().length === 0) return "-";
+  return value.length > 120 ? `${value.slice(0, 120)}...` : value;
+}
+
 export default async function AccountingExportsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ freeeSent?: string; freeeFailed?: string }> }) {
   const { storeId } = await params;
   const { freeeSent, freeeFailed } = await searchParams;
@@ -77,7 +82,7 @@ export default async function AccountingExportsPage({ params, searchParams }: { 
       <section className="card">
         <h2>出力処理履歴</h2>
         <table className="table">
-          <thead><tr><th>日時</th><th>連携先</th><th>種類</th><th>状態</th><th>行数</th><th>ファイル名</th></tr></thead>
+          <thead><tr><th>日時</th><th>連携先</th><th>種類</th><th>状態</th><th>行数</th><th>確認メモ</th><th>ファイル名</th></tr></thead>
           <tbody>
             {jobs.map((item) => (
               <tr key={item.id}>
@@ -86,10 +91,11 @@ export default async function AccountingExportsPage({ params, searchParams }: { 
                 <td>{item.export_type === "csv" ? "CSV" : item.export_type}</td>
                 <td><span className="badge">{labelFor(accountingExportStatusLabels, item.status)}</span></td>
                 <td>{Number(item.row_count ?? 0).toLocaleString("ja-JP")}</td>
+                <td className="muted">{shortMessage(item.error_message)}</td>
                 <td>{item.file_name ?? "-"}</td>
               </tr>
             ))}
-            {jobs.length === 0 ? <tr><td colSpan={6}>まだ連携ジョブ履歴はありません。</td></tr> : null}
+            {jobs.length === 0 ? <tr><td colSpan={7}>まだ連携ジョブ履歴はありません。</td></tr> : null}
           </tbody>
         </table>
       </section>
