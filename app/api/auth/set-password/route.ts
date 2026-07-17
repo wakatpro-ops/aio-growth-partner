@@ -11,6 +11,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const password = typeof body.password === "string" ? body.password : "";
+  const bodyAccessToken = typeof body.access_token === "string" ? body.access_token : "";
   if (password.length < 8) {
     return NextResponse.json({ ok: false, error: "パスワードは8文字以上で設定してください。" }, { status: 400 });
   }
@@ -22,7 +23,9 @@ export async function POST(request: Request) {
     .find((part) => part.startsWith(`${authAccessTokenCookie}=`))
     ?.slice(authAccessTokenCookie.length + 1);
 
-  if (!accessToken) {
+  const verifiedAccessToken = bodyAccessToken || (accessToken ? decodeURIComponent(accessToken) : "");
+
+  if (!verifiedAccessToken) {
     return NextResponse.json({ ok: false, error: "招待リンクの確認ができませんでした。招待メールを開き直してください。" }, { status: 401 });
   }
 
@@ -37,7 +40,7 @@ export async function POST(request: Request) {
     }
   );
 
-  const { data, error } = await authClient.auth.getUser(decodeURIComponent(accessToken));
+  const { data, error } = await authClient.auth.getUser(verifiedAccessToken);
   if (error || !data.user) {
     return NextResponse.json({ ok: false, error: "招待リンクの有効期限が切れている可能性があります。担当者へ再発行をご依頼ください。" }, { status: 401 });
   }

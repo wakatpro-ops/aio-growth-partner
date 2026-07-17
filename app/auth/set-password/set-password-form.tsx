@@ -33,8 +33,12 @@ export function SetPasswordForm() {
       return;
     }
 
+    const supabase = createSupabaseBrowserClient();
+    const sessionResult = supabase ? await supabase.auth.getSession() : null;
+    const accessToken = sessionResult?.data?.session?.access_token ?? null;
+
     const response = await fetch("/api/auth/set-password", {
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, access_token: accessToken }),
       headers: { "content-type": "application/json" },
       method: "POST"
     });
@@ -46,7 +50,6 @@ export function SetPasswordForm() {
     }
 
     if (typeof result.email === "string" && result.email.length > 0) {
-      const supabase = createSupabaseBrowserClient();
       const signInResult = supabase
         ? await supabase.auth.signInWithPassword({ email: result.email, password })
         : { data: null, error: new Error("auth unavailable") };
