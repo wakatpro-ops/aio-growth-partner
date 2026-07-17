@@ -99,6 +99,13 @@ select {
   border: 1px solid #cfe1d7;
 }
 
+.nav-section-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  margin: 14px 2px 2px;
+}
+
 .sidebar-footer {
   border-top: 1px solid var(--line);
   display: grid;
@@ -115,6 +122,28 @@ select {
 
 .sidebar-footer a:hover {
   color: var(--accent-strong);
+}
+
+.sidebar-signout {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 0 12px;
+  text-align: left;
+}
+
+.sidebar-signout:hover {
+  background: #eef5f0;
+}
+
+.sidebar-signout:disabled {
+  cursor: wait;
+  opacity: 0.72;
 }
 
 .main {

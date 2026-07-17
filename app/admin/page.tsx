@@ -3,7 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 
 const items = [
-  { href: "/admin/applications", label: "申し込み管理" },
+  { href: "/admin/applications", label: "申込管理" },
   { href: "/admin/users", label: "ユーザー管理" },
   { href: "/admin/organizations", label: "組織管理" },
   { href: "/admin/stores", label: "店舗管理" },

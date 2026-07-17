@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "ダッシュボード" },
@@ -20,8 +20,28 @@ const footerLinks = [
   { href: "/beta-notes", label: "利用時の注意" }
 ];
 
+const adminItems = [
+  { href: "/admin", label: "管理者トップ" },
+  { href: "/admin/applications", label: "申込管理" }
+];
+
+const publicPaths = ["/", "/apply", "/login", "/terms", "/privacy", "/legal", "/help", "/beta-notes"];
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
+  const showSignOut = !publicPaths.includes(pathname);
+
+  async function handleSignOut() {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await fetch("/api/auth/session", { method: "DELETE" });
+    } finally {
+      window.location.href = "/login";
+    }
+  }
 
   return (
     <div className="shell">
@@ -38,8 +58,26 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
+          {isAdminArea ? (
+            <>
+              <div className="nav-section-label">管理者メニュー</div>
+              {adminItems.map((item) => {
+                const active = item.href === "/admin" ? pathname === "/admin" : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link aria-current={active ? "page" : undefined} className={active ? "active" : undefined} key={item.href} href={item.href}>
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          ) : null}
         </nav>
         <footer className="sidebar-footer">
+          {showSignOut ? (
+            <button className="sidebar-signout" type="button" onClick={handleSignOut} disabled={isSigningOut} aria-busy={isSigningOut}>
+              {isSigningOut ? "ログアウト中..." : "ログアウト"}
+            </button>
+          ) : null}
           {footerLinks.map((item) => (
             <Link key={item.href} href={item.href}>{item.label}</Link>
           ))}
