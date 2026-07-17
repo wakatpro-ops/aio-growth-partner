@@ -37,6 +37,17 @@ type FreeeCompaniesResponse = {
   companies?: FreeeCompany[];
 };
 
+type FreeeAccountItem = {
+  id?: number | string;
+  name?: string;
+};
+
+type FreeeTaxCode = {
+  code?: number | string;
+  name?: string;
+  rate?: number | string;
+};
+
 type FreeeIntegration = {
   id: string;
   organization_id: string;
@@ -232,13 +243,57 @@ function toYmd(value: unknown) {
   return value.slice(0, 10);
 }
 
-function ensureFreeeDealDefaults(integration: FreeeIntegration, type: "income" | "expense") {
-  const config = integration.config ?? {};
-  const accountItemId = configNumber(config, type === "income" ? "income_account_item_id" : "expense_account_item_id");
-  const taxCode = configNumber(config, type === "income" ? "income_tax_code" : "expense_tax_code");
-  if (!accountItemId || !taxCode) {
-    throw new Error("freeeへ送信するには、freee設定画面で勘定科目IDと税区分コードを設定してください。");
-  }
+async function pickFreeeAccountItem(
+  supabase: SupabaseClient,
+  integration: FreeeIntegration,
+  companyId: number,
+  type: "income" | "expense"
+) {
+  const configured = configNumber(integration.config, type === "income" ? "income_account_item_id" : "expense_account_item_id");
+  if (configured) return configured;
+  const response = await freeeApiRequest(supabase, integration, `/api/1/account_items?company_id=${companyId}`, { method: "GET" });
+  const accountItems = Array.isArray(response?.account_items) ? response.account_items as FreeeAccountItem[] : [];
+  const preferredNames = type === "income"
+    ? ["売上高", "売上", "サービス売上"]
+    : ["消耗品費", "仕入高", "仕入", "雑費"];
+  const picked = accountItems.find((item) => preferredNames.some((name) => item.name === name || item.name?.includes(name)));
+  const id = Number(picked?.id);
+  if (Number.isFinite(id)) return id;
+  throw new Error("freeeの勘定科目IDを自動判定できませんでした。freee設定画面で勘定科目IDを入力してください。");
+}
+
+async function pickFreeeTaxCode(
+  supabase: SupabaseClient,
+  integration: FreeeIntegration,
+  type: "income" | "expense"
+) {
+  const configured = configNumber(integration.config, type === "income" ? "income_tax_code" : "expense_tax_code");
+  if (configured) return configured;
+  const response = await freeeApiRequest(supabase, integration, "/api/1/taxes/codes", { method: "GET" });
+  const taxCodes = Array.isArray(response?.taxes) ? response.taxes as FreeeTaxCode[] : [];
+  const picked = taxCodes.find((tax) => {
+    const name = tax.name ?? "";
+    const rate = String(tax.rate ?? "");
+    if (!name.includes("10") && rate !== "10") return false;
+    return type === "income"
+      ? name.includes("課税売上") || name.includes("売上")
+      : name.includes("課対仕入") || name.includes("課税仕入") || name.includes("仕入");
+  }) ?? taxCodes.find((tax) => String(tax.rate ?? "").includes("10") || String(tax.name ?? "").includes("10"));
+  const code = Number(picked?.code);
+  if (Number.isFinite(code)) return code;
+  throw new Error("freeeの税区分コードを自動判定できませんでした。freee設定画面で税区分コードを入力してください。");
+}
+
+async function resolveFreeeDealDefaults(
+  supabase: SupabaseClient,
+  integration: FreeeIntegration,
+  companyId: number,
+  type: "income" | "expense"
+) {
+  const [accountItemId, taxCode] = await Promise.all([
+    pickFreeeAccountItem(supabase, integration, companyId, type),
+    pickFreeeTaxCode(supabase, integration, type)
+  ]);
   return { accountItemId, taxCode };
 }
 
@@ -507,7 +562,9 @@ export async function sendInvoicesAndPaymentsToFreee(storeId: string) {
   const access = await getCurrentUserAccess();
   const resolved = await resolveStore(supabase, storeId);
   const integration = await getConnectedFreeeIntegration(supabase, resolved);
-  const { accountItemId, taxCode } = ensureFreeeDealDefaults(integration, "income");
+  const companyId = Number(integration.external_company_id);
+  if (!Number.isFinite(companyId)) throw new Error("freee事業所IDが正しくありません。freeeへ再接続してください。");
+  const { accountItemId, taxCode } = await resolveFreeeDealDefaults(supabase, integration, companyId, "income");
 
   const { data: existingJobs } = await supabase
     .from("accounting_export_jobs")
@@ -547,9 +604,6 @@ export async function sendInvoicesAndPaymentsToFreee(storeId: string) {
     if (!invoiceId) continue;
     paymentsByInvoice.set(invoiceId, [...(paymentsByInvoice.get(invoiceId) ?? []), payment]);
   }
-
-  const companyId = Number(integration.external_company_id);
-  if (!Number.isFinite(companyId)) throw new Error("freee事業所IDが正しくありません。freeeへ再接続してください。");
 
   const sentDeals: Array<{ invoice_id: string; document_number: string; deal_id: string | number | null }> = [];
   const failedDeals: Array<{ invoice_id: string; document_number: string; error: string }> = [];
@@ -649,9 +703,9 @@ export async function sendExpenseReceiptToFreee(storeId: string, receiptId: stri
   const access = await getCurrentUserAccess();
   const resolved = await resolveStore(supabase, storeId);
   const integration = await getConnectedFreeeIntegration(supabase, resolved);
-  const { accountItemId, taxCode } = ensureFreeeDealDefaults(integration, "expense");
   const companyId = Number(integration.external_company_id);
   if (!Number.isFinite(companyId)) throw new Error("freee事業所IDが正しくありません。freeeへ再接続してください。");
+  const { accountItemId, taxCode } = await resolveFreeeDealDefaults(supabase, integration, companyId, "expense");
 
   const { data: receipt, error } = await supabase
     .from("expense_receipts")
