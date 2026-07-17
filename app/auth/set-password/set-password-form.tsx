@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function safeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
@@ -42,6 +43,35 @@ export function SetPasswordForm() {
       setLoading(false);
       setMessage(result?.error ?? "パスワードを設定できませんでした。招待メールを開き直すか、担当者へお問い合わせください。");
       return;
+    }
+
+    if (typeof result.email === "string" && result.email.length > 0) {
+      const supabase = createSupabaseBrowserClient();
+      const signInResult = supabase
+        ? await supabase.auth.signInWithPassword({ email: result.email, password })
+        : { data: null, error: new Error("auth unavailable") };
+
+      const session = signInResult.data?.session;
+      const accessToken = session?.access_token;
+      if (accessToken) {
+        const sessionResponse = await fetch("/api/auth/session", {
+          body: JSON.stringify({
+            access_token: accessToken,
+            expires_in: session?.expires_in ?? 3600
+          }),
+          headers: { "content-type": "application/json" },
+          method: "POST"
+        });
+        if (!sessionResponse.ok) {
+          setLoading(false);
+          setMessage("パスワードは設定できましたが、ログイン状態を確認できませんでした。ログイン画面から新しいパスワードでお入りください。");
+          return;
+        }
+      } else if (signInResult.error) {
+        setLoading(false);
+        setMessage("パスワードは設定できました。ログイン画面から新しいパスワードでお入りください。");
+        return;
+      }
     }
 
     window.location.href = next;

@@ -67,5 +67,5 @@ export async function POST(request: Request) {
     .eq("invited_user_id", data.user.id)
     .in("invitation_status", ["invite_link_sent", "invite_generated", "password_set"]);
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, email: data.user.email ?? null });
 }
