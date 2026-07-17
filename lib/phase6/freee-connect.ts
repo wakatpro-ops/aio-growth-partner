@@ -243,6 +243,11 @@ function toYmd(value: unknown) {
   return value.slice(0, 10);
 }
 
+function toFreeeRefNumber(value: unknown) {
+  if (typeof value !== "string") return "";
+  return value.trim().slice(0, 20);
+}
+
 async function pickFreeeAccountItem(
   supabase: SupabaseClient,
   integration: FreeeIntegration,
@@ -621,7 +626,7 @@ export async function sendInvoicesAndPaymentsToFreee(storeId: string) {
       issue_date: toYmd(invoice.transaction_date ?? invoice.issue_date),
       due_date: invoice.due_date ? toYmd(invoice.due_date) : "",
       type: "income",
-      ref_number: invoice.document_number ?? "",
+      ref_number: toFreeeRefNumber(invoice.document_number),
       details: [{
         account_item_id: accountItemId,
         tax_code: taxCode,
@@ -727,7 +732,7 @@ export async function sendExpenseReceiptToFreee(storeId: string, receiptId: stri
     issue_date: issueDate,
     due_date: "",
     type: "expense",
-    ref_number: receipt.original_file_name ?? receipt.id,
+    ref_number: toFreeeRefNumber(receipt.original_file_name ?? receipt.id),
     details: [{
       account_item_id: accountItemId,
       tax_code: taxCode,
