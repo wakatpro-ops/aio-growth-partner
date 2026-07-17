@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 const navItems = [
   { href: "/dashboard", label: "ダッシュボード" },
@@ -30,8 +30,35 @@ const publicPaths = ["/", "/apply", "/login", "/terms", "/privacy", "/legal", "/
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [storeName, setStoreName] = useState<string | null>(null);
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   const showSignOut = !publicPaths.includes(pathname);
+  const activeStoreId = useMemo(() => {
+    const match = pathname.match(/^\/stores\/([^/]+)/);
+    if (!match || match[1] === "new") return null;
+    return decodeURIComponent(match[1]);
+  }, [pathname]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setStoreName(null);
+    if (!activeStoreId) return;
+
+    fetch(`/api/stores/${encodeURIComponent(activeStoreId)}/summary`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (!cancelled && typeof data?.name === "string" && data.name.trim()) {
+          setStoreName(data.name.trim());
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setStoreName(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeStoreId]);
 
   async function handleSignOut() {
     if (isSigningOut) return;
@@ -46,8 +73,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <Link className="brand" href="/">
-          AIO Growth Partner
+        <Link className="brand" href={activeStoreId ? `/stores/${activeStoreId}` : "/"}>
+          {storeName ? (
+            <>
+              <span className="brand-kicker">AIO Growth Partner</span>
+              <span className="brand-name">{storeName}</span>
+            </>
+          ) : (
+            "AIO Growth Partner"
+          )}
         </Link>
         <nav className="nav" aria-label="main">
           {navItems.map((item) => {
