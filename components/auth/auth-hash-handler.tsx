@@ -24,7 +24,16 @@ export function AuthHashHandler() {
     const refreshToken = params.get("refresh_token");
     const expiresIn = Number(params.get("expires_in") ?? 3600);
     const type = params.get("type");
-    if (!accessToken) return;
+    if (!accessToken) {
+      const errorCode = params.get("error_code");
+      const errorDescription = params.get("error_description");
+      if (window.location.pathname.startsWith("/auth/set-password") && (errorCode || errorDescription)) {
+        const searchParams = new URLSearchParams(window.location.search);
+        searchParams.set("invite_error", errorCode === "otp_expired" ? "expired" : "invalid");
+        window.history.replaceState(null, "", `${window.location.pathname}?${searchParams.toString()}`);
+      }
+      return;
+    }
     const verifiedAccessToken = accessToken;
     const verifiedRefreshToken = refreshToken;
 

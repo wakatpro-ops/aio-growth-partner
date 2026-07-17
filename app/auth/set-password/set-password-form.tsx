@@ -13,10 +13,21 @@ function safeNextPath(value: string | null) {
 export function SetPasswordForm() {
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get("next"));
-  const [message, setMessage] = useState("今後ログインに使うパスワードを設定してください。");
+  const inviteError = searchParams.get("invite_error");
+  const linkUnavailable = inviteError === "expired" || inviteError === "invalid";
+  const [message, setMessage] = useState(
+    linkUnavailable
+      ? "この招待リンクは有効期限が切れているか、すでに無効になっています。担当者へ再発行をご依頼ください。"
+      : "今後ログインに使うパスワードを設定してください。"
+  );
   const [loading, setLoading] = useState(false);
 
   async function submit(formData: FormData) {
+    if (linkUnavailable) {
+      setMessage("この招待リンクではパスワードを設定できません。担当者へ再発行をご依頼ください。");
+      return;
+    }
+
     setLoading(true);
     setMessage("パスワードを設定しています。");
 
@@ -91,7 +102,7 @@ export function SetPasswordForm() {
           <label htmlFor="confirm_password">パスワード確認</label>
           <input id="confirm_password" name="confirm_password" type="password" minLength={8} required autoComplete="new-password" />
         </div>
-        <button className="button" type="submit" disabled={loading} aria-busy={loading}>
+        <button className="button" type="submit" disabled={loading || linkUnavailable} aria-busy={loading}>
           {loading ? "設定しています..." : "パスワードを設定して進む"}
         </button>
         <p>{message}</p>
