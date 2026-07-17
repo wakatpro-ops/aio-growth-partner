@@ -19,8 +19,8 @@ export default async function FreeeSettingsPage({ params, searchParams }: { para
   const access = await getCurrentUserAccess();
   const industry = getIndustryConfig(store.industry_type_key);
   const integration = await getStoreAccountingIntegration(store.id, "freee");
-  const config = integration?.config ?? {};
-  const metadata = integration?.metadata ?? {};
+  const config = integration?.config && typeof integration.config === "object" ? integration.config as Record<string, unknown> : {};
+  const metadata = integration?.metadata && typeof integration.metadata === "object" ? integration.metadata as Record<string, unknown> : {};
   const redirectUri = freeeRedirectUri();
   const connectEnvReady = isFreeeConnectEnvReady();
   const isConnected = integration?.status === "connected";
@@ -98,8 +98,8 @@ export default async function FreeeSettingsPage({ params, searchParams }: { para
         )}
       </section>
       <section className="card form">
-        <h2>freee事業所情報の手動管理</h2>
-        <p>freee接続前、または事業所情報だけ先に控えておきたい場合に利用します。</p>
+        <h2>freee送信設定</h2>
+        <p>freeeへ送る取引の既定値を設定します。勘定科目IDや税区分コードは、freee側の設定に合わせて入力してください。</p>
         <form action={updateFreeeIntegrationAction.bind(null, store.id)} className="grid cols-2">
           <div className="field">
             <label htmlFor="status">接続状態</label>
@@ -121,6 +121,38 @@ export default async function FreeeSettingsPage({ params, searchParams }: { para
           <div className="field">
             <label htmlFor="note">運用メモ</label>
             <input id="note" name="note" defaultValue={typeof config.note === "string" ? config.note : ""} />
+          </div>
+          <div className="field">
+            <label htmlFor="income_account_item_id">売上の勘定科目ID</label>
+            <input id="income_account_item_id" name="income_account_item_id" inputMode="numeric" defaultValue={typeof config.income_account_item_id === "string" ? config.income_account_item_id : ""} placeholder="例: 売上高のID" />
+          </div>
+          <div className="field">
+            <label htmlFor="income_tax_code">売上の税区分コード</label>
+            <input id="income_tax_code" name="income_tax_code" inputMode="numeric" defaultValue={typeof config.income_tax_code === "string" ? config.income_tax_code : ""} placeholder="例: 課税売上10%のコード" />
+          </div>
+          <div className="field">
+            <label htmlFor="expense_account_item_id">経費の勘定科目ID</label>
+            <input id="expense_account_item_id" name="expense_account_item_id" inputMode="numeric" defaultValue={typeof config.expense_account_item_id === "string" ? config.expense_account_item_id : ""} placeholder="例: 消耗品費のID" />
+          </div>
+          <div className="field">
+            <label htmlFor="expense_tax_code">経費の税区分コード</label>
+            <input id="expense_tax_code" name="expense_tax_code" inputMode="numeric" defaultValue={typeof config.expense_tax_code === "string" ? config.expense_tax_code : ""} placeholder="例: 課対仕入10%のコード" />
+          </div>
+          <div className="field">
+            <label htmlFor="walletable_type">入出金口座の種類</label>
+            <select id="walletable_type" name="walletable_type" defaultValue={typeof config.walletable_type === "string" ? config.walletable_type : ""}>
+              <option value="">未設定</option>
+              <option value="bank_account">銀行口座</option>
+              <option value="credit_card">クレジットカード</option>
+              <option value="wallet">現金・その他口座</option>
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="walletable_id">入出金口座ID</label>
+            <input id="walletable_id" name="walletable_id" inputMode="numeric" defaultValue={typeof config.walletable_id === "string" ? config.walletable_id : ""} placeholder="freeeの口座ID" />
+          </div>
+          <div className="notice">
+            請求書は売上取引、レシートは経費取引として送信します。口座IDが未設定の場合、入出金消込は行わず取引だけを作成します。
           </div>
           <PendingSubmitButton pendingLabel="freee情報を保存しています...">保存</PendingSubmitButton>
         </form>

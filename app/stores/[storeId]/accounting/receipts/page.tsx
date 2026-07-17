@@ -2,9 +2,12 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
+import { getStoreAccountingIntegration } from "@/lib/phase6/compliance-data";
 import { listExpenseReceipts } from "@/lib/phase6/expense-receipts";
 import { getStore } from "@/lib/stores";
+import { sendReceiptToFreeeAction } from "../../compliance/actions";
 
 function yen(value: unknown) {
   return `${Number(value ?? 0).toLocaleString("ja-JP")}円`;
@@ -23,13 +26,17 @@ function statusLabel(status: string | null | undefined) {
   return labels[String(status ?? "")] ?? "確認待ち";
 }
 
-export default async function ExpenseReceiptsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ uploaded?: string }> }) {
+export default async function ExpenseReceiptsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ uploaded?: string; freeeReceiptSent?: string }> }) {
   const { storeId } = await params;
-  const { uploaded } = await searchParams;
+  const { uploaded, freeeReceiptSent } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
-  const receipts = await listExpenseReceipts(store.id);
+  const [receipts, freee] = await Promise.all([
+    listExpenseReceipts(store.id),
+    getStoreAccountingIntegration(store.id, "freee")
+  ]);
   const total = receipts.reduce((sum, receipt) => sum + Number(receipt.total_amount ?? 0), 0);
+  const freeeConnected = freee?.status === "connected";
 
   return (
     <AppShell>
@@ -41,6 +48,7 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
       />
       <StoreBusinessNav store={store} />
       {uploaded ? <p className="notice success">レシートを保存し、AIで内容を整理しました。内容を確認してから会計処理に利用してください。</p> : null}
+      {freeeReceiptSent ? <p className="notice success">レシート候補をfreeeへ送信しました。</p> : null}
       <section className="grid cols-3">
         <article className="card">
           <p className="muted">読み取り件数</p>
@@ -52,9 +60,12 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
         </article>
         <article className="card">
           <p className="muted">freee連携</p>
-          <div className="metric">送信前確認</div>
+          <div className="metric">{freeeConnected ? "接続済み" : "送信前確認"}</div>
         </article>
       </section>
+      {!freeeConnected ? (
+        <p className="notice">freeeへ送信するには、先にfreee会計設定で事業所を接続してください。接続前でもレシート読み取りと確認データの保存はできます。</p>
+      ) : null}
       <section className="card">
         <h2>読み取り結果</h2>
         <div className="table-wrap">
@@ -68,6 +79,7 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
                 <th>税額</th>
                 <th>状態</th>
                 <th>freee候補</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -80,11 +92,22 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
                   <td>{yen(receipt.tax_amount)}</td>
                   <td><span className="badge">{statusLabel(receipt.ai_analysis_status)}</span></td>
                   <td><span className="badge">{statusLabel(receipt.freee_status)}</span></td>
+                  <td>
+                    <form action={sendReceiptToFreeeAction.bind(null, store.id, receipt.id)}>
+                      <PendingSubmitButton
+                        className="button secondary"
+                        pendingLabel="freeeへ送信しています..."
+                        disabled={!freeeConnected || receipt.freee_status === "sent"}
+                      >
+                        freeeへ送信
+                      </PendingSubmitButton>
+                    </form>
+                  </td>
                 </tr>
               ))}
               {receipts.length === 0 ? (
                 <tr>
-                  <td colSpan={7}>まだレシートはありません。仕入れや経費のレシートを読み取ると、会計入力の下書きとして使えます。</td>
+                  <td colSpan={8}>まだレシートはありません。仕入れや経費のレシートを読み取ると、会計入力の下書きとして使えます。</td>
                 </tr>
               ) : null}
             </tbody>

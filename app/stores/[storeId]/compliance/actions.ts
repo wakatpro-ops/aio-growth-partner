@@ -19,6 +19,7 @@ import {
   updateStripeIntegrationFromForm
 } from "@/lib/phase6/compliance-data";
 import { disconnectFreeeConnect } from "@/lib/phase6/freee-connect";
+import { sendExpenseReceiptToFreee, sendInvoicesAndPaymentsToFreee } from "@/lib/phase6/freee-connect";
 import { disconnectStripeConnect } from "@/lib/phase6/stripe-connect";
 
 export async function createOrderAction(storeId: string, formData: FormData) {
@@ -96,6 +97,19 @@ export async function createExpenseReceiptAction(storeId: string, formData: Form
   revalidatePath(`/stores/${storeId}/accounting/receipts`);
   revalidatePath(`/stores/${storeId}/accounting/exports`);
   redirect(`/stores/${storeId}/accounting/receipts?uploaded=${receiptId}`);
+}
+
+export async function sendInvoicesToFreeeAction(storeId: string) {
+  const result = await sendInvoicesAndPaymentsToFreee(storeId);
+  revalidatePath(`/stores/${storeId}/accounting/exports`);
+  redirect(`/stores/${storeId}/accounting/exports?freeeSent=${result.sentCount}&freeeFailed=${result.failedCount}`);
+}
+
+export async function sendReceiptToFreeeAction(storeId: string, receiptId: string) {
+  await sendExpenseReceiptToFreee(storeId, receiptId);
+  revalidatePath(`/stores/${storeId}/accounting/receipts`);
+  revalidatePath(`/stores/${storeId}/accounting/exports`);
+  redirect(`/stores/${storeId}/accounting/receipts?freeeReceiptSent=1`);
 }
 
 export async function updateInvoiceStripePaymentAction(storeId: string, invoiceId: string, formData: FormData) {

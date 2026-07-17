@@ -60,7 +60,9 @@ export const integrationStatusLabels: Record<string, string> = {
 export const accountingExportStatusLabels: Record<string, string> = {
   completed: "完了",
   failed: "失敗",
-  pending: "処理中"
+  partial_failed: "一部失敗",
+  pending: "処理中",
+  review_required: "確認待ち"
 };
 
 export function labelFor(labels: Record<string, string>, value: string | null | undefined, fallback = "未設定") {

@@ -423,6 +423,9 @@ export async function updateFreeeIntegrationFromForm(storeId: string, formData: 
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStore(supabase, storeId);
+  const existing = await getStoreAccountingIntegration(storeId, "freee");
+  const existingConfig = existing?.config && typeof existing.config === "object" ? existing.config as Record<string, unknown> : {};
+  const existingMetadata = existing?.metadata && typeof existing.metadata === "object" ? existing.metadata as Record<string, unknown> : {};
   const { error } = await supabase.from("store_accounting_integrations").upsert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
@@ -431,13 +434,22 @@ export async function updateFreeeIntegrationFromForm(storeId: string, formData: 
     external_company_id: text(formData.get("external_company_id")),
     office_name: text(formData.get("office_name")),
     config: {
+      ...existingConfig,
       export_template: "freee_csv",
       target_data: ["invoices", "payments", "sales_transactions"],
+      income_account_item_id: text(formData.get("income_account_item_id")),
+      income_tax_code: text(formData.get("income_tax_code")),
+      expense_account_item_id: text(formData.get("expense_account_item_id")),
+      expense_tax_code: text(formData.get("expense_tax_code")),
+      walletable_type: text(formData.get("walletable_type")),
+      walletable_id: text(formData.get("walletable_id")),
       note: text(formData.get("note"))
     },
     metadata: {
+      ...existingMetadata,
       operation_mode: "manual_csv_export",
-      api_send_deferred: true
+      api_send_deferred: false,
+      api_send_ready: true
     },
     updated_at: new Date().toISOString()
   }, { onConflict: "store_id,provider" });
