@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function safeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
@@ -33,31 +32,16 @@ export function SetPasswordForm() {
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) {
+    const response = await fetch("/api/auth/set-password", {
+      body: JSON.stringify({ password }),
+      headers: { "content-type": "application/json" },
+      method: "POST"
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || !result?.ok) {
       setLoading(false);
-      setMessage("パスワード設定の準備が完了していません。担当者へお問い合わせください。");
+      setMessage(result?.error ?? "パスワードを設定できませんでした。招待メールを開き直すか、担当者へお問い合わせください。");
       return;
-    }
-
-    const { error } = await supabase.auth.updateUser({ password });
-    if (error) {
-      setLoading(false);
-      setMessage("パスワードを設定できませんでした。招待メールを開き直すか、担当者へお問い合わせください。");
-      return;
-    }
-
-    const { data } = await supabase.auth.getSession();
-    const accessToken = data.session?.access_token;
-    if (accessToken) {
-      await fetch("/api/auth/session", {
-        body: JSON.stringify({
-          access_token: accessToken,
-          expires_in: data.session?.expires_in ?? 3600
-        }),
-        headers: { "content-type": "application/json" },
-        method: "POST"
-      });
     }
 
     window.location.href = next;

@@ -5,7 +5,12 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function cleanCurrentPath() {
   const path = `${window.location.pathname}${window.location.search}`;
-  if (!path || path.startsWith("/auth/set-password")) return "/dashboard";
+  if (path.startsWith("/auth/set-password")) {
+    const next = new URLSearchParams(window.location.search).get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+    return "/onboarding";
+  }
+  if (!path) return "/dashboard";
   return path;
 }
 
