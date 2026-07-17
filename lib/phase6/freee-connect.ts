@@ -577,7 +577,7 @@ export async function sendInvoicesAndPaymentsToFreee(storeId: string) {
     .eq("store_id", resolved.storeId)
     .eq("provider", "freee")
     .eq("export_type", "freee_deals")
-    .eq("status", "completed")
+    .in("status", ["completed", "partial_failed"])
     .limit(200);
   const sentInvoiceIds = new Set<string>();
   for (const job of existingJobs ?? []) {
