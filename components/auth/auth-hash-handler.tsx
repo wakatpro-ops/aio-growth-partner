@@ -30,7 +30,9 @@ export function AuthHashHandler() {
       if (window.location.pathname.startsWith("/auth/set-password") && (errorCode || errorDescription)) {
         const searchParams = new URLSearchParams(window.location.search);
         searchParams.set("invite_error", errorCode === "otp_expired" ? "expired" : "invalid");
-        window.history.replaceState(null, "", `${window.location.pathname}?${searchParams.toString()}`);
+        const destination = `${window.location.pathname}?${searchParams.toString()}`;
+        window.history.replaceState(null, "", destination);
+        window.location.assign(destination);
       }
       return;
     }
