@@ -10,7 +10,7 @@ export default function TermsPage() {
       <PageHeader
         eyebrow="Terms"
         title="利用規約"
-        description="AIO Growth Partnerの利用条件、AI機能、外部連携、注意事項について定める文書です。"
+        description="AIO boostの利用条件、AI機能、外部連携、注意事項について定める文書です。"
         action={<Link className="button secondary" href="/legal">文書一覧へ</Link>}
       />
       <p className="notice">請求書、会計、法務、補助金に関する判断は、必要に応じて専門家へ確認してください。</p>

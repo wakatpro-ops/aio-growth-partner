@@ -23,7 +23,7 @@ const preLaunchChecklist = [
 ];
 
 const betaTerms = [
-  "AIO Growth Partnerはβ版であり、伴走しながら改善する前提です。",
+  "AIO boostはβ版であり、伴走しながら改善する前提です。",
   "一部機能は手動運用です。Stripeは決済URL手動登録、freeeはCSV出力、Google Business ProfileとSNSは手動投稿支援です。",
   "外部サービス連携は、Google、Stripe、freeeなど各社の仕様、審査、権限、利用制限の影響を受けます。",
   "AI生成文は提案であり、店舗担当者が内容を確認してから利用します。",

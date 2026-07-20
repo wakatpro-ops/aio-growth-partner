@@ -66,7 +66,7 @@ export default function BetaOnboardingPage() {
       <PageHeader
         eyebrow="導入ガイド"
         title="店舗向け導入ガイド"
-        description="店舗オーナー、店長、事務担当者がAIO Growth Partnerを使い始めるための説明ページです。"
+        description="店舗オーナー、店長、事務担当者がAIO boostを使い始めるための説明ページです。"
         action={<Link className="button" href="/onboarding">初回導入へ</Link>}
       />
 
@@ -105,7 +105,7 @@ export default function BetaOnboardingPage() {
 
       <section className="grid cols-2">
         <article className="card">
-          <h2>AIO Growth Partnerでできること</h2>
+          <h2>AIO boostでできること</h2>
           <div className="grid">
             {betaReadyFeatures.map((feature) => <span className="badge badge-strong" key={feature}>{feature}</span>)}
           </div>

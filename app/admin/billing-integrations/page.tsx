@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 const sections = [
   {
     title: "AIO運営側の課金",
-    description: "AIO Growth Partnerの利用料を店舗から徴収するためのStripeです。AIO運営会社のStripeアカウントを使います。",
+    description: "AIO boostの利用料を店舗から徴収するためのStripeです。AIO運営会社のStripeアカウントを使います。",
     tables: ["plans", "plan_limits", "platform_billing_customers", "platform_subscriptions"]
   },
   {

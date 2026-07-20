@@ -27,7 +27,7 @@ export default async function SubsidyImpactPage({ params }: { params: Promise<{ 
       </section>
       <section className="card">
         <h2>説明上の位置づけ</h2>
-        <p>AIO Growth Partnerで請求、入金、売上データ、AI提案、外部連携支援をどの程度使っているかを整理するための画面です。</p>
+        <p>AIO boostで請求、入金、売上データ、AI提案、外部連携支援をどの程度使っているかを整理するための画面です。</p>
         <p className="muted">補助金や制度利用の判断が必要な場合は、専門家や窓口へ確認してください。</p>
       </section>
     </AppShell>

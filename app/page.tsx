@@ -6,7 +6,7 @@ export default function HomePage() {
       <section className="hero">
         <div>
           <div className="eyebrow">店舗業務管理とAI集客支援</div>
-          <h1>AIO Growth Partner</h1>
+          <h1>AIO boost</h1>
           <p>
             飲食店、美容室、自動車修理、クリニック、整体院、不動産まで、店舗ごとの業務に合わせて、顧客管理、見積・請求、売上分析、AI集客支援をまとめて使えるサービスです。
           </p>

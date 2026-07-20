@@ -185,7 +185,7 @@ with check (public.is_org_member(organization_id) or public.is_platform_admin())
 
 insert into public.modules (key, name, description, category)
 values
-  ('platform_billing', 'AIO運営側課金', 'AIO Growth PartnerのSaaS利用料を管理するStripe課金です。店舗側決済とは分離します。', 'billing'),
+  ('platform_billing', 'AIO運営側課金', 'AIO boostのSaaS利用料を管理するStripe課金です。店舗側決済とは分離します。', 'billing'),
   ('store_stripe_connect', '店舗側Stripe Connect', '各店舗が自分のStripeアカウントを接続し、店舗のお客様から決済を受けるための拡張枠です。', 'integration'),
   ('store_accounting_integration', '店舗側会計連携', '各店舗が自分のfreee、マネーフォワード等の事業所へ会計データを送るための拡張枠です。', 'integration'),
   ('accounting_export_jobs', '会計連携ジョブ', 'freee等への送信履歴、CSV出力履歴、エラーを店舗ごとに管理します。', 'accounting')

@@ -1,4 +1,4 @@
-# AIO Growth Partner
+# AIO boost
 
 店舗業務効率化とAIO支援のためのSaaS基盤です。GitHub + Vercel + Supabase + OpenAI API を前提に、業態別の機能、文言、AIプロンプト、ダッシュボードを1つの共通基盤で切り替えられるように設計しています。
 
@@ -82,7 +82,7 @@ OPENAI_API_KEY=
 OPENAI_MODEL=
 SENDGRID_API_KEY=
 SENDGRID_FROM_EMAIL=info@aioboost.jp
-SENDGRID_FROM_NAME=AIO Growth Partner
+SENDGRID_FROM_NAME=AIO boost
 ADMIN_NOTIFICATION_EMAIL=info@aioboost.jp
 APP_BASE_URL=https://app.aioboost.jp
 ```
@@ -99,7 +99,7 @@ Vercel Productionに設定する環境変数:
 ```env
 SENDGRID_API_KEY=SendGridで作成したAPI Key
 SENDGRID_FROM_EMAIL=info@aioboost.jp
-SENDGRID_FROM_NAME=AIO Growth Partner
+SENDGRID_FROM_NAME=AIO boost
 ADMIN_NOTIFICATION_EMAIL=info@aioboost.jp
 APP_BASE_URL=https://app.aioboost.jp
 ```
@@ -516,7 +516,7 @@ Google OAuth接続手順:
 9. Client ID と Client Secret を取得します。
 10. Vercel の Project Settings から Environment Variables を開き、次の値を追加します。
 11. Vercelで本番環境をRedeployします。
-12. AIO Growth Partnerの `/stores/store-auto-demo/settings/google` を開き、「Googleに接続」を押します。
+12. AIO boostの `/stores/store-auto-demo/settings/google` を開き、「Googleに接続」を押します。
 
 Vercelに入れる値:
 
@@ -597,7 +597,7 @@ Phase 5-C-5:
 - Google Business Profile APIのquotaが0の場合は、Google側でBasic API Access申請が必要です。quota超過時は `429 Too Many Requests` または `RESOURCE_EXHAUSTED` が返る前提で、実投稿前に連続実行を避けます。
 - Gmail下書き作成とGoogleカレンダー予定作成が成功していても、Googleビジネスプロフィール候補取得には別途、対象ビジネスプロフィールのオーナー/管理者権限とGoogle側のBasic API Access / quota付与が必要です。
 - `codexwakazono@gmail.com` のような追加Googleアカウントは、OAuth接続の追加テストユーザーとして扱えます。ただし、そのアカウントが対象ビジネスプロフィールの管理者でない場合、GBP候補は取得できません。
-- API有効化済みでもBasic API Access / quota未承認で候補取得が失敗する場合は、AIO Growth Partner側の不具合ではありません。Gmail / Calendar API と Google Business Profile API は審査・quotaが別で、Gmail下書き作成とGoogleカレンダー予定作成が成功していても、GBP候補取得だけ失敗することがあります。
+- API有効化済みでもBasic API Access / quota未承認で候補取得が失敗する場合は、AIO boost側の不具合ではありません。Gmail / Calendar API と Google Business Profile API は審査・quotaが別で、Gmail下書き作成とGoogleカレンダー予定作成が成功していても、GBP候補取得だけ失敗することがあります。
 - Basic API Access申請済みケースID `3-6455000041311` は、Google内部の品質チェックにより承認されていません。デモ店舗では `/stores/[storeId]/settings/google/business-profile` に「却下確認済み / 手動投稿支援モード」として記録します。
 - 再申請前には、公式サイト情報、運営者情報、プライバシーポリシー、API利用目的、ユーザー承認フロー、投稿履歴・操作ログ、対象ビジネスプロフィールのオーナー/管理者権限を整理します。
 - 承認後は同じ画面でAPI statusを「API承認済み」に変更し、`account_id` / `location_id` 候補取得へ戻ります。
@@ -633,7 +633,7 @@ Phase 5-D: SNS投稿支援:
 
 Phase 5-E: インボイス型・業務基盤強化:
 
-- AIO Growth Partnerを、AI集客だけでなく、会計・受発注・決済・証跡管理を持つ店舗業務管理SaaSとして説明しやすくするための強化です。
+- AIO boostを、AI集客だけでなく、会計・受発注・決済・証跡管理を持つ店舗業務管理SaaSとして説明しやすくするための強化です。
 - 補助金採択、ITツール登録、審査通過を保証するものではありません。あくまで、インボイス型・業務デジタル化の説明に耐える業務基盤として整理しています。
 - 請求書には、適格請求書発行事業者登録番号、事業者名、取引日、請求書番号、10% / 8%の税率別内訳、税抜金額、消費税額、税込金額、発行日時、PDF発行日時を持てるようにしています。
 - `/stores/[storeId]/settings/invoice` で、店舗ごとの請求書番号プレフィックスと次回番号を管理できます。
@@ -648,7 +648,7 @@ Phase 5-E: インボイス型・業務基盤強化:
 
 Phase 6-A: 補助金説明を意識したインボイス対応強化:
 
-- AIO Growth Partnerを「AI集客つきインボイス対応 店舗業務管理SaaS」として説明しやすくするため、会計・受発注・決済・データ連携・AI活用・証跡管理の機能整理を追加しました。
+- AIO boostを「AI集客つきインボイス対応 店舗業務管理SaaS」として説明しやすくするため、会計・受発注・決済・データ連携・AI活用・証跡管理の機能整理を追加しました。
 - `/stores/[storeId]/settings/invoice` で、登録番号、適格請求書発行事業者名、請求書番号プレフィックス、次の連番を管理できます。
 - 請求書には、登録番号、事業者名、取引年月日、10% / 8% の税率別対象額と消費税額、入金状態、支払方法を保存できます。
 - 請求書番号を空欄で保存した場合、店舗ごとの連番設定から自動採番します。既存番号を使いたい場合は手入力できます。
@@ -665,7 +665,7 @@ Phase 6-A: 補助金説明を意識したインボイス対応強化:
 課金・外部連携の分離:
 
 - AIO運営側の課金と、店舗ユーザー側のStripe/freee連携は絶対に混同しません。
-- AIO運営側の課金は、AIO Growth PartnerのSaaS利用料を店舗から徴収するためのStripeです。AIO運営会社のStripeアカウントを使い、`plans`、`plan_limits`、`platform_billing_customers`、`platform_subscriptions` で管理します。
+- AIO運営側の課金は、AIO boostのSaaS利用料を店舗から徴収するためのStripeです。AIO運営会社のStripeアカウントを使い、`plans`、`plan_limits`、`platform_billing_customers`、`platform_subscriptions` で管理します。
 - `organizations.plan_key` は、店舗が契約しているAIO利用プランを示します。これは店舗のお客様からの決済ではありません。
 - 店舗ユーザー側のStripe連携は、各店舗が自分のStripeアカウントを接続し、店舗のお客様から決済を受けるための領域です。将来のStripe Connectを前提に、`store_payment_integrations`、`store_payment_transactions`、`payments`、`invoices` で管理します。
 - 店舗ユーザー側のfreee / マネーフォワード連携は、各店舗が自分の会計事業所へ請求、売上、入金、会計CSV、取引データを送るための領域です。`store_accounting_integrations`、`accounting_export_jobs`、`accounting_exports` で管理します。
@@ -747,7 +747,7 @@ freee API送信の確認手順:
 
 ## MVP Release Readiness
 
-AIO Growth PartnerのMVPは、地域店舗・中小店舗が最初の1店舗を登録し、顧客、商品・サービス、見積、請求、入金、外部売上データ、月次レポート、集客アクションまで一通り確認できる状態を目標にします。
+AIO boostのMVPは、地域店舗・中小店舗が最初の1店舗を登録し、顧客、商品・サービス、見積、請求、入金、外部売上データ、月次レポート、集客アクションまで一通り確認できる状態を目標にします。
 
 MVPでできること:
 
@@ -818,7 +818,7 @@ MVPでできること:
 
 β導入パックに含むもの:
 
-- AIO Growth Partnerでできること
+- AIO boostでできること
 - 最初にやること
 - 日常業務で使う流れ
 - 初期設定チェックリスト
@@ -937,5 +937,5 @@ Vercel環境変数:
 
 補助金・ITツール登録について:
 
-- AIO Growth Partnerは、会計、受発注、決済、データ連携、AI活用、証跡管理を説明しやすい業務基盤として整理しています。
+- AIO boostは、会計、受発注、決済、データ連携、AI活用、証跡管理を説明しやすい業務基盤として整理しています。
 - 補助金採択、ITツール登録、審査通過を保証するものではありません。

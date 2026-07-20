@@ -137,11 +137,11 @@ async function sendAndLog(applicationId: string, input: {
 
 export function applicantAutoReply(application: SalesApplication) {
   return {
-    subject: "AIO Growth Partnerへのお申し込みを受け付けました",
+    subject: "AIO boostへのお申し込みを受け付けました",
     text: [
       `${application.contact_name} 様`,
       "",
-      "AIO Growth Partnerへお申し込みいただき、ありがとうございます。",
+      "AIO boostへお申し込みいただき、ありがとうございます。",
       "以下の内容で導入相談を受け付けました。",
       "",
       `店舗名: ${application.store_name}`,
@@ -153,7 +153,7 @@ export function applicantAutoReply(application: SalesApplication) {
       "",
       "ご不明点がありましたら、このメールへの返信、または info@aioboost.jp までご連絡ください。",
       "",
-      "AIO Growth Partner"
+      "AIO boost"
     ].join("\n")
   };
 }
@@ -211,11 +211,11 @@ export function applicationInviteEmail(application: SalesApplication, passwordSe
   const onboardingUrl = appUrl(application.store_id ? `/onboarding?storeId=${application.store_id}` : "/onboarding");
 
   return {
-    subject: "AIO Growth Partner 利用開始のご案内",
+    subject: "AIO boost 利用開始のご案内",
     text: [
       `${application.contact_name} 様`,
       "",
-      "AIO Growth Partnerの利用開始準備が整いました。",
+      "AIO boostの利用開始準備が整いました。",
       "以下のリンクからログイン用パスワードを設定し、初回導入ガイドへお進みください。",
       "",
       `パスワード設定リンク: ${passwordSetupUrl}`,
@@ -227,7 +227,7 @@ export function applicationInviteEmail(application: SalesApplication, passwordSe
       "リンクの有効期限が切れている場合は、担当者へ再発行をご依頼ください。",
       "ご不明点がありましたら、このメールへの返信、または info@aioboost.jp までご連絡ください。",
       "",
-      "AIO Growth Partner"
+      "AIO boost"
     ].join("\n")
   };
 }
@@ -249,35 +249,35 @@ export function applicationGuideEmail(application: SalesApplication, templateKey
 
   const templates: Record<string, { subject: string; text: string }> = {
     demo_invitation: {
-      subject: "AIO Growth Partner オンライン説明のご案内",
+      subject: "AIO boost オンライン説明のご案内",
       text: [
         `${application.contact_name} 様`,
         "",
-        "AIO Growth Partnerへのご相談ありがとうございます。",
+        "AIO boostへのご相談ありがとうございます。",
         "店舗の状況や導入目的を伺いながら、使い方と初期設定の流れをご案内します。",
         "",
         "当日は、現在お使いのツール、請求・入金管理、売上データ、集客まわりのお困りごとを中心に確認します。",
         "",
         "日程や参加URLは、担当者より別途ご案内します。",
         "",
-        "AIO Growth Partner"
+        "AIO boost"
       ].join("\n")
     },
     invoice_issued: {
-      subject: "AIO Growth Partner ご契約内容とお支払いのご案内",
+      subject: "AIO boost ご契約内容とお支払いのご案内",
       text: [
         `${application.contact_name} 様`,
         "",
-        "AIO Growth Partnerのご契約内容について確認が完了しました。",
+        "AIO boostのご契約内容について確認が完了しました。",
         "担当者より、お支払い方法とご利用開始までの流れをご案内します。",
         "",
         "ご不明点がありましたら、担当者または info@aioboost.jp までご連絡ください。",
         "",
-        "AIO Growth Partner"
+        "AIO boost"
       ].join("\n")
     },
     payment_approved: {
-      subject: "AIO Growth Partner ご利用開始準備を進めています",
+      subject: "AIO boost ご利用開始準備を進めています",
       text: [
         `${application.contact_name} 様`,
         "",
@@ -286,15 +286,15 @@ export function applicationGuideEmail(application: SalesApplication, templateKey
         "",
         "準備が整い次第、ログイン方法と初回設定の進め方をご案内します。",
         "",
-        "AIO Growth Partner"
+        "AIO boost"
       ].join("\n")
     },
     account_started: {
-      subject: "AIO Growth Partner 利用開始のご案内",
+      subject: "AIO boost 利用開始のご案内",
       text: [
         `${application.contact_name} 様`,
         "",
-        "AIO Growth Partnerの利用開始準備が整いました。",
+        "AIO boostの利用開始準備が整いました。",
         "以下のURLからログインし、初回導入ガイドに沿って店舗情報を確認してください。",
         "",
         `ログインURL: ${loginUrl}`,
@@ -304,7 +304,7 @@ export function applicationGuideEmail(application: SalesApplication, templateKey
         "申込時の内容をもとに、店舗情報の下書きを用意しています。",
         "内容を確認しながら、商品・サービス、顧客、請求書設定などを整えてください。",
         "",
-        "AIO Growth Partner"
+        "AIO boost"
       ].join("\n")
     }
   };

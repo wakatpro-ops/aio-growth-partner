@@ -606,7 +606,7 @@ export function loginGuideTemplate(application: SalesApplication) {
   return [
     `${application.contact_name} 様`,
     "",
-    "AIO Growth Partner の利用開始準備が整いました。",
+    "AIO boost の利用開始準備が整いました。",
     "以下の流れで、店舗情報の確認と初回設定を進めてください。",
     "",
     "1. 招待メールまたは案内されたログインURLを開く",

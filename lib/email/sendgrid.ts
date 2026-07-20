@@ -23,7 +23,7 @@ export function emailConfig() {
   return {
     apiKey: envValue("SENDGRID_API_KEY"),
     fromEmail: envValue("SENDGRID_FROM_EMAIL") || "info@aioboost.jp",
-    fromName: envValue("SENDGRID_FROM_NAME") || "AIO Growth Partner",
+    fromName: envValue("SENDGRID_FROM_NAME") || "AIO boost",
     adminEmail: envValue("ADMIN_NOTIFICATION_EMAIL") || envValue("SENDGRID_FROM_EMAIL") || "info@aioboost.jp",
     appBaseUrl: envValue("APP_BASE_URL") || envValue("NEXT_PUBLIC_APP_URL") || "https://app.aioboost.jp"
   };

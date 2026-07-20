@@ -1,6 +1,6 @@
-# AIO Growth Partner 1社目導入前チェック
+# AIO boost 1社目導入前チェック
 
-この資料は、AIO Growth Partnerを実店舗1社目へ案内する前に、販売前、契約前、導入前、運用前の確認を行うための管理者向けメモです。
+この資料は、AIO boostを実店舗1社目へ案内する前に、販売前、契約前、導入前、運用前の確認を行うための管理者向けメモです。
 
 アプリ内ページ: `/admin/first-customer-ready`
 
@@ -42,7 +42,7 @@
 
 ## β利用前の確認事項
 
-- AIO Growth Partnerはβ版であり、伴走しながら改善する前提です。
+- AIO boostはβ版であり、伴走しながら改善する前提です。
 - 一部機能は手動運用です。Stripeは決済URL手動登録、freeeはCSV出力、Google Business ProfileとSNSは手動投稿支援です。
 - 外部サービス連携は、Google、Stripe、freeeなど各社の仕様、審査、権限、利用制限の影響を受けます。
 - Google OAuthは `https://app.aioboost.jp/api/google/oauth/callback` で本番接続確認済みです。Gmail下書き作成とGoogleカレンダー予定作成も本番成功済みです。

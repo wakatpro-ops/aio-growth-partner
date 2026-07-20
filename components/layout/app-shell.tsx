@@ -76,11 +76,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link className="brand" href={activeStoreId ? `/stores/${activeStoreId}` : "/"}>
           {storeName ? (
             <>
-              <span className="brand-kicker">AIO Growth Partner</span>
+              <span className="brand-kicker">AIO boost</span>
               <span className="brand-name">{storeName}</span>
             </>
           ) : (
-            "AIO Growth Partner"
+            "AIO boost"
           )}
         </Link>
         <nav className="nav" aria-label="main">

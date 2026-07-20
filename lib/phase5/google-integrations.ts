@@ -1062,7 +1062,7 @@ async function prepareGmailDraftExecution(
     .maybeSingle();
   const targetEmail = String(formData.get("recipient_email") ?? formData.get("target_id") ?? "") || (gmailSetting as GoogleGmailSetting | null)?.email;
   if (!targetEmail) throw new Error("Gmail下書きの宛先メールアドレスを入力してください。");
-  const senderName = (gmailSetting as GoogleGmailSetting | null)?.sender_name ?? "AIO Growth Partner";
+  const senderName = (gmailSetting as GoogleGmailSetting | null)?.sender_name ?? "AIO boost";
   const signature = (gmailSetting as GoogleGmailSetting | null)?.signature;
   const subject = String(formData.get("subject") ?? "") || firstDraftTitle(action);
   const body = [firstDraftText(action), signature].filter(Boolean).join("\n\n");

@@ -348,7 +348,7 @@ on conflict (key) do update set
 
 insert into public.modules (key, name, description, category, is_core)
 values
-  ('platform_billing', 'AIO運営側課金', 'AIO Growth PartnerのSaaS利用料を管理するStripe課金です。店舗側決済とは分離します。', 'billing', false),
+  ('platform_billing', 'AIO運営側課金', 'AIO boostのSaaS利用料を管理するStripe課金です。店舗側決済とは分離します。', 'billing', false),
   ('store_stripe_connect', '店舗側Stripe Connect', '各店舗が自分のStripeアカウントを接続し、店舗のお客様から決済を受けるための連携です。', 'integration', false),
   ('stripe_connect_oauth', 'Stripe Connect OAuth', '店舗ごとのStripeアカウント接続、接続状態保存、接続解除を行います。', 'integration', false),
   ('stripe_webhook_payments', 'Stripe Webhook入金反映', 'Stripe決済結果をWebhookで受け取り、入金管理へ反映する将来拡張です。', 'integration', false),
