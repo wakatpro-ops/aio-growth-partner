@@ -62,7 +62,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         { type: "text/plain", value: input.text },
         { type: "text/html", value: input.html ?? textToHtml(input.text) }
       ],
-      categories: ["aio-growth-partner", input.templateKey],
+      categories: ["aio-boost", input.templateKey],
       custom_args: {
         template_key: input.templateKey,
         application_id: input.applicationId ?? ""
