@@ -927,6 +927,17 @@ Vercel環境変数:
 - Gmail / Calendarが失敗する場合は、Google CloudでAPIが有効か、OAuth scope、接続期限、Vercel環境変数を確認します。
 - AI生成が失敗する場合は、`OPENAI_API_KEY`、`ai_prompt_templates`、`ai_generation_logs.error_message` を確認します。
 
+## Mac mini / staging開発環境
+
+AIO boost専用stagingはproductionから分離して運用します。
+
+- staging URL: `https://aio-growth-partner-staging.vercel.app`
+- セットアップ・検証手順: `docs/staging-runbook.md`
+- 外部サービスと所有アカウント: `docs/service-account-registry.md`
+- ローカルSupabase環境の生成: `./scripts/setup-staging-env.sh`
+
+stagingでもVercel上の環境名はProduction / Previewを使いますが、AIO boost本番とは別Vercel projectです。本番Supabase、Stripe live mode、本番OAuth clientをstagingへ流用しないでください。
+
 課金前に必ず確認すること:
 
 - 実ユーザーの認証、組織作成、organization_membersの作成フロー。
