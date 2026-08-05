@@ -221,6 +221,7 @@ export async function listSalesAiReports(storeId: string): Promise<SalesAiReport
     .from("sales_ai_reports")
     .select("*")
     .eq("store_id", resolved.storeId)
+    .is("archived_at", null)
     .order("target_month", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(24);
@@ -233,7 +234,7 @@ export async function getSalesAiReport(storeId: string, reportId: string) {
   if (!supabase) return null;
   const resolved = persistenceFor(store);
   const [{ data: report }, { data: sections }, { data: flags }] = await Promise.all([
-    supabase.from("sales_ai_reports").select("*").eq("store_id", resolved.storeId).eq("id", reportId).maybeSingle(),
+    supabase.from("sales_ai_reports").select("*").eq("store_id", resolved.storeId).eq("id", reportId).is("archived_at", null).maybeSingle(),
     supabase.from("sales_ai_report_sections").select("*").eq("report_id", reportId).order("sort_order"),
     supabase.from("sales_anomaly_flags").select("*").eq("report_id", reportId).order("created_at")
   ]);

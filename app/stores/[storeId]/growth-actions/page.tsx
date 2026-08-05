@@ -4,11 +4,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { growthActionChannelLabel, growthActionStatusLabel, listGrowthActions } from "@/lib/phase5/growth-actions";
 import { getStore } from "@/lib/stores";
 import { generateGrowthActionsAction } from "./actions";
+import { archiveStoreEntityAction } from "../archive-actions";
 import type { GrowthActionStatus } from "@/types/phase5";
 
 function priorityLabel(priority: string) {
@@ -22,10 +24,10 @@ export default async function GrowthActionsPage({
   searchParams
 }: {
   params: Promise<{ storeId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; archived?: string }>;
 }) {
   const { storeId } = await params;
-  const { error } = await searchParams;
+  const { error, archived } = await searchParams;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "growth_action_center")) notFound();
@@ -41,6 +43,7 @@ export default async function GrowthActionsPage({
       />
       <StoreBusinessNav store={store} />
       {error ? <p className="notice error">{decodeURIComponent(error)}</p> : null}
+      {archived ? <p className="notice success">集客アクションをアーカイブしました。</p> : null}
 
       <section className="card">
         <h3>下書きを生成</h3>
@@ -73,6 +76,7 @@ export default async function GrowthActionsPage({
                     <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細</Link>
                     <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/edit`}>編集</Link>
                     <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/preview`}>プレビュー</Link>
+                    <form action={archiveStoreEntityAction.bind(null, store.id, "growth_action", action.id, `/stores/${store.id}/growth-actions`)}><ConfirmSubmitButton message={`集客アクション「${action.title}」をアーカイブします。実行履歴は保持されます。`}>アーカイブ</ConfirmSubmitButton></form>
                   </div>
                 </td>
               </tr>

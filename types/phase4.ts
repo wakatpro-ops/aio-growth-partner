@@ -64,6 +64,7 @@ export type DataImportJob = {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
   data_source?: { name: string; provider_key: ImportProviderKey } | null;
   file?: DataImportFile | null;
 };

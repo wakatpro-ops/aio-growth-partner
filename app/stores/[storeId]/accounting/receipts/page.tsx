@@ -3,11 +3,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getStoreAccountingIntegration } from "@/lib/phase6/compliance-data";
 import { listExpenseReceipts } from "@/lib/phase6/expense-receipts";
 import { getStore } from "@/lib/stores";
 import { sendReceiptToFreeeAction } from "../../compliance/actions";
+import { archiveStoreEntityAction } from "../../archive-actions";
 
 function yen(value: unknown) {
   return `${Number(value ?? 0).toLocaleString("ja-JP")}円`;
@@ -26,9 +28,9 @@ function statusLabel(status: string | null | undefined) {
   return labels[String(status ?? "")] ?? "確認待ち";
 }
 
-export default async function ExpenseReceiptsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ uploaded?: string; freeeReceiptSent?: string }> }) {
+export default async function ExpenseReceiptsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ uploaded?: string; freeeReceiptSent?: string; archived?: string }> }) {
   const { storeId } = await params;
-  const { uploaded, freeeReceiptSent } = await searchParams;
+  const { uploaded, freeeReceiptSent, archived } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const [receipts, freee] = await Promise.all([
@@ -49,6 +51,7 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
       <StoreBusinessNav store={store} />
       {uploaded ? <p className="notice success">レシートを保存し、AIで内容を整理しました。内容を確認してから会計処理に利用してください。</p> : null}
       {freeeReceiptSent ? <p className="notice success">レシート候補をfreeeへ送信しました。</p> : null}
+      {archived ? <p className="notice success">経費レシートをアーカイブしました。会計連携履歴と元ファイルは保持されています。</p> : null}
       <section className="grid cols-3">
         <article className="card">
           <p className="muted">読み取り件数</p>
@@ -101,6 +104,9 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
                       >
                         freeeへ送信
                       </PendingSubmitButton>
+                    </form>
+                    <form action={archiveStoreEntityAction.bind(null, store.id, "expense_receipt", receipt.id, `/stores/${store.id}/accounting/receipts`)}>
+                      <ConfirmSubmitButton message={`${receipt.vendor_name ?? receipt.original_file_name ?? "このレシート"}をアーカイブします。会計連携履歴と元ファイルは保持されます。`}>アーカイブ</ConfirmSubmitButton>
                     </form>
                   </td>
                 </tr>

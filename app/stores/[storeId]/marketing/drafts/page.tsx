@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listMarketingDrafts } from "@/lib/phase3/marketing-data";
 import { getStore } from "@/lib/stores";
+import { archiveStoreEntityAction } from "../../archive-actions";
 
 const channelLabels = {
   instagram: "Instagram",
@@ -21,8 +23,9 @@ const statusLabels = {
   archived: "保管"
 };
 
-export default async function MarketingDraftsPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function MarketingDraftsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ archived?: string }> }) {
   const { storeId } = await params;
+  const { archived } = await searchParams;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "marketing_drafts")) notFound();
@@ -40,6 +43,7 @@ export default async function MarketingDraftsPage({ params }: { params: Promise<
         action={<Link className="button" href={`/stores/${store.id}/marketing/drafts/new`}>新規作成</Link>}
       />
       <StoreBusinessNav store={store} />
+      {archived ? <p className="notice success">投稿下書きをアーカイブしました。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -58,7 +62,7 @@ export default async function MarketingDraftsPage({ params }: { params: Promise<
                 <td>{channelLabels[draft.channel]}</td>
                 <td><span className="badge">{statusLabels[draft.status]}</span></td>
                 <td>{new Date(draft.created_at).toLocaleDateString("ja-JP")}</td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/marketing/drafts/${draft.id}`}>詳細</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/marketing/drafts/${draft.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "marketing_draft", draft.id, `/stores/${store.id}/marketing/drafts`)}><ConfirmSubmitButton message={`下書き「${draft.title}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {drafts.length === 0 ? <tr><td colSpan={5}>まだ投稿下書きがありません。</td></tr> : null}

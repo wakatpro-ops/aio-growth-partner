@@ -1470,3 +1470,40 @@ alter table public.customers add column if not exists updated_at timestamptz not
 
 alter table public.orders add column if not exists work_status text default 'not_started';
 alter table public.invoice_pdf_issues add column if not exists reissue_reason text;
+
+-- Archive management. Business records stay recoverable and keep their relations.
+alter table public.user_profiles add column if not exists status text not null default 'active';
+alter table public.user_profiles add column if not exists archived_at timestamptz;
+alter table public.user_profiles add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.organizations add column if not exists status text not null default 'active';
+alter table public.organizations add column if not exists archived_at timestamptz;
+alter table public.organizations add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.organization_members add column if not exists status text not null default 'active';
+alter table public.organization_members add column if not exists archived_at timestamptz;
+alter table public.organization_members add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.stores add column if not exists archived_at timestamptz;
+alter table public.stores add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.applications add column if not exists archived_at timestamptz;
+alter table public.applications add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.items add column if not exists archived_at timestamptz;
+alter table public.items add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.customers add column if not exists archived_at timestamptz;
+alter table public.customers add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.estimates add column if not exists archived_at timestamptz;
+alter table public.estimates add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.invoices add column if not exists archived_at timestamptz;
+alter table public.invoices add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.orders add column if not exists archived_at timestamptz;
+alter table public.orders add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.data_import_jobs add column if not exists archived_at timestamptz;
+alter table public.data_import_jobs add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.marketing_drafts add column if not exists archived_at timestamptz;
+alter table public.marketing_drafts add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.ai_recommendations add column if not exists archived_at timestamptz;
+alter table public.ai_recommendations add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.sales_ai_reports add column if not exists archived_at timestamptz;
+alter table public.sales_ai_reports add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.growth_actions add column if not exists archived_at timestamptz;
+alter table public.growth_actions add column if not exists archived_by uuid references auth.users(id) on delete set null;
+alter table public.expense_receipts add column if not exists archived_at timestamptz;
+alter table public.expense_receipts add column if not exists archived_by uuid references auth.users(id) on delete set null;

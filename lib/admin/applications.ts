@@ -105,6 +105,8 @@ export type SalesApplication = {
   onboarding_status?: string | null;
   created_at: string;
   updated_at?: string | null;
+  archived_at?: string | null;
+  archived_by?: string | null;
 };
 
 export type ApplicationActivityLog = {
@@ -274,18 +276,46 @@ async function generatePasswordSetupLink(
   };
 }
 
-export async function listApplications() {
+export async function listApplications({ includeArchived = false }: { includeArchived?: boolean } = {}) {
   await requirePlatformAdmin();
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [] as SalesApplication[];
 
-  const { data } = await supabase
+  let query = supabase
     .from("applications")
     .select("*")
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .order("created_at", { ascending: false });
+  query = includeArchived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
+  const { data } = await query.limit(100);
 
   return (data ?? []) as SalesApplication[];
+}
+
+export async function archiveApplicationAction(applicationId: string) {
+  "use server";
+
+  const access = await requirePlatformAdmin();
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const timestamp = new Date().toISOString();
+  const { error } = await supabase.from("applications").update({ archived_at: timestamp, archived_by: access.userId, updated_at: timestamp }).eq("id", applicationId);
+  if (error) throw new Error(`申込をアーカイブできませんでした: ${error.message}`);
+  await insertApplicationLog(applicationId, "application_archived", "申込をアーカイブしました。");
+  revalidatePath("/admin/applications");
+  redirect("/admin/applications?archived=1");
+}
+
+export async function restoreApplicationAction(applicationId: string) {
+  "use server";
+
+  await requirePlatformAdmin();
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const { error } = await supabase.from("applications").update({ archived_at: null, archived_by: null, updated_at: new Date().toISOString() }).eq("id", applicationId);
+  if (error) throw new Error(`申込を復元できませんでした: ${error.message}`);
+  await insertApplicationLog(applicationId, "application_restored", "申込を復元しました。");
+  revalidatePath("/admin/applications");
+  redirect("/admin/applications?view=archived&restored=1");
 }
 
 export async function getApplication(applicationId: string) {

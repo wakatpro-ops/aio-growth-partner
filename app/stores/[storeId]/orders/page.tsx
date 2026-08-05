@@ -2,6 +2,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { listCustomers, listDocuments } from "@/lib/phase2/business-data";
 import { listOrders } from "@/lib/phase6/compliance-data";
@@ -9,14 +10,15 @@ import { labelFor, orderStatusLabels, workStatusLabels } from "@/lib/status-labe
 import { getStore } from "@/lib/stores";
 import Link from "next/link";
 import { createOrderAction } from "../compliance/actions";
+import { archiveStoreEntityAction } from "../archive-actions";
 
 function yen(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
 }
 
-export default async function OrdersPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function OrdersPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; archived?: string }> }) {
   const { storeId } = await params;
-  const { saved } = await searchParams;
+  const { saved, archived } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const [orders, estimates, customers] = await Promise.all([
@@ -30,6 +32,7 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
       <PageHeader eyebrow={industry.name} title="受注・作業管理" description="見積から受注、作業完了、請求化までの状態を管理します。" />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">受注を保存しました。請求書作成までの流れに反映できます。</p> : null}
+      {archived ? <p className="notice success">受注をアーカイブしました。状態変更履歴は保持されています。</p> : null}
 
       <section className="card form">
         <h2>受注を追加</h2>
@@ -108,7 +111,7 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
                 <td><span className="badge">{labelFor(orderStatusLabels, order.status)}</span></td>
                 <td><span className="badge">{labelFor(workStatusLabels, order.work_status)}</span></td>
                 <td>{yen(order.total)}</td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/orders/${order.id}`}>詳細</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/orders/${order.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "order", order.id, `/stores/${store.id}/orders`)}><ConfirmSubmitButton message={`受注「${order.order_number}」をアーカイブします。状態履歴は保持されます。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {orders.length === 0 ? <tr><td colSpan={7}>まだ受注はありません。</td></tr> : null}

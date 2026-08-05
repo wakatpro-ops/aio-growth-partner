@@ -148,6 +148,7 @@ export async function listExpenseReceipts(storeId: string) {
     .from("expense_receipts")
     .select("*")
     .eq("store_id", resolved.storeId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(50);
   return data ?? [];

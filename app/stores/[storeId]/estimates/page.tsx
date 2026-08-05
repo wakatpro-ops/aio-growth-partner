@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
 import { documentStatusLabels, labelFor } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
+import { archiveStoreEntityAction } from "../archive-actions";
 
-export default async function EstimatesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function EstimatesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; archived?: string }> }) {
   const { storeId } = await params;
   const { saved } = await searchParams;
   const store = await getStore(storeId);
@@ -24,6 +26,7 @@ export default async function EstimatesPage({ params, searchParams }: { params: 
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">見積書を保存しました。受注化や請求書作成へつなげられます。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">見積書をアーカイブしました。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -44,7 +47,7 @@ export default async function EstimatesPage({ params, searchParams }: { params: 
                 <td>{estimate.customer?.name ?? "未選択"}</td>
                 <td>{estimate.total.toLocaleString("ja-JP")}円</td>
                 <td><span className="badge">{labelFor(documentStatusLabels, estimate.status)}</span></td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}`}>編集</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "estimate", estimate.id, `/stores/${store.id}/estimates`)}><ConfirmSubmitButton message={`見積「${estimate.document_number}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {estimates.length === 0 ? <tr><td colSpan={6}>まだ登録がありません。最初の見積書を作ると、受注・請求までの流れを確認できます。</td></tr> : null}

@@ -7,15 +7,20 @@ import {
   StoreAiReadinessPanel
 } from "@/components/store-ai/store-ai-readiness-panel";
 import { PageHeader } from "@/components/ui/page-header";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
 import { getStoreAiReadiness } from "@/lib/store-ai/readiness";
+import { getCurrentUserAccess } from "@/lib/auth/server";
+import { archiveStoreAction } from "../../actions";
 
 export default async function StoreSettingsHomePage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const readiness = await getStoreAiReadiness(store);
+  const access = await getCurrentUserAccess();
+  const canArchiveStore = Boolean(access?.isPlatformAdmin || access?.organizationRoles[store.organization_id] === "org_owner");
 
   const settings = [
     {
@@ -78,6 +83,15 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
           ))}
         </div>
       </section>
+      {canArchiveStore ? (
+        <section className="card danger-zone">
+          <h2>店舗を利用終了として整理</h2>
+          <p>店舗をアーカイブすると、通常の店舗一覧、ダッシュボード、AI集計から非表示になります。請求・入金・顧客・投稿などの関連データは削除されず、店舗一覧の「アーカイブ済み」から復元できます。</p>
+          <form action={archiveStoreAction.bind(null, store.id)}>
+            <ConfirmSubmitButton message={`「${store.name}」をアーカイブします。関連データは保持されますが、復元するまで通常画面から利用できません。`}>店舗をアーカイブ</ConfirmSubmitButton>
+          </form>
+        </section>
+      ) : null}
     </AppShell>
   );
 }

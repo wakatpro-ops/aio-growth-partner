@@ -141,7 +141,7 @@ export async function getStoreBetaChecklist(store: Store) {
 }
 
 export async function getBetaAdminSummary() {
-  const stores = await listStores();
+  const stores = await listStores({ includeDemo: true });
   const productionStores = stores.filter((store) => !isDemoStore(store));
   const demoStores = stores.filter((store) => isDemoStore(store));
   const supabase = createSupabaseAdminClient();

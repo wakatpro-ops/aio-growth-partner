@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { DocumentForm } from "@/components/phase2/document-form";
 import { CopyButton } from "@/components/ui/copy-button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
@@ -145,7 +146,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
         </table>
       </section>
       <form action={deleteInvoiceAction.bind(null, store.id, invoice.id)} className="danger-zone">
-        <PendingSubmitButton className="button danger" pendingLabel="削除しています...">削除</PendingSubmitButton>
+        <ConfirmSubmitButton message={`請求書「${invoice.document_number}」をアーカイブします。入金・PDF発行・監査履歴は保持され、アーカイブ管理から復元できます。`}>アーカイブ</ConfirmSubmitButton>
       </form>
     </AppShell>
   );

@@ -198,6 +198,7 @@ async function latestSalesAiReport(supabase: SupabaseClient, storeId: string) {
     .from("sales_ai_reports")
     .select("*")
     .eq("store_id", storeId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -213,6 +214,7 @@ export async function listGrowthActions(storeId: string): Promise<GrowthAction[]
     .from("growth_actions")
     .select("*")
     .eq("store_id", resolved.storeId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(60);
   return (data ?? []) as GrowthAction[];
@@ -228,6 +230,7 @@ export async function getGrowthAction(storeId: string, actionId: string): Promis
     .select("*, drafts:growth_action_drafts(*), schedule_items:growth_action_schedule_items(*), approvals:growth_action_approvals(*)")
     .eq("store_id", resolved.storeId)
     .eq("id", actionId)
+    .is("archived_at", null)
     .maybeSingle();
   return data as GrowthAction | null;
 }
@@ -262,8 +265,8 @@ export async function generateGrowthActions(storeId: string) {
   }
 
   const normalized = normalizeAiActions(ai.output, store);
-  await supabase.from("growth_action_drafts").delete().eq("store_id", resolved.storeId);
-  await supabase.from("growth_actions").delete().eq("store_id", resolved.storeId);
+  const archivedAt = new Date().toISOString();
+  await supabase.from("growth_actions").update({ archived_at: archivedAt, updated_at: archivedAt }).eq("store_id", resolved.storeId).is("archived_at", null);
 
   for (const item of normalized) {
     const provider = providerFor(item.target_channel);
@@ -365,7 +368,8 @@ export async function listGrowthCalendarItems(storeId: string): Promise<GrowthAc
   const { data: actions } = await supabase
     .from("growth_actions")
     .select("*, drafts:growth_action_drafts(id)")
-    .eq("store_id", resolved.storeId);
+    .eq("store_id", resolved.storeId)
+    .is("archived_at", null);
   const missing = (actions ?? []).filter((action) => !existingActionIds.has(action.id));
   if (missing.length > 0) {
     await supabase.from("growth_action_schedule_items").insert(missing.map((action) => {
@@ -392,8 +396,9 @@ export async function listGrowthCalendarItems(storeId: string): Promise<GrowthAc
   }
   const { data } = await supabase
     .from("growth_action_schedule_items")
-    .select("*")
+    .select("*, action:growth_actions!inner(archived_at)")
     .eq("store_id", resolved.storeId)
+    .is("action.archived_at", null)
     .order("scheduled_date", { ascending: true })
     .order("created_at", { ascending: true });
   return (data ?? []) as GrowthActionScheduleItem[];

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { DocumentForm } from "@/components/phase2/document-form";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
@@ -40,7 +41,7 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
       />
       <DocumentForm action={updateEstimateAction.bind(null, store.id, estimate.id)} document={estimate} customers={customers} kind="estimate" />
       <form action={deleteEstimateAction.bind(null, store.id, estimate.id)} className="danger-zone">
-        <button className="button danger" type="submit">削除</button>
+        <ConfirmSubmitButton message={`見積「${estimate.document_number}」をアーカイブします。受注などの関連履歴は保持され、アーカイブ管理から復元できます。`}>アーカイブ</ConfirmSubmitButton>
       </form>
     </AppShell>
   );

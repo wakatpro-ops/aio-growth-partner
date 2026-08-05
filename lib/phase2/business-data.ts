@@ -1,4 +1,5 @@
 import "server-only";
+import { setStoreEntityArchived } from "@/lib/archive-management";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import { demoCustomers, demoEstimates, demoInvoices, demoItems, demoStocks } from "@/lib/phase2/demo-data";
@@ -231,9 +232,9 @@ export async function listBusinessItems(storeId: string, limit = 80): Promise<Bu
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false }).limit(limit);
+  const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false }).limit(limit);
   if (error || !data) {
-    return demoItems.filter((item) => item.store_id === storeId || storeId.startsWith("demo"));
+    return [];
   }
 
   return data as BusinessItem[];
@@ -246,9 +247,9 @@ export async function getBusinessItem(storeId: string, itemId: string): Promise<
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).eq("id", itemId).single();
+  const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).eq("id", itemId).is("archived_at", null).single();
   if (error || !data) {
-    return demoItems.find((item) => item.id === itemId) ?? null;
+    return null;
   }
 
   return data as BusinessItem;
@@ -263,8 +264,9 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
   const resolved = await resolveStoreForRead(supabase, storeId);
   const { data, error } = await supabase
     .from("inventory_stocks")
-    .select("*, item:items(name, sku, unit, item_type)")
+    .select("*, item:items!inner(name, sku, unit, item_type)")
     .eq("store_id", resolved.storeId)
+    .is("item.archived_at", null)
     .order("updated_at", { ascending: false });
   if (error || !data) {
     return demoStocks.filter((stock) => stock.store_id === storeId || storeId.startsWith("demo"));
@@ -280,9 +282,9 @@ export async function listCustomers(storeId: string, limit = 80): Promise<Custom
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false }).limit(limit);
+  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false }).limit(limit);
   if (error || !data) {
-    return demoCustomers.filter((customer) => customer.store_id === storeId || storeId.startsWith("demo"));
+    return [];
   }
 
   return data as Customer[];
@@ -295,9 +297,9 @@ export async function getCustomer(storeId: string, customerId: string): Promise<
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).eq("id", customerId).single();
+  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).eq("id", customerId).is("archived_at", null).single();
   if (error || !data) {
-    return demoCustomers.find((customer) => customer.id === customerId) ?? null;
+    return null;
   }
 
   return data as Customer;
@@ -314,10 +316,11 @@ export async function listDocuments(storeId: string, kind: DocumentKind, limit =
     .from(kind)
     .select("*, customer:customers(name, company_name, email, phone)")
     .eq("store_id", resolved.storeId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false })
     .limit(limit);
   if (error || !data) {
-    return documentFallback(kind, storeId);
+    return [];
   }
 
   return data as BusinessDocument[];
@@ -335,9 +338,10 @@ export async function getDocument(storeId: string, documentId: string, kind: Doc
     .select("*, customer:customers(name, company_name, email, phone)")
     .eq("store_id", resolved.storeId)
     .eq("id", documentId)
+    .is("archived_at", null)
     .single();
   if (error || !data) {
-    return documentFallback(kind, storeId).find((doc) => doc.id === documentId) ?? null;
+    return null;
   }
 
   return data as BusinessDocument;
@@ -407,10 +411,7 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
 }
 
 export async function deleteItem(storeId: string, itemId: string) {
-  const supabase = createSupabaseAdminClient();
-  if (!supabase) return;
-  const resolved = await resolveStoreForRead(supabase, storeId);
-  await supabase.from("items").delete().eq("store_id", resolved.storeId).eq("id", itemId);
+  await setStoreEntityArchived(storeId, "item", itemId, true);
 }
 
 export async function updateStockFromForm(storeId: string, formData: FormData) {
@@ -478,10 +479,7 @@ export async function updateCustomerFromForm(storeId: string, customerId: string
 }
 
 export async function deleteCustomer(storeId: string, customerId: string) {
-  const supabase = createSupabaseAdminClient();
-  if (!supabase) return;
-  const resolved = await resolveStoreForRead(supabase, storeId);
-  await supabase.from("customers").delete().eq("store_id", resolved.storeId).eq("id", customerId);
+  await setStoreEntityArchived(storeId, "customer", customerId, true);
 }
 
 export async function createDocumentFromForm(storeId: string, kind: DocumentKind, formData: FormData) {
@@ -599,15 +597,5 @@ export async function updateDocumentFromForm(storeId: string, documentId: string
 }
 
 export async function deleteDocument(storeId: string, documentId: string, kind: DocumentKind) {
-  const supabase = createSupabaseAdminClient();
-  if (!supabase) return;
-  const resolved = await resolveStoreForRead(supabase, storeId);
-  await supabase.from(kind).delete().eq("store_id", resolved.storeId).eq("id", documentId);
-  await logAuditEvent({
-    storeId,
-    actionType: kind === "estimates" ? "estimate_deleted" : "invoice_deleted",
-    targetType: kind === "estimates" ? "estimate" : "invoice",
-    targetId: documentId,
-    message: `${kind} を削除しました。`
-  });
+  await setStoreEntityArchived(storeId, kind === "estimates" ? "estimate" : "invoice", documentId, true);
 }

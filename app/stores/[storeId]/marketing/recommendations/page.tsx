@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listAiRecommendations } from "@/lib/phase3/marketing-data";
 import { getStore } from "@/lib/stores";
 import { generateMonthlyRecommendationAction } from "../actions";
+import { archiveStoreEntityAction } from "../../archive-actions";
 
 function thisMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -18,7 +20,7 @@ export default async function RecommendationsPage({
   searchParams
 }: {
   params: Promise<{ storeId: string }>;
-  searchParams: Promise<{ error?: string | string[] }>;
+  searchParams: Promise<{ error?: string | string[]; archived?: string }>;
 }) {
   const { storeId } = await params;
   const query = await searchParams;
@@ -38,6 +40,7 @@ export default async function RecommendationsPage({
       <PageHeader eyebrow={industry.name} title={labels.title} description={`${labels.subject}をもとに来月の集客テーマを作ります。`} />
       <StoreBusinessNav store={store} />
       {error ? <div className="notice danger">{decodeURIComponent(error)}</div> : null}
+      {query.archived ? <p className="notice success">AI改善提案をアーカイブしました。</p> : null}
       <form className="card form" action={generateMonthlyRecommendationAction.bind(null, store.id)}>
         <div className="field">
           <label htmlFor="month">対象月</label>
@@ -64,7 +67,7 @@ export default async function RecommendationsPage({
                 <td>{recommendation.month}</td>
                 <td><span className="badge">{recommendation.status === "active" ? "有効" : "保管"}</span></td>
                 <td>{new Date(recommendation.created_at).toLocaleDateString("ja-JP")}</td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/marketing/recommendations/${recommendation.id}`}>詳細</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/marketing/recommendations/${recommendation.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "ai_recommendation", recommendation.id, `/stores/${store.id}/marketing/recommendations`)}><ConfirmSubmitButton message={`AI改善提案「${recommendation.title}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {recommendations.length === 0 ? <tr><td colSpan={5}>まだAI改善提案がありません。</td></tr> : null}

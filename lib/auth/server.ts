@@ -13,6 +13,7 @@ export type CurrentUserAccess = {
   email: string | null;
   role: string;
   organizationIds: string[];
+  organizationRoles: Record<string, string>;
   isPlatformAdmin: boolean;
 };
 
@@ -40,20 +41,34 @@ export const getCurrentUserAccess = cache(async (): Promise<CurrentUserAccess | 
   if (!supabase) return null;
 
   const [profileResult, membershipsResult] = await Promise.all([
-    supabase.from("user_profiles").select("role").eq("user_id", user.id).maybeSingle(),
-    supabase.from("organization_members").select("organization_id").eq("user_id", user.id)
+    supabase.from("user_profiles").select("role, status, archived_at").eq("user_id", user.id).maybeSingle(),
+    supabase.from("organization_members").select("organization_id, role_key, status, archived_at").eq("user_id", user.id)
   ]);
 
+  if (profileResult.data?.status === "archived" || profileResult.data?.archived_at) return null;
+
   const role = String(profileResult.data?.role ?? "user");
-  const organizationIds = (membershipsResult.data ?? [])
+  const activeMemberships = (membershipsResult.data ?? []).filter((item) => item.status !== "archived" && !item.archived_at);
+  const membershipOrganizationIds = activeMemberships
     .map((item) => String(item.organization_id ?? ""))
     .filter(Boolean);
+  const { data: activeOrganizations } = membershipOrganizationIds.length > 0
+    ? await supabase.from("organizations").select("id").in("id", membershipOrganizationIds).neq("status", "archived").is("archived_at", null)
+    : { data: [] as Array<{ id: string }> };
+  const organizationIds = (activeOrganizations ?? []).map((organization) => String(organization.id));
+  const activeOrganizationSet = new Set(organizationIds);
+  const organizationRoles = Object.fromEntries(
+    activeMemberships
+      .filter((membership) => activeOrganizationSet.has(String(membership.organization_id)))
+      .map((membership) => [String(membership.organization_id), String(membership.role_key ?? "staff")])
+  );
 
   return {
     userId: user.id,
     email: user.email ?? null,
     role,
     organizationIds,
+    organizationRoles,
     isPlatformAdmin: role === "platform_admin"
   };
 });
@@ -70,4 +85,11 @@ export async function canAccessOrganization(organizationId: string) {
   if (!access) return false;
   if (access.isPlatformAdmin) return true;
   return access.organizationIds.includes(organizationId);
+}
+
+export async function canManageOrganization(organizationId: string) {
+  const access = await getCurrentUserAccess();
+  if (!access) return false;
+  if (access.isPlatformAdmin) return true;
+  return access.organizationRoles[organizationId] === "org_owner";
 }

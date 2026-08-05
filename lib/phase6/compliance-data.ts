@@ -115,6 +115,7 @@ export async function listOrders(storeId: string): Promise<BusinessOrder[]> {
     .from("orders")
     .select("*, customer:customers(name, company_name), estimate:estimates(document_number, title, total), invoice:invoices(document_number, title, total)")
     .eq("store_id", resolved.storeId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
   return (data ?? []) as BusinessOrder[];
 }
@@ -128,6 +129,7 @@ export async function getOrder(storeId: string, orderId: string): Promise<Busine
     .select("*, customer:customers(name, company_name), estimate:estimates(document_number, title, total), invoice:invoices(document_number, title, total)")
     .eq("store_id", resolved.storeId)
     .eq("id", orderId)
+    .is("archived_at", null)
     .maybeSingle();
   return data as BusinessOrder | null;
 }
@@ -586,7 +588,7 @@ export async function getSubsidyImpactReport(storeId: string) {
   }
   const resolved = await resolveStore(supabase, storeId);
   const [invoices, sales, payments, aiLogs, pdfIssues, exports, googleJobs] = await Promise.all([
-    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
+    supabase.from("invoices").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId).is("archived_at", null),
     supabase.from("sales_transactions").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
     supabase.from("payments").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
     supabase.from("ai_generation_logs").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
@@ -648,6 +650,7 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
     .from("invoices")
     .select("*, customer:customers(name)")
     .eq("store_id", resolved.storeId)
+      .is("archived_at", null)
       .order("issue_date", { ascending: false }),
     supabase
       .from("sales_transactions")

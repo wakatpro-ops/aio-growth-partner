@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listDocuments } from "@/lib/phase2/business-data";
 import { documentStatusLabels, labelFor, paymentStatusLabels } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
+import { archiveStoreEntityAction } from "../archive-actions";
 
-export default async function InvoicesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function InvoicesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; archived?: string }> }) {
   const { storeId } = await params;
   const { saved } = await searchParams;
   const store = await getStore(storeId);
@@ -24,6 +26,7 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">請求書を保存しました。入金管理や会計CSVに使える情報が増えました。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">請求書をアーカイブしました。入金・PDF・監査履歴は保持されています。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -46,7 +49,7 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
                 <td>{invoice.total.toLocaleString("ja-JP")}円</td>
                 <td><span className="badge">{labelFor(documentStatusLabels, invoice.status)}</span></td>
                 <td><span className="badge">{labelFor(paymentStatusLabels, invoice.payment_status)}</span></td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}`}>編集</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "invoice", invoice.id, `/stores/${store.id}/invoices`)}><ConfirmSubmitButton message={`請求書「${invoice.document_number}」をアーカイブします。会計・監査履歴は保持されます。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {invoices.length === 0 ? <tr><td colSpan={7}>まだ登録がありません。最初の請求書を作ると、入金管理と売上確認を始められます。</td></tr> : null}

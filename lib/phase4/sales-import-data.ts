@@ -178,6 +178,7 @@ export async function listImportJobs(storeId: string): Promise<DataImportJob[]> 
     .from("data_import_jobs")
     .select("*, data_source:external_data_sources(name, provider_key)")
     .eq("store_id", resolved.storeId)
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
   return (data ?? []) as DataImportJob[];
 }
@@ -191,6 +192,7 @@ export async function getImportJob(storeId: string, importJobId: string) {
     .select("*, data_source:external_data_sources(name, provider_key)")
     .eq("store_id", resolved.storeId)
     .eq("id", importJobId)
+    .is("archived_at", null)
     .single();
   if (!job) return null;
 

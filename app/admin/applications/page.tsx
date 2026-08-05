@@ -1,17 +1,22 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import {
   accountStatusLabels,
+  archiveApplicationAction,
   applicationStatusLabel,
   approvalStatusLabels,
   billingStatusLabels,
   listApplications,
-  paymentStatusLabels
+  paymentStatusLabels,
+  restoreApplicationAction
 } from "@/lib/admin/applications";
 
-export default async function AdminApplicationsPage() {
-  const applications = await listApplications();
+export default async function AdminApplicationsPage({ searchParams }: { searchParams: Promise<{ view?: string; archived?: string; restored?: string }> }) {
+  const query = await searchParams;
+  const showArchived = query.view === "archived";
+  const applications = await listApplications({ includeArchived: showArchived });
   const activeApplications = applications.filter((item) => !["account_issued", "declined"].includes(item.status));
   const paid = applications.filter((item) => item.payment_status === "paid" || item.status === "payment_confirmed").length;
   const approved = applications.filter((item) => item.approval_status === "approved" || item.status === "approved" || item.status === "account_issued").length;
@@ -23,6 +28,9 @@ export default async function AdminApplicationsPage() {
         description="公開フォームからの問い合わせを、説明、請求、入金確認、承認、アカウント発行まで管理します。"
         action={<Link className="button secondary" href="/apply">公開フォームを確認</Link>}
       />
+      {query.archived ? <p className="notice success">申込をアーカイブしました。</p> : null}
+      {query.restored ? <p className="notice success">申込を復元しました。</p> : null}
+      <div className="button-row"><Link className={`button ${showArchived ? "secondary" : ""}`} href="/admin/applications">対応中・完了</Link><Link className={`button ${showArchived ? "" : "secondary"}`} href="/admin/applications?view=archived">アーカイブ済み</Link></div>
       <section className="grid cols-4">
         <article className="card"><p className="muted">総申込</p><div className="metric">{applications.length}</div></article>
         <article className="card"><p className="muted">営業対応中</p><div className="metric">{activeApplications.length}</div></article>
@@ -67,7 +75,7 @@ export default async function AdminApplicationsPage() {
                 <td>{paymentStatusLabels[application.payment_status ?? "unpaid"] ?? application.payment_status ?? "未入金"}</td>
                 <td>{approvalStatusLabels[application.approval_status ?? "pending"] ?? application.approval_status ?? "未承認"}</td>
                 <td>{accountStatusLabels[application.account_status ?? "not_created"] ?? application.account_status ?? "未発行"}</td>
-                <td><Link className="button secondary" href={`/admin/applications/${application.id}`}>詳細</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/admin/applications/${application.id}`}>詳細</Link>{showArchived ? <form action={restoreApplicationAction.bind(null, application.id)}><button className="button secondary" type="submit">復元</button></form> : <form action={archiveApplicationAction.bind(null, application.id)}><ConfirmSubmitButton message={`「${application.store_name}」の申込をアーカイブします。営業履歴・発行済み店舗・ユーザーは削除されません。`}>アーカイブ</ConfirmSubmitButton></form>}</div></td>
               </tr>
             ))}
           </tbody>
