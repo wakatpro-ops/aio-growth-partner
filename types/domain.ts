@@ -150,6 +150,8 @@ export type Store = {
   profile_data: Record<string, unknown>;
   feature_flags: FeatureFlags;
   status: "active" | "inactive";
+  archived_at?: string | null;
+  archived_by?: string | null;
 };
 
 export type AiTemplateKey =

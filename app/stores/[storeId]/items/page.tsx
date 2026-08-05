@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listBusinessItems } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
+import { archiveStoreEntityAction } from "../archive-actions";
 
-export default async function ItemsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function ItemsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; archived?: string }> }) {
   const { storeId } = await params;
   const { saved } = await searchParams;
   const store = await getStore(storeId);
@@ -23,6 +25,7 @@ export default async function ItemsPage({ params, searchParams }: { params: Prom
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">保存しました。AIOは商品・サービス名を、見積作成や投稿提案に反映しやすくなりました。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">商品・サービスをアーカイブしました。</p> : null}
       <p className="notice success">
         {items.length > 0
           ? `${industry.businessLabels.item}が入ったため、AIは見積作成や投稿提案に具体的なメニュー名を反映できます。`
@@ -48,7 +51,7 @@ export default async function ItemsPage({ params, searchParams }: { params: Prom
                 <td>{item.unit_price.toLocaleString("ja-JP")}円 / {item.unit}</td>
                 <td>{item.is_stock_managed ? "管理する" : "対象外"}</td>
                 <td>{item.status === "active" ? "有効" : "停止"}</td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/items/${item.id}`}>編集</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/items/${item.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "item", item.id, `/stores/${store.id}/items`)}><ConfirmSubmitButton message={`「${item.name}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {items.length === 0 ? (

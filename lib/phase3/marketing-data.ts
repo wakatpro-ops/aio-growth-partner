@@ -132,7 +132,7 @@ export async function listMarketingDrafts(storeId: string): Promise<MarketingDra
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [];
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data } = await supabase.from("marketing_drafts").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false });
+  const { data } = await supabase.from("marketing_drafts").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false });
   return (data ?? []) as MarketingDraft[];
 }
 
@@ -140,7 +140,7 @@ export async function getMarketingDraft(storeId: string, draftId: string): Promi
   const supabase = createSupabaseAdminClient();
   if (!supabase) return null;
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data } = await supabase.from("marketing_drafts").select("*").eq("store_id", resolved.storeId).eq("id", draftId).single();
+  const { data } = await supabase.from("marketing_drafts").select("*").eq("store_id", resolved.storeId).eq("id", draftId).is("archived_at", null).single();
   return data as MarketingDraft | null;
 }
 
@@ -251,7 +251,7 @@ export async function listAiRecommendations(storeId: string): Promise<AiRecommen
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [];
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data } = await supabase.from("ai_recommendations").select("*").eq("store_id", resolved.storeId).order("created_at", { ascending: false });
+  const { data } = await supabase.from("ai_recommendations").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false });
   return (data ?? []) as AiRecommendation[];
 }
 
@@ -259,7 +259,7 @@ export async function getAiRecommendation(storeId: string, recommendationId: str
   const supabase = createSupabaseAdminClient();
   if (!supabase) return null;
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data } = await supabase.from("ai_recommendations").select("*").eq("store_id", resolved.storeId).eq("id", recommendationId).single();
+  const { data } = await supabase.from("ai_recommendations").select("*").eq("store_id", resolved.storeId).eq("id", recommendationId).is("archived_at", null).single();
   return data as AiRecommendation | null;
 }
 

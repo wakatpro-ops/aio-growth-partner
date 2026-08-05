@@ -4,11 +4,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listSalesAiReports } from "@/lib/phase4/sales-ai-report";
 import { getStore } from "@/lib/stores";
 import { generateSalesAiReportAction } from "./actions";
+import { archiveStoreEntityAction } from "../../../archive-actions";
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
@@ -23,10 +25,10 @@ export default async function SalesAiReportsPage({
   searchParams
 }: {
   params: Promise<{ storeId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; archived?: string }>;
 }) {
   const { storeId } = await params;
-  const { error } = await searchParams;
+  const { error, archived } = await searchParams;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "sales_ai_report")) notFound();
@@ -45,6 +47,7 @@ export default async function SalesAiReportsPage({
       <StoreBusinessNav store={store} />
 
       {error ? <p className="notice error">{decodeURIComponent(error)}</p> : null}
+      {archived ? <p className="notice success">AI月次売上レポートをアーカイブしました。</p> : null}
 
       <section className="card">
         <h3>AI月次レポートを生成</h3>
@@ -73,7 +76,7 @@ export default async function SalesAiReportsPage({
                 <td>{formatCurrency(report.summary_metrics.totalSales)}</td>
                 <td>{report.summary_metrics.transactionCount.toLocaleString("ja-JP")}件</td>
                 <td>{new Date(report.created_at).toLocaleDateString("ja-JP")}</td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/sales/reports/monthly-ai/${report.id}`}>詳細</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/sales/reports/monthly-ai/${report.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "sales_ai_report", report.id, `/stores/${store.id}/sales/reports/monthly-ai`)}><ConfirmSubmitButton message={`AI月次売上レポート「${report.title}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {reports.length === 0 ? <tr><td colSpan={6}>まだAI月次レポートがありません。対象月を選んで生成してください。</td></tr> : null}

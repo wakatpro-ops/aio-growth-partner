@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { listCustomers } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
+import { archiveStoreEntityAction } from "../archive-actions";
 
-export default async function CustomersPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string }> }) {
+export default async function CustomersPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; archived?: string }> }) {
   const { storeId } = await params;
   const { saved } = await searchParams;
   const store = await getStore(storeId);
@@ -23,6 +25,7 @@ export default async function CustomersPage({ params, searchParams }: { params: 
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">保存しました。AIOは顧客傾向を、再来店案内やフォロー文の提案に使いやすくなりました。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">顧客をアーカイブしました。</p> : null}
       <p className="notice success">
         {customers.length > 0
           ? `${industry.businessLabels.customer}が入ったため、AIは再来店案内やフォロー文の提案に顧客傾向を反映できます。`
@@ -44,7 +47,7 @@ export default async function CustomersPage({ params, searchParams }: { params: 
                 <td>{customer.name}<br /><span className="muted">{customer.company_name}</span></td>
                 <td>{customer.email}<br />{customer.phone}</td>
                 <td>{Object.values(customer.vehicle_info ?? {}).filter(Boolean).join(" / ")}</td>
-                <td><Link className="button secondary" href={`/stores/${store.id}/customers/${customer.id}`}>編集</Link></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/customers/${customer.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "customer", customer.id, `/stores/${store.id}/customers`)}><ConfirmSubmitButton message={`「${customer.name}」をアーカイブします。過去の見積・請求との関連は保持されます。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {customers.length === 0 ? <tr><td colSpan={4}>まだ登録がありません。最初の顧客を追加すると、見積・請求とフォロー提案の土台になります。</td></tr> : null}

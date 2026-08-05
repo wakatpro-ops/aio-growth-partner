@@ -34,6 +34,7 @@ export type GrowthAction = {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
   drafts?: GrowthActionDraft[];
   schedule_items?: GrowthActionScheduleItem[];
   approvals?: GrowthActionApproval[];

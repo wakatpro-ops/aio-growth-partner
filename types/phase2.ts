@@ -32,6 +32,7 @@ export type BusinessItem = {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
 };
 
 export type InventoryStock = {
@@ -58,6 +59,7 @@ export type Customer = {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
 };
 
 export type BusinessDocument = {
@@ -94,6 +96,7 @@ export type BusinessDocument = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
   customer?: Pick<Customer, "name" | "company_name" | "email" | "phone"> | null;
 };
 
@@ -131,6 +134,7 @@ export type BusinessOrder = {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  archived_at?: string | null;
   customer?: Pick<Customer, "name" | "company_name"> | null;
   estimate?: Pick<BusinessDocument, "document_number" | "title" | "total"> | null;
   invoice?: Pick<BusinessDocument, "document_number" | "title" | "total"> | null;

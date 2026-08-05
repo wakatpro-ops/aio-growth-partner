@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { CustomerForm } from "@/components/phase2/customer-form";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { getCustomer } from "@/lib/phase2/business-data";
@@ -20,7 +21,7 @@ export default async function CustomerDetailPage({ params }: { params: Promise<{
       <PageHeader eyebrow={industry.name} title={customer.name} description={`${industry.businessLabels.customer}情報を編集します。`} />
       <CustomerForm action={updateCustomerAction.bind(null, store.id, customer.id)} customer={customer} showVehicle={store.industry_type_key === "auto_repair"} />
       <form action={deleteCustomerAction.bind(null, store.id, customer.id)} className="danger-zone">
-        <button className="button danger" type="submit">削除</button>
+        <ConfirmSubmitButton message={`「${customer.name}」をアーカイブします。過去の見積・請求との関連は保持され、アーカイブ管理から復元できます。`}>アーカイブ</ConfirmSubmitButton>
       </form>
     </AppShell>
   );

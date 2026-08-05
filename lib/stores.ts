@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { notFound, redirect } from "next/navigation";
 import { getIndustryConfig } from "@/config/industries";
-import { canAccessOrganization, getCurrentUserAccess } from "@/lib/auth/server";
+import { canAccessOrganization, canManageOrganization, getCurrentUserAccess } from "@/lib/auth/server";
 import { normalizeIndustryTypeKey } from "@/lib/applications/options";
 import { demoStores, getDemoStore } from "@/lib/industry/demo-data";
 import { isDemoStore } from "@/lib/mvp/status";
@@ -22,18 +22,21 @@ export type OnboardingSnapshot = {
   updated_at: string;
 };
 
-export async function listStores(): Promise<Store[]> {
+export async function listStores({ includeArchived = false, includeDemo = false }: { includeArchived?: boolean; includeDemo?: boolean } = {}): Promise<Store[]> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
     return demoStores;
   }
 
-  const { data, error } = await supabase.from("stores").select("*").order("created_at", { ascending: false });
-  if (error || !data || data.length === 0) {
-    return demoStores;
+  let query = supabase.from("stores").select("*").order("created_at", { ascending: false });
+  if (!includeArchived) query = query.is("archived_at", null);
+  const { data, error } = await query;
+  if (error) {
+    console.error("店舗一覧を取得できませんでした", error.message);
+    return [];
   }
 
-  const stores = data as Store[];
+  const stores = ((data ?? []) as Store[]).filter((store) => includeDemo || !isDemoStore(store));
   const access = await getCurrentUserAccess();
   if (!access) {
     return [];
@@ -41,7 +44,7 @@ export async function listStores(): Promise<Store[]> {
   if (access.isPlatformAdmin) {
     return stores;
   }
-  return stores.filter((store) => !isDemoStore(store) && access.organizationIds.includes(store.organization_id));
+  return stores.filter((store) => access.organizationIds.includes(store.organization_id));
 }
 
 export async function listProductionStores(): Promise<Store[]> {
@@ -55,7 +58,7 @@ export async function getStore(storeId: string): Promise<Store> {
     return getDemoStore(storeId);
   }
 
-  const { data, error } = await supabase.from("stores").select("*").eq("id", storeId).single();
+  const { data, error } = await supabase.from("stores").select("*").eq("id", storeId).is("archived_at", null).single();
   if (error || !data) {
     if (demoStores.some((store) => store.id === storeId)) {
       return getDemoStore(storeId);
@@ -77,6 +80,55 @@ export async function getStore(storeId: string): Promise<Store> {
   }
 
   return store;
+}
+
+export async function archiveStore(storeId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const access = await getCurrentUserAccess();
+  if (!access) throw new Error("ログインが必要です。");
+
+  const { data: store, error: readError } = await supabase
+    .from("stores")
+    .select("id, organization_id, name, archived_at")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (readError || !store) throw new Error("店舗が見つかりません。");
+  if (!(await canManageOrganization(String(store.organization_id)))) {
+    throw new Error("店舗をアーカイブできるのは組織オーナーまたは運営管理者だけです。");
+  }
+  if (store.archived_at) return;
+
+  const { error } = await supabase.from("stores").update({
+    archived_at: new Date().toISOString(),
+    archived_by: access.userId,
+    updated_at: new Date().toISOString()
+  }).eq("id", storeId).is("archived_at", null);
+  if (error) throw new Error(`店舗をアーカイブできませんでした: ${error.message}`);
+}
+
+export async function restoreStore(storeId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const access = await getCurrentUserAccess();
+  if (!access) throw new Error("ログインが必要です。");
+
+  const { data: store, error: readError } = await supabase
+    .from("stores")
+    .select("id, organization_id")
+    .eq("id", storeId)
+    .maybeSingle();
+  if (readError || !store) throw new Error("店舗が見つかりません。");
+  if (!(await canManageOrganization(String(store.organization_id)))) {
+    throw new Error("店舗を復元できるのは組織オーナーまたは運営管理者だけです。");
+  }
+
+  const { error } = await supabase.from("stores").update({
+    archived_at: null,
+    archived_by: null,
+    updated_at: new Date().toISOString()
+  }).eq("id", storeId);
+  if (error) throw new Error(`店舗を復元できませんでした: ${error.message}`);
 }
 
 export async function getStoreOnboardingSnapshot(storeId: string): Promise<OnboardingSnapshot | null> {
@@ -125,13 +177,13 @@ export async function getMvpWorkspaceSummary() {
       ? supabase.from("ai_generation_logs").select("id", { count: "exact", head: true }).eq("organization_id", organizationId)
       : Promise.resolve({ count: 0 }),
     organizationId
-      ? supabase.from("data_import_jobs").select("id", { count: "exact", head: true }).eq("organization_id", organizationId)
+      ? supabase.from("data_import_jobs").select("id", { count: "exact", head: true }).eq("organization_id", organizationId).is("archived_at", null)
       : Promise.resolve({ count: 0 }),
     organizationId
-      ? supabase.from("invoices").select("id", { count: "exact", head: true }).eq("organization_id", organizationId)
+      ? supabase.from("invoices").select("id", { count: "exact", head: true }).eq("organization_id", organizationId).is("archived_at", null)
       : Promise.resolve({ count: 0 }),
     organizationId
-      ? supabase.from("growth_actions").select("id", { count: "exact", head: true }).eq("organization_id", organizationId)
+      ? supabase.from("growth_actions").select("id", { count: "exact", head: true }).eq("organization_id", organizationId).is("archived_at", null)
       : Promise.resolve({ count: 0 })
   ]);
 

@@ -590,6 +590,7 @@ export async function sendInvoicesAndPaymentsToFreee(storeId: string) {
     .from("invoices")
     .select("*, customer:customers(name, company_name)")
     .eq("store_id", resolved.storeId)
+    .is("archived_at", null)
     .order("issue_date", { ascending: true })
     .limit(50);
   if (error) throw new Error(`請求書を確認できませんでした: ${error.message}`);

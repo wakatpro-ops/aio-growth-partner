@@ -19,6 +19,7 @@ export function StoreBusinessNav({ store }: { store: Store }) {
     { href: `/stores/${store.id}/accounting/exports`, label: "会計CSV", feature: "accounting_csv_export" },
     { href: `/stores/${store.id}/accounting/receipts`, label: "経費レシート", feature: "expense_receipt_ai" },
     { href: `/stores/${store.id}/settings`, label: "店舗AI設定", feature: "__always_on" },
+    { href: `/stores/${store.id}/archives`, label: "アーカイブ管理", feature: "__always_on" },
     { href: `/stores/${store.id}/settings/integrations`, label: "外部連携", feature: "store_integrations" },
     { href: `/stores/${store.id}/settings/invoice`, label: "請求書設定", feature: "invoice_compliance" },
     { href: `/stores/${store.id}/audit-logs`, label: "証跡ログ", feature: "audit_logs" },

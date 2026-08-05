@@ -73,7 +73,11 @@ function headlineFor(score: number) {
 async function countRows(table: string, storeId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return 0;
-  const { count } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("store_id", readStoreId(storeId));
+  let query = supabase.from(table).select("id", { count: "exact", head: true }).eq("store_id", readStoreId(storeId));
+  if (["items", "customers", "invoices", "data_import_jobs", "growth_actions"].includes(table)) {
+    query = query.is("archived_at", null);
+  }
+  const { count } = await query;
   return count ?? 0;
 }
 

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { ItemForm } from "@/components/phase2/item-form";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { getBusinessItem } from "@/lib/phase2/business-data";
@@ -20,7 +21,7 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ sto
       <PageHeader eyebrow={industry.name} title={item.name} description={`${industry.businessLabels.item}の内容を編集します。`} />
       <ItemForm action={updateItemAction.bind(null, store.id, item.id)} item={item} labels={industry.businessLabels} />
       <form action={deleteItemAction.bind(null, store.id, item.id)} className="danger-zone">
-        <button className="button danger" type="submit">削除</button>
+        <ConfirmSubmitButton message={`「${item.name}」をアーカイブします。見積などの過去データは保持され、アーカイブ管理から復元できます。`}>アーカイブ</ConfirmSubmitButton>
       </form>
     </AppShell>
   );
