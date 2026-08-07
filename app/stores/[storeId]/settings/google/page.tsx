@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
@@ -10,9 +11,9 @@ import { getStore } from "@/lib/stores";
 import { disconnectGoogleAction } from "../../growth-actions/actions";
 
 const services = [
-  { href: "business-profile", label: "Googleビジネスプロフィール", description: "Google検索・マップ向け投稿とロケーション選択の準備" },
-  { href: "gmail", label: "Gmail", description: "既存顧客案内メールの下書き作成準備" },
-  { href: "calendar", label: "Googleカレンダー", description: "投稿・配信・点検案内の予定作成準備" }
+  { href: "business-profile", label: "Googleビジネスプロフィール", description: "Google検索・マップ向け投稿とロケーション選択の準備", requiredScope: "https://www.googleapis.com/auth/business.manage" },
+  { href: "gmail", label: "Gmail", description: "既存顧客案内メールの下書き作成準備", requiredScope: "https://www.googleapis.com/auth/gmail.compose" },
+  { href: "calendar", label: "Googleカレンダー", description: "投稿・配信・点検案内の予定作成準備", requiredScope: "https://www.googleapis.com/auth/calendar.events" }
 ];
 
 function dateTime(value: string | null | undefined) {
@@ -35,6 +36,7 @@ function actionTypeLabel(actionType: string) {
   const labels: Record<string, string> = {
     google_oauth_started: "Google接続開始",
     google_oauth_connected: "Google接続保存",
+    google_oauth_disconnected: "Google接続解除",
     google_token_refreshed: "トークン更新",
     gmail_draft_created: "Gmail下書き作成",
     gmail_draft_failed: "Gmail下書き失敗",
@@ -49,10 +51,10 @@ export default async function GoogleSettingsPage({
   searchParams
 }: {
   params: Promise<{ storeId: string }>;
-  searchParams: Promise<{ error?: string; connected?: string }>;
+  searchParams: Promise<{ error?: string; connected?: string; disconnected?: string }>;
 }) {
   const { storeId } = await params;
-  const { error, connected } = await searchParams;
+  const { error, connected, disconnected } = await searchParams;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "google_integrations")) notFound();
@@ -62,9 +64,10 @@ export default async function GoogleSettingsPage({
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="Google連携" description="Googleビジネスプロフィール、Gmail、カレンダーへ安全に連携するための準備画面です。" />
+      <PageHeader eyebrow={industry.name} title="Google連携" description="Googleビジネスプロフィールを中心に、審査済みの権限だけを安全に接続します。" />
       <StoreBusinessNav store={store} />
       {connected ? <p className="notice success">Google接続を保存しました。</p> : null}
+      {disconnected ? <p className="notice success">Google連携を解除し、保存されていたOAuthトークンを削除しました。</p> : null}
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
 
       <section className="card">
@@ -86,19 +89,25 @@ export default async function GoogleSettingsPage({
         <div className="form-actions">
           <Link className="button" href={`/api/google/oauth/start?storeId=${store.id}`}>Googleに接続</Link>
           <form action={disconnectGoogleAction.bind(null, store.id)}>
-            <button className="button secondary" type="submit">接続解除</button>
+            <ConfirmSubmitButton message="Google連携を解除します。AIO boostに保存されたGoogle OAuthトークンは削除され、Google機能を利用できなくなります。よろしいですか？">Google連携を解除</ConfirmSubmitButton>
           </form>
         </div>
+        <p className="muted">連携を解除すると、Google側への権限取消を試み、AIO boostに保存されたGoogle OAuthトークンを削除します。操作履歴は監査のため保持されます。</p>
       </section>
 
       <section className="grid cols-3">
-        {services.map((service) => (
-          <article className="card" key={service.href}>
-            <h3>{service.label}</h3>
-            <p>{service.description}</p>
-            <Link className="button secondary" href={`/stores/${store.id}/settings/google/${service.href}`}>設定を見る</Link>
-          </article>
-        ))}
+        {services.map((service) => {
+          const enabled = state.scopes.includes(service.requiredScope);
+          return (
+            <article className="card" key={service.href}>
+              <h3>{service.label}</h3>
+              <p>{service.description}</p>
+              {enabled
+                ? <Link className="button secondary" href={`/stores/${store.id}/settings/google/${service.href}`}>設定を見る</Link>
+                : <><span className="badge">審査準備中</span><p className="muted">現在の本番Google接続では、この権限を要求しません。</p></>}
+            </article>
+          );
+        })}
       </section>
 
       <section className="card">

@@ -107,19 +107,19 @@ async function ensureGooglePersistence(supabase: SupabaseClient, store: Store) {
   return resolved;
 }
 
+export const GOOGLE_PRODUCTION_REVIEW_SCOPES = [
+  "openid",
+  "email",
+  "profile",
+  "https://www.googleapis.com/auth/business.manage"
+] as const;
+
 export function googleScopes() {
   const configured = process.env.GOOGLE_OAUTH_SCOPES;
   if (configured) {
     return configured.split(/[\s,]+/).map((scope) => scope.trim()).filter(Boolean);
   }
-  return [
-    "openid",
-    "email",
-    "profile",
-    "https://www.googleapis.com/auth/business.manage",
-    "https://www.googleapis.com/auth/gmail.compose",
-    "https://www.googleapis.com/auth/calendar.events"
-  ];
+  return [...GOOGLE_PRODUCTION_REVIEW_SCOPES];
 }
 
 function hasGoogleOAuthEnv() {
@@ -504,13 +504,59 @@ export async function disconnectGoogle(storeId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
+  const connection = await latestConnectedGoogleAccount(supabase, resolved.storeId);
+  let revokeAttempted = false;
+  let revokeSucceeded = false;
+  let revokeStatus: number | null = null;
+
+  if (connection) {
+    try {
+      const token = decryptToken(connection.refresh_token_encrypted) ?? decryptToken(connection.access_token_encrypted);
+      if (token) {
+        revokeAttempted = true;
+        const response = await fetch("https://oauth2.googleapis.com/revoke", {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ token })
+        });
+        revokeSucceeded = response.ok;
+        revokeStatus = response.status;
+      }
+    } catch {
+      revokeAttempted = true;
+      revokeSucceeded = false;
+    }
+  }
+
   const { error } = await supabase
     .from("google_oauth_connections")
-    .update({ status: "disconnected", disconnected_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .update({
+      status: "disconnected",
+      access_token_encrypted: null,
+      refresh_token_encrypted: null,
+      expires_at: null,
+      disconnected_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
     .eq("store_id", resolved.storeId)
     .in("status", ["connected", "expired", "error"]);
   if (error) throw new Error(`Google接続を解除できませんでした: ${error.message}`);
-  await logIntegration(supabase, resolved, "disconnect", "success", "Google接続を解除しました。");
+  const remoteRevocationWarning = revokeAttempted && !revokeSucceeded;
+  await logIntegration(
+    supabase,
+    resolved,
+    "google_oauth_disconnected",
+    remoteRevocationWarning ? "warning" : "success",
+    remoteRevocationWarning
+      ? "Googleへの権限取消結果を確認できませんでしたが、AIO boostに保存されたGoogle tokenは削除しました。Googleアカウント側でも接続を確認してください。"
+      : "Google接続を解除し、保存されたGoogle tokenを削除しました。",
+    {
+      connection_id: connection?.id ?? null,
+      remote_revoke_attempted: revokeAttempted,
+      remote_revoke_succeeded: revokeSucceeded,
+      remote_revoke_status: revokeStatus
+    }
+  );
 }
 
 export async function upsertGoogleBusinessProfile(storeId: string, formData: FormData) {

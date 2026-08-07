@@ -496,7 +496,8 @@ Vercel設定:
 
 - Google Cloud ConsoleのOAuth callback URLは、Vercel本番URLの `/api/google/oauth/callback` を指定します。
 - Vercel Environment Variablesに上記のGoogle環境変数を設定します。
-- `GOOGLE_OAUTH_SCOPES` を空にした場合は、`openid email profile business.manage gmail.compose calendar.events` 相当のデフォルトスコープを使います。
+- `GOOGLE_OAUTH_SCOPES` を空にした場合は、初回本番審査向けに `openid email profile business.manage` 相当の最小スコープを使います。
+- `gmail.compose` は制限付きスコープ、`calendar.events` は機密性の高いスコープとして別段階で扱います。stagingでのみ明示追加し、初回本番審査には含めません。
 
 Supabase更新:
 
@@ -524,7 +525,7 @@ Vercelに入れる値:
 GOOGLE_CLIENT_ID=Google Cloudで取得したClient ID
 GOOGLE_CLIENT_SECRET=Google Cloudで取得したClient Secret
 GOOGLE_REDIRECT_URI=https://app.aioboost.jp/api/google/oauth/callback
-GOOGLE_OAUTH_SCOPES=openid email profile https://www.googleapis.com/auth/business.manage https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/calendar.events
+GOOGLE_OAUTH_SCOPES=openid email profile https://www.googleapis.com/auth/business.manage
 GOOGLE_TOKEN_ENCRYPTION_KEY=ランダムな長い文字列
 ```
 
@@ -533,6 +534,16 @@ Google OAuthの本番運用URL:
 - JavaScript生成元: `https://app.aioboost.jp`
 - Redirect URI: `https://app.aioboost.jp/api/google/oauth/callback`
 - 旧Redirect URI: `https://aio-growth-partner.vercel.app/api/google/oauth/callback`
+
+Google審査用の公開情報:
+
+- 運営会社: 株式会社 Navi Life
+- 公式サイト: `https://aioboost.jp/`
+- 利用規約: `https://app.aioboost.jp/terms`
+- プライバシーポリシー: `https://app.aioboost.jp/privacy`
+- 問い合わせ先: `info@aioboost.jp`
+- Google連携解除は店舗のGoogle連携画面から行い、Google側への権限取消と保存OAuthトークンの削除を実行します。
+- `pnpm check:google-review` で運営者情報、未確定表記、初回本番スコープ、連携解除処理を検査します。
 
 `GOOGLE_REDIRECT_URI` を独自ドメインへ変更した場合は、VercelでRedeployしてください。Google Cloud側に新旧両方のredirect URIを登録しておくと、切り替え期間中にGoogle連携が壊れにくくなります。
 
