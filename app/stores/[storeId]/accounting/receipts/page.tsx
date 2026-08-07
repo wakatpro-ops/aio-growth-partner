@@ -51,7 +51,7 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
       <StoreBusinessNav store={store} />
       {uploaded ? <p className="notice success">レシートを保存し、AIで内容を整理しました。内容を確認してから会計処理に利用してください。</p> : null}
       {freeeReceiptSent ? <p className="notice success">レシート候補をfreeeへ送信しました。</p> : null}
-      {archived ? <p className="notice success">経費レシートをアーカイブしました。会計連携履歴と元ファイルは保持されています。</p> : null}
+      {archived ? <p className="notice success">経費レシートを削除しました。会計連携履歴と元ファイルは保持されています。</p> : null}
       <section className="grid cols-3">
         <article className="card">
           <p className="muted">読み取り件数</p>
@@ -106,7 +106,7 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
                       </PendingSubmitButton>
                     </form>
                     <form action={archiveStoreEntityAction.bind(null, store.id, "expense_receipt", receipt.id, `/stores/${store.id}/accounting/receipts`)}>
-                      <ConfirmSubmitButton message={`${receipt.vendor_name ?? receipt.original_file_name ?? "このレシート"}をアーカイブします。会計連携履歴と元ファイルは保持されます。`}>アーカイブ</ConfirmSubmitButton>
+                      <ConfirmSubmitButton message={`${receipt.vendor_name ?? receipt.original_file_name ?? "このレシート"}を削除します。会計連携履歴と元ファイルは保持されます。`}>削除</ConfirmSubmitButton>
                     </form>
                   </td>
                 </tr>

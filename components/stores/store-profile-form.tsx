@@ -12,12 +12,12 @@ const featureLabels = [
   { key: "monthly_report", label: "月次レポート" }
 ];
 
-export function StoreProfileForm({ store }: { store: Store }) {
+export function StoreProfileForm({ store, action }: { store: Store; action: (formData: FormData) => void }) {
   const industry = getIndustryConfig(store.industry_type_key);
   const flags = resolveFeatureFlags(store);
 
   return (
-    <form className="form">
+    <form className="card form" action={action}>
       <div className="grid cols-2">
         <div className="field">
           <label htmlFor="name">店舗名</label>
@@ -85,13 +85,19 @@ export function StoreProfileForm({ store }: { store: Store }) {
           );
         })}
       </div>
-      <section className="card">
+      <section className="static-card compact">
         <h3>この店舗で使える主な機能</h3>
         <p>業態や利用状況に合わせて、日常業務と集客支援に使う機能を表示しています。</p>
         <div className="grid cols-3">
           {featureLabels.map((feature) => <span className="badge" key={feature.key}>{feature.label}: {flags[feature.key] ? "利用可" : "未設定"}</span>)}
         </div>
       </section>
+      <div className="button-row">
+        <PendingSubmitButton pendingLabel="店舗情報を保存しています...">変更を保存</PendingSubmitButton>
+        <Link className="button secondary" href={`/stores/${store.id}/settings`}>保存せず戻る</Link>
+      </div>
     </form>
   );
 }
+import Link from "next/link";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";

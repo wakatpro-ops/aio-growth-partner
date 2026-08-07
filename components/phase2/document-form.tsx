@@ -1,19 +1,23 @@
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { BusinessDocument, Customer } from "@/types/phase2";
+import type { IndustryTypeKey } from "@/types/domain";
 
 export function DocumentForm({
   action,
   document,
   customers,
-  kind
+  kind,
+  industryTypeKey
 }: {
   action: (formData: FormData) => void;
   document?: BusinessDocument | null;
   customers: Customer[];
   kind: "estimate" | "invoice";
+  industryTypeKey: IndustryTypeKey;
 }) {
   const numberPrefix = kind === "estimate" ? "EST" : "INV";
   const today = new Date().toISOString().slice(0, 10);
+  const showReducedTaxRate = industryTypeKey === "restaurant" || industryTypeKey === "retail";
 
   return (
     <form className="card form" action={action}>
@@ -103,6 +107,13 @@ export function DocumentForm({
           </>
         ) : null}
         <div className="field">
+          <label htmlFor="tax_inclusion">入力金額の扱い</label>
+          <select id="tax_inclusion" name="tax_inclusion" defaultValue={document?.tax_inclusion ?? "inclusive"}>
+            <option value="inclusive">税込（内税）</option>
+            <option value="exclusive">税抜（外税）</option>
+          </select>
+        </div>
+        <div className="field">
           <label htmlFor="subtotal">小計</label>
           <input id="subtotal" name="subtotal" type="number" min="0" step="1" defaultValue={document?.subtotal ?? 0} />
         </div>
@@ -118,20 +129,26 @@ export function DocumentForm({
           <label htmlFor="tax_10_amount">10%消費税</label>
           <input id="tax_10_amount" name="tax_10_amount" type="number" min="0" step="1" defaultValue={document?.tax_10_amount ?? document?.tax_total ?? 0} />
         </div>
-        <div className="field">
-          <label htmlFor="tax_8_subtotal">8%対象 小計</label>
-          <input id="tax_8_subtotal" name="tax_8_subtotal" type="number" min="0" step="1" defaultValue={document?.tax_8_subtotal ?? 0} />
-        </div>
-        <div className="field">
-          <label htmlFor="tax_8_amount">8%消費税</label>
-          <input id="tax_8_amount" name="tax_8_amount" type="number" min="0" step="1" defaultValue={document?.tax_8_amount ?? 0} />
-        </div>
+        {showReducedTaxRate ? (
+          <>
+            <div className="field">
+              <label htmlFor="tax_8_subtotal">軽減税率8%対象 小計</label>
+              <input id="tax_8_subtotal" name="tax_8_subtotal" type="number" min="0" step="1" defaultValue={document?.tax_8_subtotal ?? 0} />
+            </div>
+            <div className="field">
+              <label htmlFor="tax_8_amount">軽減税率8% 消費税</label>
+              <input id="tax_8_amount" name="tax_8_amount" type="number" min="0" step="1" defaultValue={document?.tax_8_amount ?? 0} />
+            </div>
+          </>
+        ) : (
+          <><input type="hidden" name="tax_8_subtotal" value={document?.tax_8_subtotal ?? 0} /><input type="hidden" name="tax_8_amount" value={document?.tax_8_amount ?? 0} /></>
+        )}
       </div>
       <div className="field">
         <label htmlFor="notes">備考</label>
         <textarea id="notes" name="notes" defaultValue={document?.notes ?? ""} />
       </div>
-      <PendingSubmitButton pendingLabel="書類を保存しています...">保存</PendingSubmitButton>
+      <PendingSubmitButton pendingLabel="書類を保存しています...">{document ? "変更を保存" : "登録して一覧へ"}</PendingSubmitButton>
     </form>
   );
 }

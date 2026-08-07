@@ -82,6 +82,36 @@ export async function getStore(storeId: string): Promise<Store> {
   return store;
 }
 
+export async function updateStoreFromForm(storeId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  if (!(await canAccessOrganization(store.organization_id))) throw new Error("この店舗を更新する権限がありません。");
+
+  const industryTypeKey = normalizeIndustryTypeKey(String(formData.get("industry") ?? store.industry_type_key));
+  const industry = getIndustryConfig(industryTypeKey);
+  const profileData = { ...store.profile_data };
+  for (const field of industry.profileFields) {
+    const raw = String(formData.get(field.key) ?? "").trim();
+    profileData[field.key] = field.type === "list"
+      ? raw.split(/[、,\n]/).map((value) => value.trim()).filter(Boolean)
+      : field.type === "boolean" ? raw === "true" : raw;
+  }
+
+  const { error } = await supabase.from("stores").update({
+    industry_type_key: industryTypeKey,
+    name: String(formData.get("name") ?? "").trim(),
+    address: String(formData.get("address") ?? "").trim(),
+    phone: String(formData.get("phone") ?? "").trim(),
+    website_url: String(formData.get("website") ?? "").trim() || null,
+    google_business_url: String(formData.get("gbp") ?? "").trim() || null,
+    description: String(formData.get("description") ?? "").trim(),
+    profile_data: profileData,
+    updated_at: new Date().toISOString()
+  }).eq("id", store.id).eq("organization_id", store.organization_id);
+  if (error) throw new Error(`店舗情報を保存できませんでした: ${error.message}`);
+}
+
 export async function archiveStore(storeId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");

@@ -1037,6 +1037,7 @@ create table if not exists public.estimates (
   status text not null default 'draft',
   subtotal numeric(12,2) not null default 0,
   tax_total numeric(12,2) not null default 0,
+  tax_inclusion text not null default 'inclusive',
   total numeric(12,2) not null default 0,
   notes text,
   created_at timestamptz not null default now(),
@@ -1069,6 +1070,7 @@ create table if not exists public.invoices (
   status text not null default 'draft',
   subtotal numeric(12,2) not null default 0,
   tax_total numeric(12,2) not null default 0,
+  tax_inclusion text not null default 'inclusive',
   total numeric(12,2) not null default 0,
   paid_at timestamptz,
   notes text,
@@ -1100,6 +1102,7 @@ alter table public.estimates add column if not exists expiry_date date;
 alter table public.estimates add column if not exists status text default 'draft';
 alter table public.estimates add column if not exists subtotal numeric(12,2) default 0;
 alter table public.estimates add column if not exists tax_total numeric(12,2) default 0;
+alter table public.estimates add column if not exists tax_inclusion text default 'inclusive';
 alter table public.estimates add column if not exists total numeric(12,2) default 0;
 alter table public.estimates add column if not exists tax_10_subtotal numeric(12,2) default 0;
 alter table public.estimates add column if not exists tax_10_amount numeric(12,2) default 0;
@@ -1119,6 +1122,7 @@ alter table public.invoices add column if not exists due_date date;
 alter table public.invoices add column if not exists status text default 'draft';
 alter table public.invoices add column if not exists subtotal numeric(12,2) default 0;
 alter table public.invoices add column if not exists tax_total numeric(12,2) default 0;
+alter table public.invoices add column if not exists tax_inclusion text default 'inclusive';
 alter table public.invoices add column if not exists total numeric(12,2) default 0;
 alter table public.invoices add column if not exists paid_at timestamptz;
 alter table public.invoices add column if not exists invoice_registration_number text;

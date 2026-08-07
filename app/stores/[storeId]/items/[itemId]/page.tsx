@@ -19,9 +19,9 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ sto
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title={item.name} description={`${industry.businessLabels.item}の内容を編集します。`} />
-      <ItemForm action={updateItemAction.bind(null, store.id, item.id)} item={item} labels={industry.businessLabels} />
+      <ItemForm action={updateItemAction.bind(null, store.id, item.id)} item={item} labels={industry.businessLabels} industryTypeKey={store.industry_type_key} />
       <form action={deleteItemAction.bind(null, store.id, item.id)} className="danger-zone">
-        <ConfirmSubmitButton message={`「${item.name}」をアーカイブします。見積などの過去データは保持され、アーカイブ管理から復元できます。`}>アーカイブ</ConfirmSubmitButton>
+        <ConfirmSubmitButton message={`「${item.name}」を削除します。見積などの過去データは保持され、削除済みデータから元に戻せます。`}>削除</ConfirmSubmitButton>
       </form>
     </AppShell>
   );

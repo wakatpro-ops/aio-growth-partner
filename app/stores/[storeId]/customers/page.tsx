@@ -21,11 +21,11 @@ export default async function CustomersPage({ params, searchParams }: { params: 
         eyebrow={industry.name}
         title={industry.businessLabels.customer}
         description="見積書・請求書に使う顧客情報を管理します。"
-        action={<Link className="button" href={`/stores/${store.id}/customers/new`}>新規追加</Link>}
+        action={<Link className="button" href={`/stores/${store.id}/customers/new`}>{industry.businessLabels.customer}を追加</Link>}
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">保存しました。AIOは顧客傾向を、再来店案内やフォロー文の提案に使いやすくなりました。</p> : null}
-      {(await searchParams).archived ? <p className="notice success">顧客をアーカイブしました。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">顧客を削除しました。</p> : null}
       <p className="notice success">
         {customers.length > 0
           ? `${industry.businessLabels.customer}が入ったため、AIは再来店案内やフォロー文の提案に顧客傾向を反映できます。`
@@ -47,7 +47,7 @@ export default async function CustomersPage({ params, searchParams }: { params: 
                 <td>{customer.name}<br /><span className="muted">{customer.company_name}</span></td>
                 <td>{customer.email}<br />{customer.phone}</td>
                 <td>{Object.values(customer.vehicle_info ?? {}).filter(Boolean).join(" / ")}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/customers/${customer.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "customer", customer.id, `/stores/${store.id}/customers`)}><ConfirmSubmitButton message={`「${customer.name}」をアーカイブします。過去の見積・請求との関連は保持されます。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/customers/${customer.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "customer", customer.id, `/stores/${store.id}/customers`)}><ConfirmSubmitButton message={`「${customer.name}」を削除します。過去の見積・請求との関連は保持されます。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {customers.length === 0 ? <tr><td colSpan={4}>まだ登録がありません。最初の顧客を追加すると、見積・請求とフォロー提案の土台になります。</td></tr> : null}

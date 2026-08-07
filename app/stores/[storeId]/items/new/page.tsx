@@ -13,7 +13,7 @@ export default async function NewItemPage({ params }: { params: Promise<{ storeI
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title={`${industry.businessLabels.item}を追加`} description="単価、税率、在庫管理の有無を登録します。" />
-      <ItemForm action={createItemAction.bind(null, store.id)} labels={industry.businessLabels} />
+      <ItemForm action={createItemAction.bind(null, store.id)} labels={industry.businessLabels} industryTypeKey={store.industry_type_key} />
     </AppShell>
   );
 }

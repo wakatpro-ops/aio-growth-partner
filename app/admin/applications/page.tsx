@@ -28,9 +28,9 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
         description="公開フォームからの問い合わせを、説明、請求、入金確認、承認、アカウント発行まで管理します。"
         action={<Link className="button secondary" href="/apply">公開フォームを確認</Link>}
       />
-      {query.archived ? <p className="notice success">申込をアーカイブしました。</p> : null}
-      {query.restored ? <p className="notice success">申込を復元しました。</p> : null}
-      <div className="button-row"><Link className={`button ${showArchived ? "secondary" : ""}`} href="/admin/applications">対応中・完了</Link><Link className={`button ${showArchived ? "" : "secondary"}`} href="/admin/applications?view=archived">アーカイブ済み</Link></div>
+      {query.archived ? <p className="notice success">申込を削除しました。</p> : null}
+      {query.restored ? <p className="notice success">申込を元に戻しました。</p> : null}
+      <div className="button-row"><Link className={`button ${showArchived ? "secondary" : ""}`} href="/admin/applications">対応中・完了</Link><Link className={`button ${showArchived ? "" : "secondary"}`} href="/admin/applications?view=archived">削除済み</Link></div>
       <section className="grid cols-4">
         <article className="card"><p className="muted">総申込</p><div className="metric">{applications.length}</div></article>
         <article className="card"><p className="muted">営業対応中</p><div className="metric">{activeApplications.length}</div></article>
@@ -75,7 +75,7 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
                 <td>{paymentStatusLabels[application.payment_status ?? "unpaid"] ?? application.payment_status ?? "未入金"}</td>
                 <td>{approvalStatusLabels[application.approval_status ?? "pending"] ?? application.approval_status ?? "未承認"}</td>
                 <td>{accountStatusLabels[application.account_status ?? "not_created"] ?? application.account_status ?? "未発行"}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/admin/applications/${application.id}`}>詳細</Link>{showArchived ? <form action={restoreApplicationAction.bind(null, application.id)}><button className="button secondary" type="submit">復元</button></form> : <form action={archiveApplicationAction.bind(null, application.id)}><ConfirmSubmitButton message={`「${application.store_name}」の申込をアーカイブします。営業履歴・発行済み店舗・ユーザーは削除されません。`}>アーカイブ</ConfirmSubmitButton></form>}</div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/admin/applications/${application.id}`}>詳細</Link>{showArchived ? <form action={restoreApplicationAction.bind(null, application.id)}><button className="button secondary" type="submit">元に戻す</button></form> : <form action={archiveApplicationAction.bind(null, application.id)}><ConfirmSubmitButton message={`「${application.store_name}」の申込を削除します。営業履歴・発行済み店舗・ユーザーは削除されません。`}>削除</ConfirmSubmitButton></form>}</div></td>
               </tr>
             ))}
           </tbody>

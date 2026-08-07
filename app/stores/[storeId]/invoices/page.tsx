@@ -22,11 +22,11 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
         eyebrow={industry.name}
         title={industry.businessLabels.invoice}
         description="請求書の発行状況と金額を管理します。"
-        action={<Link className="button" href={`/stores/${store.id}/invoices/new`}>新規追加</Link>}
+        action={<Link className="button" href={`/stores/${store.id}/invoices/new`}>{industry.businessLabels.invoice}を作成</Link>}
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">請求書を保存しました。入金管理や会計CSVに使える情報が増えました。</p> : null}
-      {(await searchParams).archived ? <p className="notice success">請求書をアーカイブしました。入金・PDF・監査履歴は保持されています。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">請求書を削除しました。入金・PDF・監査履歴は保持されています。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -49,7 +49,7 @@ export default async function InvoicesPage({ params, searchParams }: { params: P
                 <td>{invoice.total.toLocaleString("ja-JP")}円</td>
                 <td><span className="badge">{labelFor(documentStatusLabels, invoice.status)}</span></td>
                 <td><span className="badge">{labelFor(paymentStatusLabels, invoice.payment_status)}</span></td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "invoice", invoice.id, `/stores/${store.id}/invoices`)}><ConfirmSubmitButton message={`請求書「${invoice.document_number}」をアーカイブします。会計・監査履歴は保持されます。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/invoices/${invoice.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "invoice", invoice.id, `/stores/${store.id}/invoices`)}><ConfirmSubmitButton message={`請求書「${invoice.document_number}」を削除します。会計・監査履歴は保持されます。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {invoices.length === 0 ? <tr><td colSpan={7}>まだ登録がありません。最初の請求書を作ると、入金管理と売上確認を始められます。</td></tr> : null}

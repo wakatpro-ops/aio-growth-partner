@@ -43,7 +43,7 @@ export default async function GrowthActionsPage({
       />
       <StoreBusinessNav store={store} />
       {error ? <p className="notice error">{decodeURIComponent(error)}</p> : null}
-      {archived ? <p className="notice success">集客アクションをアーカイブしました。</p> : null}
+      {archived ? <p className="notice success">集客アクションを削除しました。</p> : null}
 
       <section className="card">
         <h3>下書きを生成</h3>
@@ -76,7 +76,7 @@ export default async function GrowthActionsPage({
                     <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細</Link>
                     <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/edit`}>編集</Link>
                     <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/preview`}>プレビュー</Link>
-                    <form action={archiveStoreEntityAction.bind(null, store.id, "growth_action", action.id, `/stores/${store.id}/growth-actions`)}><ConfirmSubmitButton message={`集客アクション「${action.title}」をアーカイブします。実行履歴は保持されます。`}>アーカイブ</ConfirmSubmitButton></form>
+                    <form action={archiveStoreEntityAction.bind(null, store.id, "growth_action", action.id, `/stores/${store.id}/growth-actions`)}><ConfirmSubmitButton message={`集客アクション「${action.title}」を削除します。実行履歴は保持されます。`}>削除</ConfirmSubmitButton></form>
                   </div>
                 </td>
               </tr>
