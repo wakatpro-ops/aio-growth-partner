@@ -35,6 +35,26 @@ export default function HomePage() {
             <p>投稿文、口コミ返信案、月次改善提案などを、店舗情報や売上データをもとに作成できます。</p>
           </div>
         </div>
+        <section className="card" aria-labelledby="public-information-title" style={{ marginTop: 24 }}>
+          <h2 id="public-information-title">運営・サポート</h2>
+          <p>
+            AIO boostは株式会社 Navi Lifeが運営しています。サービスの利用条件、個人情報とGoogleユーザーデータの取り扱い、Google連携の解除方法を公開しています。
+          </p>
+          <div className="button-row">
+            <Link className="button secondary" href="/privacy">
+              プライバシーポリシー
+            </Link>
+            <Link className="button secondary" href="/terms">
+              利用規約
+            </Link>
+            <Link className="button secondary" href="/legal">
+              事業者情報・法的情報
+            </Link>
+          </div>
+          <p className="muted" style={{ marginTop: 16 }}>
+            お問い合わせ: <a href="mailto:info@aioboost.jp">info@aioboost.jp</a>
+          </p>
+        </section>
       </section>
     </>
   );
