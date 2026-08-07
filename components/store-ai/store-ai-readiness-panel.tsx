@@ -18,23 +18,19 @@ export function StoreAiReadinessPanel({
   storeId: string;
   variant?: Variant;
 }) {
-  const primaryAction = readiness.nextBestActions[0];
-
   return (
     <section className={variant === "hero" ? "ai-home-panel" : "card"}>
       <div className="ai-readiness-header">
         <div>
-          <p className="eyebrow">店舗AI理解度</p>
+          <p className="eyebrow">AIおすすめ準備度</p>
           <h2>{readiness.score}% {readiness.stage}</h2>
           <p>{readiness.headline}</p>
         </div>
-        {primaryAction ? (
-          <Link className="button" href={primaryAction.href}>次に整える</Link>
-        ) : (
-          <Link className="button" href={`/stores/${storeId}/actions`}>次アクションを見る</Link>
-        )}
+        <Link className="button" href={`/stores/${storeId}/aio-improvement`}>
+          AIにおすすめされやすくする
+        </Link>
       </div>
-      <div className="readiness-meter" aria-label={`店舗AI理解度 ${readiness.score}%`}>
+      <div className="readiness-meter" aria-label={`AIおすすめ準備度 ${readiness.score}%`}>
         <span style={{ width: `${readiness.score}%` }} />
       </div>
       <div className="readiness-steps">
@@ -49,13 +45,13 @@ export function StoreAiReadinessPanel({
 }
 
 export function StoreAiNextActions({ readiness }: { readiness: StoreAiReadiness }) {
-  const actions = readiness.nextBestActions.length ? readiness.nextBestActions : readiness.items.slice(-3);
+  const actions = readiness.nextBestActions;
 
   return (
     <section className="card">
-      <h2>次に入れるとAIがもっと良くなる情報</h2>
-      <p>入力するほど、投稿文・月次レポート・顧客フォロー・請求管理の提案が店舗に合っていきます。</p>
-      <div className="action-card-list">
+      <h2>今日やること</h2>
+      <p>効果が大きい順に並べています。最初は1件だけ終わらせれば大丈夫です。</p>
+      {actions.length ? <div className="action-card-list">
         {actions.map((action) => (
           <article className="action-card" key={action.key}>
             <div className="action-card-head">
@@ -64,10 +60,10 @@ export function StoreAiNextActions({ readiness }: { readiness: StoreAiReadiness 
             </div>
             <h3>{action.label}</h3>
             <p>{action.benefit}</p>
-            <Link className="button secondary" href={action.href}>確認する</Link>
+            <Link className="button secondary" href={action.href}>{action.label}を改善する</Link>
           </article>
         ))}
-      </div>
+      </div> : <p className="notice success">今日必ず対応する改善はありません。外部への反映状況を定期的に確認してください。</p>}
     </section>
   );
 }
@@ -75,12 +71,12 @@ export function StoreAiNextActions({ readiness }: { readiness: StoreAiReadiness 
 export function StoreAiLearnedFeedback({ readiness }: { readiness: StoreAiReadiness }) {
   return (
     <section className="card">
-      <h2>AIOが理解できるようになったこと</h2>
+      <h2>すでに整っている情報</h2>
       {readiness.completedItems.length ? (
         <ul className="ai-learned-list">
           {readiness.completedItems.map((item) => (
             <li key={item.key}>
-              <span className="badge badge-strong">理解済み</span>
+              <span className="badge badge-strong">確認済み</span>
               <div>
                 <strong>{item.label}</strong>
                 <p>{item.learned}</p>
@@ -89,7 +85,7 @@ export function StoreAiLearnedFeedback({ readiness }: { readiness: StoreAiReadin
           ))}
         </ul>
       ) : (
-        <p className="empty">店舗プロフィールを整えると、AIOが店舗らしさを理解し始めます。</p>
+        <p className="empty">店舗の基本情報を整えると、ここに確認済みの内容が表示されます。</p>
       )}
     </section>
   );

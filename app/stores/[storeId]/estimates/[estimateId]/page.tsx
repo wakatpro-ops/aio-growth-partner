@@ -39,9 +39,9 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
           </div>
         ) : undefined}
       />
-      <DocumentForm action={updateEstimateAction.bind(null, store.id, estimate.id)} document={estimate} customers={customers} kind="estimate" />
+      <DocumentForm action={updateEstimateAction.bind(null, store.id, estimate.id)} document={estimate} customers={customers} kind="estimate" industryTypeKey={store.industry_type_key} />
       <form action={deleteEstimateAction.bind(null, store.id, estimate.id)} className="danger-zone">
-        <ConfirmSubmitButton message={`見積「${estimate.document_number}」をアーカイブします。受注などの関連履歴は保持され、アーカイブ管理から復元できます。`}>アーカイブ</ConfirmSubmitButton>
+        <ConfirmSubmitButton message={`見積「${estimate.document_number}」を削除します。受注などの関連履歴は保持され、削除済みデータから元に戻せます。`}>削除</ConfirmSubmitButton>
       </form>
     </AppShell>
   );

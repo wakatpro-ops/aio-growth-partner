@@ -5,11 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 const navItems = [
-  { href: "/dashboard", label: "ダッシュボード" },
-  { href: "/onboarding", label: "初回導入" },
-  { href: "/beta-onboarding", label: "導入ガイド" },
-  { href: "/stores", label: "店舗トップ" },
-  { href: "/settings", label: "設定" }
+  { href: "/dashboard", label: "ホーム" },
+  { href: "/stores", label: "店舗を選ぶ" },
+  { href: "/onboarding", label: "はじめての方へ" },
+  { href: "/settings", label: "アカウント設定" }
 ];
 
 const footerLinks = [
@@ -38,6 +37,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!match || match[1] === "new") return null;
     return decodeURIComponent(match[1]);
   }, [pathname]);
+  const visibleNavItems = activeStoreId ? [
+    { href: `/stores/${activeStoreId}`, label: "店舗トップ" },
+    { href: `/stores/${activeStoreId}/aio-improvement`, label: "AIO改善" },
+    { href: `/stores/${activeStoreId}/acquisition`, label: "集客" },
+    { href: `/stores/${activeStoreId}/sales-hub`, label: "売上" },
+    { href: `/stores/${activeStoreId}/settings`, label: "設定" }
+  ] : navItems;
+  const backHref = useMemo(() => {
+    if (!activeStoreId || pathname === `/stores/${activeStoreId}`) return null;
+    const parts = pathname.split("/").filter(Boolean);
+    if (parts.length === 3) return `/stores/${activeStoreId}`;
+    parts.pop();
+    return `/${parts.join("/")}`;
+  }, [activeStoreId, pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,8 +97,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
         </Link>
         <nav className="nav" aria-label="main">
-          {navItems.map((item) => {
-            const active = item.href === "/" ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+          {visibleNavItems.map((item) => {
+            const active = pathname === item.href || (item.href !== `/stores/${activeStoreId}` && pathname.startsWith(`${item.href}/`));
             return (
               <Link aria-current={active ? "page" : undefined} className={active ? "active" : undefined} key={item.href} href={item.href}>
                 {item.label}
@@ -117,7 +130,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           ))}
         </footer>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        {backHref ? <Link className="back-link" href={backHref}>← 前の画面へ戻る</Link> : null}
+        {children}
+      </main>
     </div>
   );
 }

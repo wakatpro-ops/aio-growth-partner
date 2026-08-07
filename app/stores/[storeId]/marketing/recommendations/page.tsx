@@ -40,7 +40,7 @@ export default async function RecommendationsPage({
       <PageHeader eyebrow={industry.name} title={labels.title} description={`${labels.subject}をもとに来月の集客テーマを作ります。`} />
       <StoreBusinessNav store={store} />
       {error ? <div className="notice danger">{decodeURIComponent(error)}</div> : null}
-      {query.archived ? <p className="notice success">AI改善提案をアーカイブしました。</p> : null}
+      {query.archived ? <p className="notice success">AI改善提案を削除しました。</p> : null}
       <form className="card form" action={generateMonthlyRecommendationAction.bind(null, store.id)}>
         <div className="field">
           <label htmlFor="month">対象月</label>
@@ -67,7 +67,7 @@ export default async function RecommendationsPage({
                 <td>{recommendation.month}</td>
                 <td><span className="badge">{recommendation.status === "active" ? "有効" : "保管"}</span></td>
                 <td>{new Date(recommendation.created_at).toLocaleDateString("ja-JP")}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/marketing/recommendations/${recommendation.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "ai_recommendation", recommendation.id, `/stores/${store.id}/marketing/recommendations`)}><ConfirmSubmitButton message={`AI改善提案「${recommendation.title}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/marketing/recommendations/${recommendation.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "ai_recommendation", recommendation.id, `/stores/${store.id}/marketing/recommendations`)}><ConfirmSubmitButton message={`AI改善提案「${recommendation.title}」を削除します。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {recommendations.length === 0 ? <tr><td colSpan={5}>まだAI改善提案がありません。</td></tr> : null}

@@ -122,7 +122,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           <PendingSubmitButton className="button secondary" pendingLabel="入金済みとして記録しています...">Stripe決済済みとして入金登録</PendingSubmitButton>
         </form>
       </section>
-      <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" />
+      <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" industryTypeKey={store.industry_type_key} />
       <section className="card">
         <h2>PDF発行・再発行履歴</h2>
         <form className="form-inline" action={`/stores/${store.id}/invoices/${invoice.id}/pdf/download`} method="get">
@@ -146,7 +146,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
         </table>
       </section>
       <form action={deleteInvoiceAction.bind(null, store.id, invoice.id)} className="danger-zone">
-        <ConfirmSubmitButton message={`請求書「${invoice.document_number}」をアーカイブします。入金・PDF発行・監査履歴は保持され、アーカイブ管理から復元できます。`}>アーカイブ</ConfirmSubmitButton>
+        <ConfirmSubmitButton message={`請求書「${invoice.document_number}」を削除します。入金・PDF発行・監査履歴は保持され、削除済みデータから元に戻せます。`}>削除</ConfirmSubmitButton>
       </form>
     </AppShell>
   );

@@ -22,11 +22,11 @@ export default async function EstimatesPage({ params, searchParams }: { params: 
         eyebrow={industry.name}
         title={industry.businessLabels.estimate}
         description="顧客向けの見積書を作成・管理します。"
-        action={<Link className="button" href={`/stores/${store.id}/estimates/new`}>新規追加</Link>}
+        action={<Link className="button" href={`/stores/${store.id}/estimates/new`}>{industry.businessLabels.estimate}を作成</Link>}
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">見積書を保存しました。受注化や請求書作成へつなげられます。</p> : null}
-      {(await searchParams).archived ? <p className="notice success">見積書をアーカイブしました。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">見積書を削除しました。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -47,7 +47,7 @@ export default async function EstimatesPage({ params, searchParams }: { params: 
                 <td>{estimate.customer?.name ?? "未選択"}</td>
                 <td>{estimate.total.toLocaleString("ja-JP")}円</td>
                 <td><span className="badge">{labelFor(documentStatusLabels, estimate.status)}</span></td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "estimate", estimate.id, `/stores/${store.id}/estimates`)}><ConfirmSubmitButton message={`見積「${estimate.document_number}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "estimate", estimate.id, `/stores/${store.id}/estimates`)}><ConfirmSubmitButton message={`見積「${estimate.document_number}」を削除します。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {estimates.length === 0 ? <tr><td colSpan={6}>まだ登録がありません。最初の見積書を作ると、受注・請求までの流れを確認できます。</td></tr> : null}

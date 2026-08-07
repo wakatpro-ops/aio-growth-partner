@@ -1,43 +1,63 @@
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { ApplicationIntakeSummary } from "@/components/onboarding/application-intake-summary";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
-import {
-  StoreAiDataStatus,
-  StoreAiLearnedFeedback,
-  StoreAiNextActions,
-  StoreAiReadinessPanel
-} from "@/components/store-ai/store-ai-readiness-panel";
-import { StoreProfileForm } from "@/components/stores/store-profile-form";
+import { StoreAiNextActions, StoreAiReadinessPanel } from "@/components/store-ai/store-ai-readiness-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
-import { isDemoStore, storeDataModeDescription, storeDataModeLabel } from "@/lib/mvp/status";
-import { getStore, getStoreOnboardingSnapshot } from "@/lib/stores";
+import { getStore } from "@/lib/stores";
 import { getStoreAiReadiness } from "@/lib/store-ai/readiness";
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
-  const intakeSnapshot = await getStoreOnboardingSnapshot(storeId);
   const readiness = await getStoreAiReadiness(store);
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="店舗AIホーム" description="店舗データの現在地と、次に入れると提案が良くなる情報を確認できます。" />
-      <StoreAiReadinessPanel readiness={readiness} storeId={store.id} />
-      <section className="grid cols-2">
-        <StoreAiNextActions readiness={readiness} />
-        <StoreAiDataStatus readiness={readiness} />
-      </section>
-      <section className="card">
-        <p>データ区分: <span className="badge">{storeDataModeLabel(store)}</span></p>
-        <p>{storeDataModeDescription(store)}</p>
-        {isDemoStore(store) ? <p className="notice danger">この店舗は確認用です。実際に利用する店舗は `/stores/new` から新しく作成してください。</p> : null}
-      </section>
-      {intakeSnapshot ? <ApplicationIntakeSummary content={intakeSnapshot.content} /> : null}
-      <StoreAiLearnedFeedback readiness={readiness} />
+      <PageHeader
+        eyebrow={industry.name}
+        title={`${store.name} 店舗トップ`}
+        description="集客、売上、今日やることを、この画面から確認できます。"
+      />
       <StoreBusinessNav store={store} />
-      <StoreProfileForm store={store} />
+      <StoreAiReadinessPanel readiness={readiness} storeId={store.id} />
+
+      <section className="home-section">
+        <div className="section-heading">
+          <div><p className="eyebrow">1. 集客</p><h2>AIから選ばれる店舗へ</h2></div>
+          <Link className="text-link" href={`/stores/${store.id}/acquisition`}>集客の全機能を見る →</Link>
+        </div>
+        <div className="grid cols-2">
+          <Link className="hub-link primary" href={`/stores/${store.id}/aio-improvement`}>
+            <span className="badge">最優先</span>
+            <h3>AIにおすすめされやすくする</h3>
+            <p>想定される質問と、今いちばん効果の高い改善を確認します。</p>
+            <strong>改善を始める →</strong>
+          </Link>
+          <article className="static-card">
+            <p className="eyebrow">お客様が尋ねる質問の例</p>
+            <h3>「{readiness.targetQuestions[0]}」</h3>
+            <p>このような質問に対して、店舗の特徴が伝わる情報を整えていきます。</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="home-section">
+        <div className="section-heading">
+          <div><p className="eyebrow">2. 売上管理</p><h2>書類と売上をまとめて確認</h2></div>
+        </div>
+        <Link className="hub-link" href={`/stores/${store.id}/sales-hub`}>
+          <h3>売上を開く</h3>
+          <p>見積書・請求書・領収書に使う入金記録、顧客、商品・サービスを1か所にまとめています。</p>
+          <strong>売上管理へ →</strong>
+        </Link>
+      </section>
+
+      <section className="home-section">
+        <p className="eyebrow">3. 今日やること</p>
+        <StoreAiNextActions readiness={readiness} />
+      </section>
     </AppShell>
   );
 }

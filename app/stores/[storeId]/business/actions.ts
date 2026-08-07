@@ -24,7 +24,7 @@ export async function createItemAction(storeId: string, formData: FormData) {
 export async function updateItemAction(storeId: string, itemId: string, formData: FormData) {
   await updateItemFromForm(storeId, itemId, formData);
   revalidatePath(`/stores/${storeId}/items`);
-  redirect(`/stores/${storeId}/items/${itemId}`);
+  redirect(`/stores/${storeId}/items?saved=item-updated`);
 }
 
 export async function deleteItemAction(storeId: string, itemId: string) {
@@ -48,7 +48,7 @@ export async function createCustomerAction(storeId: string, formData: FormData) 
 export async function updateCustomerAction(storeId: string, customerId: string, formData: FormData) {
   await updateCustomerFromForm(storeId, customerId, formData);
   revalidatePath(`/stores/${storeId}/customers`);
-  redirect(`/stores/${storeId}/customers/${customerId}`);
+  redirect(`/stores/${storeId}/customers?saved=customer-updated`);
 }
 
 export async function deleteCustomerAction(storeId: string, customerId: string) {
@@ -66,7 +66,7 @@ export async function createEstimateAction(storeId: string, formData: FormData) 
 export async function updateEstimateAction(storeId: string, estimateId: string, formData: FormData) {
   await updateDocumentFromForm(storeId, estimateId, "estimates", formData);
   revalidatePath(`/stores/${storeId}/estimates`);
-  redirect(`/stores/${storeId}/estimates/${estimateId}`);
+  redirect(`/stores/${storeId}/estimates?saved=estimate-updated`);
 }
 
 export async function deleteEstimateAction(storeId: string, estimateId: string) {
@@ -84,7 +84,7 @@ export async function createInvoiceAction(storeId: string, formData: FormData) {
 export async function updateInvoiceAction(storeId: string, invoiceId: string, formData: FormData) {
   await updateDocumentFromForm(storeId, invoiceId, "invoices", formData);
   revalidatePath(`/stores/${storeId}/invoices`);
-  redirect(`/stores/${storeId}/invoices/${invoiceId}`);
+  redirect(`/stores/${storeId}/invoices?saved=invoice-updated`);
 }
 
 export async function deleteInvoiceAction(storeId: string, invoiceId: string) {
