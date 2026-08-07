@@ -22,9 +22,10 @@
 | サービス | 所有ログイン／チーム | production | staging | 状態 |
 | --- | --- | --- | --- | --- |
 | GitHub | `wakatpro-ops` | `wakatpro-ops/aio-growth-partner` / `main` | PR・作業ブランチ | 確認済み |
-| Vercel | `wakatpro-3797` | project `aio-growth-partner` / `app.aioboost.jp` | project `aio-growth-partner-staging` / `aio-growth-partner-staging.vercel.app` | 2026-07-29確認 |
+| Vercel | `wakatpro-3797` | project `aio-growth-partner` / `app.aioboost.jp` | project `aio-growth-partner-staging` / `staging.aioboost.jp` | 2026-08-07にDNS・HTTPS・Valid Configurationを確認 |
 | Supabase | `wakatpro-ops's Org` | project `aio-growth-partner` | project `aio-growth-partner-staging` | 2026-07-29分離確認 |
-| Google Cloud | 開発操作 `waka.t.pro@gmail.com` | project `AIO Growth Partner` / ID `aio-growth-partner` / number `368944976045` / production OAuth client | staging OAuth client `AIO boost staging Vercel` | 2026-08-07 Google Cloud画面で確認。法人所有・権限構成は要確認 |
+| Google Cloud | 開発操作 `waka.t.pro@gmail.com` | project `AIO Growth Partner` / ID `aio-growth-partner` / number `368944976045` / production OAuth client / `app.aioboost.jp` | staging OAuth client `AIO boost staging Vercel` / `staging.aioboost.jp` | 2026-08-07に外部・本番公開、最小scope、ABロゴ保存を確認。法人所有・権限構成は要確認 |
+| Google Search Console | `waka.t.pro@gmail.com` | domain property `aioboost.jp` | なし | 2026-08-07にDNS TXTで所有権確認済み。確認文字列は記録しない |
 | Google Business Profile | 開発操作 `waka.t.pro@gmail.com` | Basic API Access再申請予定 | staging実投稿なし | 2026-08-07確認。申請に使う株式会社 Navi Lifeのプロフィール管理権限は要確認 |
 | Stripe Platform | organization `エーアイギフト` | account `AIO boost` | account `AIO boostサンドボックス` | 本番KYB・運営会社との契約主体整合は要確認 |
 
@@ -33,8 +34,9 @@
 - 初回production OAuthは `openid email profile business.manage` の最小構成で申請する。
 - `gmail.compose` は制限付きスコープのため、初回production審査から外しstaging検証に限定する。
 - `calendar.events` は初回審査から外し、Business Profile承認後に必要性を再評価する。
-- OAuthホームページは `https://aioboost.jp/`、利用規約は `https://app.aioboost.jp/terms`、プライバシーポリシーは `https://app.aioboost.jp/privacy` を使用する。
+- OAuthホームページは `https://app.aioboost.jp/`、利用規約は `https://app.aioboost.jp/terms`、プライバシーポリシーは `https://app.aioboost.jp/privacy` を使用する。
 - Google OAuth公開審査とGoogle Business Profile Basic API Accessは別申請として管理する。
+- ABロゴはGoogle Auth PlatformのDraft Brandingへ保存済み。機密・制限付きscopeのデータアクセス検証は不要。Brandingページの「Verify Branding」表示待ちとしてIssue #1で追跡する。
 
 ## 確認元
 
