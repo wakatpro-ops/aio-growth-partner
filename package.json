@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "check:secrets": "node scripts/check-client-secrets.mjs",
-    "check:archives": "node scripts/check-archive-coverage.mjs"
+    "check:archives": "node scripts/check-archive-coverage.mjs",
+    "check:google-review": "node scripts/check-google-review-readiness.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

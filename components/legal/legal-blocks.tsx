@@ -1,17 +1,27 @@
 import Link from "next/link";
-import { companyPlaceholders, legalLinks } from "@/lib/legal/content";
+import { companyInformation, legalLinks } from "@/lib/legal/content";
 
-export function CompanyPlaceholderCard() {
+function companyValue(value: string) {
+  if (value.startsWith("https://")) {
+    return <a href={value} rel="noreferrer" target="_blank">{value}</a>;
+  }
+  if (value.includes("@")) {
+    return <a href={`mailto:${value}`}>{value}</a>;
+  }
+  return value;
+}
+
+export function CompanyInformationCard() {
   return (
     <section className="card legal-card">
       <h2>事業者情報</h2>
-      <p className="muted">正式公開前に入力する前提のプレースホルダーです。</p>
+      <p className="muted">AIO boostは株式会社 Navi Lifeが運営しています。</p>
       <table className="table compact">
         <tbody>
-          {companyPlaceholders.map(([label, value]) => (
+          {companyInformation.map(([label, value]) => (
             <tr key={label}>
               <th>{label}</th>
-              <td>{value}</td>
+              <td>{companyValue(value)}</td>
             </tr>
           ))}
         </tbody>

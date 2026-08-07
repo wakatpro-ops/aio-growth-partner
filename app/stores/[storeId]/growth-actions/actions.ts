@@ -127,7 +127,7 @@ export async function disconnectGoogleAction(storeId: string) {
   } catch (error) {
     errorRedirect(path, error);
   }
-  redirect(path);
+  redirect(`${path}?disconnected=1`);
 }
 
 export async function upsertGoogleBusinessProfileAction(storeId: string, formData: FormData) {

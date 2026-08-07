@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { CompanyPlaceholderCard, LegalNavCards } from "@/components/legal/legal-blocks";
+import { CompanyInformationCard, LegalNavCards } from "@/components/legal/legal-blocks";
 import { PageHeader } from "@/components/ui/page-header";
 
 export default function LegalPage() {
@@ -12,9 +12,9 @@ export default function LegalPage() {
         description="AIO boostの利用条件、個人情報の取り扱い、利用時の注意事項をまとめています。"
         action={<Link className="button" href="/help">操作方法を見る</Link>}
       />
-      <p className="notice">会社情報欄は、正式な運営者情報を入力してご利用ください。</p>
+      <p className="notice">運営会社、利用条件、個人情報、Google連携の解除・データ削除方法を公開しています。</p>
       <LegalNavCards />
-      <CompanyPlaceholderCard />
+      <CompanyInformationCard />
     </AppShell>
   );
 }

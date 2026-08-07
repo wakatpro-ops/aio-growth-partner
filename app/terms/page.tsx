@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { CompanyPlaceholderCard, LegalSections } from "@/components/legal/legal-blocks";
+import { CompanyInformationCard, LegalSections } from "@/components/legal/legal-blocks";
 import { PageHeader } from "@/components/ui/page-header";
 import { termsSections } from "@/lib/legal/content";
 
@@ -15,7 +15,7 @@ export default function TermsPage() {
       />
       <p className="notice">請求書、会計、法務、補助金に関する判断は、必要に応じて専門家へ確認してください。</p>
       <LegalSections sections={termsSections} />
-      <CompanyPlaceholderCard />
+      <CompanyInformationCard />
     </AppShell>
   );
 }
