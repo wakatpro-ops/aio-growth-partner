@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { listArchivedStoreRecords } from "@/lib/archive-management";
 import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
+import { isDemoStore } from "@/lib/mvp/status";
 import { restoreStoreEntityAction } from "../archive-actions";
 
 export default async function StoreArchivesPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ restored?: string }> }) {
@@ -11,7 +12,7 @@ export default async function StoreArchivesPage({ params, searchParams }: { para
   const query = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
-  const records = await listArchivedStoreRecords(store.id);
+  const records = isDemoStore(store) ? [] : await listArchivedStoreRecords(store.id);
 
   return (
     <AppShell>
