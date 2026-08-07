@@ -13,12 +13,12 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
   const stores = allStores.filter((store) => showArchived ? Boolean(store.archived_at) : !store.archived_at);
   return (
     <AppShell>
-      <PageHeader title="店舗管理" description="店舗を確認し、不要な店舗は関連データを残したままアーカイブできます。" />
-      {query.archived ? <p className="notice success">店舗をアーカイブしました。</p> : null}
-      {query.restored ? <p className="notice success">店舗を復元しました。</p> : null}
+      <PageHeader title="店舗管理" description="店舗を確認し、不要な店舗は関連データを残したまま削除できます。" />
+      {query.archived ? <p className="notice success">店舗を削除しました。</p> : null}
+      {query.restored ? <p className="notice success">店舗を元に戻しました。</p> : null}
       <div className="button-row">
         <Link className={`button ${showArchived ? "secondary" : ""}`} href="/admin/stores">利用中</Link>
-        <Link className={`button ${showArchived ? "" : "secondary"}`} href="/admin/stores?view=archived">アーカイブ済み</Link>
+        <Link className={`button ${showArchived ? "" : "secondary"}`} href="/admin/stores?view=archived">削除済み</Link>
       </div>
       <section className="card">
         <table className="table">
@@ -31,19 +31,19 @@ export default async function AdminStoresPage({ searchParams }: { searchParams: 
                 <td>{store.name}</td>
                 <td><span className="badge">{storeDataModeLabel(store)}</span></td>
                 <td>{store.industry_type_key}</td>
-                <td>{showArchived ? "アーカイブ済み" : store.status}</td>
+                <td>{showArchived ? "削除済み" : store.status}</td>
                 <td>
                   {showArchived ? (
-                    <form action={restoreAdminStoreAction.bind(null, store.id)}><button className="button secondary" type="submit">復元</button></form>
+                    <form action={restoreAdminStoreAction.bind(null, store.id)}><button className="button secondary" type="submit">元に戻す</button></form>
                   ) : (
                     <form action={archiveAdminStoreAction.bind(null, store.id)}>
-                      <ConfirmSubmitButton message={`「${store.name}」をアーカイブします。ユーザーの通常一覧と集計から外れますが、関連データは保持されます。`}>アーカイブ</ConfirmSubmitButton>
+                      <ConfirmSubmitButton message={`「${store.name}」を削除します。ユーザーの通常一覧と集計から外れますが、関連データは保持されます。`}>削除</ConfirmSubmitButton>
                     </form>
                   )}
                 </td>
               </tr>
             ))}
-            {stores.length === 0 ? <tr><td colSpan={5}>{showArchived ? "アーカイブ済みの店舗はありません。" : "利用中の店舗はありません。"}</td></tr> : null}
+            {stores.length === 0 ? <tr><td colSpan={5}>{showArchived ? "削除済みの店舗はありません。" : "利用中の店舗はありません。"}</td></tr> : null}
           </tbody>
         </table>
       </section>

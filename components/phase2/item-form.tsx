@@ -1,15 +1,20 @@
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { BusinessItem } from "@/types/phase2";
+import type { IndustryTypeKey } from "@/types/domain";
 
 export function ItemForm({
   action,
   item,
-  labels
+  labels,
+  industryTypeKey
 }: {
   action: (formData: FormData) => void;
   item?: BusinessItem | null;
   labels: { product: string; part: string; service: string };
+  industryTypeKey: IndustryTypeKey;
 }) {
+  const showReducedTaxRate = industryTypeKey === "restaurant" || industryTypeKey === "retail";
+  const taxInclusion = item?.metadata?.tax_inclusion === "exclusive" ? "exclusive" : "inclusive";
   return (
     <form className="card form" action={action}>
       <div className="grid cols-2">
@@ -42,8 +47,20 @@ export function ItemForm({
           <input id="cost_price" name="cost_price" type="number" min="0" step="1" defaultValue={item?.cost_price ?? 0} />
         </div>
         <div className="field">
-          <label htmlFor="tax_rate">税率</label>
-          <input id="tax_rate" name="tax_rate" type="number" min="0" step="0.1" defaultValue={item?.tax_rate ?? 10} />
+          <label htmlFor="tax_inclusion">販売価格の表示</label>
+          <select id="tax_inclusion" name="tax_inclusion" defaultValue={taxInclusion}>
+            <option value="inclusive">税込（内税）</option>
+            <option value="exclusive">税抜（外税）</option>
+          </select>
+          <p className="muted">入力した販売単価に消費税を含むか選びます。</p>
+        </div>
+        <div className="field">
+          <label htmlFor="tax_rate">消費税率</label>
+          <select id="tax_rate" name="tax_rate" defaultValue={String(item?.tax_rate ?? 10)}>
+            <option value="10">10%</option>
+            {showReducedTaxRate ? <option value="8">8%（軽減税率の対象商品のみ）</option> : null}
+            <option value="0">0%（非課税）</option>
+          </select>
         </div>
         <div className="field">
           <label htmlFor="status">状態</label>
@@ -73,7 +90,7 @@ export function ItemForm({
           </div>
         </div>
       ) : null}
-      <PendingSubmitButton pendingLabel="入力内容を保存しています...">保存</PendingSubmitButton>
+      <PendingSubmitButton pendingLabel="入力内容を保存しています...">{item ? "変更を保存" : "登録して一覧へ"}</PendingSubmitButton>
     </form>
   );
 }

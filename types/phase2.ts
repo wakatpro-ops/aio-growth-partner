@@ -86,6 +86,7 @@ export type BusinessDocument = {
   tax_10_amount?: number;
   tax_8_subtotal?: number;
   tax_8_amount?: number;
+  tax_inclusion?: "inclusive" | "exclusive";
   payment_status?: PaymentStatus | null;
   payment_method?: PaymentMethod | null;
   stripe_payment_url?: string | null;

@@ -10,7 +10,7 @@ export type StoreAiReadinessItem = {
   weight: number;
   href: string;
   priority: "最優先" | "重要" | "おすすめ" | "あとでOK";
-  badge: "AI精度UP" | "売上分析に必要" | "集客提案に必要" | "請求業務に必要" | "基礎情報";
+  badge: "AIおすすめの土台" | "店舗の特徴" | "地域情報" | "信頼情報" | "外部への反映";
   benefit: string;
   learned: string;
 };
@@ -19,6 +19,11 @@ export type StoreAiReadiness = {
   score: number;
   stage: string;
   headline: string;
+  targetQuestions: string[];
+  publicationStatus: {
+    googleConnected: boolean;
+    contentCreated: boolean;
+  };
   nextBestActions: StoreAiReadinessItem[];
   completedItems: StoreAiReadinessItem[];
   items: StoreAiReadinessItem[];
@@ -45,29 +50,38 @@ function hasText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function profileScoreReady(store: Store) {
-  const profile = store.profile_data ?? {};
-  return Boolean(
-    hasText(store.name) &&
-    hasText(store.phone) &&
-    (hasText(store.website_url) || hasText(store.google_business_url)) &&
-    (hasText(profile.brand_tone) || hasText(profile.services) || Array.isArray(profile.services))
-  );
+function hasList(value: unknown) {
+  return Array.isArray(value) ? value.some(hasText) : hasText(value);
 }
 
 function stageFor(score: number) {
-  if (score >= 100) return "AI改善提案が本格稼働";
-  if (score >= 80) return "売上データを理解";
-  if (score >= 60) return "顧客傾向を理解";
-  if (score >= 40) return "商品・サービスを理解";
-  return "基本情報を理解";
+  if (score >= 85) return "公開・再確認へ進めます";
+  if (score >= 60) return "おすすめ理由が伝わる準備中";
+  if (score >= 35) return "店舗の特徴を整理中";
+  return "基本情報から確認中";
 }
 
 function headlineFor(score: number) {
-  if (score >= 80) return "店舗データが集まり、次の一手を具体的に出せる状態です。";
-  if (score >= 60) return "顧客と商品情報が入り、集客・請求・フォローの提案が具体化しています。";
-  if (score >= 40) return "商品・サービス情報が入り、投稿文や見積作成に反映しやすくなっています。";
-  return "まずは店舗の基本情報を整えると、AIが店舗らしさを理解し始めます。";
+  if (score >= 85) return "AIが参照しやすい店舗情報の土台が整っています。外部への反映状況を確認しましょう。";
+  if (score >= 60) return "店舗の特徴が見えてきました。次の1件を整えると、おすすめ理由がさらに明確になります。";
+  if (score >= 35) return "まずは店舗の特徴と提供サービスを、具体的な言葉にしていきましょう。";
+  return "最初の改善は1つだけです。店舗の基本情報から一緒に整えます。";
+}
+
+function targetQuestionsFor(store: Store) {
+  const profile = store.profile_data ?? {};
+  const area = store.address?.split(/[都道府県市区町村]/).filter(Boolean).at(-1)?.trim() || "この地域";
+  const serviceValue = profile.services;
+  const service = Array.isArray(serviceValue)
+    ? serviceValue.find(hasText)
+    : hasText(serviceValue) ? serviceValue : null;
+  const category = service ? String(service) : store.industry_type_key === "beauty_salon" ? "サロン" : "お店";
+
+  return [
+    `${area}で${category}を探すなら、どこがおすすめ？`,
+    `${area}で安心して相談できる${category}は？`,
+    `${store.name}はどんな人におすすめ？`
+  ];
 }
 
 async function countRows(table: string, storeId: string) {
@@ -79,17 +93,6 @@ async function countRows(table: string, storeId: string) {
   }
   const { count } = await query;
   return count ?? 0;
-}
-
-async function hasInvoiceSettings(storeId: string) {
-  const supabase = createSupabaseAdminClient();
-  if (!supabase) return false;
-  const { data } = await supabase
-    .from("invoice_number_sequences")
-    .select("store_id, qualified_invoice_issuer_name, qualified_invoice_registration_number")
-    .eq("store_id", readStoreId(storeId))
-    .maybeSingle();
-  return Boolean(data?.store_id && (data.qualified_invoice_issuer_name || data.qualified_invoice_registration_number));
 }
 
 async function hasGoogleConnection(store: Store) {
@@ -104,113 +107,100 @@ async function hasGoogleConnection(store: Store) {
 }
 
 export async function getStoreAiReadiness(store: Store): Promise<StoreAiReadiness> {
-  const [itemCount, customerCount, salesCount, invoiceSettings, googleReady, invoices, dataImports, growthActions] = await Promise.all([
+  const [itemCount, customerCount, salesCount, googleReady, invoices, dataImports, growthActions] = await Promise.all([
     countRows("items", store.id),
     countRows("customers", store.id),
     countRows("sales_transactions", store.id),
-    hasInvoiceSettings(store.id),
     hasGoogleConnection(store),
     countRows("invoices", store.id),
     countRows("data_import_jobs", store.id),
     countRows("growth_actions", store.id)
   ]);
 
-  const profileReady = profileScoreReady(store);
-  const snsReady = hasText(store.website_url) || hasText(store.google_business_url) || googleReady;
+  const profile = store.profile_data ?? {};
+  const identityReady = hasText(store.name) && hasText(store.address) && hasText(store.phone);
+  const offeringReady = hasText(store.description) || hasList(profile.services) || itemCount > 0;
+  const localReady = hasText(store.address) && (hasText(profile.strengths) || hasText(profile.target_customer));
+  const trustReady = hasText(store.website_url) || hasText(store.google_business_url);
+  const publishReady = googleReady || growthActions > 0;
+  const profileHref = `/stores/${store.id}/settings/profile`;
 
   const readinessItems: StoreAiReadinessItem[] = [
     {
-      key: "profile",
-      label: "店舗プロフィール",
-      value: profileReady ? "店舗らしさを理解済み" : "店舗の強みを理解する準備中",
-      complete: profileReady,
+      key: "identity",
+      label: "店舗の基本情報",
+      value: identityReady ? "名称・地域・連絡先を確認済み" : "不足している項目があります",
+      complete: identityReady,
       weight: 20,
-      href: `/stores/${store.id}`,
+      href: profileHref,
       priority: "最優先",
-      badge: "基礎情報",
-      benefit: "店舗プロフィールを整えると、AIが業態・強み・投稿トーンを理解できます。",
-      learned: "店舗の基本情報と強みを、投稿・診断・提案の土台にできます。"
+      badge: "AIおすすめの土台",
+      benefit: "店舗名・住所・連絡先を揃えると、同じ店舗の情報だと判断されやすくなります。",
+      learned: "店舗の名称、場所、連絡方法を1つの店舗情報として扱えます。"
     },
     {
-      key: "items",
-      label: "商品・サービス",
-      value: itemCount > 0 ? `${itemCount}件を理解` : "未登録",
-      complete: itemCount > 0,
-      weight: 20,
-      href: `/stores/${store.id}/items`,
+      key: "offering",
+      label: "サービスとおすすめ理由",
+      value: offeringReady ? "提供内容を確認済み" : "具体的な説明が必要です",
+      complete: offeringReady,
+      weight: 25,
+      href: profileHref,
       priority: "最優先",
-      badge: "AI精度UP",
-      benefit: "商品・サービスを登録すると、AIが売れ筋提案や投稿文に反映できます。",
-      learned: "商品・サービス情報を、見積作成と集客提案に使えるようになります。"
+      badge: "店舗の特徴",
+      benefit: "何ができて、誰に向いているかを書くと、質問に対するおすすめ理由が明確になります。",
+      learned: "提供サービスと、利用者にとっての価値を説明できます。"
     },
     {
-      key: "customers",
-      label: "顧客情報",
-      value: customerCount > 0 ? `${customerCount}件を理解` : "未登録",
-      complete: customerCount > 0,
-      weight: 15,
-      href: `/stores/${store.id}/customers`,
-      priority: "重要",
-      badge: "集客提案に必要",
-      benefit: "顧客情報が入ると、再来店案内やフォロー文の精度が上がります。",
-      learned: "顧客傾向を見ながら、案内文やフォローの優先度を考えられます。"
-    },
-    {
-      key: "invoice",
-      label: "請求書設定",
-      value: invoiceSettings ? "請求の土台を確認済み" : "確認待ち",
-      complete: invoiceSettings,
-      weight: 15,
-      href: `/stores/${store.id}/settings/invoice`,
-      priority: "重要",
-      badge: "請求業務に必要",
-      benefit: "請求書設定を確認すると、見積・請求・入金管理を安心して使えます。",
-      learned: "請求書番号や事業者情報を、請求書PDFと入金管理に反映できます。"
-    },
-    {
-      key: "sales",
-      label: "売上データ",
-      value: salesCount > 0 ? `${salesCount}件を理解` : "未取込",
-      complete: salesCount > 0,
+      key: "local",
+      label: "地域と得意なお客様",
+      value: localReady ? "地域性を確認済み" : "地域・対象のお客様を追加できます",
+      complete: localReady,
       weight: 20,
-      href: `/stores/${store.id}/data-imports`,
-      priority: "おすすめ",
-      badge: "売上分析に必要",
-      benefit: "売上データを取り込むと、月次レポートと改善提案が具体化します。",
-      learned: "売上傾向をもとに、月次レポートや需要予測を強化できます。"
+      href: profileHref,
+      priority: "重要",
+      badge: "地域情報",
+      benefit: "地域名と得意なお客様を具体化すると、地域を含む質問との結び付きが強くなります。",
+      learned: "どの地域の、どんなお客様に合う店舗かを説明できます。"
     },
     {
-      key: "channels",
-      label: "Google・SNS情報",
-      value: snsReady ? "集客導線を確認済み" : "確認待ち",
-      complete: snsReady,
-      weight: 10,
-      href: `/stores/${store.id}/settings/integrations`,
+      key: "trust",
+      label: "公式情報と信頼材料",
+      value: trustReady ? "公式URLを確認済み" : "公式サイトまたはGoogle情報が必要です",
+      complete: trustReady,
+      weight: 20,
+      href: `/stores/${store.id}/settings/google`,
+      priority: "重要",
+      badge: "信頼情報",
+      benefit: "公式サイトやGoogle情報を結び付けると、内容を確認できる根拠が増えます。",
+      learned: "店舗情報を確認できる公式な参照先を示せます。"
+    },
+    {
+      key: "publish",
+      label: "外部への反映",
+      value: publishReady ? "反映先または下書きあり" : "まだ外部には反映されていません",
+      complete: publishReady,
+      weight: 15,
+      href: `/stores/${store.id}/acquisition`,
       priority: "おすすめ",
-      badge: "集客提案に必要",
-      benefit: "GoogleやSNS情報を追加すると、投稿案や口コミ対応に店舗らしさが出ます。",
-      learned: "店舗の集客導線を、投稿文・案内文・Google支援に反映できます。"
+      badge: "外部への反映",
+      benefit: "整えた内容をGoogle・Web・SNSに反映して、外部から参照できる状態にします。",
+      learned: "改善内容を外部へ届ける準備状況を追跡できます。"
     }
   ];
 
   const score = Math.min(100, readinessItems.reduce((sum, item) => sum + (item.complete ? item.weight : 0), 0));
-  const nextBestActions = readinessItems.filter((item) => !item.complete).slice(0, 4);
+  const nextBestActions = readinessItems.filter((item) => !item.complete).slice(0, 3);
   const completedItems = readinessItems.filter((item) => item.complete);
 
   return {
     score,
     stage: stageFor(score),
     headline: headlineFor(score),
+    targetQuestions: targetQuestionsFor(store),
+    publicationStatus: { googleConnected: googleReady, contentCreated: growthActions > 0 },
     nextBestActions,
     completedItems,
     items: readinessItems,
-    counts: {
-      items: itemCount,
-      customers: customerCount,
-      salesTransactions: salesCount,
-      invoices,
-      dataImports,
-      growthActions
-    }
+    counts: { items: itemCount, customers: customerCount, salesTransactions: salesCount, invoices, dataImports, growthActions }
   };
 }

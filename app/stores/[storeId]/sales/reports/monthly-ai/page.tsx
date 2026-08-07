@@ -47,7 +47,7 @@ export default async function SalesAiReportsPage({
       <StoreBusinessNav store={store} />
 
       {error ? <p className="notice error">{decodeURIComponent(error)}</p> : null}
-      {archived ? <p className="notice success">AI月次売上レポートをアーカイブしました。</p> : null}
+      {archived ? <p className="notice success">AI月次売上レポートを削除しました。</p> : null}
 
       <section className="card">
         <h3>AI月次レポートを生成</h3>
@@ -76,7 +76,7 @@ export default async function SalesAiReportsPage({
                 <td>{formatCurrency(report.summary_metrics.totalSales)}</td>
                 <td>{report.summary_metrics.transactionCount.toLocaleString("ja-JP")}件</td>
                 <td>{new Date(report.created_at).toLocaleDateString("ja-JP")}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/sales/reports/monthly-ai/${report.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "sales_ai_report", report.id, `/stores/${store.id}/sales/reports/monthly-ai`)}><ConfirmSubmitButton message={`AI月次売上レポート「${report.title}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/sales/reports/monthly-ai/${report.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "sales_ai_report", report.id, `/stores/${store.id}/sales/reports/monthly-ai`)}><ConfirmSubmitButton message={`AI月次売上レポート「${report.title}」を削除します。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {reports.length === 0 ? <tr><td colSpan={6}>まだAI月次レポートがありません。対象月を選んで生成してください。</td></tr> : null}

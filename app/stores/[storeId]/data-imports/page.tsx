@@ -40,7 +40,7 @@ export default async function DataImportsPage({ params, searchParams }: { params
         action={<Link className="button" href={`/stores/${store.id}/data-imports/new`}>新規取り込み</Link>}
       />
       <StoreBusinessNav store={store} />
-      {archived ? <p className="notice success">取込履歴をアーカイブしました。取り込み済みの売上データは会計・分析の証跡として保持されます。</p> : null}
+      {archived ? <p className="notice success">取込履歴を削除しました。取り込み済みの売上データは会計・分析の証跡として保持されます。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -61,7 +61,7 @@ export default async function DataImportsPage({ params, searchParams }: { params
                 <td><span className="badge">{statusLabels[job.status] ?? job.status}</span></td>
                 <td>{job.success_rows.toLocaleString("ja-JP")} / {job.error_rows.toLocaleString("ja-JP")}</td>
                 <td>{new Date(job.created_at).toLocaleString("ja-JP")}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/data-imports/${job.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "data_import", job.id, `/stores/${store.id}/data-imports`)}><ConfirmSubmitButton message={`取込履歴「${job.original_filename ?? job.id}」をアーカイブします。取り込み済み売上は証跡として保持されます。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/data-imports/${job.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "data_import", job.id, `/stores/${store.id}/data-imports`)}><ConfirmSubmitButton message={`取込履歴「${job.original_filename ?? job.id}」を削除します。取り込み済み売上は証跡として保持されます。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {jobs.length === 0 ? <tr><td colSpan={6}>まだ取り込み履歴がありません。</td></tr> : null}

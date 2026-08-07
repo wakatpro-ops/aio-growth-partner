@@ -21,11 +21,11 @@ export default async function ItemsPage({ params, searchParams }: { params: Prom
         eyebrow={industry.name}
         title={industry.businessLabels.item}
         description="業態ごとの呼び名に合わせて、商品・部品・サービスを管理します。"
-        action={<Link className="button" href={`/stores/${store.id}/items/new`}>新規追加</Link>}
+        action={<Link className="button" href={`/stores/${store.id}/items/new`}>{industry.businessLabels.item}を追加</Link>}
       />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">保存しました。AIOは商品・サービス名を、見積作成や投稿提案に反映しやすくなりました。</p> : null}
-      {(await searchParams).archived ? <p className="notice success">商品・サービスをアーカイブしました。</p> : null}
+      {(await searchParams).archived ? <p className="notice success">商品・サービスを削除しました。</p> : null}
       <p className="notice success">
         {items.length > 0
           ? `${industry.businessLabels.item}が入ったため、AIは見積作成や投稿提案に具体的なメニュー名を反映できます。`
@@ -51,7 +51,7 @@ export default async function ItemsPage({ params, searchParams }: { params: Prom
                 <td>{item.unit_price.toLocaleString("ja-JP")}円 / {item.unit}</td>
                 <td>{item.is_stock_managed ? "管理する" : "対象外"}</td>
                 <td>{item.status === "active" ? "有効" : "停止"}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/items/${item.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "item", item.id, `/stores/${store.id}/items`)}><ConfirmSubmitButton message={`「${item.name}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/items/${item.id}`}>編集</Link><form action={archiveStoreEntityAction.bind(null, store.id, "item", item.id, `/stores/${store.id}/items`)}><ConfirmSubmitButton message={`「${item.name}」を削除します。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {items.length === 0 ? (

@@ -369,6 +369,7 @@ export async function createItemFromForm(storeId: string, formData: FormData) {
       unit_price: unitPrice,
       cost_price: asNumber(formData.get("cost_price")),
       tax_rate: taxRate,
+      metadata: { tax_inclusion: String(formData.get("tax_inclusion") ?? "inclusive") },
       is_stock_managed: formData.get("is_stock_managed") === "on",
       status: String(formData.get("status") ?? "active")
     })
@@ -390,6 +391,7 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
+  const { data: currentItem } = await supabase.from("items").select("metadata").eq("store_id", resolved.storeId).eq("id", itemId).maybeSingle();
 
   await supabase
     .from("items")
@@ -402,6 +404,7 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
       unit_price: asNumber(formData.get("unit_price")),
       cost_price: asNumber(formData.get("cost_price")),
       tax_rate: asNumber(formData.get("tax_rate"), 10),
+      metadata: { ...((currentItem?.metadata as Record<string, unknown> | null) ?? {}), tax_inclusion: String(formData.get("tax_inclusion") ?? "inclusive") },
       is_stock_managed: formData.get("is_stock_managed") === "on",
       status: String(formData.get("status") ?? "active"),
       updated_at: new Date().toISOString()
@@ -513,6 +516,7 @@ export async function createDocumentFromForm(storeId: string, kind: DocumentKind
     tax_10_amount: tax10Amount,
     tax_8_subtotal: tax8Subtotal,
     tax_8_amount: tax8Amount,
+    tax_inclusion: String(formData.get("tax_inclusion") ?? "inclusive"),
     notes: asText(formData.get("notes"))
   };
 
@@ -563,6 +567,7 @@ export async function updateDocumentFromForm(storeId: string, documentId: string
     tax_10_amount: asNumber(formData.get("tax_10_amount"), taxTotal),
     tax_8_subtotal: asNumber(formData.get("tax_8_subtotal")),
     tax_8_amount: asNumber(formData.get("tax_8_amount")),
+    tax_inclusion: String(formData.get("tax_inclusion") ?? "inclusive"),
     notes: asText(formData.get("notes")),
     updated_at: new Date().toISOString()
   };

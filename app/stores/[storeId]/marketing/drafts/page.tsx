@@ -43,7 +43,7 @@ export default async function MarketingDraftsPage({ params, searchParams }: { pa
         action={<Link className="button" href={`/stores/${store.id}/marketing/drafts/new`}>新規作成</Link>}
       />
       <StoreBusinessNav store={store} />
-      {archived ? <p className="notice success">投稿下書きをアーカイブしました。</p> : null}
+      {archived ? <p className="notice success">投稿下書きを削除しました。</p> : null}
       <div className="card">
         <table className="table">
           <thead>
@@ -62,7 +62,7 @@ export default async function MarketingDraftsPage({ params, searchParams }: { pa
                 <td>{channelLabels[draft.channel]}</td>
                 <td><span className="badge">{statusLabels[draft.status]}</span></td>
                 <td>{new Date(draft.created_at).toLocaleDateString("ja-JP")}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/marketing/drafts/${draft.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "marketing_draft", draft.id, `/stores/${store.id}/marketing/drafts`)}><ConfirmSubmitButton message={`下書き「${draft.title}」をアーカイブします。`}>アーカイブ</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/marketing/drafts/${draft.id}`}>詳細</Link><form action={archiveStoreEntityAction.bind(null, store.id, "marketing_draft", draft.id, `/stores/${store.id}/marketing/drafts`)}><ConfirmSubmitButton message={`下書き「${draft.title}」を削除します。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {drafts.length === 0 ? <tr><td colSpan={5}>まだ投稿下書きがありません。</td></tr> : null}

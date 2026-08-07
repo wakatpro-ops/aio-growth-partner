@@ -26,7 +26,7 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
     {
       title: "店舗プロフィール",
       body: "店舗名、URL、Google情報、業態別の強みを整えると、AIの投稿・診断・提案が店舗らしくなります。",
-      href: `/stores/${store.id}`,
+      href: `/stores/${store.id}/settings/profile`,
       badge: "基礎情報"
     },
     {
@@ -52,6 +52,12 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
       body: "SNSや案内文の出し先を整理すると、集客アクションを媒体ごとに管理しやすくなります。",
       href: `/stores/${store.id}/settings/channels`,
       badge: "AI精度UP"
+    },
+    {
+      title: "削除済みデータ",
+      body: "削除した商品・顧客・書類・下書きなどを確認し、必要なものを元に戻せます。",
+      href: `/stores/${store.id}/archives`,
+      badge: "データ管理"
     }
   ];
 
@@ -59,8 +65,8 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
     <AppShell>
       <PageHeader
         eyebrow={industry.name}
-        title="店舗AI設定"
-        description="店舗AIが理解する情報を整えます。設定が増えるほど、投稿・請求・売上分析・顧客フォローの提案が具体化します。"
+        title="設定"
+        description="店舗情報、外部サービス、請求に関する設定をまとめています。"
       />
       <StoreBusinessNav store={store} />
       <StoreAiReadinessPanel readiness={readiness} storeId={store.id} />
@@ -85,10 +91,10 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
       </section>
       {canArchiveStore ? (
         <section className="card danger-zone">
-          <h2>店舗を利用終了として整理</h2>
-          <p>店舗をアーカイブすると、通常の店舗一覧、ダッシュボード、AI集計から非表示になります。請求・入金・顧客・投稿などの関連データは削除されず、店舗一覧の「アーカイブ済み」から復元できます。</p>
+          <h2>店舗を削除</h2>
+          <p>画面上は削除されますが、データは消去せず「削除済み」に移動します。請求・入金・顧客・投稿などの関連データは保持され、あとから元に戻せます。</p>
           <form action={archiveStoreAction.bind(null, store.id)}>
-            <ConfirmSubmitButton message={`「${store.name}」をアーカイブします。関連データは保持されますが、復元するまで通常画面から利用できません。`}>店舗をアーカイブ</ConfirmSubmitButton>
+            <ConfirmSubmitButton message={`「${store.name}」を削除済みに移します。データは保持され、あとから元に戻せます。`}>店舗を削除</ConfirmSubmitButton>
           </form>
         </section>
       ) : null}
