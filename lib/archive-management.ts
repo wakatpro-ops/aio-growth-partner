@@ -8,6 +8,9 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 export type StoreArchiveEntity =
   | "item"
   | "customer"
+  | "customer_note"
+  | "customer_import"
+  | "customer_message"
   | "estimate"
   | "invoice"
   | "order"
@@ -28,6 +31,9 @@ type EntityConfig = {
 const entityConfigs: Record<StoreArchiveEntity, EntityConfig> = {
   item: { table: "items", label: "商品・サービス", select: "name", describe: (row) => String(row.name ?? "名称未設定") },
   customer: { table: "customers", label: "顧客", select: "name, company_name", describe: (row) => String(row.name ?? row.company_name ?? "名称未設定") },
+  customer_note: { table: "customer_notes", label: "顧客メモ", select: "body", describe: (row) => String(row.body ?? "メモ") },
+  customer_import: { table: "customer_import_jobs", label: "顧客データ取込", select: "original_filename, status", describe: (row) => String(row.original_filename ?? "ファイル名なし") },
+  customer_message: { table: "customer_message_drafts", label: "顧客メッセージ", select: "title, channel", describe: (row) => String(row.title ?? "タイトル未設定") },
   estimate: { table: "estimates", label: "見積書", select: "document_number, title", describe: (row) => [row.document_number, row.title].filter(Boolean).join(" / ") },
   invoice: { table: "invoices", label: "請求書", select: "document_number, title", describe: (row) => [row.document_number, row.title].filter(Boolean).join(" / ") },
   order: { table: "orders", label: "受注", select: "order_number, title", describe: (row) => [row.order_number, row.title].filter(Boolean).join(" / ") },

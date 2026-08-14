@@ -1025,6 +1025,91 @@ create table if not exists public.customers (
   updated_at timestamptz not null default now()
 );
 
+alter table public.customers add column if not exists customer_code text;
+alter table public.customers add column if not exists birth_date date;
+alter table public.customers add column if not exists gender text;
+alter table public.customers add column if not exists occupation text;
+alter table public.customers add column if not exists assigned_staff_name text;
+alter table public.customers add column if not exists line_account text;
+alter table public.customers add column if not exists instagram_account text;
+alter table public.customers add column if not exists facebook_account text;
+alter table public.customers add column if not exists last_visit_date date;
+alter table public.customers add column if not exists visit_count integer not null default 0;
+alter table public.customers add column if not exists preferred_channel text;
+alter table public.customers add column if not exists email_opt_in boolean not null default false;
+alter table public.customers add column if not exists line_opt_in boolean not null default false;
+alter table public.customers add column if not exists social_opt_in boolean not null default false;
+alter table public.customers add column if not exists do_not_contact boolean not null default false;
+alter table public.customers add column if not exists tags text[] not null default '{}';
+alter table public.customers add column if not exists phone_normalized text;
+alter table public.customers add column if not exists import_source text;
+
+create table if not exists public.customer_notes (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
+  body text not null,
+  follow_up text,
+  visibility text not null default 'store',
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  archived_at timestamptz,
+  archived_by uuid references auth.users(id) on delete set null
+);
+
+create table if not exists public.customer_import_jobs (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  original_filename text not null,
+  file_type text not null,
+  status text not null default 'preview',
+  source_headers jsonb not null default '[]'::jsonb,
+  mapping jsonb not null default '{}'::jsonb,
+  preview_rows jsonb not null default '[]'::jsonb,
+  raw_rows jsonb not null default '[]'::jsonb,
+  row_count integer not null default 0,
+  success_count integer not null default 0,
+  updated_count integer not null default 0,
+  skipped_count integer not null default 0,
+  error_count integer not null default 0,
+  errors jsonb not null default '[]'::jsonb,
+  duplicate_behavior text not null default 'skip',
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  completed_at timestamptz,
+  archived_at timestamptz,
+  archived_by uuid references auth.users(id) on delete set null
+);
+
+create table if not exists public.customer_message_drafts (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  store_id uuid not null references public.stores(id) on delete cascade,
+  customer_id uuid references public.customers(id) on delete set null,
+  segment_key text not null default 'all',
+  channel text not null default 'email',
+  goal text,
+  title text not null,
+  body text not null,
+  audience_count integer not null default 0,
+  scheduled_at timestamptz,
+  status text not null default 'draft',
+  ai_reasoning text,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  archived_at timestamptz,
+  archived_by uuid references auth.users(id) on delete set null
+);
+
+create index if not exists customer_notes_customer_idx on public.customer_notes(store_id, customer_id, created_at desc) where archived_at is null;
+create index if not exists customer_import_jobs_store_idx on public.customer_import_jobs(store_id, created_at desc) where archived_at is null;
+create index if not exists customer_message_drafts_store_idx on public.customer_message_drafts(store_id, scheduled_at, created_at desc) where archived_at is null;
+
 create table if not exists public.estimates (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -1493,6 +1578,9 @@ alter table public.items add column if not exists archived_at timestamptz;
 alter table public.items add column if not exists archived_by uuid references auth.users(id) on delete set null;
 alter table public.customers add column if not exists archived_at timestamptz;
 alter table public.customers add column if not exists archived_by uuid references auth.users(id) on delete set null;
+create index if not exists customers_store_phone_normalized_idx on public.customers(store_id, phone_normalized) where archived_at is null;
+create index if not exists customers_store_last_visit_idx on public.customers(store_id, last_visit_date) where archived_at is null;
+create index if not exists customers_store_birth_date_idx on public.customers(store_id, birth_date) where archived_at is null;
 alter table public.estimates add column if not exists archived_at timestamptz;
 alter table public.estimates add column if not exists archived_by uuid references auth.users(id) on delete set null;
 alter table public.invoices add column if not exists archived_at timestamptz;

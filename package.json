@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "check:secrets": "node scripts/check-client-secrets.mjs",
     "check:archives": "node scripts/check-archive-coverage.mjs",
+    "check:customer-crm": "node scripts/check-customer-crm.mjs",
     "check:google-review": "node scripts/check-google-review-readiness.mjs",
     "check:ux": "node scripts/check-store-ux.mjs"
   },
