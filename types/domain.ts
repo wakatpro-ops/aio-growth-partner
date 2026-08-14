@@ -23,6 +23,9 @@ export type ModuleKey =
   | "product_management"
   | "inventory_management"
   | "customer_management"
+  | "customer_imports"
+  | "customer_segments"
+  | "customer_message_planning"
   | "estimate_management"
   | "invoice_management"
   | "pdf_export"
@@ -166,7 +169,8 @@ export type AiTemplateKey =
   | "sales_ai_monthly_report"
   | "demand_action_recommendations"
   | "growth_action_draft_generation"
-  | "google_send_preparation";
+  | "google_send_preparation"
+  | "customer_segment_message";
 
 export type AiLogRecord = {
   user_id: string | null;

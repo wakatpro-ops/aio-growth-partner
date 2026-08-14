@@ -326,6 +326,29 @@ where plan_key = 'starter' and limit_key = 'enabled_modules';
 
 insert into public.modules (key, name, description, category, is_core)
 values
+  ('customer_imports', '顧客データ一括取込', 'CSV・Excelの顧客情報を確認してから顧客マスターへ取り込みます。', 'customer', false),
+  ('customer_segments', '顧客セグメント', '来店状況や連絡手段から再来店対象を整理します。', 'marketing', false),
+  ('customer_message_planning', '顧客メッセージ計画', '個別・セグメント向けのメッセージ下書きと配信予定を管理します。', 'marketing', false)
+on conflict (key) do update set name = excluded.name, description = excluded.description, category = excluded.category, is_core = excluded.is_core;
+
+insert into public.industry_modules (industry_type_key, module_key, is_enabled)
+select key, module_key, true
+from public.industry_types
+cross join (values ('customer_imports'), ('customer_segments'), ('customer_message_planning')) modules(module_key)
+on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
+
+insert into public.ai_prompt_templates (industry_type_key, module_key, template_key, name, system_prompt, user_prompt_template)
+select key, 'customer_message_planning', 'customer_segment_message', name || ' 顧客セグメントメッセージ',
+  'あなたは店舗の既存顧客フォローを支援する編集者です。個人情報を推測せず、過度な勧誘を避け、人が確認してから使える自然な文章を作成してください。',
+  '店舗情報と匿名化されたセグメント集計、目的、配信媒体をもとに、title、body、short_body、call_to_action、ai_reasoningをJSONで返してください。本文では{{名前}}を使用してください。'
+from public.industry_types
+on conflict (industry_type_key, module_key, template_key) do update set name = excluded.name, system_prompt = excluded.system_prompt, user_prompt_template = excluded.user_prompt_template, is_active = true;
+
+update public.industry_types set default_feature_flags = default_feature_flags || '{"customer_imports":true,"customer_segments":true,"customer_message_planning":true}'::jsonb;
+update public.stores set feature_flags = feature_flags || '{"customer_imports":true,"customer_segments":true,"customer_message_planning":true}'::jsonb;
+
+insert into public.modules (key, name, description, category, is_core)
+values
   ('invoice_compliance', 'インボイス対応請求書', '登録番号、税率別内訳、取引年月日を含む請求書管理です。', 'accounting', false),
   ('invoice_numbering', '請求書番号連番管理', '店舗ごとに請求書番号を連番管理します。', 'accounting', false),
   ('tax_rate_breakdown', '税率別内訳', '10%と8%の対象額、消費税額を管理します。', 'accounting', false),

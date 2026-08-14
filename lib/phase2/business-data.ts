@@ -53,6 +53,49 @@ function asDateText(value: FormDataEntryValue | null) {
   return asText(value) ?? new Date().toISOString().slice(0, 10);
 }
 
+function normalizeCustomerPhone(value: FormDataEntryValue | null) {
+  return String(value ?? "").trim().replace(/^\+81/, "0").replace(/\D/g, "");
+}
+
+function customerFormPayload(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const phoneNormalized = normalizeCustomerPhone(formData.get("phone"));
+  if (!name) throw new Error("名前を入力してください。");
+  if (!/^\d{8,15}$/.test(phoneNormalized)) throw new Error("電話番号は8〜15桁で入力してください。");
+  const email = asText(formData.get("email"));
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("メールアドレスの形式を確認してください。");
+  return {
+    name,
+    customer_code: asText(formData.get("customer_code")),
+    company_name: asText(formData.get("company_name")),
+    email,
+    phone,
+    phone_normalized: phoneNormalized,
+    address: asText(formData.get("address")),
+    birth_date: asText(formData.get("birth_date")),
+    gender: asText(formData.get("gender")),
+    occupation: asText(formData.get("occupation")),
+    assigned_staff_name: asText(formData.get("assigned_staff_name")),
+    line_account: asText(formData.get("line_account")),
+    instagram_account: asText(formData.get("instagram_account")),
+    facebook_account: asText(formData.get("facebook_account")),
+    last_visit_date: asText(formData.get("last_visit_date")),
+    visit_count: Math.max(0, Math.floor(asNumber(formData.get("visit_count")))),
+    preferred_channel: asText(formData.get("preferred_channel")),
+    email_opt_in: formData.get("email_opt_in") === "on",
+    line_opt_in: formData.get("line_opt_in") === "on",
+    social_opt_in: formData.get("social_opt_in") === "on",
+    do_not_contact: formData.get("do_not_contact") === "on",
+    tags: String(formData.get("tags") ?? "").split(/[、,;\n]/).map((tag) => tag.trim()).filter(Boolean).slice(0, 20),
+    vehicle_info: {
+      maker: asText(formData.get("vehicle_maker")),
+      model: asText(formData.get("vehicle_model")),
+      plate: asText(formData.get("vehicle_plate"))
+    }
+  };
+}
+
 function assertMutation(error: { message?: string } | null, fallback: string) {
   if (error) {
     throw new Error(error.message ? `${fallback}: ${error.message}` : fallback);
@@ -439,21 +482,14 @@ export async function createCustomerFromForm(storeId: string, formData: FormData
   if (!supabase) return;
   const resolved = await resolveStoreForWrite(supabase, store);
 
-  const { error } = await supabase.from("customers").insert({
+  const payload = customerFormPayload(formData);
+  const { data, error } = await supabase.from("customers").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
-    name: String(formData.get("name") ?? ""),
-    company_name: asText(formData.get("company_name")),
-    email: asText(formData.get("email")),
-    phone: asText(formData.get("phone")),
-    address: asText(formData.get("address")),
-    vehicle_info: {
-      maker: asText(formData.get("vehicle_maker")),
-      model: asText(formData.get("vehicle_model")),
-      plate: asText(formData.get("vehicle_plate"))
-    }
-  });
+    ...payload
+  }).select("id").single();
   assertMutation(error, "顧客を保存できませんでした");
+  if (data) await logAuditEvent({ storeId, actionType: "customer_created", targetType: "customer", targetId: String(data.id), message: "顧客情報を追加しました。" });
 }
 
 export async function updateCustomerFromForm(storeId: string, customerId: string, formData: FormData) {
@@ -461,24 +497,17 @@ export async function updateCustomerFromForm(storeId: string, customerId: string
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
 
+  const payload = customerFormPayload(formData);
   const { error } = await supabase
     .from("customers")
     .update({
-      name: String(formData.get("name") ?? ""),
-      company_name: asText(formData.get("company_name")),
-      email: asText(formData.get("email")),
-      phone: asText(formData.get("phone")),
-      address: asText(formData.get("address")),
-      vehicle_info: {
-        maker: asText(formData.get("vehicle_maker")),
-        model: asText(formData.get("vehicle_model")),
-        plate: asText(formData.get("vehicle_plate"))
-      },
+      ...payload,
       updated_at: new Date().toISOString()
     })
     .eq("store_id", resolved.storeId)
     .eq("id", customerId);
   assertMutation(error, "顧客を更新できませんでした");
+  await logAuditEvent({ storeId, actionType: "customer_updated", targetType: "customer", targetId: customerId, message: "顧客情報を更新しました。" });
 }
 
 export async function deleteCustomer(storeId: string, customerId: string) {

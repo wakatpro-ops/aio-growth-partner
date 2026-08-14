@@ -5,6 +5,16 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AiLogRecord, AiTemplateKey, Store } from "@/types/domain";
 
 function demoOutput(templateKey: AiTemplateKey, store: Store) {
+  if (templateKey === "customer_segment_message") {
+    return {
+      title: "ご来店ありがとうございます",
+      body: `{{名前}}様\n\nいつも${store.name}をご利用いただきありがとうございます。お変わりなくお過ごしでしょうか。ご都合のよいタイミングで、またお手伝いできることがありましたらお気軽にご相談ください。`,
+      short_body: `いつも${store.name}をご利用いただきありがとうございます。またのご来店をお待ちしています。`,
+      call_to_action: "ご予約・ご相談はこちら",
+      ai_reasoning: "個人情報を使わず、再来店のきっかけになる穏やかな案内文にしました。"
+    };
+  }
+
   if (templateKey === "post_generation") {
     return {
       post: `${store.name}からのお知らせです。地域の皆さまに安心してご利用いただけるよう、わかりやすい情報発信を続けています。気になることがあればお気軽にご相談ください。`,

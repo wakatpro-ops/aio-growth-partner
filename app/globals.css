@@ -1879,6 +1879,71 @@ p {
   gap: 18px;
 }
 
+.required-mark {
+  color: #a9372b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.customer-toolbar {
+  align-items: flex-end;
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.inline-filter {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(180px, 280px) auto;
+}
+
+.inline-filter label {
+  grid-column: 1 / -1;
+}
+
+.radio-card {
+  align-items: flex-start;
+  background: #f7faf8;
+  border: 1px solid #d5e2da;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  line-height: 1.55;
+  padding: 14px 16px;
+}
+
+.radio-card:has(input:checked) {
+  background: #e8f4ec;
+  border-color: var(--accent);
+}
+
+.note-entry {
+  background: #f8faf9;
+  border: 1px solid #dce6e0;
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.note-entry .form {
+  box-shadow: none;
+  margin: 0;
+  padding: 0;
+}
+
+@media (max-width: 860px) {
+  .customer-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .inline-filter {
+    grid-template-columns: 1fr;
+  }
+}
+
 .result {
   background: #f3f6f3;
   border: 1px solid var(--line);

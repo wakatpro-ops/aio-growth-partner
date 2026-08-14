@@ -57,6 +57,9 @@ alter table public.items enable row level security;
 alter table public.inventory_stocks enable row level security;
 alter table public.inventory_movements enable row level security;
 alter table public.customers enable row level security;
+alter table public.customer_notes enable row level security;
+alter table public.customer_import_jobs enable row level security;
+alter table public.customer_message_drafts enable row level security;
 alter table public.estimates enable row level security;
 alter table public.estimate_items enable row level security;
 alter table public.invoices enable row level security;
@@ -217,6 +220,12 @@ drop policy if exists "read org inventory movements" on public.inventory_movemen
 drop policy if exists "write org inventory movements" on public.inventory_movements;
 drop policy if exists "read org customers" on public.customers;
 drop policy if exists "write org customers" on public.customers;
+drop policy if exists "read org customer notes" on public.customer_notes;
+drop policy if exists "write org customer notes" on public.customer_notes;
+drop policy if exists "read org customer import jobs" on public.customer_import_jobs;
+drop policy if exists "write org customer import jobs" on public.customer_import_jobs;
+drop policy if exists "read org customer message drafts" on public.customer_message_drafts;
+drop policy if exists "write org customer message drafts" on public.customer_message_drafts;
 drop policy if exists "read org estimates" on public.estimates;
 drop policy if exists "write org estimates" on public.estimates;
 drop policy if exists "read org estimate items" on public.estimate_items;
@@ -606,6 +615,27 @@ create policy "read org customers" on public.customers
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org customers" on public.customers
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org customer notes" on public.customer_notes
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org customer notes" on public.customer_notes
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org customer import jobs" on public.customer_import_jobs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org customer import jobs" on public.customer_import_jobs
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org customer message drafts" on public.customer_message_drafts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org customer message drafts" on public.customer_message_drafts
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 

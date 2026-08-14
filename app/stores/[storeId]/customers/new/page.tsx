@@ -12,8 +12,8 @@ export default async function NewCustomerPage({ params }: { params: Promise<{ st
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title={`${industry.businessLabels.customer}を追加`} description="見積書・請求書で使う宛先を登録します。" />
-      <CustomerForm action={createCustomerAction.bind(null, store.id)} showVehicle={store.industry_type_key === "auto_repair"} />
+      <PageHeader eyebrow={industry.name} title={`${industry.businessLabels.customer}を追加`} description="見積・請求と再来店支援に使う顧客情報を登録します。" />
+      <CustomerForm action={createCustomerAction.bind(null, store.id)} showVehicle={store.industry_type_key === "auto_repair"} cancelHref={`/stores/${store.id}/customers`} />
     </AppShell>
   );
 }

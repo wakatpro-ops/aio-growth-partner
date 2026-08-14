@@ -18,6 +18,17 @@ export function getFallbackPromptTemplate(industryTypeKey: IndustryTypeKey, temp
   const industry = getIndustryConfig(industryTypeKey);
   const baseContext = `業態: ${industry.name}\n店舗の文言: ${industry.profileLabel}`;
 
+  if (templateKey === "customer_segment_message") {
+    return {
+      id: `${industryTypeKey}-customer-segment-message-fallback`,
+      industryTypeKey,
+      templateKey,
+      model,
+      systemPrompt: "あなたは店舗の既存顧客フォローを支援する編集者です。個人情報を推測せず、過度な勧誘を避け、人が確認してから使える自然な文章を作成してください。",
+      userPromptTemplate: `${baseContext}\n匿名化されたセグメント集計、目的、配信媒体をもとに、title、body、short_body、call_to_action、ai_reasoningをJSONで返してください。本文では個人名の代わりに{{名前}}を使用してください。`
+    };
+  }
+
   if (templateKey === "post_generation") {
     const systemPrompt =
       industryTypeKey === "auto_repair"
