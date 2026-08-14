@@ -41,7 +41,7 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
         <div className="section-heading">
           <div>
             <h2>申込一覧</h2>
-            <p>AIO利用料はMVP期間中、Stripe自動課金ではなく請求書ベースで運用します。</p>
+            <p>AIO利用契約は電子契約で締結し、月額200,000円（税別）を毎月前払いの請求書で運用します。</p>
           </div>
         </div>
         <table className="table">

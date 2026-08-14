@@ -342,8 +342,8 @@ export default async function AdminApplicationDetailPage({
         <article className="card">
           <h2>AIO利用料の課金メモ</h2>
           <ul className="compact-list">
-            <li>AIO運営側の月額利用料は、MVP期間中は請求書ベースで運用します。</li>
-            <li>Stripe Subscription / Checkout は後続フェーズです。</li>
+            <li>AIO運営側の利用契約は電子契約で締結し、月額200,000円（税別）を毎月前払いの請求書で運用します。</li>
+            <li>請求書発行日から10日以内の銀行振込を確認してから利用開始準備を進めます。</li>
             <li>店舗側Stripe/freee連携は、店舗のお客様決済・会計連携用であり、AIO利用料とは別です。</li>
             <li>入金確認前に本利用開始しない運用にしてください。</li>
           </ul>

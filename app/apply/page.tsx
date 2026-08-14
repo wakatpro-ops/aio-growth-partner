@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ApplyForm } from "./apply-form";
 
 export default function ApplyPage() {
@@ -8,7 +9,18 @@ export default function ApplyPage() {
           <div className="eyebrow">Apply</div>
           <h1>導入相談・利用申し込み</h1>
           <p>店舗業務の整理、請求・入金管理、売上分析、AI集客支援の導入についてご相談いただけます。入力内容をもとに、AIOが導入前の初期整理を行います。</p>
+          <div className="button-row" style={{ marginTop: 16 }}>
+            <Link className="button secondary" href="/pricing">料金と含まれる機能を見る</Link>
+          </div>
         </div>
+        <section className="apply-pricing-summary" aria-labelledby="apply-pricing-title">
+          <div>
+            <p className="eyebrow">AIO boost オールインワンプラン</p>
+            <h2 id="apply-pricing-title">月額200,000円（税別）／1法人</h2>
+            <p>店舗数・利用ユーザー数・通常業務でのAI利用は上限なし。2年以上のご契約で初期設定費300,000円（税別）が無料です。</p>
+          </div>
+          <Link className="button secondary" href="/pricing">料金の詳細を確認</Link>
+        </section>
         <section className="grid cols-3">
           <article className="card">
             <p className="muted">1</p>
