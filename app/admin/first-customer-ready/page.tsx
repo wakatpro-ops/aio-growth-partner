@@ -9,6 +9,8 @@ const preLaunchChecklist = [
   "連絡先",
   "業態",
   "初期設定完了",
+  "電子契約締結済み",
+  "初回請求書発行・入金確認済み",
   "請求書設定完了",
   "顧客/商品/サービス登録確認",
   "見積/請求/PDF確認",
@@ -32,12 +34,12 @@ const betaTerms = [
 ];
 
 const pricingMemo = [
-  { label: "β導入価格", value: "1社目は個別見積。伴走内容と店舗数に応じて調整します。" },
-  { label: "月額", value: "MVP期間は請求書ベースで請求します。Stripe自動課金は使いません。" },
-  { label: "初期設定費", value: "店舗作成、請求書設定、商品/顧客初期登録、Google接続確認を含めるか個別に決めます。" },
-  { label: "伴走サポート範囲", value: "初回設定、操作説明、不具合一次受付、月次レポート確認、集客アクション作成支援を想定します。" },
-  { label: "無料期間", value: "必要に応じて初月無料またはトライアル期間を設定できます。終了日を必ず記録します。" },
-  { label: "正式版移行", value: "正式版料金、機能範囲、手動運用から自動連携への移行条件を事前に説明します。" }
+  { label: "契約単位", value: "1法人・1契約。契約法人内の店舗数と利用ユーザー数に上限はありません。" },
+  { label: "月額", value: "200,000円（税別）。毎月前払いの請求書を発行します。" },
+  { label: "AI利用", value: "通常の業務利用の範囲でAIトークンの利用上限はありません。対象外条件は電子契約書と利用規約で確認します。" },
+  { label: "初期設定費", value: "300,000円（税別）。2年以上の利用契約で免除します。" },
+  { label: "最低利用期間", value: "利用開始日から24か月。途中解約時は残存期間分の月額料金を請求します。" },
+  { label: "契約・支払方法", value: "電子契約締結後、請求書発行日から10日以内の銀行振込です。" }
 ];
 
 const incidentOps = [
@@ -97,7 +99,7 @@ export default function FirstCustomerReadyPage() {
           <li>入金確認後にだけ、管理者が「承認して利用開始準備」を行います。</li>
           <li>ユーザーはログイン後、初回オンボーディングから店舗情報、請求書設定、商品、顧客を登録します。</li>
         </ol>
-        <p className="notice">AIO利用料はMVP期間中、Stripe Subscriptionではなく請求書ベースです。店舗側Stripe/freee連携とは別に扱います。</p>
+        <p className="notice">AIO利用契約は電子契約で締結し、月額200,000円（税別）を毎月前払いの請求書で請求します。店舗側Stripe/freee連携とは別に扱います。</p>
       </section>
 
       <section className="card">
@@ -122,8 +124,8 @@ export default function FirstCustomerReadyPage() {
       </section>
 
       <section className="card">
-        <h2>β価格メモ</h2>
-        <p className="muted">一般公開用ではなく、管理者が1社目との条件整理に使うメモです。</p>
+        <h2>正式料金・契約条件</h2>
+        <p className="muted">公開料金ページ、電子契約書、請求書の条件が一致しているか確認するための管理者用メモです。</p>
         <table className="table">
           <tbody>
             {pricingMemo.map((item) => (

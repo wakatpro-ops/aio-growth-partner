@@ -14,6 +14,9 @@ export default function HomePage() {
             <Link className="button" href="/apply">
               申し込みへ
             </Link>
+            <Link className="button secondary" href="/pricing">
+              料金を見る
+            </Link>
             <Link className="button secondary" href="/dashboard">
               機能を見る
             </Link>
@@ -35,6 +38,14 @@ export default function HomePage() {
             <p>投稿文、口コミ返信案、月次改善提案などを、店舗情報や売上データをもとに作成できます。</p>
           </div>
         </div>
+        <section className="home-pricing-banner" aria-labelledby="home-pricing-title">
+          <div>
+            <p className="eyebrow">料金は1プランだけ</p>
+            <h2 id="home-pricing-title">月額20万円（税別）で、店舗数・利用者数・通常業務でのAI利用が上限なし。</h2>
+            <p>2年以上のご契約で、初期設定費30万円（税別）が無料になります。</p>
+          </div>
+          <Link className="button" href="/pricing">料金と全機能を見る</Link>
+        </section>
         <section className="card" aria-labelledby="public-information-title" style={{ marginTop: 24 }}>
           <h2 id="public-information-title">運営・サポート</h2>
           <p>
