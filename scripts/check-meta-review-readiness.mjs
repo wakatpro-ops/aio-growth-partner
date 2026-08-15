@@ -16,6 +16,7 @@ for (const scope of [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
+  "business_management",
   "instagram_basic",
   "instagram_content_publish"
 ]) {
@@ -58,6 +59,6 @@ for (const value of [
 }
 
 console.log("Meta審査準備チェック: OK");
-console.log("- 必要権限5件と本番OAuthコールバック: 確認済み");
+console.log("- 必要権限6件と本番OAuthコールバック: 確認済み");
 console.log("- Meta連携解除・権限取消・保存トークン削除: 実装済み");
 console.log("- 公開プライバシー開示・データ削除案内: 実装済み");
