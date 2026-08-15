@@ -490,6 +490,11 @@ export async function updateFreeeIntegrationFromForm(storeId: string, formData: 
       income_tax_code: text(formData.get("income_tax_code")),
       expense_account_item_id: text(formData.get("expense_account_item_id")),
       expense_tax_code: text(formData.get("expense_tax_code")),
+      expense_tax_code_8: text(formData.get("expense_tax_code_8")),
+      expense_tax_code_10: text(formData.get("expense_tax_code_10")),
+      expense_tax_code_0: text(formData.get("expense_tax_code_0")),
+      section_id: text(formData.get("section_id")),
+      partner_id: text(formData.get("partner_id")),
       walletable_type: text(formData.get("walletable_type")),
       walletable_id: text(formData.get("walletable_id")),
       note: text(formData.get("note"))
@@ -692,7 +697,7 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
   const supabase = createSupabaseAdminClient();
   if (!supabase) return "発行日,請求書番号,顧客名,小計,消費税,合計,入金状態,支払方法\n";
   const resolved = await resolveStore(supabase, storeId);
-  const [{ data }, { data: sales }] = await Promise.all([
+  const [{ data }, { data: sales }, { data: expenseReceipts }] = await Promise.all([
     supabase
     .from("invoices")
     .select("*, customer:customers(name)")
@@ -704,6 +709,14 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
       .select("*")
       .eq("store_id", resolved.storeId)
       .order("business_date", { ascending: false })
+      .limit(1000),
+    supabase
+      .from("expense_receipts")
+      .select("*")
+      .eq("store_id", resolved.storeId)
+      .eq("approval_status", "approved")
+      .is("archived_at", null)
+      .order("receipt_date", { ascending: false })
       .limit(1000)
   ]);
   const rows = [
@@ -746,6 +759,28 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
         "imported"
       ]);
     }
+    for (const receipt of expenseReceipts ?? []) {
+      const taxRows = Array.isArray(receipt.tax_breakdown) && receipt.tax_breakdown.length > 0
+        ? receipt.tax_breakdown as Array<{ rate?: string; amount?: number; tax_amount?: number }>
+        : [{ rate: receipt.tax_rate ?? "", amount: receipt.total_amount ?? 0, tax_amount: receipt.tax_amount ?? 0 }];
+      for (const taxRow of taxRows) {
+        const gross = Number(taxRow.amount ?? receipt.total_amount ?? 0);
+        const taxAmount = Number(taxRow.tax_amount ?? 0);
+        rows.push([
+          receipt.receipt_date ?? "",
+          receipt.invoice_registration_number ?? receipt.original_file_name ?? "",
+          receipt.vendor_name ?? "",
+          `経費レシート ${receipt.category_name ?? ""}`.trim(),
+          taxRow.rate ? `${String(taxRow.rate).replace("%", "")}%` : "",
+          String(-(gross - taxAmount)),
+          String(-taxAmount),
+          String(-gross),
+          receipt.receipt_date ?? "",
+          receipt.payment_method ?? "",
+          receipt.freee_status === "sent" ? "sent" : "approved"
+        ]);
+      }
+    }
   }
   const exportType = format === "freee" ? "freee_csv" : "invoice_csv";
   const fileName = `${format === "freee" ? "freee" : "accounting"}-export-${storeId}.csv`;
@@ -765,7 +800,7 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
     status: "completed",
     row_count: Math.max(rows.length - 1, 0),
     file_name: fileName,
-    request_payload: { format, sources: format === "freee" ? ["invoices", "payments", "sales_transactions"] : ["invoices"] },
+    request_payload: { format, sources: format === "freee" ? ["invoices", "payments", "sales_transactions", "expense_receipts"] : ["invoices"] },
     response_payload: { mode: "manual_csv_download" },
     completed_at: new Date().toISOString()
   });

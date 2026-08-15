@@ -10,17 +10,22 @@ import { freeeRedirectUri, isFreeeConnectEnvReady } from "@/lib/phase6/freee-con
 import { getStoreAccountingIntegration } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
 import { integrationStatusLabels, labelFor } from "@/lib/status-labels";
-import { disconnectFreeeIntegrationAction, updateFreeeIntegrationAction } from "../../../compliance/actions";
+import { disconnectFreeeIntegrationAction, refreshFreeeMastersAction, updateFreeeIntegrationAction } from "../../../compliance/actions";
 
-export default async function FreeeSettingsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; connected?: string; disconnected?: string; error?: string }> }) {
+export default async function FreeeSettingsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; connected?: string; disconnected?: string; masters?: string; error?: string }> }) {
   const { storeId } = await params;
-  const { saved, connected, disconnected, error } = await searchParams;
+  const { saved, connected, disconnected, masters, error } = await searchParams;
   const store = await getStore(storeId);
   const access = await getCurrentUserAccess();
   const industry = getIndustryConfig(store.industry_type_key);
   const integration = await getStoreAccountingIntegration(store.id, "freee");
   const config = integration?.config && typeof integration.config === "object" ? integration.config as Record<string, unknown> : {};
   const metadata = integration?.metadata && typeof integration.metadata === "object" ? integration.metadata as Record<string, unknown> : {};
+  const masterCache = config.master_cache && typeof config.master_cache === "object" ? config.master_cache as Record<string, unknown> : {};
+  const accountItems = Array.isArray(masterCache.account_items) ? masterCache.account_items as Array<Record<string, unknown>> : [];
+  const taxCodes = Array.isArray(masterCache.tax_codes) ? masterCache.tax_codes as Array<Record<string, unknown>> : [];
+  const partners = Array.isArray(masterCache.partners) ? masterCache.partners as Array<Record<string, unknown>> : [];
+  const sections = Array.isArray(masterCache.sections) ? masterCache.sections as Array<Record<string, unknown>> : [];
   const redirectUri = freeeRedirectUri();
   const connectEnvReady = isFreeeConnectEnvReady();
   const isConnected = integration?.status === "connected";
@@ -33,6 +38,7 @@ export default async function FreeeSettingsPage({ params, searchParams }: { para
       {saved ? <p className="notice success">freee連携情報を保存しました。</p> : null}
       {connected ? <p className="notice success">freee事業所を接続しました。会計CSV出力や今後の会計連携に利用できます。</p> : null}
       {disconnected ? <p className="notice success">freee接続を解除しました。</p> : null}
+      {masters ? <p className="notice success">freeeから勘定科目・税区分・部門・取引先の候補を更新しました。</p> : null}
       {error ? <p className="notice danger">{error}</p> : null}
       <section className="grid cols-2">
         <article className="card">
@@ -99,7 +105,13 @@ export default async function FreeeSettingsPage({ params, searchParams }: { para
       </section>
       <section className="card form">
         <h2>freee送信設定</h2>
-        <p>freeeへ送る取引の既定値を設定します。勘定科目IDや税区分コードは、freee側の設定に合わせて入力してください。</p>
+        <p>freeeへ送る取引の既定値を設定します。接続後に候補を更新すると、IDを手入力せず選択できます。</p>
+        <div className="action-row">
+          <form action={refreshFreeeMastersAction.bind(null, store.id)}>
+            <PendingSubmitButton className="button secondary" pendingLabel="freee候補を取得しています..." disabled={!isConnected}>freeeから候補を更新</PendingSubmitButton>
+          </form>
+          <span className="muted">最終取得: {typeof masterCache.fetched_at === "string" ? new Date(masterCache.fetched_at).toLocaleString("ja-JP") : "未取得"}</span>
+        </div>
         <form action={updateFreeeIntegrationAction.bind(null, store.id)} className="grid cols-2">
           <div className="field">
             <label htmlFor="status">接続状態</label>
@@ -132,11 +144,31 @@ export default async function FreeeSettingsPage({ params, searchParams }: { para
           </div>
           <div className="field">
             <label htmlFor="expense_account_item_id">経費の勘定科目ID</label>
-            <input id="expense_account_item_id" name="expense_account_item_id" inputMode="numeric" defaultValue={typeof config.expense_account_item_id === "string" ? config.expense_account_item_id : ""} placeholder="例: 消耗品費のID" />
+            <select id="expense_account_item_id" name="expense_account_item_id" defaultValue={typeof config.expense_account_item_id === "string" ? config.expense_account_item_id : ""}>
+              <option value="">自動判定</option>
+              {accountItems.map((item) => <option key={String(item.id)} value={String(item.id)}>{String(item.name ?? item.id)}</option>)}
+            </select>
           </div>
           <div className="field">
-            <label htmlFor="expense_tax_code">経費の税区分コード</label>
-            <input id="expense_tax_code" name="expense_tax_code" inputMode="numeric" defaultValue={typeof config.expense_tax_code === "string" ? config.expense_tax_code : ""} placeholder="例: 課対仕入10%のコード" />
+            <label htmlFor="expense_tax_code_10">経費10%の税区分</label>
+            <select id="expense_tax_code_10" name="expense_tax_code_10" defaultValue={typeof config.expense_tax_code_10 === "string" ? config.expense_tax_code_10 : ""}><option value="">自動判定</option>{taxCodes.map((item) => <option key={String(item.code)} value={String(item.code)}>{String(item.name ?? item.code)}</option>)}</select>
+            <input type="hidden" name="expense_tax_code" value={typeof config.expense_tax_code === "string" ? config.expense_tax_code : ""} />
+          </div>
+          <div className="field">
+            <label htmlFor="expense_tax_code_8">経費8%の税区分</label>
+            <select id="expense_tax_code_8" name="expense_tax_code_8" defaultValue={typeof config.expense_tax_code_8 === "string" ? config.expense_tax_code_8 : ""}><option value="">自動判定</option>{taxCodes.map((item) => <option key={String(item.code)} value={String(item.code)}>{String(item.name ?? item.code)}</option>)}</select>
+          </div>
+          <div className="field">
+            <label htmlFor="expense_tax_code_0">非課税・対象外の税区分</label>
+            <select id="expense_tax_code_0" name="expense_tax_code_0" defaultValue={typeof config.expense_tax_code_0 === "string" ? config.expense_tax_code_0 : ""}><option value="">自動判定</option>{taxCodes.map((item) => <option key={String(item.code)} value={String(item.code)}>{String(item.name ?? item.code)}</option>)}</select>
+          </div>
+          <div className="field">
+            <label htmlFor="section_id">部門</label>
+            <select id="section_id" name="section_id" defaultValue={typeof config.section_id === "string" ? config.section_id : ""}><option value="">指定しない</option>{sections.map((item) => <option key={String(item.id)} value={String(item.id)}>{String(item.name ?? item.id)}</option>)}</select>
+          </div>
+          <div className="field">
+            <label htmlFor="partner_id">取引先</label>
+            <select id="partner_id" name="partner_id" defaultValue={typeof config.partner_id === "string" ? config.partner_id : ""}><option value="">証憑ごとの支払先名を使用</option>{partners.map((item) => <option key={String(item.id)} value={String(item.id)}>{String(item.name ?? item.id)}</option>)}</select>
           </div>
           <div className="field">
             <label htmlFor="walletable_type">入出金口座の種類</label>

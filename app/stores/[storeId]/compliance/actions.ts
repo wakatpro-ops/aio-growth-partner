@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDocument } from "@/lib/phase2/business-data";
 import {
+  approveExpenseReceipt,
   createReceiptFromForm,
+  reanalyzeExpenseReceipt,
+  updateExpenseReceiptFromForm,
 } from "@/lib/phase6/expense-receipts";
 import {
   createInvoiceFromOrder,
@@ -18,7 +21,7 @@ import {
   updateFreeeIntegrationFromForm,
   updateStripeIntegrationFromForm
 } from "@/lib/phase6/compliance-data";
-import { disconnectFreeeConnect } from "@/lib/phase6/freee-connect";
+import { disconnectFreeeConnect, refreshFreeeMasterOptions } from "@/lib/phase6/freee-connect";
 import { sendExpenseReceiptToFreee, sendInvoicesAndPaymentsToFreee } from "@/lib/phase6/freee-connect";
 import { disconnectStripeConnect } from "@/lib/phase6/stripe-connect";
 import { addOrderItemFromForm, archiveOrderItem, restoreOrderItem } from "@/lib/inventory-operations";
@@ -135,10 +138,45 @@ export async function disconnectFreeeIntegrationAction(storeId: string) {
 }
 
 export async function createExpenseReceiptAction(storeId: string, formData: FormData) {
-  const receiptId = await createReceiptFromForm(storeId, formData);
+  let result;
+  try {
+    result = await createReceiptFromForm(storeId, formData);
+  } catch (error) {
+    redirect(`/stores/${storeId}/accounting/receipts/new?error=${actionError(error)}`);
+  }
   revalidatePath(`/stores/${storeId}/accounting/receipts`);
   revalidatePath(`/stores/${storeId}/accounting/exports`);
-  redirect(`/stores/${storeId}/accounting/receipts?uploaded=${receiptId}`);
+  redirect(`/stores/${storeId}/accounting/receipts/${result.receiptId}?uploaded=1${result.duplicate ? "&duplicate=1" : ""}`);
+}
+
+export async function updateExpenseReceiptAction(storeId: string, receiptId: string, formData: FormData) {
+  try { await updateExpenseReceiptFromForm(storeId, receiptId, formData); }
+  catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
+  revalidatePath(`/stores/${storeId}/accounting/receipts`);
+  revalidatePath(`/stores/${storeId}/accounting/receipts/${receiptId}`);
+  redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?saved=1`);
+}
+
+export async function approveExpenseReceiptAction(storeId: string, receiptId: string, formData: FormData) {
+  try { await approveExpenseReceipt(storeId, receiptId, formData); }
+  catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
+  revalidatePath(`/stores/${storeId}/accounting/receipts`);
+  revalidatePath(`/stores/${storeId}/accounting/receipts/${receiptId}`);
+  redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?approved=1`);
+}
+
+export async function reanalyzeExpenseReceiptAction(storeId: string, receiptId: string) {
+  try { await reanalyzeExpenseReceipt(storeId, receiptId); }
+  catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
+  revalidatePath(`/stores/${storeId}/accounting/receipts/${receiptId}`);
+  redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?reanalyzed=1`);
+}
+
+export async function refreshFreeeMastersAction(storeId: string) {
+  try { await refreshFreeeMasterOptions(storeId); }
+  catch (error) { redirect(`/stores/${storeId}/settings/accounting/freee?error=${actionError(error)}`); }
+  revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
+  redirect(`/stores/${storeId}/settings/accounting/freee?masters=1`);
 }
 
 export async function sendInvoicesToFreeeAction(storeId: string) {
@@ -148,10 +186,12 @@ export async function sendInvoicesToFreeeAction(storeId: string) {
 }
 
 export async function sendReceiptToFreeeAction(storeId: string, receiptId: string) {
-  await sendExpenseReceiptToFreee(storeId, receiptId);
+  try { await sendExpenseReceiptToFreee(storeId, receiptId); }
+  catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/accounting/receipts`);
   revalidatePath(`/stores/${storeId}/accounting/exports`);
-  redirect(`/stores/${storeId}/accounting/receipts?freeeReceiptSent=1`);
+  revalidatePath(`/stores/${storeId}/accounting/receipts/${receiptId}`);
+  redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?freeeReceiptSent=1`);
 }
 
 export async function updateInvoiceStripePaymentAction(storeId: string, invoiceId: string, formData: FormData) {
