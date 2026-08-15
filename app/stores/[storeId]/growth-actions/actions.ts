@@ -3,9 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  approveGoogleReviewReply,
   disconnectGoogle,
   executeGoogleIntegration,
+  publishGoogleBusinessPost,
+  publishGoogleReviewReply,
   prepareGooglePublishJob,
+  saveGoogleReviewReplyDraft,
+  syncGoogleBusinessReviews,
   syncGoogleBusinessProfileCandidates,
   upsertGoogleBusinessProfile,
   upsertGoogleCalendar,
@@ -208,4 +213,67 @@ export async function executeGoogleIntegrationAction(storeId: string, actionId: 
     errorRedirect(path, error);
   }
   redirect(`${path}?executed=${target}${jobId ? `&job=${jobId}` : ""}`);
+}
+
+export async function publishGoogleBusinessPostAction(storeId: string, actionId: string) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/send`;
+  let jobId: string | null = null;
+  try {
+    const result = await publishGoogleBusinessPost(storeId, actionId);
+    jobId = result.jobId;
+    revalidatePath(`/stores/${storeId}/growth-actions`);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?executed=google_business_profile${jobId ? `&job=${jobId}` : ""}`);
+}
+
+export async function syncGoogleBusinessReviewsAction(storeId: string) {
+  const path = `/stores/${storeId}/reviews`;
+  let count = 0;
+  try {
+    const result = await syncGoogleBusinessReviews(storeId);
+    count = result.count;
+    revalidatePath(path);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?synced=1&count=${count}`);
+}
+
+export async function saveGoogleReviewReplyDraftAction(storeId: string, reviewId: string, formData: FormData) {
+  const path = `/stores/${storeId}/reviews`;
+  try {
+    await saveGoogleReviewReplyDraft(storeId, reviewId, formData);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?saved=1`);
+}
+
+export async function approveGoogleReviewReplyAction(storeId: string, reviewId: string) {
+  const path = `/stores/${storeId}/reviews`;
+  try {
+    await approveGoogleReviewReply(storeId, reviewId);
+    revalidatePath(path);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?approved=1`);
+}
+
+export async function publishGoogleReviewReplyAction(storeId: string, reviewId: string) {
+  const path = `/stores/${storeId}/reviews`;
+  try {
+    await publishGoogleReviewReply(storeId, reviewId);
+    revalidatePath(path);
+    revalidatePath(`/stores/${storeId}/settings/google`);
+  } catch (error) {
+    errorRedirect(path, error);
+  }
+  redirect(`${path}?published=1`);
 }

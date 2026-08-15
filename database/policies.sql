@@ -49,6 +49,8 @@ alter table public.growth_action_draft_versions enable row level security;
 alter table public.external_channel_accounts enable row level security;
 alter table public.google_oauth_connections enable row level security;
 alter table public.google_business_profiles enable row level security;
+alter table public.google_business_locations enable row level security;
+alter table public.google_business_reviews enable row level security;
 alter table public.google_gmail_settings enable row level security;
 alter table public.google_calendar_settings enable row level security;
 alter table public.external_publish_jobs enable row level security;
@@ -228,6 +230,10 @@ drop policy if exists "read org google oauth connections" on public.google_oauth
 drop policy if exists "write org google oauth connections" on public.google_oauth_connections;
 drop policy if exists "read org google business profiles" on public.google_business_profiles;
 drop policy if exists "write org google business profiles" on public.google_business_profiles;
+drop policy if exists "read org google business locations" on public.google_business_locations;
+drop policy if exists "write org google business locations" on public.google_business_locations;
+drop policy if exists "read org google business reviews" on public.google_business_reviews;
+drop policy if exists "write org google business reviews" on public.google_business_reviews;
 drop policy if exists "read org google gmail settings" on public.google_gmail_settings;
 drop policy if exists "write org google gmail settings" on public.google_gmail_settings;
 drop policy if exists "read org google calendar settings" on public.google_calendar_settings;
@@ -593,6 +599,20 @@ create policy "read org google business profiles" on public.google_business_prof
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org google business profiles" on public.google_business_profiles
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org google business locations" on public.google_business_locations
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org google business locations" on public.google_business_locations
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org google business reviews" on public.google_business_reviews
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org google business reviews" on public.google_business_reviews
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 
