@@ -1437,6 +1437,138 @@ p {
   }
 }
 
+.results-hero {
+  align-items: center;
+  background: linear-gradient(135deg, #eaf6ef 0%, #ffffff 58%, #eef5fb 100%);
+  border: 1px solid #cfe1d7;
+  border-radius: 16px;
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.35fr);
+  margin: 20px 0 16px;
+  padding: 26px;
+}
+
+.results-period {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+}
+
+.results-period span,
+.results-period small {
+  color: var(--muted);
+}
+
+.results-period strong {
+  font-size: 20px;
+}
+
+.results-metrics {
+  margin-bottom: 16px;
+}
+
+.results-metrics .metric {
+  margin-bottom: 12px;
+}
+
+.badge.result-up {
+  background: #e7f6ed;
+  border-color: #9fd1b3;
+  color: #17653d;
+}
+
+.badge.result-down {
+  background: #fff0ed;
+  border-color: #e8b5aa;
+  color: #9b3e31;
+}
+
+.results-table td {
+  min-width: 150px;
+}
+
+.results-table td:first-child {
+  min-width: 190px;
+}
+
+.inline-details {
+  margin-bottom: 10px;
+  min-width: 330px;
+}
+
+.inline-details summary {
+  color: var(--accent-strong);
+  cursor: pointer;
+  font-weight: 800;
+  margin-bottom: 10px;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.compact-form {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.results-next-sources {
+  margin: 16px 0;
+}
+
+.results-timeline {
+  display: grid;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.results-timeline li {
+  border-left: 3px solid #cfe1d7;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 150px minmax(0, 1fr);
+  padding: 8px 0 18px 18px;
+}
+
+.results-timeline li > span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.results-timeline p {
+  margin-top: 4px;
+}
+
+.results-disclaimer {
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .results-hero { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 620px) {
+  .results-timeline li { grid-template-columns: 1fr; }
+}
+
+@media print {
+  .shell { display: block; }
+  .sidebar, .print-actions { display: none !important; }
+  .main { max-width: none; padding: 0; }
+  .results-report .card, .results-report .static-card, .results-hero { break-inside: avoid; box-shadow: none; }
+  .results-table .print-actions { display: none !important; }
+}
+
 .subsection {
   border-top: 1px solid var(--line);
   display: grid;

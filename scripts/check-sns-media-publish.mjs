@@ -16,10 +16,5 @@ assert.ok(migration.includes("image_caption_jobs_active_file_idx"));
 assert.ok(mediaRoute.includes('approval_status !== "approved"'));
 assert.ok(cron.includes("CRON_SECRET"));
 assert.ok(cron.includes('request.headers.get("authorization")'));
-assert.deepEqual(vercel.crons, [
-  {
-    path: "/api/cron/sns-publish",
-    schedule: "* * * * *",
-  },
-]);
+assert.ok(vercel.crons.some((entry) => entry.path === "/api/cron/sns-publish" && entry.schedule === "* * * * *"));
 console.log("SNS media publish workflow: OK");

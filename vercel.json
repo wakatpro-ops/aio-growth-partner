@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/sns-publish",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/search-visibility",
+      "schedule": "15 3 * * *"
     }
   ]
 }

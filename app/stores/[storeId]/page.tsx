@@ -30,12 +30,18 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           <div><p className="eyebrow">1. 集客</p><h2>AIから選ばれる店舗へ</h2></div>
           <Link className="text-link" href={`/stores/${store.id}/acquisition`}>集客の全機能を見る →</Link>
         </div>
-        <div className="grid cols-2">
+        <div className="grid cols-3">
           <Link className="hub-link primary" href={activeTask ? `/stores/${store.id}/aio-improvement/tasks/${activeTask.id}` : `/stores/${store.id}/aio-improvement`}>
             <span className="badge">最優先</span>
             <h3>{activeTask?.title ?? "AIにおすすめされやすくする"}</h3>
             <p>{activeTask?.description ?? "想定される質問と、今いちばん効果の高い改善を確認します。"}</p>
             <strong>{activeTask ? "進行中の改善を続ける" : "改善を始める"} →</strong>
+          </Link>
+          <Link className="hub-link" href={`/stores/${store.id}/results`}>
+            <span className="badge">実測成果</span>
+            <h3>成果を見る</h3>
+            <p>導入前と現在の検索順位、表示回数、クリック、AIでの見つかり方を比較します。</p>
+            <strong>成果を確認する →</strong>
           </Link>
           <article className="static-card">
             <p className="eyebrow">お客様が尋ねる質問の例</p>
