@@ -70,11 +70,11 @@ export async function getMetaOAuthUrl(storeId: string) {
   const resolved = await context(storeId); await requireEditor(resolved.organizationId);
   if (!process.env.META_APP_ID || !process.env.META_APP_SECRET || !process.env.META_REDIRECT_URI || !metaSecret()) throw new Error("Meta連携は準備中です。管理者がMetaアプリ情報を設定すると接続できます。");
   const query = new URLSearchParams({ client_id: process.env.META_APP_ID, redirect_uri: process.env.META_REDIRECT_URI, state: encodeMetaState(storeId), response_type: "code", scope: "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish" });
-  return `https://www.facebook.com/${process.env.META_GRAPH_VERSION || "v21.0"}/dialog/oauth?${query}`;
+  return `https://www.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/dialog/oauth?${query}`;
 }
 
 async function getMetaPages(token: string): Promise<Array<MetaPageCandidate & { token: string }>> {
-  const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v21.0"}/me/accounts?fields=id,name,access_token,instagram_business_account&limit=100&access_token=${encodeURIComponent(token)}`, { cache: "no-store" });
+  const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/me/accounts?fields=id,name,access_token,instagram_business_account&limit=100&access_token=${encodeURIComponent(token)}`, { cache: "no-store" });
   const payload = await response.json() as { data?: Array<{ id?: string; name?: string; access_token?: string; instagram_business_account?: { id?: string } }>; error?: { message?: string } };
   if (!response.ok || payload.error) throw new Error(String(payload.error?.message ?? "Facebookページを取得できませんでした。").slice(0, 500));
   return (payload.data ?? []).filter((item) => item.id && item.access_token).map((item) => ({ id: String(item.id), name: String(item.name ?? "Facebookページ"), instagramId: item.instagram_business_account?.id ? String(item.instagram_business_account.id) : null, token: String(item.access_token) }));
@@ -84,7 +84,7 @@ export async function completeMetaOAuth(code: string, state: string | null) {
   const storeId = decodeMetaState(state); const resolved = await context(storeId); await requireEditor(resolved.organizationId);
   if (!process.env.META_APP_ID || !process.env.META_APP_SECRET || !process.env.META_REDIRECT_URI) throw new Error("Meta OAuth環境変数が未設定です。");
   const query = new URLSearchParams({ client_id: process.env.META_APP_ID, client_secret: process.env.META_APP_SECRET, redirect_uri: process.env.META_REDIRECT_URI, code });
-  const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v21.0"}/oauth/access_token?${query}`, { cache: "no-store" });
+  const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/oauth/access_token?${query}`, { cache: "no-store" });
   const tokenResult = await response.json() as { access_token?: string; expires_in?: number; error?: { message?: string } };
   if (!response.ok || !tokenResult.access_token) throw new Error(String(tokenResult.error?.message ?? "Meta認証を完了できませんでした。").slice(0, 500));
   const pages = await getMetaPages(tokenResult.access_token);
@@ -276,12 +276,20 @@ function decryptMetaToken(value: string) {
 
 async function metaRequest(path: string, token: string, fields: Record<string, string>) {
   const body = new URLSearchParams({ ...fields, access_token: token });
-  const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v21.0"}/${path}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
+  const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/${path}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
   const payload = await response.json() as Record<string, unknown>;
   if (!response.ok || payload.error) {
     const error = payload.error && typeof payload.error === "object" ? payload.error as Record<string, unknown> : {};
     throw new Error(String(error.message ?? `Meta API error (${response.status})`).slice(0, 500));
   }
+  return payload;
+}
+
+async function metaGet(path: string, token: string, fields: string) {
+  const query = new URLSearchParams({ fields, access_token: token });
+  const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/${path}?${query}`, { cache: "no-store" });
+  const payload = await response.json() as Record<string, unknown>;
+  if (!response.ok || payload.error) return {};
   return payload;
 }
 
@@ -309,7 +317,8 @@ export async function executeSnsPublishJob(jobId: string) {
       response = await metaRequest(`${account.external_account_id}/photos`, token, { url: payload.media_url, caption: payload.caption, published: "true" });
     } else throw new Error("この媒体は手動公開に対応しています。");
     const externalId = String(response.post_id ?? response.id ?? "");
-    const publicUrl = job.channel === "facebook" && externalId ? `https://www.facebook.com/${externalId.replace("_", "/posts/")}` : null;
+    const details = externalId ? await metaGet(externalId, token, "permalink_url,permalink") : {};
+    const publicUrl = String(details.permalink_url ?? details.permalink ?? "") || (job.channel === "facebook" && externalId ? `https://www.facebook.com/${externalId.replace("_", "/posts/")}` : null);
     await supabase.from("external_publish_jobs").update({ status: "sent", target_id: externalId || account.external_account_id, sent_at: new Date().toISOString(), error_message: null, next_retry_at: null, response_json: { external_post_id: externalId, public_url: publicUrl }, updated_at: new Date().toISOString() }).eq("id", job.id);
     await supabase.from("growth_actions").update({ status: "done", external_provider: "meta", external_account_id: account.external_account_id, external_post_id: externalId || null, external_status: "sent", published_at: new Date().toISOString(), failed_reason: null, updated_at: new Date().toISOString() }).eq("id", job.growth_action_id).eq("store_id", job.store_id);
     return { jobId, status: "sent", externalId, publicUrl };
