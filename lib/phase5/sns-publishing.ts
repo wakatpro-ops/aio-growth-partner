@@ -17,6 +17,15 @@ type JobResult = { analysis?: Record<string, unknown>; captions?: Partial<Record
 type MetaOAuthState = { storeId: string; nonce: string; createdAt: string; signature: string };
 type MetaPageCandidate = { id: string; name: string; instagramId: string | null };
 
+const META_OAUTH_SCOPES = [
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_posts",
+  "business_management",
+  "instagram_basic",
+  "instagram_content_publish"
+] as const;
+
 async function context(storeId: string) {
   const store = await getStore(storeId);
   const persisted = demos[store.id] ?? { organizationId: store.organization_id, storeId: store.id };
@@ -69,7 +78,7 @@ function encryptMetaToken(value: string) {
 export async function getMetaOAuthUrl(storeId: string) {
   const resolved = await context(storeId); await requireEditor(resolved.organizationId);
   if (!process.env.META_APP_ID || !process.env.META_APP_SECRET || !process.env.META_REDIRECT_URI || !metaSecret()) throw new Error("Meta連携は準備中です。管理者がMetaアプリ情報を設定すると接続できます。");
-  const query = new URLSearchParams({ client_id: process.env.META_APP_ID, redirect_uri: process.env.META_REDIRECT_URI, state: encodeMetaState(storeId), response_type: "code", scope: "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish" });
+  const query = new URLSearchParams({ client_id: process.env.META_APP_ID, redirect_uri: process.env.META_REDIRECT_URI, state: encodeMetaState(storeId), response_type: "code", scope: META_OAUTH_SCOPES.join(",") });
   return `https://www.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/dialog/oauth?${query}`;
 }
 
@@ -90,7 +99,7 @@ export async function completeMetaOAuth(code: string, state: string | null) {
   const pages = await getMetaPages(tokenResult.access_token);
   const supabase = createSupabaseAdminClient(); if (!supabase) throw new Error("Meta接続を保存できません。");
   const expiresAt = tokenResult.expires_in ? new Date(Date.now() + tokenResult.expires_in * 1000).toISOString() : null;
-  const { error } = await supabase.from("external_channel_accounts").upsert({ organization_id: resolved.organizationId, store_id: resolved.storeId, channel: "meta_oauth", external_provider: "meta", account_name: "Meta OAuth", connection_status: "selection_required", access_token_encrypted: encryptMetaToken(tokenResult.access_token), token_expires_at: expiresAt, scopes: ["pages_show_list", "pages_read_engagement", "pages_manage_posts", "instagram_basic", "instagram_content_publish"], connected_at: new Date().toISOString(), error_message: null, metadata: { candidate_count: pages.length }, updated_at: new Date().toISOString() }, { onConflict: "store_id,channel,external_provider" });
+  const { error } = await supabase.from("external_channel_accounts").upsert({ organization_id: resolved.organizationId, store_id: resolved.storeId, channel: "meta_oauth", external_provider: "meta", account_name: "Meta OAuth", connection_status: "selection_required", access_token_encrypted: encryptMetaToken(tokenResult.access_token), token_expires_at: expiresAt, scopes: [...META_OAUTH_SCOPES], connected_at: new Date().toISOString(), error_message: null, metadata: { candidate_count: pages.length }, updated_at: new Date().toISOString() }, { onConflict: "store_id,channel,external_provider" });
   if (error) throw new Error(`Meta接続を保存できませんでした: ${error.message}`);
   return storeId;
 }

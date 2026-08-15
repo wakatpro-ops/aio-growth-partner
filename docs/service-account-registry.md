@@ -25,6 +25,7 @@
 | Vercel | account `wakatpro-3797` / team `wakatpro-3797's projects` | project `aio-growth-partner` / `app.aioboost.jp` | project `aio-growth-partner-staging` / `staging.aioboost.jp` | 2026-08-15にPro・activeを確認。両環境のProductionへ個別のSensitiveな`CRON_SECRET`を設定（値は記録しない） |
 | Supabase | owner `waka.t.pro@gmail.com` / `wakatpro-ops's Org` (`gprkjuklwwjleoktmpvp`) | project `aio-growth-partner` (`tykanoxkfmixdrmyqelq`) | project `aio-growth-partner-staging` (`zlqqjifitnvorudxbepy`) | 2026-08-15にOrgのPro・Spend Cap有効を確認。月額基本料＋Project別Compute。横断料金台帳を参照 |
 | Google Cloud | 開発操作 `waka.t.pro@gmail.com` | project `AIO Growth Partner` / ID `aio-growth-partner` / number `368944976045` / production OAuth client / `app.aioboost.jp` | staging OAuth client `AIO boost staging Vercel` / `staging.aioboost.jp` | 2026-08-07に外部・本番公開、最小scope、ABロゴ保存を確認。法人所有・権限構成は要確認 |
+| Meta for Developers | Chrome既存ログイン（所有メールは要確認） | app `AIO boost` / App ID `1756636388611237` / Instagram App ID `1069884112049122` / `app.aioboost.jp` | 未作成 | 2026-08-15にABロゴ、公開URL、データ削除URL、本番OAuth callback、Instagram投稿5権限、Facebookページ投稿権限を保存。未公開。技術提供者・ビジネス認証・アクセス認証・App Reviewは未完了。秘密値は記録しない |
 | Google Search Console | `waka.t.pro@gmail.com` | domain property `aioboost.jp` | なし | 2026-08-07にDNS TXTで所有権確認済み。確認文字列は記録しない |
 | Google Business Profile | 開発操作 `waka.t.pro@gmail.com` | Basic API Access再申請予定 | staging実投稿なし | 2026-08-07確認。申請に使う株式会社 Navi Lifeのプロフィール管理権限は要確認 |
 | Stripe Platform | organization `エーアイギフト` | account `AIO boost` | account `AIO boostサンドボックス` | 本番KYB・運営会社との契約主体整合は要確認 |
@@ -43,4 +44,5 @@
 - ユーザー回答（2026-08-07）
 - `https://aioboost.jp/company`
 - Google Cloud Console project `aio-growth-partner`
+- Meta for Developers app `1756636388611237`
 - GitHub Issue `wakatpro-ops/aio-growth-partner#1`
