@@ -13,7 +13,7 @@ export default function PrivacyPage() {
         description="店舗情報、顧客情報、売上・請求・入金データ、外部連携情報、AI生成に必要な情報の取り扱いを整理しています。"
         action={<Link className="button secondary" href="/legal">文書一覧へ</Link>}
       />
-      <p className="notice">Google連携の解除とデータ削除方法は、第7項に記載しています。</p>
+      <p className="notice">Google連携は第7項、Meta（Facebook・Instagram）連携は第8項に、解除とデータ削除方法を記載しています。</p>
       <LegalSections sections={privacySections} />
       <CompanyInformationCard />
     </AppShell>

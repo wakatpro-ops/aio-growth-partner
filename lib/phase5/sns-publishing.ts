@@ -96,7 +96,7 @@ export async function completeMetaOAuth(code: string, state: string | null) {
 }
 
 export async function getMetaConnectionState(storeId: string) {
-  const supabase = createSupabaseAdminClient(); if (!supabase) return { envReady: false, candidates: [] as MetaPageCandidate[], accounts: [] as Array<Record<string, unknown>> };
+  const supabase = createSupabaseAdminClient(); if (!supabase) return { envReady: false, oauthConnected: false, candidates: [] as MetaPageCandidate[], accounts: [] as Array<Record<string, unknown>> };
   const resolved = await context(storeId);
   const { data: oauth } = await supabase.from("external_channel_accounts").select("*").eq("store_id", resolved.storeId).eq("channel", "meta_oauth").eq("external_provider", "meta").maybeSingle();
   let candidates: MetaPageCandidate[] = [];
@@ -104,7 +104,36 @@ export async function getMetaConnectionState(storeId: string) {
     try { candidates = (await getMetaPages(decryptMetaToken(oauth.access_token_encrypted))).map((item) => ({ id: item.id, name: item.name, instagramId: item.instagramId })); } catch { candidates = []; }
   }
   const { data: accounts } = await supabase.from("external_channel_accounts").select("id,channel,external_account_id,account_name,connection_status,token_expires_at,error_message").eq("store_id", resolved.storeId).in("channel", ["instagram", "facebook"]);
-  return { envReady: Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_REDIRECT_URI && metaSecret()), candidates, accounts: accounts ?? [] };
+  return { envReady: Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_REDIRECT_URI && metaSecret()), oauthConnected: Boolean(oauth?.access_token_encrypted && oauth.connection_status !== "disconnected"), candidates, accounts: accounts ?? [] };
+}
+
+export async function disconnectMeta(storeId: string) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Meta連携を解除できませんでした。");
+  const resolved = await context(storeId);
+  const access = await requireEditor(resolved.organizationId);
+  const { data: oauth } = await supabase.from("external_channel_accounts").select("access_token_encrypted").eq("store_id", resolved.storeId).eq("channel", "meta_oauth").eq("external_provider", "meta").maybeSingle();
+
+  if (oauth?.access_token_encrypted) {
+    try {
+      const token = decryptMetaToken(oauth.access_token_encrypted);
+      await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/me/permissions?access_token=${encodeURIComponent(token)}`, { method: "DELETE", cache: "no-store" });
+    } catch {
+      // Meta側の失効に失敗しても、保存済みトークンは必ず削除する。
+    }
+  }
+
+  const disconnectedAt = new Date().toISOString();
+  const { error } = await supabase.from("external_channel_accounts").update({
+    connection_status: "disconnected",
+    access_token_encrypted: null,
+    token_expires_at: null,
+    disconnected_at: disconnectedAt,
+    error_message: null,
+    updated_at: disconnectedAt
+  }).eq("store_id", resolved.storeId).eq("external_provider", "meta").in("channel", ["meta_oauth", "facebook", "instagram"]);
+  if (error) throw new Error(`Meta連携を解除できませんでした: ${error.message}`);
+  await logAuditEvent({ storeId, actionType: "meta_disconnected", targetType: "external_channel_account", message: "利用者がMeta連携を解除し、保存済みアクセストークンを削除しました。", metadata: { disconnected_by: access.userId } });
 }
 
 export async function selectMetaPage(storeId: string, pageId: string) {

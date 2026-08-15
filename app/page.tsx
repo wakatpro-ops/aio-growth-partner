@@ -49,7 +49,7 @@ export default function HomePage() {
         <section className="card" aria-labelledby="public-information-title" style={{ marginTop: 24 }}>
           <h2 id="public-information-title">運営・サポート</h2>
           <p>
-            AIO boostは株式会社 Navi Lifeが運営しています。サービスの利用条件、個人情報とGoogleユーザーデータの取り扱い、Google連携の解除方法を公開しています。
+            AIO boostは株式会社 Navi Lifeが運営しています。サービスの利用条件、個人情報とGoogle・Metaユーザーデータの取り扱い、外部連携の解除方法を公開しています。
           </p>
           <div className="button-row">
             <Link className="button secondary" href="/privacy">
@@ -60,6 +60,9 @@ export default function HomePage() {
             </Link>
             <Link className="button secondary" href="/legal">
               事業者情報・法的情報
+            </Link>
+            <Link className="button secondary" href="/data-deletion">
+              データ削除案内
             </Link>
           </div>
           <p className="muted" style={{ marginTop: 16 }}>

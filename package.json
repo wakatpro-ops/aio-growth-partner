@@ -21,6 +21,7 @@
     "check:google-review": "node scripts/check-google-review-readiness.mjs",
     "check:google-workflows": "node scripts/check-google-business-workflows.mjs",
     "check:sns-publish": "node scripts/check-sns-media-publish.mjs",
+    "check:meta-review": "node scripts/check-meta-review-readiness.mjs",
     "test:sns-rules": "node --experimental-strip-types scripts/test-sns-rules.mjs",
     "check:ux": "node scripts/check-store-ux.mjs"
   },
