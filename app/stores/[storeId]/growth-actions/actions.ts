@@ -26,6 +26,7 @@ import {
   upsertExternalChannelAccount
 } from "@/lib/phase5/growth-actions";
 import type { GrowthActionStatus } from "@/types/phase5";
+import { approveSnsMedia, archiveSnsMedia, executeSnsPublishJob, queueSnsPublish, selectMetaPage, uploadSnsMedia } from "@/lib/phase5/sns-publishing";
 
 function errorRedirect(path: string, error: unknown): never {
   const message = error instanceof Error ? error.message : "処理に失敗しました。";
@@ -111,6 +112,55 @@ export async function markSnsManualPostAction(storeId: string, actionId: string,
     errorRedirect(path, error);
   }
   redirect(`${path}?saved=1`);
+}
+
+export async function uploadSnsMediaAction(storeId: string, actionId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
+  let duplicate = false;
+  try {
+    const result = await uploadSnsMedia(storeId, actionId, formData);
+    duplicate = result.duplicate;
+    revalidatePath(path);
+  } catch (error) { errorRedirect(path, error); }
+  redirect(`${path}?${duplicate ? "duplicate" : "uploaded"}=1#sns-media`);
+}
+
+export async function approveSnsMediaAction(storeId: string, actionId: string, jobId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
+  try { await approveSnsMedia(storeId, actionId, jobId, formData); revalidatePath(path); }
+  catch (error) { errorRedirect(path, error); }
+  redirect(`${path}?approved=1#sns-media`);
+}
+
+export async function archiveSnsMediaAction(storeId: string, actionId: string, jobId: string) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
+  try { await archiveSnsMedia(storeId, actionId, jobId); revalidatePath(path); }
+  catch (error) { errorRedirect(path, error); }
+  redirect(`${path}?deleted=1#sns-media`);
+}
+
+export async function queueSnsPublishAction(storeId: string, actionId: string, jobId: string, formData: FormData) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
+  try {
+    const queued = await queueSnsPublish(storeId, actionId, jobId, formData);
+    if (queued.status === "ready") await executeSnsPublishJob(queued.jobId);
+    revalidatePath(path);
+  } catch (error) { errorRedirect(path, error); }
+  redirect(`${path}?queued=1#publish-history`);
+}
+
+export async function retrySnsPublishAction(storeId: string, actionId: string, jobId: string) {
+  const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
+  try { await executeSnsPublishJob(jobId); revalidatePath(path); }
+  catch (error) { errorRedirect(path, error); }
+  redirect(`${path}?retried=1#publish-history`);
+}
+
+export async function selectMetaPageAction(storeId: string, formData: FormData) {
+  const path = `/stores/${storeId}/settings/channels`;
+  try { await selectMetaPage(storeId, String(formData.get("page_id") ?? "")); revalidatePath(path); }
+  catch (error) { errorRedirect(path, error); }
+  redirect(`${path}?meta_selected=1`);
 }
 
 export async function upsertExternalChannelAccountAction(storeId: string, formData: FormData) {

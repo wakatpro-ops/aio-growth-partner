@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
@@ -7,8 +8,10 @@ import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGrowthAction, growthActionChannelLabel } from "@/lib/phase5/growth-actions";
 import { getStore } from "@/lib/stores";
-import { markSnsManualPostAction } from "../../actions";
+import { approveSnsMediaAction, archiveSnsMediaAction, markSnsManualPostAction, queueSnsPublishAction, retrySnsPublishAction, uploadSnsMediaAction } from "../../actions";
 import type { GrowthActionDraft } from "@/types/phase5";
+import { getSnsMediaPreview, listSnsMedia, listSnsPublishJobs } from "@/lib/phase5/sns-publishing";
+import { SNS_CHANNELS, SNS_LIMITS } from "@/lib/phase5/sns-rules";
 
 const snsChannels = [
   { value: "instagram", label: "Instagram", guide: "写真や整備風景と一緒に、親しみやすく保存されやすい文章にします。" },
@@ -79,10 +82,11 @@ export default async function SnsManualPostPage({
   searchParams
 }: {
   params: Promise<{ storeId: string; actionId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; uploaded?: string; duplicate?: string; approved?: string; deleted?: string; queued?: string; retried?: string }>;
 }) {
   const { storeId, actionId } = await params;
-  const { error, saved } = await searchParams;
+  const statusParams = await searchParams;
+  const { error, saved } = statusParams;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "growth_action_center")) notFound();
@@ -102,12 +106,21 @@ export default async function SnsManualPostPage({
   const imageIdea = typeof action.metadata?.ai_output === "object"
     ? (action.metadata.ai_output as { draft?: { recommended_image_idea?: string } }).draft?.recommended_image_idea
     : null;
+  const media = await listSnsMedia(store.id, action.id);
+  const mediaWithPreview = await Promise.all(media.map(async (item) => ({ ...item, preview_url: await getSnsMediaPreview(store.id, action.id, String(item.id)) })));
+  const publishJobs = await listSnsPublishJobs(store.id, action.id);
 
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title="SNS手動投稿支援" description="Instagram、LINE、X、Facebookへコピーして投稿できるように、媒体別の文章と確認項目を整えます。" />
       <StoreBusinessNav store={store} />
       {saved ? <p className="notice success">SNS投稿状態を保存しました。</p> : null}
+      {statusParams.uploaded ? <p className="notice success">画像を取り込み、AIが媒体別の投稿案を作成しました。内容を確認してください。</p> : null}
+      {statusParams.duplicate ? <p className="notice">同じ画像はすでに取り込まれているため、既存データを表示しています。</p> : null}
+      {statusParams.approved ? <p className="notice success">画像の安全確認と投稿文の承認を保存しました。</p> : null}
+      {statusParams.deleted ? <p className="notice success">画像を削除しました。公開履歴の証跡は保持しています。</p> : null}
+      {statusParams.queued ? <p className="notice success">投稿処理を受け付けました。未接続の媒体は手動投稿用として保存しました。</p> : null}
+      {statusParams.retried ? <p className="notice success">投稿を再実行しました。</p> : null}
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
 
       <section className="card">
@@ -122,8 +135,62 @@ export default async function SnsManualPostPage({
             <input value={action.recommended_date ?? "-"} readOnly />
           </label>
         </div>
-        <p className="notice">現段階ではSNS APIへの実投稿は行いません。Meta Graph APIやLINE APIの接続に備えて、媒体、ステータス、投稿URL、確認ログだけを保存します。</p>
+        <p className="notice">Instagram・FacebookはMeta接続済みなら承認後に直接投稿できます。X・LINE、未接続・認証期限切れの場合は、画像と媒体別本文を保存して手動投稿へ切り替えます。</p>
       </section>
+
+      <section className="card" id="sns-media">
+        <h2>1. 写真を取り込む</h2>
+        <p>JPG・PNG・WebP（8MB以内）を安全に保存し、画像内容、店舗情報、商品・メニュー情報から投稿案を作ります。同じ画像の重複登録は防止します。</p>
+        <form className="form" action={uploadSnsMediaAction.bind(null, store.id, action.id)}>
+          <div className="grid cols-2">
+            <label className="field">投稿する写真（必須）<input name="image_file" type="file" accept="image/jpeg,image/png,image/webp" required /></label>
+            <label className="field">写真の補足<input name="image_note" placeholder="例：新メニューの施術写真、店内の個室" /></label>
+          </div>
+          <label className="field">商品・メニュー・キャンペーン情報<textarea name="product_context" rows={3} placeholder="価格、対象のお客様、予約方法、期間など。AIが投稿文へ反映します。" /></label>
+          <div className="form-actions"><button className="button" type="submit">写真を取り込んで投稿案を作る</button></div>
+        </form>
+      </section>
+
+      {mediaWithPreview.map((asset, assetIndex) => {
+        const result = asset.result && typeof asset.result === "object" ? asset.result as { analysis?: { summary?: string; alt_text?: string; safety_flags?: unknown }; captions?: Record<string, { body?: string; short_body?: string; hashtags?: string[]; cta?: string; approval_status?: string; character_count?: number }> } : {};
+        return (
+          <section className="card" key={asset.id}>
+            <div className="section-heading"><div><h2>{assetIndex + 2}. 写真と投稿文を確認</h2><p className="muted">{asset.original_file_name} ・ {Math.ceil(Number(asset.file_size ?? 0) / 1024)}KB</p></div><form action={archiveSnsMediaAction.bind(null, store.id, action.id, String(asset.id))}><button className="button danger" type="submit">削除</button></form></div>
+            <div className="grid cols-2">
+              <div>{asset.preview_url ? <Image src={asset.preview_url} alt={String(result.analysis?.alt_text ?? "投稿用画像のプレビュー")} width={720} height={540} unoptimized style={{ width: "100%", height: "auto", borderRadius: 12 }} /> : <p className="notice danger">プレビューを取得できませんでした。</p>}<p>{result.analysis?.summary ?? "AI解析結果を確認してください。"}</p>{result.analysis?.safety_flags ? <p className="notice">安全確認メモ: {JSON.stringify(result.analysis.safety_flags)}</p> : null}</div>
+              <form className="form" action={approveSnsMediaAction.bind(null, store.id, action.id, String(asset.id))}>
+                <h3>公開前の必須確認</h3>
+                <label className="check-row"><input name="copyright_confirmed" type="checkbox" defaultChecked={Boolean(asset.copyright_confirmed)} />この写真を投稿する権利があります</label>
+                <label className="check-row"><input name="person_consent_confirmed" type="checkbox" defaultChecked={Boolean(asset.person_consent_confirmed)} />写っている人物から公開の同意を得ています（人物がいない場合も確認）</label>
+                <label className="check-row"><input name="privacy_confirmed" type="checkbox" defaultChecked={Boolean(asset.privacy_confirmed)} />個人情報・顧客情報・不適切な内容が写っていないことを確認しました</label>
+                {SNS_CHANNELS.map((channel) => {
+                  const caption = result.captions?.[channel] ?? {};
+                  const label = snsChannels.find((item) => item.value === channel)?.label ?? channel;
+                  return <fieldset className="card" key={channel}><legend>{label}</legend>
+                    <label className="field">本文（上限 {SNS_LIMITS[channel].body}文字）<textarea name={`${channel}_body`} rows={5} defaultValue={caption.body ?? ""} /></label>
+                    <label className="field">短文<input name={`${channel}_short_body`} defaultValue={caption.short_body ?? ""} /></label>
+                    <label className="field">ハッシュタグ（上限 {SNS_LIMITS[channel].hashtags}個）<input name={`${channel}_hashtags`} defaultValue={(caption.hashtags ?? []).join(" ")} /></label>
+                    <label className="field">行動を促す一文<input name={`${channel}_cta`} defaultValue={caption.cta ?? ""} /></label>
+                    <label className="check-row"><input name={`${channel}_approved`} type="checkbox" defaultChecked={caption.approval_status === "approved"} />この文章を人が確認し、公開用として承認</label>
+                  </fieldset>;
+                })}
+                <div className="form-actions"><button className="button" type="submit">確認内容と承認を保存</button></div>
+              </form>
+            </div>
+            <form className="form" action={queueSnsPublishAction.bind(null, store.id, action.id, String(asset.id))}>
+              <h3>承認済みの内容を投稿</h3>
+              <div className="grid cols-2"><label className="field">投稿先<select name="channel" defaultValue="instagram">{SNS_CHANNELS.map((channel) => <option key={channel} value={channel}>{snsChannels.find((item) => item.value === channel)?.label}</option>)}</select></label><label className="field">投稿日時（空欄なら今すぐ）<input name="scheduled_at" type="datetime-local" /></label></div>
+              <div className="form-actions"><button className="button" type="submit" disabled={asset.approval_status !== "approved"}>投稿する／予約する</button></div>
+              {asset.approval_status !== "approved" ? <p className="muted">先に安全確認と、投稿する媒体の文章承認を保存してください。</p> : null}
+            </form>
+          </section>
+        );
+      })}
+
+      <section className="card" id="publish-history"><h2>投稿履歴と再実行</h2><div className="table-wrap"><table className="table"><thead><tr><th>媒体</th><th>状態</th><th>予定／実行</th><th>公開先</th><th>エラー</th><th>操作</th></tr></thead><tbody>
+        {publishJobs.map((job) => { const response = job.response_json && typeof job.response_json === "object" ? job.response_json as { public_url?: string; reason?: string } : {}; return <tr key={job.id}><td>{job.channel}</td><td><span className="badge">{job.status === "sent" ? "公開済み" : job.status === "scheduled" ? "予約済み" : job.status === "manual_required" ? "手動投稿が必要" : job.status === "failed" ? "失敗" : job.status === "retry_wait" ? "再試行待ち" : job.status}</span></td><td>{job.sent_at ?? job.scheduled_at ?? "-"}</td><td>{response.public_url ? <a href={response.public_url} target="_blank" rel="noreferrer">公開ページを開く</a> : job.target_id ?? "-"}</td><td>{job.error_message ?? response.reason ?? "-"}</td><td>{["failed", "retry_wait", "ready"].includes(job.status) ? <form action={retrySnsPublishAction.bind(null, store.id, action.id, String(job.id))}><button className="button secondary" type="submit">再実行</button></form> : "-"}</td></tr>; })}
+        {publishJobs.length === 0 ? <tr><td colSpan={6}>投稿履歴はまだありません。</td></tr> : null}
+      </tbody></table></div></section>
 
       <section className="grid cols-2">
         <article className="card">
