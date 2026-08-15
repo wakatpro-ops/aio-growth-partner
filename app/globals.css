@@ -1298,6 +1298,121 @@ p {
   }
 }
 
+.aio-cycle-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
+  gap: 18px;
+  margin: 20px 0;
+}
+
+.aio-cycle-hero > article {
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+}
+
+.aio-score-line {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  margin: 8px 0 12px;
+}
+
+.aio-score-line strong {
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+}
+
+.aio-score-line span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.aio-alert-list {
+  display: grid;
+  gap: 10px;
+}
+
+.aio-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-subtle);
+  color: inherit;
+  text-decoration: none;
+}
+
+.aio-alert:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.aio-alert p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.aio-alert.warning {
+  border-left: 5px solid #d89a1d;
+}
+
+.aio-alert.danger {
+  border-left: 5px solid #c94a4a;
+}
+
+.aio-alert.info {
+  border-left: 5px solid var(--accent);
+}
+
+.aio-current-task {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.aio-current-task > div {
+  display: grid;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-subtle);
+}
+
+.aio-current-task span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 900px) {
+  .aio-cycle-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .aio-current-task {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .aio-current-task {
+    grid-template-columns: 1fr;
+  }
+
+  .aio-alert {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 @media print {
   body {
     background: #fff;

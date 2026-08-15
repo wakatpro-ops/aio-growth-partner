@@ -18,6 +18,7 @@ export type ModuleKey =
   | "ai_post_generation"
   | "ai_review_reply"
   | "aio_diagnosis"
+  | "aio_improvement_loop"
   | "instagram_post"
   | "repair_services"
   | "product_management"

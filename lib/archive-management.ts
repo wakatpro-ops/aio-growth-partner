@@ -11,6 +11,7 @@ export type StoreArchiveEntity =
   | "customer_note"
   | "customer_import"
   | "customer_message"
+  | "aio_improvement_task"
   | "estimate"
   | "invoice"
   | "order"
@@ -34,6 +35,7 @@ const entityConfigs: Record<StoreArchiveEntity, EntityConfig> = {
   customer_note: { table: "customer_notes", label: "顧客メモ", select: "body", describe: (row) => String(row.body ?? "メモ") },
   customer_import: { table: "customer_import_jobs", label: "顧客データ取込", select: "original_filename, status", describe: (row) => String(row.original_filename ?? "ファイル名なし") },
   customer_message: { table: "customer_message_drafts", label: "顧客メッセージ", select: "title, channel", describe: (row) => String(row.title ?? "タイトル未設定") },
+  aio_improvement_task: { table: "aio_improvement_tasks", label: "AIO改善項目", select: "title, status", describe: (row) => String(row.title ?? "改善内容未設定") },
   estimate: { table: "estimates", label: "見積書", select: "document_number, title", describe: (row) => [row.document_number, row.title].filter(Boolean).join(" / ") },
   invoice: { table: "invoices", label: "請求書", select: "document_number, title", describe: (row) => [row.document_number, row.title].filter(Boolean).join(" / ") },
   order: { table: "orders", label: "受注", select: "order_number, title", describe: (row) => [row.order_number, row.title].filter(Boolean).join(" / ") },

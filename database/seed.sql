@@ -348,6 +348,43 @@ update public.industry_types set default_feature_flags = default_feature_flags |
 update public.stores set feature_flags = feature_flags || '{"customer_imports":true,"customer_segments":true,"customer_message_planning":true}'::jsonb;
 
 insert into public.modules (key, name, description, category, is_core)
+values (
+  'aio_improvement_loop',
+  'AIO改善サイクル',
+  '目標質問、改善担当、期限、変更前後、公開確認、月次再診断を一つの流れで管理します。',
+  'ai',
+  false
+)
+on conflict (key) do update set
+  name = excluded.name,
+  description = excluded.description,
+  category = excluded.category,
+  is_core = excluded.is_core;
+
+insert into public.industry_modules (industry_type_key, module_key, is_enabled)
+select key, 'aio_improvement_loop', true
+from public.industry_types
+on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
+
+update public.industry_types
+set default_feature_flags = default_feature_flags || '{"aio_improvement_loop":true}'::jsonb;
+
+update public.stores
+set feature_flags = feature_flags || '{"aio_improvement_loop":true}'::jsonb;
+
+update public.plan_limits
+set limit_value = (
+  select jsonb_agg(value order by value)::text
+  from (
+    select distinct value
+    from jsonb_array_elements_text(limit_value::jsonb) as value
+    union
+    select 'aio_improvement_loop'
+  ) enabled
+)
+where plan_key = 'starter' and limit_key = 'enabled_modules';
+
+insert into public.modules (key, name, description, category, is_core)
 values
   ('invoice_compliance', 'インボイス対応請求書', '登録番号、税率別内訳、取引年月日を含む請求書管理です。', 'accounting', false),
   ('invoice_numbering', '請求書番号連番管理', '店舗ごとに請求書番号を連番管理します。', 'accounting', false),
