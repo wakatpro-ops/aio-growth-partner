@@ -63,6 +63,8 @@ alter table public.customer_message_drafts enable row level security;
 alter table public.aio_goals enable row level security;
 alter table public.aio_improvement_tasks enable row level security;
 alter table public.aio_readiness_snapshots enable row level security;
+alter table public.order_items enable row level security;
+alter table public.import_item_matches enable row level security;
 alter table public.estimates enable row level security;
 alter table public.estimate_items enable row level security;
 alter table public.invoices enable row level security;
@@ -117,6 +119,22 @@ as $$
       and organization.archived_at is null
       and profile.status = 'active'
       and profile.archived_at is null
+  );
+$$;
+
+create or replace function public.is_org_editor(org_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.organization_members member
+    where member.organization_id = org_id
+      and member.user_id = auth.uid()
+      and member.role_key in ('org_owner', 'store_manager', 'staff')
+      and member.status = 'active'
+      and member.archived_at is null
   );
 $$;
 
@@ -235,6 +253,10 @@ drop policy if exists "read org aio improvement tasks" on public.aio_improvement
 drop policy if exists "write org aio improvement tasks" on public.aio_improvement_tasks;
 drop policy if exists "read org aio readiness snapshots" on public.aio_readiness_snapshots;
 drop policy if exists "write org aio readiness snapshots" on public.aio_readiness_snapshots;
+drop policy if exists "read org order items" on public.order_items;
+drop policy if exists "write org order items" on public.order_items;
+drop policy if exists "read org import item matches" on public.import_item_matches;
+drop policy if exists "write org import item matches" on public.import_item_matches;
 drop policy if exists "read org estimates" on public.estimates;
 drop policy if exists "write org estimates" on public.estimates;
 drop policy if exists "read org estimate items" on public.estimate_items;
@@ -668,6 +690,17 @@ for select using (public.is_org_member(organization_id) or public.is_platform_ad
 create policy "write org aio readiness snapshots" on public.aio_readiness_snapshots
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org order items" on public.order_items
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+create policy "write org order items" on public.order_items
+for all using (public.is_org_editor(organization_id) or public.is_platform_admin())
+with check (public.is_org_editor(organization_id) or public.is_platform_admin());
+create policy "read org import item matches" on public.import_item_matches
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+create policy "write org import item matches" on public.import_item_matches
+for all using (public.is_org_editor(organization_id) or public.is_platform_admin())
+with check (public.is_org_editor(organization_id) or public.is_platform_admin());
 
 create policy "read org estimates" on public.estimates
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());

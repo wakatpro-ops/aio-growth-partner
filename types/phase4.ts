@@ -47,7 +47,7 @@ export type DataImportJob = {
   store_id: string;
   data_source_id: string | null;
   status: DataImportStatus;
-  import_type: "csv" | "excel";
+  import_type: "csv" | "excel" | "pdf" | "google_sheets";
   original_filename: string | null;
   encoding: string | null;
   delimiter: string | null;
@@ -65,8 +65,23 @@ export type DataImportJob = {
   created_at: string;
   updated_at: string;
   archived_at?: string | null;
+  source_url?: string | null;
+  item_matching_status?: "pending" | "confirmed";
   data_source?: { name: string; provider_key: ImportProviderKey } | null;
   file?: DataImportFile | null;
+};
+
+export type ImportItemMatch = {
+  id: string;
+  import_job_id: string;
+  source_item_key: string;
+  source_item_name: string;
+  source_item_code: string | null;
+  suggested_item_id: string | null;
+  confirmed_item_id: string | null;
+  status: "pending" | "confirmed" | "ignored";
+  confidence: number | null;
+  item?: { id: string; name: string; sku: string | null; is_stock_managed: boolean } | null;
 };
 
 export type DataImportFile = {

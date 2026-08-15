@@ -48,6 +48,7 @@ export const demoStocks: InventoryStock[] = [
     store_id: "store-auto-demo",
     item_id: "demo-brake-pad",
     quantity: 8,
+    reserved_quantity: 0,
     reorder_point: 3,
     item: {
       name: "ブレーキパッド",

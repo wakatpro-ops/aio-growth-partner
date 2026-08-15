@@ -1,6 +1,7 @@
 import "server-only";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
+import { syncOrderInventory } from "@/lib/inventory-operations";
 import type { AuditLog, BusinessDocument, BusinessOrder, OrderStatusLog, PaymentMethod, PaymentRecord } from "@/types/phase2";
 
 const demoStoreIds: Record<string, { organizationId: string; storeId: string }> = {
@@ -197,6 +198,22 @@ export async function createOrderFromEstimate(storeId: string, estimate: Busines
     notes: `見積 ${estimate.document_number} から受注化`
   }).select("id").single();
   if (error) throw new Error(`見積から受注化できませんでした: ${error.message}`);
+  const { data: estimateLines } = await supabase.from("estimate_items").select("*").eq("estimate_id", estimate.id).order("sort_order");
+  if ((estimateLines ?? []).length > 0) {
+    const { error: lineError } = await supabase.from("order_items").insert((estimateLines ?? []).map((line) => ({
+      organization_id: resolved.organizationId,
+      store_id: resolved.storeId,
+      order_id: data.id,
+      item_id: line.item_id,
+      description: line.description,
+      quantity: line.quantity,
+      unit: line.unit,
+      unit_price: line.unit_price,
+      amount: line.amount,
+      sort_order: line.sort_order
+    })));
+    if (lineError) throw new Error(`受注明細を作成できませんでした: ${lineError.message}`);
+  }
   await supabase.from("estimates").update({ status: "ordered", updated_at: new Date().toISOString() }).eq("id", estimate.id);
   await supabase.from("order_status_logs").insert({
     organization_id: resolved.organizationId,
@@ -205,6 +222,7 @@ export async function createOrderFromEstimate(storeId: string, estimate: Busines
     to_status: "ordered",
     comment: `見積 ${estimate.document_number} から受注化しました。`
   });
+  await syncOrderInventory(storeId, data.id, "ordered");
   await logAuditEvent({ storeId, actionType: "estimate_converted_to_order", targetType: "order", targetId: data.id, message: `${estimate.document_number} を受注化しました。` });
   return data.id as string;
 }
@@ -215,13 +233,25 @@ export async function updateOrderFromForm(storeId: string, orderId: string, form
   const resolved = await resolveStore(supabase, storeId);
   const previous = await getOrder(storeId, orderId);
   const nextStatus = String(formData.get("status") ?? "ordered");
+  const allowedTransitions: Record<string, string[]> = {
+    ordered: ["ordered", "in_progress", "completed", "cancelled"],
+    in_progress: ["in_progress", "completed", "cancelled"],
+    completed: ["completed", "invoiced", "cancelled"],
+    invoiced: ["invoiced", "cancelled"],
+    cancelled: ["cancelled"]
+  };
+  if (previous && !(allowedTransitions[previous.status] ?? []).includes(nextStatus)) {
+    throw new Error("在庫履歴を正しく保つため、完了・請求化・取消済みの受注を前の状態には戻せません。");
+  }
+  const { data: currentLines } = await supabase.from("order_items").select("amount").eq("store_id", resolved.storeId).eq("order_id", orderId).is("archived_at", null);
+  const lineTotal = (currentLines ?? []).reduce((sum, line) => sum + Number(line.amount ?? 0), 0);
   const { error } = await supabase.from("orders").update({
     title: String(formData.get("title") ?? ""),
     status: nextStatus,
     work_status: String(formData.get("work_status") ?? "not_started"),
     ordered_at: text(formData.get("ordered_at")),
     completed_at: text(formData.get("completed_at")),
-    total: number(formData.get("total")),
+    total: (currentLines ?? []).length > 0 ? lineTotal : number(formData.get("total")),
     notes: text(formData.get("notes")),
     updated_at: new Date().toISOString()
   }).eq("store_id", resolved.storeId).eq("id", orderId);
@@ -236,6 +266,7 @@ export async function updateOrderFromForm(storeId: string, orderId: string, form
       comment: text(formData.get("status_comment")) ?? "ステータスを変更しました。"
     });
   }
+  await syncOrderInventory(storeId, orderId, nextStatus);
   await logAuditEvent({ storeId, actionType: "order_updated", targetType: "order", targetId: orderId, message: "受注を更新しました。" });
 }
 
@@ -277,8 +308,24 @@ export async function createInvoiceFromOrder(storeId: string, orderId: string) {
     notes: `受注 ${order.order_number} から作成`
   }).select("id").single();
   if (error) throw new Error(`受注から請求書を作成できませんでした: ${error.message}`);
+  const { data: orderLines } = await supabase.from("order_items").select("*").eq("store_id", resolved.storeId).eq("order_id", orderId).is("archived_at", null).order("sort_order");
+  if ((orderLines ?? []).length > 0) {
+    const { error: lineError } = await supabase.from("invoice_items").insert((orderLines ?? []).map((line) => ({
+      invoice_id: data.id,
+      item_id: line.item_id,
+      description: line.description,
+      quantity: line.quantity,
+      unit: line.unit,
+      unit_price: line.unit_price,
+      tax_rate: 10,
+      amount: line.amount,
+      sort_order: line.sort_order
+    })));
+    if (lineError) throw new Error(`請求書明細を作成できませんでした: ${lineError.message}`);
+  }
   await supabase.from("invoice_number_sequences").update({ next_number: nextNumber + 1, updated_at: new Date().toISOString() }).eq("store_id", resolved.storeId);
   await supabase.from("orders").update({ invoice_id: data.id, status: "invoiced", updated_at: new Date().toISOString() }).eq("id", orderId);
+  await syncOrderInventory(storeId, orderId, "invoiced");
   await supabase.from("order_status_logs").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,

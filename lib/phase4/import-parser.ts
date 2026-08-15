@@ -1,4 +1,3 @@
-import "server-only";
 import { createHash } from "node:crypto";
 import type { DataColumnMapping, NormalizedSalesPreviewRow, ParsedSalesRow, StandardSalesField } from "@/types/phase4";
 
@@ -22,13 +21,16 @@ export const standardSalesFields: Array<{ key: StandardSalesField; label: string
 ];
 
 export type ParsedImportFile = {
-  importType: "csv" | "excel";
+  importType: "csv" | "excel" | "pdf" | "google_sheets";
   encoding: string;
   delimiter: string | null;
   headers: string[];
   rows: ParsedSalesRow[];
   sampleRows: ParsedSalesRow[];
 };
+
+export const MAX_IMPORT_FILE_SIZE = 4 * 1024 * 1024;
+export const MAX_IMPORT_ROWS = 50_000;
 
 function cleanCell(value: unknown) {
   return String(value ?? "").trim();
@@ -101,8 +103,55 @@ function rowsToObjects(matrix: string[][]) {
   return { headers, rows };
 }
 
+function assertUsableRows(headers: string[], rows: ParsedSalesRow[]) {
+  if (headers.length === 0 || rows.length === 0) throw new Error("売上データの行を確認できませんでした。空ファイルまたは見出しだけのファイルは取り込めません。");
+  if (rows.length > MAX_IMPORT_ROWS) throw new Error(`一度に取り込めるのは${MAX_IMPORT_ROWS.toLocaleString("ja-JP")}行までです。ファイルを分割してください。`);
+}
+
+async function parsePdf(buffer: ArrayBuffer): Promise<ParsedImportFile> {
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const tableResult = await parser.getTable();
+    let matrix = tableResult.mergedTables.flatMap((table) => table.filter((row) => row.some((cell) => cleanCell(cell))));
+    if (matrix.length < 2) {
+      const textResult = await parser.getText();
+      const extracted = textResult.text
+        .split(/\r?\n/u)
+        .map((line) => line.trim())
+        .filter((line) => Boolean(line) && !/^--\s*\d+\s+of\s+\d+\s*--$/iu.test(line))
+        .map((line) => line.split(/\t|\s{2,}|,/u).map(cleanCell).filter(Boolean))
+        .map((cells) => cells.length === 1 ? cells[0].split(/\s+/u).map(cleanCell).filter(Boolean) : cells)
+        .filter((row) => row.length >= 2);
+      const headerIndex = extracted.findIndex((row) => row.filter((cell) => suggestSalesField(cell).field !== "ignore").length >= 2);
+      if (headerIndex >= 0) {
+        const headers = extracted[headerIndex];
+        const itemColumn = headers.findIndex((header) => ["item_name", "customer_name"].includes(suggestSalesField(header).field));
+        matrix = [headers, ...extracted.slice(headerIndex + 1).map((row) => {
+          if (row.length <= headers.length || itemColumn < 0) return row;
+          const overflow = row.length - headers.length;
+          return [...row.slice(0, itemColumn), row.slice(itemColumn, itemColumn + overflow + 1).join(" "), ...row.slice(itemColumn + overflow + 1)];
+        }).filter((row) => row.join("|") !== headers.join("|"))];
+      } else {
+        matrix = extracted;
+      }
+    }
+    const { headers, rows } = rowsToObjects(matrix);
+    assertUsableRows(headers, rows);
+    return { importType: "pdf", encoding: "pdf-text", delimiter: null, headers, rows, sampleRows: rows.slice(0, 10) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "PDFを解析できませんでした。";
+    throw new Error(`PDFから表形式の売上データを読み取れませんでした。文字を選択できる売上帳票か確認してください: ${message}`);
+  } finally {
+    await parser.destroy();
+  }
+}
+
 export async function parseImportFile(fileName: string, buffer: ArrayBuffer): Promise<ParsedImportFile> {
   const lowerName = fileName.toLowerCase();
+  if (buffer.byteLength === 0) throw new Error("空ファイルは取り込めません。");
+  if (buffer.byteLength > MAX_IMPORT_FILE_SIZE) throw new Error("ファイルは4MB以下にしてください。");
+  if (lowerName.endsWith(".pdf")) return parsePdf(buffer);
   if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
     const XLSX = await import("xlsx");
     const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
@@ -110,6 +159,7 @@ export async function parseImportFile(fileName: string, buffer: ArrayBuffer): Pr
     const sheet = workbook.Sheets[sheetName];
     const matrix = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false, defval: "" });
     const { headers, rows } = rowsToObjects(matrix.map((row) => row.map(cleanCell)));
+    assertUsableRows(headers, rows);
     return {
       importType: "excel",
       encoding: "binary",
@@ -120,10 +170,13 @@ export async function parseImportFile(fileName: string, buffer: ArrayBuffer): Pr
     };
   }
 
+  if (!lowerName.endsWith(".csv") && !lowerName.endsWith(".tsv")) throw new Error("CSV、TSV、Excel、PDFのいずれかを選択してください。");
+
   const decoded = decodeCsv(buffer);
   const delimiter = detectDelimiter(decoded.text);
   const matrix = parseDelimitedRows(decoded.text, delimiter);
   const { headers, rows } = rowsToObjects(matrix);
+  assertUsableRows(headers, rows);
   return {
     importType: "csv",
     encoding: decoded.encoding,

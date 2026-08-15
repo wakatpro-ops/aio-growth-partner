@@ -11,6 +11,8 @@
     "check:archives": "node scripts/check-archive-coverage.mjs",
     "check:aio-loop": "node scripts/check-aio-closed-loop.mjs",
     "check:customer-crm": "node scripts/check-customer-crm.mjs",
+    "check:inventory-sales": "node scripts/check-inventory-sales-sync.mjs",
+    "test:sales-import-parser": "node --experimental-strip-types scripts/test-sales-import-parser.mjs",
     "check:google-review": "node scripts/check-google-review-readiness.mjs",
     "check:ux": "node scripts/check-store-ux.mjs"
   },
@@ -18,6 +20,7 @@
     "@supabase/supabase-js": "^2.45.4",
     "next": "^15.0.3",
     "openai": "^4.71.1",
+    "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "xlsx": "^0.18.5",
