@@ -462,3 +462,18 @@ on conflict (store_id) do update set
   prefix = coalesce(public.invoice_number_sequences.prefix, excluded.prefix),
   qualified_invoice_issuer_name = coalesce(public.invoice_number_sequences.qualified_invoice_issuer_name, excluded.qualified_invoice_issuer_name),
   updated_at = now();
+
+insert into public.modules (key, name, description, category, is_core)
+values
+  ('inventory_automation', '在庫自動連動', '受注・売上・取消・返品と在庫変動履歴を連動します。', 'operations', false),
+  ('sales_pdf_import', '売上帳票PDF取込', '売上帳票PDFを表形式へ整理し、確認後に取り込みます。', 'data', false),
+  ('google_sheets_import', 'Googleスプレッドシート取込', '共有されたGoogleスプレッドシートを確認して売上へ取り込みます。', 'data', false)
+on conflict (key) do update set name = excluded.name, description = excluded.description, category = excluded.category;
+
+insert into public.industry_modules (industry_type_key, module_key, is_enabled)
+select key, module_key, true from public.industry_types
+cross join (values ('inventory_automation'), ('sales_pdf_import'), ('google_sheets_import')) modules(module_key)
+on conflict (industry_type_key, module_key) do update set is_enabled = excluded.is_enabled;
+
+update public.industry_types set default_feature_flags = default_feature_flags || '{"inventory_automation":true,"sales_pdf_import":true,"google_sheets_import":true}'::jsonb;
+update public.stores set feature_flags = feature_flags || '{"inventory_automation":true,"sales_pdf_import":true,"google_sheets_import":true}'::jsonb;

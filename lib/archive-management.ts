@@ -61,9 +61,13 @@ export function storeArchiveEntityLabel(entity: StoreArchiveEntity) {
 }
 
 export async function setStoreEntityArchived(storeId: string, entity: StoreArchiveEntity, recordId: string, archived: boolean) {
-  await getStore(storeId);
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
+  const store = await getStore(storeId);
+  const role = access.organizationRoles[store.organization_id] ?? "viewer";
+  if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) {
+    throw new Error("削除・復元する権限がありません。");
+  }
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const config = entityConfigs[entity];

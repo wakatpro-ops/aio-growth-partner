@@ -41,9 +41,41 @@ export type InventoryStock = {
   store_id: string;
   item_id: string;
   quantity: number;
+  reserved_quantity: number;
   reorder_point: number;
   updated_at: string;
   item?: Pick<BusinessItem, "name" | "sku" | "unit" | "item_type">;
+};
+
+export type InventoryMovement = {
+  id: string;
+  store_id: string;
+  item_id: string;
+  movement_type: string;
+  quantity_delta: number;
+  reserved_delta: number;
+  balance_after: number | null;
+  reserved_after: number | null;
+  reason: string | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  created_by: string | null;
+  actor_name?: string | null;
+  occurred_at: string;
+  item?: Pick<BusinessItem, "name" | "sku" | "unit">;
+};
+
+export type BusinessOrderItem = {
+  id: string;
+  order_id: string;
+  item_id: string | null;
+  description: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  amount: number;
+  archived_at: string | null;
+  item?: Pick<BusinessItem, "name" | "sku" | "unit" | "is_stock_managed"> | null;
 };
 
 export type Customer = {

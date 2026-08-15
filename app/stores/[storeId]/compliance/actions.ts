@@ -21,6 +21,11 @@ import {
 import { disconnectFreeeConnect } from "@/lib/phase6/freee-connect";
 import { sendExpenseReceiptToFreee, sendInvoicesAndPaymentsToFreee } from "@/lib/phase6/freee-connect";
 import { disconnectStripeConnect } from "@/lib/phase6/stripe-connect";
+import { addOrderItemFromForm, archiveOrderItem, restoreOrderItem } from "@/lib/inventory-operations";
+
+function actionError(error: unknown) {
+  return encodeURIComponent(error instanceof Error ? error.message : "処理に失敗しました。");
+}
 
 export async function createOrderAction(storeId: string, formData: FormData) {
   await createOrderFromForm(storeId, formData);
@@ -38,10 +43,47 @@ export async function createOrderFromEstimateAction(storeId: string, estimateId:
 }
 
 export async function updateOrderAction(storeId: string, orderId: string, formData: FormData) {
-  await updateOrderFromForm(storeId, orderId, formData);
+  try {
+    await updateOrderFromForm(storeId, orderId, formData);
+  } catch (error) {
+    redirect(`/stores/${storeId}/orders/${orderId}?error=${actionError(error)}`);
+  }
   revalidatePath(`/stores/${storeId}/orders`);
   revalidatePath(`/stores/${storeId}/orders/${orderId}`);
   redirect(`/stores/${storeId}/orders/${orderId}?saved=1`);
+}
+
+export async function addOrderItemAction(storeId: string, orderId: string, formData: FormData) {
+  try {
+    await addOrderItemFromForm(storeId, orderId, formData);
+  } catch (error) {
+    redirect(`/stores/${storeId}/orders/${orderId}?error=${actionError(error)}`);
+  }
+  revalidatePath(`/stores/${storeId}/orders/${orderId}`);
+  revalidatePath(`/stores/${storeId}/inventory`);
+  redirect(`/stores/${storeId}/orders/${orderId}?itemSaved=1`);
+}
+
+export async function archiveOrderItemAction(storeId: string, orderId: string, orderItemId: string) {
+  try {
+    await archiveOrderItem(storeId, orderId, orderItemId);
+  } catch (error) {
+    redirect(`/stores/${storeId}/orders/${orderId}?error=${actionError(error)}`);
+  }
+  revalidatePath(`/stores/${storeId}/orders/${orderId}`);
+  revalidatePath(`/stores/${storeId}/inventory`);
+  redirect(`/stores/${storeId}/orders/${orderId}?itemDeleted=1`);
+}
+
+export async function restoreOrderItemAction(storeId: string, orderId: string, orderItemId: string) {
+  try {
+    await restoreOrderItem(storeId, orderId, orderItemId);
+  } catch (error) {
+    redirect(`/stores/${storeId}/orders/${orderId}?error=${actionError(error)}`);
+  }
+  revalidatePath(`/stores/${storeId}/orders/${orderId}`);
+  revalidatePath(`/stores/${storeId}/inventory`);
+  redirect(`/stores/${storeId}/orders/${orderId}?itemRestored=1`);
 }
 
 export async function createInvoiceFromOrderAction(storeId: string, orderId: string) {

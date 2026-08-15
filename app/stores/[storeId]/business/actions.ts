@@ -11,9 +11,9 @@ import {
   deleteItem,
   updateCustomerFromForm,
   updateDocumentFromForm,
-  updateItemFromForm,
-  updateStockFromForm
+  updateItemFromForm
 } from "@/lib/phase2/business-data";
+import { createInventoryMovementFromForm } from "@/lib/inventory-operations";
 
 export async function createItemAction(storeId: string, formData: FormData) {
   await createItemFromForm(storeId, formData);
@@ -34,9 +34,14 @@ export async function deleteItemAction(storeId: string, itemId: string) {
 }
 
 export async function updateStockAction(storeId: string, formData: FormData) {
-  await updateStockFromForm(storeId, formData);
+  try {
+    await createInventoryMovementFromForm(storeId, formData);
+  } catch (error) {
+    const message = encodeURIComponent(error instanceof Error ? error.message : "在庫を更新できませんでした。");
+    redirect(`/stores/${storeId}/inventory?error=${message}`);
+  }
   revalidatePath(`/stores/${storeId}/inventory`);
-  redirect(`/stores/${storeId}/inventory`);
+  redirect(`/stores/${storeId}/inventory?saved=movement`);
 }
 
 export async function createCustomerAction(storeId: string, formData: FormData) {

@@ -2,12 +2,16 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
+import { listArchivedOrderItems, listOrderItems } from "@/lib/inventory-operations";
+import { listBusinessItems } from "@/lib/phase2/business-data";
 import { getOrder, listOrderStatusLogs } from "@/lib/phase6/compliance-data";
 import { labelFor, orderStatusLabels } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
-import { createInvoiceFromOrderAction, updateOrderAction } from "../../compliance/actions";
+import { addOrderItemAction, archiveOrderItemAction, createInvoiceFromOrderAction, restoreOrderItemAction, updateOrderAction } from "../../compliance/actions";
 
 function yen(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
@@ -22,14 +26,17 @@ export default async function OrderDetailPage({
   searchParams
 }: {
   params: Promise<{ storeId: string; orderId: string }>;
-  searchParams: Promise<{ saved?: string }>;
+  searchParams: Promise<{ saved?: string; error?: string; itemSaved?: string; itemDeleted?: string; itemRestored?: string }>;
 }) {
   const { storeId, orderId } = await params;
-  const { saved } = await searchParams;
+  const query = await searchParams;
   const store = await getStore(storeId);
-  const [order, logs] = await Promise.all([
+  const [order, logs, orderItems, archivedItems, items] = await Promise.all([
     getOrder(store.id, orderId),
-    listOrderStatusLogs(store.id, orderId)
+    listOrderStatusLogs(store.id, orderId),
+    listOrderItems(store.id, orderId),
+    listArchivedOrderItems(store.id, orderId),
+    listBusinessItems(store.id, 200)
   ]);
   if (!order) notFound();
   const industry = getIndustryConfig(store.industry_type_key);
@@ -52,7 +59,11 @@ export default async function OrderDetailPage({
         )}
       />
       <StoreBusinessNav store={store} />
-      {saved ? <p className="notice success">受注を保存しました。</p> : null}
+      {query.saved ? <p className="notice success">受注を保存しました。</p> : null}
+      {query.itemSaved ? <p className="notice success">受注明細を追加し、在庫を引き当てました。</p> : null}
+      {query.itemDeleted ? <p className="notice success">明細を削除しました。在庫引当は解除されています。</p> : null}
+      {query.itemRestored ? <p className="notice success">明細を元に戻し、在庫を再び引き当てました。</p> : null}
+      {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
 
       <section className="grid cols-3">
         <article className="card"><p className="muted">受注番号</p><strong>{order.order_number}</strong></article>
@@ -69,7 +80,8 @@ export default async function OrderDetailPage({
           </div>
           <div className="field">
             <label htmlFor="total">金額</label>
-            <input id="total" name="total" type="number" min="0" step="1" defaultValue={order.total} />
+            <input id="total" name="total" type="number" min="0" step="1" defaultValue={order.total} readOnly={orderItems.length > 0} />
+            {orderItems.length > 0 ? <span className="muted">受注明細の合計から自動計算されます。</span> : null}
           </div>
           <div className="field">
             <label htmlFor="status">受注ステータス</label>
@@ -109,6 +121,68 @@ export default async function OrderDetailPage({
           <button className="button" type="submit">保存</button>
         </form>
       </section>
+
+      <section className="card">
+        <h2>受注明細と在庫連動</h2>
+        <p className="muted">在庫管理対象の商品は、受注・作業中で引当、作業完了・請求化で在庫から減算、取消で自動的に戻します。</p>
+        <table className="table">
+          <thead><tr><th>商品・内容</th><th>数量</th><th>単価</th><th>金額</th><th>在庫</th><th>操作</th></tr></thead>
+          <tbody>
+            {orderItems.map((line) => (
+              <tr key={line.id}>
+                <td>{line.description}{line.item?.sku ? <small className="muted">（{line.item.sku}）</small> : null}</td>
+                <td>{line.quantity}{line.unit}</td>
+                <td>{yen(line.unit_price)}</td>
+                <td>{yen(line.amount)}</td>
+                <td>{line.item?.is_stock_managed ? <span className="badge">自動連動</span> : "対象外"}</td>
+                <td>
+                  {!(["completed", "invoiced"] as string[]).includes(order.status) ? (
+                    <form action={archiveOrderItemAction.bind(null, store.id, order.id, line.id)}>
+                      <ConfirmSubmitButton message="この明細を削除しますか？在庫引当も解除されます。">削除</ConfirmSubmitButton>
+                    </form>
+                  ) : "-"}
+                </td>
+              </tr>
+            ))}
+            {orderItems.length === 0 ? <tr><td colSpan={6}>明細はまだありません。</td></tr> : null}
+          </tbody>
+        </table>
+
+        {!(["completed", "invoiced", "cancelled"] as string[]).includes(order.status) ? (
+          <form action={addOrderItemAction.bind(null, store.id, order.id)} className="form">
+            <h3>明細を追加</h3>
+            <div className="grid cols-3">
+              <div className="field">
+                <label htmlFor="item_id">登録済み商品・メニュー</label>
+                <select id="item_id" name="item_id" defaultValue="">
+                  <option value="">自由入力する</option>
+                  {items.map((item) => <option key={item.id} value={item.id}>{item.name}{item.sku ? `（${item.sku}）` : ""}{item.is_stock_managed ? "・在庫連動" : ""}</option>)}
+                </select>
+              </div>
+              <div className="field"><label htmlFor="description">明細名</label><input id="description" name="description" placeholder="商品選択時は省略可" /></div>
+              <div className="field"><label htmlFor="quantity">数量</label><input id="quantity" name="quantity" type="number" min="0.01" step="0.01" defaultValue="1" required /></div>
+              <div className="field"><label htmlFor="unit">単位</label><input id="unit" name="unit" placeholder="個、回など" /></div>
+              <div className="field"><label htmlFor="unit_price">単価</label><input id="unit_price" name="unit_price" type="number" min="0" step="1" placeholder="商品選択時は省略可" /></div>
+            </div>
+            <PendingSubmitButton pendingLabel="明細を追加しています...">追加して在庫へ反映</PendingSubmitButton>
+          </form>
+        ) : null}
+      </section>
+
+      {archivedItems.length > 0 ? (
+        <section className="card">
+          <h2>削除した明細</h2>
+          <table className="table compact">
+            <thead><tr><th>明細</th><th>数量</th><th>操作</th></tr></thead>
+            <tbody>{archivedItems.map((line) => (
+              <tr key={line.id} className="archive-row">
+                <td>{line.description}</td><td>{line.quantity}{line.unit}</td>
+                <td>{!(["completed", "invoiced", "cancelled"] as string[]).includes(order.status) ? <form action={restoreOrderItemAction.bind(null, store.id, order.id, line.id)}><PendingSubmitButton className="button secondary" pendingLabel="戻しています...">元に戻す</PendingSubmitButton></form> : "-"}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </section>
+      ) : null}
 
       <section className="card">
         <h2>ステータス履歴</h2>

@@ -1,5 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { getCurrentUserAccess } from "@/lib/auth/server";
+import { applyImportedSaleInventory } from "@/lib/inventory-operations";
+import { generateDemandActionPlan } from "@/lib/phase4/demand-actions";
 import { buildSuggestedMappings, normalizeSalesRows, parseImportFile } from "@/lib/phase4/import-parser";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
@@ -8,6 +11,7 @@ import type {
   DataColumnMapping,
   DataImportFile,
   DataImportJob,
+  ImportItemMatch,
   ImportProviderKey,
   NormalizedSalesPreviewRow,
   ParsedSalesRow,
@@ -17,6 +21,7 @@ import type {
 } from "@/types/phase4";
 
 const storageBucket = "import-files";
+const editableRoles = new Set(["org_owner", "store_manager", "staff"]);
 
 const demoPersistence = {
   "store-general-demo": {
@@ -40,6 +45,11 @@ const demoPersistence = {
 } as const;
 
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
+
+function textValue(value: FormDataEntryValue | null, maxLength = 500) {
+  const result = String(value ?? "").trim();
+  return result ? result.slice(0, maxLength) : null;
+}
 
 function demoConfigFor(storeId: string) {
   return demoPersistence[storeId as keyof typeof demoPersistence];
@@ -140,6 +150,7 @@ function providerName(provider: string) {
   const labels: Record<string, string> = {
     manual_csv: "手動CSV",
     manual_excel: "手動Excel",
+    google_sheets: "Googleスプレッドシート",
     air_regi: "Airレジ",
     smaregi: "スマレジ",
     square: "Square",
@@ -149,6 +160,22 @@ function providerName(provider: string) {
     base: "BASE"
   };
   return labels[provider] ?? provider;
+}
+
+async function assertImportWriteAccess(store: Store) {
+  const access = await getCurrentUserAccess();
+  if (!access) throw new Error("ログインが必要です。");
+  const role = access.organizationRoles[store.organization_id] ?? "viewer";
+  if (!access.isPlatformAdmin && !editableRoles.has(role)) throw new Error("売上データを取り込む権限がありません。");
+  return access;
+}
+
+function normalizedItemText(value: string | null | undefined) {
+  return String(value ?? "").normalize("NFKC").toLowerCase().replace(/[\s　_\-・]/gu, "");
+}
+
+function sourceItemKey(name: string | null | undefined, code: string | null | undefined) {
+  return createHash("sha256").update(`${normalizedItemText(code)}:${normalizedItemText(name)}`).digest("hex");
 }
 
 function jsonArray<T>(value: unknown): T[] {
@@ -196,10 +223,11 @@ export async function getImportJob(storeId: string, importJobId: string) {
     .single();
   if (!job) return null;
 
-  const [{ data: file }, { data: mappings }, { data: errors }] = await Promise.all([
+  const [{ data: file }, { data: mappings }, { data: errors }, { data: itemMatches }] = await Promise.all([
     supabase.from("data_import_files").select("*").eq("import_job_id", importJobId).maybeSingle(),
     supabase.from("data_column_mappings").select("*").eq("import_job_id", importJobId).order("source_column_index"),
-    supabase.from("import_error_rows").select("*").eq("import_job_id", importJobId).order("row_number").limit(50)
+    supabase.from("import_error_rows").select("*").eq("import_job_id", importJobId).order("row_number").limit(50),
+    supabase.from("import_item_matches").select("*").eq("import_job_id", importJobId).order("source_item_name")
   ]);
 
   return {
@@ -211,7 +239,8 @@ export async function getImportJob(storeId: string, importJobId: string) {
       file: file as DataImportFile | null
     } as DataImportJob,
     mappings: (mappings ?? []) as DataColumnMapping[],
-    errors: errors ?? []
+    errors: errors ?? [],
+    itemMatches: (itemMatches ?? []) as ImportItemMatch[]
   };
 }
 
@@ -239,11 +268,14 @@ async function getOrCreateDataSource(supabase: SupabaseClient, organizationId: s
 export async function uploadImportFileFromForm(storeId: string, formData: FormData) {
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    throw new Error("CSVまたはExcelファイルを選択してください。");
+    throw new Error("CSV、Excel、PDFのいずれかを選択してください。");
   }
 
-  const provider = String(formData.get("provider_key") ?? (file.name.toLowerCase().endsWith(".csv") ? "manual_csv" : "manual_excel")) as ImportProviderKey;
+  const lowerName = file.name.toLowerCase();
+  const fallbackProvider = lowerName.endsWith(".csv") || lowerName.endsWith(".tsv") ? "manual_csv" : "manual_excel";
+  const provider = String(formData.get("provider_key") ?? fallbackProvider) as ImportProviderKey;
   const store = await getStore(storeId);
+  await assertImportWriteAccess(store);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await resolveStoreForWrite(supabase, store);
@@ -251,6 +283,9 @@ export async function uploadImportFileFromForm(storeId: string, formData: FormDa
 
   const buffer = await file.arrayBuffer();
   const parsed = await parseImportFile(file.name, buffer);
+  const fileChecksum = checksum(buffer);
+  const { data: duplicate } = await supabase.from("data_import_files").select("import_job_id").eq("store_id", resolved.storeId).eq("checksum", fileChecksum).limit(1).maybeSingle();
+  if (duplicate?.import_job_id) throw new Error("同じ内容のファイルはすでに取り込まれています。既存の取り込み詳細を確認してください。");
   const dataSourceId = await getOrCreateDataSource(supabase, resolved.organizationId, resolved.storeId, provider);
 
   const { data: job, error: jobError } = await supabase
@@ -267,15 +302,18 @@ export async function uploadImportFileFromForm(storeId: string, formData: FormDa
       header_row_number: 1,
       detected_columns: parsed.headers,
       mapping_status: "pending",
+      item_matching_status: "pending",
       preview_rows: parsed.sampleRows,
-      total_rows: parsed.rows.length
+      total_rows: parsed.rows.length,
+      source_url: textValue(formData.get("source_url"), 2000)
     })
     .select("id")
     .single();
 
   if (jobError || !job) throw new Error(`取り込みジョブを作成できませんでした: ${jobError?.message ?? "unknown error"}`);
 
-  const storagePath = `organizations/${resolved.organizationId}/stores/${resolved.storeId}/imports/${job.id}/${file.name}`;
+  const safeFileName = file.name.replace(/[^\p{L}\p{N}._-]/gu, "_").slice(0, 180) || "sales-import";
+  const storagePath = `organizations/${resolved.organizationId}/stores/${resolved.storeId}/imports/${job.id}/${safeFileName}`;
   const { error: uploadError } = await supabase.storage.from(storageBucket).upload(storagePath, buffer, {
     contentType: file.type || "application/octet-stream",
     upsert: true
@@ -285,7 +323,7 @@ export async function uploadImportFileFromForm(storeId: string, formData: FormDa
     throw new Error(`元ファイルをStorageに保存できませんでした。import-files bucketを確認してください: ${uploadError.message}`);
   }
 
-  await supabase.from("data_import_files").insert({
+  const { error: fileRecordError } = await supabase.from("data_import_files").insert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
     import_job_id: job.id,
@@ -295,8 +333,12 @@ export async function uploadImportFileFromForm(storeId: string, formData: FormDa
     file_type: parsed.importType,
     mime_type: file.type || null,
     file_size: file.size,
-    checksum: checksum(buffer)
+    checksum: fileChecksum
   });
+  if (fileRecordError) {
+    await supabase.from("data_import_jobs").update({ status: "failed", error_message: fileRecordError.message }).eq("id", job.id);
+    throw new Error(`取り込みファイルの記録を保存できませんでした: ${fileRecordError.message}`);
+  }
 
   const suggested = buildSuggestedMappings(parsed.headers);
   await supabase
@@ -308,9 +350,43 @@ export async function uploadImportFileFromForm(storeId: string, formData: FormDa
   return job.id as string;
 }
 
+export async function uploadGoogleSheetFromForm(storeId: string, formData: FormData) {
+  const source = textValue(formData.get("sheet_url"), 2000);
+  if (!source) throw new Error("GoogleスプレッドシートのURLを入力してください。");
+  let url: URL;
+  try {
+    url = new URL(source);
+  } catch {
+    throw new Error("GoogleスプレッドシートのURLを確認してください。");
+  }
+  if (url.protocol !== "https:" || url.hostname !== "docs.google.com") throw new Error("docs.google.com のスプレッドシートURLだけ利用できます。");
+  const match = url.pathname.match(/^\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/u);
+  if (!match) throw new Error("GoogleスプレッドシートIDをURLから確認できませんでした。");
+  const gid = String(formData.get("sheet_gid") ?? url.searchParams.get("gid") ?? "0").replace(/\D/gu, "") || "0";
+  const exportUrl = `https://docs.google.com/spreadsheets/d/${match[1]}/export?format=csv&gid=${gid}`;
+  let response: Response;
+  try {
+    response = await fetch(exportUrl, { redirect: "follow", signal: AbortSignal.timeout(15_000), cache: "no-store" });
+  } catch {
+    throw new Error("Googleスプレッドシートを取得できませんでした。共有設定とネットワークを確認してください。");
+  }
+  if (!response.ok) throw new Error("スプレッドシートを取得できませんでした。『リンクを知っている全員が閲覧可』にしてから再実行してください。");
+  const buffer = await response.arrayBuffer();
+  const uploadForm = new FormData();
+  uploadForm.set("provider_key", "google_sheets");
+  uploadForm.set("source_url", source);
+  uploadForm.set("file", new File([buffer], `google-sheet-${match[1].slice(0, 12)}-${gid}.csv`, { type: "text/csv" }));
+  const jobId = await uploadImportFileFromForm(storeId, uploadForm);
+  const supabase = createSupabaseAdminClient();
+  if (supabase) await supabase.from("data_import_jobs").update({ import_type: "google_sheets", source_url: source }).eq("id", jobId);
+  return jobId;
+}
+
 export async function saveMappingsFromForm(storeId: string, importJobId: string, formData: FormData) {
   const detail = await getImportJob(storeId, importJobId);
   if (!detail) throw new Error("取り込みジョブが見つかりません。");
+  const store = await getStore(storeId);
+  await assertImportWriteAccess(store);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
 
@@ -326,28 +402,98 @@ export async function saveMappingsFromForm(storeId: string, importJobId: string,
     is_required: ["sale_date", "item_name", "gross_amount"].includes(String(formData.get(`target_field_${index}`))),
     created_by: "user"
   }));
+  for (const required of ["sale_date", "item_name", "gross_amount"] as const) {
+    if (!mappings.some((mapping) => mapping.target_field === required)) throw new Error("売上日・商品名・合計の3項目は必ず対応付けてください。");
+  }
 
   const { error } = await supabase
     .from("data_column_mappings")
     .upsert(mappings, { onConflict: "store_id,import_job_id,source_column_name" });
   if (error) throw new Error(`列マッピングを保存できませんでした: ${error.message}`);
 
-  const normalizedPreview = normalizeSalesRows(
-    detail.job.preview_rows,
+  if (!detail.job.file) throw new Error("取り込み元ファイルが見つかりません。");
+  const parsed = await parseStoredFile(supabase, detail.job.file);
+  const normalizedRows = normalizeSalesRows(
+    parsed.rows,
     mappings.map((mapping) => ({ ...mapping, id: `${mapping.source_column_index}` })) as DataColumnMapping[],
     detail.job.store_id,
     detail.job.data_source_id
   );
+
+  await prepareImportItemMatches(supabase, detail.job, normalizedRows);
 
   await supabase
     .from("data_import_jobs")
     .update({
       mapping_status: "confirmed",
       status: "preview_ready",
-      normalized_preview: normalizedPreview,
+      item_matching_status: "pending",
+      normalized_preview: normalizedRows.slice(0, 20),
       updated_at: new Date().toISOString()
     })
     .eq("id", importJobId);
+}
+
+async function prepareImportItemMatches(supabase: SupabaseClient, job: DataImportJob, rows: NormalizedSalesPreviewRow[]) {
+  const { data: items } = await supabase.from("items").select("id, name, sku, is_stock_managed").eq("store_id", job.store_id).is("archived_at", null);
+  const unique = new Map<string, { name: string; code: string | null }>();
+  for (const row of rows) {
+    if (!row.item_name) continue;
+    const key = sourceItemKey(row.item_name, row.item_code);
+    if (!unique.has(key)) unique.set(key, { name: row.item_name, code: row.item_code });
+  }
+  const records = Array.from(unique.entries()).map(([key, source]) => {
+    const code = normalizedItemText(source.code);
+    const name = normalizedItemText(source.name);
+    const exactCode = code ? (items ?? []).find((item) => normalizedItemText(item.sku) === code) : null;
+    const exactName = (items ?? []).find((item) => normalizedItemText(item.name) === name);
+    const partial = name ? (items ?? []).find((item) => normalizedItemText(item.name).includes(name) || name.includes(normalizedItemText(item.name))) : null;
+    const suggested = exactCode ?? exactName ?? partial ?? null;
+    return {
+      organization_id: job.organization_id,
+      store_id: job.store_id,
+      import_job_id: job.id,
+      source_item_key: key,
+      source_item_name: source.name,
+      source_item_code: source.code,
+      suggested_item_id: suggested?.id ?? null,
+      confirmed_item_id: null,
+      status: "pending",
+      confidence: exactCode ? 0.99 : exactName ? 0.95 : partial ? 0.65 : null,
+      confirmed_by: null,
+      confirmed_at: null,
+      updated_at: new Date().toISOString()
+    };
+  });
+  if (records.length > 0) {
+    const { error } = await supabase.from("import_item_matches").upsert(records, { onConflict: "import_job_id,source_item_key" });
+    if (error) throw new Error(`商品候補を準備できませんでした: ${error.message}`);
+  }
+}
+
+export async function saveImportItemMatchesFromForm(storeId: string, importJobId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const access = await assertImportWriteAccess(store);
+  const detail = await getImportJob(storeId, importJobId);
+  if (!detail) throw new Error("取り込みジョブが見つかりません。");
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const { data: validItems } = await supabase.from("items").select("id").eq("store_id", detail.job.store_id).is("archived_at", null);
+  const validIds = new Set((validItems ?? []).map((item) => String(item.id)));
+  for (const match of detail.itemMatches) {
+    const choice = String(formData.get(`item_match_${match.id}`) ?? "");
+    if (!choice) throw new Error("すべての商品について、登録済み商品か『在庫連動しない』を選択してください。");
+    if (choice !== "ignore" && !validIds.has(choice)) throw new Error("選択した商品を確認できませんでした。");
+    const { error } = await supabase.from("import_item_matches").update({
+      confirmed_item_id: choice === "ignore" ? null : choice,
+      status: choice === "ignore" ? "ignored" : "confirmed",
+      confirmed_by: access.userId,
+      confirmed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }).eq("id", match.id).eq("store_id", detail.job.store_id);
+    if (error) throw new Error(`商品対応を保存できませんでした: ${error.message}`);
+  }
+  await supabase.from("data_import_jobs").update({ item_matching_status: "confirmed", updated_at: new Date().toISOString() }).eq("id", importJobId);
 }
 
 async function parseStoredFile(supabase: SupabaseClient, file: DataImportFile) {
@@ -360,20 +506,39 @@ function businessDate(isoDate: string) {
   return isoDate.slice(0, 10);
 }
 
-export async function executeImportJob(storeId: string, importJobId: string) {
+export async function executeImportJob(storeId: string, importJobId: string, options: { retryErrorsOnly?: boolean } = {}) {
+  const store = await getStore(storeId);
+  await assertImportWriteAccess(store);
   const detail = await getImportJob(storeId, importJobId);
   if (!detail?.job.file) throw new Error("取り込み元ファイルが見つかりません。");
   if (detail.mappings.length === 0) throw new Error("列マッピングを保存してから取り込みを実行してください。");
+  if (detail.job.item_matching_status !== "confirmed" || detail.itemMatches.some((match) => match.status === "pending")) {
+    throw new Error("商品と在庫の対応をすべて確認してから取り込みを実行してください。");
+  }
 
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   await supabase.from("data_import_jobs").update({ status: "importing", started_at: new Date().toISOString() }).eq("id", importJobId);
-  await supabase.from("import_error_rows").delete().eq("import_job_id", importJobId);
+  try {
+    const { data: retryErrorRows } = options.retryErrorsOnly
+      ? await supabase.from("import_error_rows").select("row_number").eq("import_job_id", importJobId)
+      : { data: null };
+    const retryRows = options.retryErrorsOnly ? new Set((retryErrorRows ?? []).map((row) => Number(row.row_number))) : null;
+    await supabase.from("import_error_rows").delete().eq("import_job_id", importJobId);
 
   const parsed = await parseStoredFile(supabase, detail.job.file);
-  const normalizedRows = normalizeSalesRows(parsed.rows, detail.mappings, detail.job.store_id, detail.job.data_source_id);
-  let successRows = 0;
+  const allRows = normalizeSalesRows(parsed.rows, detail.mappings, detail.job.store_id, detail.job.data_source_id);
+  const normalizedRows = retryRows ? allRows.filter((row) => retryRows.has(row.rowNumber)) : allRows;
+  if (retryRows && normalizedRows.length === 0) throw new Error("再実行するエラー行がありません。");
+  const { count: existingSuccess } = await supabase.from("sales_transactions").select("id", { count: "exact", head: true }).eq("import_job_id", importJobId);
+  let successRows = options.retryErrorsOnly ? Number(existingSuccess ?? 0) : 0;
   let errorRows = 0;
+  const matchByKey = new Map(detail.itemMatches.map((match) => [match.source_item_key, match]));
+  const confirmedIds = detail.itemMatches.map((match) => match.confirmed_item_id).filter(Boolean) as string[];
+  const { data: matchedItems } = confirmedIds.length > 0
+    ? await supabase.from("items").select("id, is_stock_managed").eq("store_id", detail.job.store_id).in("id", confirmedIds)
+    : { data: [] };
+  const stockManagedIds = new Set((matchedItems ?? []).filter((item) => item.is_stock_managed).map((item) => String(item.id)));
 
   for (const row of normalizedRows) {
     if (row.errors.length > 0 || !row.sale_date || !row.item_name) {
@@ -430,10 +595,19 @@ export async function executeImportJob(storeId: string, importJobId: string) {
       continue;
     }
 
-    await supabase.from("sales_transaction_items").insert({
+    const itemMatch = matchByKey.get(sourceItemKey(row.item_name, row.item_code));
+    if (!itemMatch || itemMatch.status === "pending") {
+      await supabase.from("sales_transactions").delete().eq("id", transaction.id);
+      errorRows += 1;
+      await supabase.from("import_error_rows").insert({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "item_match_required", error_message: "商品の対応確認が必要です。", suggested_fix: {} });
+      continue;
+    }
+    const { error: itemError } = await supabase.from("sales_transaction_items").insert({
       organization_id: detail.job.organization_id,
       store_id: detail.job.store_id,
       sales_transaction_id: transaction.id,
+      item_id: itemMatch.confirmed_item_id,
+      item_match_status: itemMatch.status,
       external_item_id: row.item_code,
       item_name: row.item_name,
       category_name: row.category_name,
@@ -444,6 +618,22 @@ export async function executeImportJob(storeId: string, importJobId: string) {
       total_amount: row.gross_amount,
       source_metadata: { source_row_hash: row.source_row_hash }
     });
+    if (itemError) {
+      await supabase.from("sales_transactions").delete().eq("id", transaction.id);
+      errorRows += 1;
+      await supabase.from("import_error_rows").insert({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "item_insert_error", error_message: itemError.message, suggested_fix: {} });
+      continue;
+    }
+    if (itemMatch.confirmed_item_id && stockManagedIds.has(itemMatch.confirmed_item_id)) {
+      try {
+        await applyImportedSaleInventory({ storeId, itemId: itemMatch.confirmed_item_id, transactionId: transaction.id, rowHash: row.source_row_hash, quantity: row.quantity, itemName: row.item_name });
+      } catch (inventoryError) {
+        await supabase.from("sales_transactions").delete().eq("id", transaction.id);
+        errorRows += 1;
+        await supabase.from("import_error_rows").insert({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "inventory_sync_error", error_message: inventoryError instanceof Error ? inventoryError.message : "在庫へ反映できませんでした。", suggested_fix: {} });
+        continue;
+      }
+    }
     successRows += 1;
   }
 
@@ -452,16 +642,23 @@ export async function executeImportJob(storeId: string, importJobId: string) {
     .from("data_import_jobs")
     .update({
       status,
-      total_rows: normalizedRows.length,
+      total_rows: allRows.length,
       success_rows: successRows,
       error_rows: errorRows,
+      error_message: null,
       completed_at: new Date().toISOString(),
       normalized_preview: normalizedRows.slice(0, 20),
       updated_at: new Date().toISOString()
     })
     .eq("id", importJobId);
 
-  await rebuildSalesSummaries(supabase, detail.job.organization_id, detail.job.store_id);
+    await rebuildSalesSummaries(supabase, detail.job.organization_id, detail.job.store_id);
+    await generateDemandActionPlan(storeId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "取り込み処理に失敗しました。";
+    await supabase.from("data_import_jobs").update({ status: "failed", error_message: message.slice(0, 2000), completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", importJobId);
+    throw error;
+  }
 }
 
 async function rebuildSalesSummaries(supabase: SupabaseClient, organizationId: string, storeId: string) {
