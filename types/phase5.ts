@@ -164,6 +164,52 @@ export type GoogleBusinessProfileSetting = {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  google_oauth_connection_id?: string | null;
+  location_verified_at?: string | null;
+};
+
+export type GoogleBusinessLocation = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  google_oauth_connection_id: string;
+  google_account_name: string;
+  google_location_name: string;
+  title: string | null;
+  address: string | null;
+  store_code: string | null;
+  is_selected: boolean;
+  selected_at: string | null;
+  last_seen_at: string;
+  archived_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type GoogleBusinessReview = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  google_business_location_id: string;
+  google_review_name: string;
+  review_id: string | null;
+  reviewer_name: string | null;
+  star_rating: string | null;
+  comment: string | null;
+  google_created_at: string | null;
+  google_updated_at: string | null;
+  google_reply_text: string | null;
+  google_reply_updated_at: string | null;
+  reply_draft: string | null;
+  reply_status: "not_started" | "draft" | "pending_approval" | "approved" | "published" | "error";
+  approved_by: string | null;
+  approved_at: string | null;
+  published_at: string | null;
+  last_error: string | null;
+  raw_payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
 };
 
 export type GoogleGmailSetting = {
@@ -208,6 +254,10 @@ export type ExternalPublishJob = {
   response_json: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  idempotency_key?: string | null;
+  attempt_count?: number;
+  last_attempt_at?: string | null;
+  next_retry_at?: string | null;
 };
 
 export type ExternalIntegrationLog = {

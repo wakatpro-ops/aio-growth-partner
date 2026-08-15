@@ -10,7 +10,7 @@ import { googlePublishTargets } from "@/lib/phase5/google-adapters";
 import { getGoogleIntegrationState, googleConnectionStatusLabel, googleJobExternalId, googleJobExternalLink, googleJobSummary } from "@/lib/phase5/google-integrations";
 import { getGrowthAction, growthActionChannelLabel } from "@/lib/phase5/growth-actions";
 import { getStore } from "@/lib/stores";
-import { executeGoogleIntegrationAction, prepareGooglePublishJobAction } from "../../actions";
+import { executeGoogleIntegrationAction, prepareGooglePublishJobAction, publishGoogleBusinessPostAction } from "../../actions";
 
 function draftText(action: NonNullable<Awaited<ReturnType<typeof getGrowthAction>>>) {
   const draft = action.drafts?.[0];
@@ -62,13 +62,18 @@ export default async function GrowthActionSendPage({
   const actionJobs = state.jobs.filter((item) => item.growth_action_id === action.id);
   const selectedJob = actionJobs.find((item) => item.id === job) ?? actionJobs.find((item) => item.status === "success") ?? null;
   const selectedSummary = selectedJob ? googleJobSummary(selectedJob) : null;
+  const gmailAllowed = state.connection?.scopes.includes("https://www.googleapis.com/auth/gmail.compose") ?? false;
+  const calendarAllowed = state.connection?.scopes.includes("https://www.googleapis.com/auth/calendar.events") ?? false;
+  const selectedLocation = state.locations.find((item) => item.is_selected) ?? null;
+  const gbpMetadata = state.businessProfile?.metadata ?? {};
+  const gbpApiAllowed = process.env.GOOGLE_BUSINESS_PROFILE_API_STATUS === "approved" || state.businessProfile?.status === "approved" || gbpMetadata.api_status === "approved" || gbpMetadata.api_application_result === "approved";
 
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title="Google連携実行" description="送信前確認を残しつつ、Gmail下書き作成とGoogleカレンダー予定作成を実行できます。" />
       <StoreBusinessNav store={store} />
       {prepared ? <p className="notice success">送信準備を保存しました。外部サービスへの実送信はまだ行っていません。</p> : null}
-      {executed ? <p className="notice success">{executed === "gmail" ? "Gmail下書きを作成しました。" : "Googleカレンダー予定を作成しました。"}</p> : null}
+      {executed ? <p className="notice success">{executed === "gmail" ? "Gmail下書きを作成しました。" : executed === "google_business_profile" ? "承認済み投稿をGoogleビジネスプロフィールへ公開しました。" : "Googleカレンダー予定を作成しました。"}</p> : null}
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
 
       {selectedJob && selectedSummary ? (
@@ -110,8 +115,21 @@ export default async function GrowthActionSendPage({
             <input value={growthActionChannelLabel(action.target_channel)} readOnly />
           </label>
         </div>
-        <p className="notice">Gmailは下書き作成のみで、メール送信はしません。Googleビジネスプロフィール投稿はまだ実行しません。</p>
+        <p className="notice">Gmailは下書き作成のみで、メール送信はしません。Google投稿は、取得済み店舗・担当者承認・API利用承認が揃った場合だけ実行します。</p>
       </section>
+
+      {action.target_channel === "google_business_profile" ? (
+        <form className="card form" action={publishGoogleBusinessPostAction.bind(null, store.id, action.id)}>
+          <h2>Googleビジネスプロフィールへ公開</h2>
+          <div className="grid cols-2">
+            <label className="field">投稿先店舗<input value={selectedLocation?.title ?? "未選択"} readOnly /></label>
+            <label className="field">担当者承認<input value={action.status === "approved" ? "承認済み" : "未承認"} readOnly /></label>
+          </div>
+          <p className="muted">同じ承認版は二重投稿しません。失敗時は履歴を残し、同じボタンから安全に再試行できます。</p>
+          {!gbpApiAllowed ? <p className="notice">Google Business Profile APIの利用承認待ちです。現在は手動投稿支援をご利用ください。</p> : null}
+          <PendingSubmitButton pendingLabel="Googleへ公開しています..." disabled={!selectedLocation || action.status !== "approved" || !gbpApiAllowed}>承認済み投稿をGoogleへ公開</PendingSubmitButton>
+        </form>
+      ) : null}
 
       <form className="card form" action={prepareGooglePublishJobAction.bind(null, store.id, action.id)}>
         <div className="grid cols-2">
@@ -169,7 +187,8 @@ export default async function GrowthActionSendPage({
             同じ内容でも再作成する
           </label>
           <p className="muted">成功済みの同じ下書きがある場合は、誤作成を防ぐため通常は停止します。</p>
-          <PendingSubmitButton pendingLabel="Gmailへ安全に接続しています...">Gmail下書きを作成</PendingSubmitButton>
+          {!gmailAllowed ? <p className="notice">Gmail権限はGoogle審査・再接続後に利用できます。</p> : null}
+          <PendingSubmitButton pendingLabel="Gmailへ安全に接続しています..." disabled={!gmailAllowed}>Gmail下書きを作成</PendingSubmitButton>
         </form>
 
         <form className="card form" action={executeGoogleIntegrationAction.bind(null, store.id, action.id, "google_calendar")}>
@@ -189,7 +208,8 @@ export default async function GrowthActionSendPage({
             同じ内容でも再作成する
           </label>
           <p className="muted">成功済みの同じ予定がある場合は、誤作成を防ぐため通常は停止します。</p>
-          <PendingSubmitButton pendingLabel="カレンダーへ安全に接続しています...">カレンダー予定を作成</PendingSubmitButton>
+          {!calendarAllowed ? <p className="notice">Calendar権限はGoogle審査・再接続後に利用できます。</p> : null}
+          <PendingSubmitButton pendingLabel="カレンダーへ安全に接続しています..." disabled={!calendarAllowed}>カレンダー予定を作成</PendingSubmitButton>
         </form>
       </section>
 

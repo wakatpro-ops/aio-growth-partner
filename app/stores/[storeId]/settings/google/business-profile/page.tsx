@@ -3,25 +3,12 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGoogleIntegrationState, googleConnectionStatusLabel } from "@/lib/phase5/google-integrations";
 import { getStore } from "@/lib/stores";
 import { syncGoogleBusinessProfileCandidatesAction, upsertGoogleBusinessProfileAction } from "../../../growth-actions/actions";
-
-type CandidateLocation = {
-  accountName?: string;
-  name?: string;
-  title?: string;
-  address?: string;
-  storeCode?: string;
-};
-
-function candidateLocations(metadata: Record<string, unknown> | undefined) {
-  const locations = metadata?.locations;
-  if (!Array.isArray(locations)) return [];
-  return locations.filter((item): item is CandidateLocation => Boolean(item && typeof item === "object"));
-}
 
 function candidateAccounts(metadata: Record<string, unknown> | undefined) {
   const accounts = metadata?.accounts;
@@ -94,11 +81,10 @@ export default async function GoogleBusinessProfilePage({
   const state = await getGoogleIntegrationState(store.id);
   const setting = state.businessProfile;
   const accountsList = candidateAccounts(setting?.metadata);
-  const locationsList = candidateLocations(setting?.metadata);
+  const locationsList = state.locations;
   const capability = setting?.metadata?.posting_capabilities as Record<string, unknown> | undefined;
   const apiStatus = textValue(setting?.metadata?.api_status) || textValue(setting?.status) || "manual_mode";
   const applicationResult = textValue(setting?.metadata?.api_application_result) || (apiStatus === "approved" ? "approved" : "rejected");
-  const caseId = textValue(setting?.metadata?.basic_api_access_case_id) || "3-6455000041311";
   const rejectionReason = textValue(setting?.metadata?.rejection_reason) || "Google側の利用条件や権限設定により、現在は投稿文をコピーして反映する運用です。";
   const lastSyncStatus = textValue(setting?.metadata?.last_sync_status);
   const lastSyncErrorMessage = textValue(setting?.metadata?.last_sync_error_message);
@@ -226,11 +212,11 @@ export default async function GoogleBusinessProfilePage({
           <h2>取得済みロケーション</h2>
           {locationsList.length ? (
             <table className="table compact">
-              <thead><tr><th>ロケーションID</th><th>店舗名</th><th>住所</th></tr></thead>
+              <thead><tr><th>選択</th><th>店舗名</th><th>住所</th></tr></thead>
               <tbody>
                 {locationsList.map((location) => (
-                  <tr key={`${location.accountName}-${location.name}`}>
-                    <td>{location.name ?? "-"}</td>
+                  <tr key={location.id}>
+                    <td>{location.is_selected ? <span className="badge">選択中</span> : "候補"}</td>
                     <td>{location.title ?? "-"}</td>
                     <td>{location.address ?? "-"}</td>
                   </tr>
@@ -268,59 +254,21 @@ export default async function GoogleBusinessProfilePage({
       </section>
 
       <form className="card form" action={upsertGoogleBusinessProfileAction.bind(null, store.id)}>
-        <h2>Google店舗情報</h2>
-        <div className="grid cols-2">
-          <label className="field">連携状態
-            <select name="api_status" defaultValue={apiStatus}>
-              <option value="not_requested">未設定</option>
-              <option value="pending">確認中</option>
-              <option value="rejected">投稿支援で利用中</option>
-              <option value="manual_mode">投稿支援で利用中</option>
-              <option value="approved">連携利用可能</option>
-            </select>
-          </label>
-          <label className="field">管理メモID
-            <input name="basic_api_access_case_id" defaultValue={caseId} placeholder="任意の管理番号" />
-          </label>
-          <label className="field">確認日
-            <input name="basic_api_access_submitted_at" defaultValue={textValue(setting?.metadata?.basic_api_access_submitted_at)} placeholder="例: 2026-07-06" />
-          </label>
-          <label className="field">確認結果
-            <select name="api_application_result" defaultValue={applicationResult}>
-              <option value="not_requested">未設定</option>
-              <option value="pending">確認中</option>
-              <option value="rejected">投稿支援で利用中</option>
-              <option value="approved">連携利用可能</option>
-            </select>
-          </label>
-        </div>
-        <label className="field">現在の状態
-          <textarea name="rejection_reason" rows={2} defaultValue={rejectionReason} />
+        <h2>投稿先の店舗を選択</h2>
+        <p className="notice">Googleから取得できた候補だけを選べます。店舗IDの手入力はできないため、別店舗への誤投稿を防げます。</p>
+        <label className="field">Google店舗
+          <select name="location_candidate_id" defaultValue={state.locations.find((item) => item.is_selected)?.id ?? ""} required>
+            <option value="" disabled>店舗を選択してください</option>
+            {state.locations.map((location) => (
+              <option value={location.id} key={location.id}>{location.title ?? location.google_location_name} {location.address ? `— ${location.address}` : ""}</option>
+            ))}
+          </select>
         </label>
-        <label className="field">運用メモ
-          <textarea name="review_note" rows={3} defaultValue={textValue(setting?.metadata?.review_note) || "投稿文、CTA、URL、画像、投稿先店舗を確認してからGoogle管理画面へ反映する。"} />
-        </label>
-        <input type="hidden" name="manual_posting_mode" value="enabled" />
-        <h2>Google店舗情報</h2>
-        <div className="grid cols-2">
-          <label className="field">GoogleアカウントID
-            <input name="google_account_id" defaultValue={setting?.google_account_id ?? ""} placeholder="accounts/xxxx" />
-          </label>
-          <label className="field">ロケーションID
-            <input name="location_id" defaultValue={setting?.location_id ?? ""} placeholder="locations/xxxx" />
-          </label>
-          <label className="field">ロケーション名
-            <input name="location_name" defaultValue={setting?.location_name ?? store.name} />
-          </label>
-          <label className="field">住所
-            <input name="address" defaultValue={setting?.address ?? store.address} />
-          </label>
-        </div>
         <label className="field">メモ
           <textarea name="memo" rows={3} defaultValue={typeof setting?.metadata?.memo === "string" ? setting.metadata.memo : ""} placeholder="Google側で確認すべきこと、運用担当など" />
         </label>
         <div className="form-actions">
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="投稿先を確認しています...">この店舗を投稿先に設定</PendingSubmitButton>
           <Link className="button secondary" href={`/stores/${store.id}/settings/google`}>Google連携へ戻る</Link>
         </div>
       </form>
