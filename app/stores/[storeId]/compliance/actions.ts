@@ -24,6 +24,7 @@ import {
 import { disconnectFreeeConnect, refreshFreeeMasterOptions } from "@/lib/phase6/freee-connect";
 import { sendExpenseReceiptToFreee, sendInvoicesAndPaymentsToFreee } from "@/lib/phase6/freee-connect";
 import { disconnectStripeConnect } from "@/lib/phase6/stripe-connect";
+import { createInvoiceStripeCheckout, sendPaymentReceiptEmail } from "@/lib/phase6/stripe-payments";
 import { addOrderItemFromForm, archiveOrderItem, restoreOrderItem } from "@/lib/inventory-operations";
 
 function actionError(error: unknown) {
@@ -207,4 +208,19 @@ export async function markStripeInvoicePaidAction(storeId: string, invoiceId: st
   revalidatePath(`/stores/${storeId}/payments`);
   revalidatePath(`/stores/${storeId}/payments/stripe-transactions`);
   redirect(`/stores/${storeId}/invoices/${invoiceId}?paid=1`);
+}
+
+export async function createStripeCheckoutAction(storeId: string, invoiceId: string) {
+  try { await createInvoiceStripeCheckout(storeId, invoiceId); }
+  catch (error) { redirect(`/stores/${storeId}/invoices/${invoiceId}?stripeError=${actionError(error)}`); }
+  revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);
+  revalidatePath(`/stores/${storeId}/payments/stripe-transactions`);
+  redirect(`/stores/${storeId}/invoices/${invoiceId}?stripeCheckout=created`);
+}
+
+export async function sendPaymentReceiptEmailAction(storeId: string, invoiceId: string, receiptId: string, formData: FormData) {
+  try { await sendPaymentReceiptEmail(storeId, receiptId, String(formData.get("recipient_email") ?? ""), String(formData.get("reissue_reason") ?? "")); }
+  catch (error) { redirect(`/stores/${storeId}/invoices/${invoiceId}?receiptError=${actionError(error)}`); }
+  revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);
+  redirect(`/stores/${storeId}/invoices/${invoiceId}?receiptSent=1`);
 }

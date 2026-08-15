@@ -15,6 +15,9 @@
     "test:sales-import-parser": "node --experimental-strip-types scripts/test-sales-import-parser.mjs",
     "check:ocr-freee": "node scripts/check-ocr-freee-workflow.mjs",
     "test:receipt-review": "node --experimental-strip-types scripts/test-receipt-review.mjs",
+    "check:stripe-payments": "node scripts/check-stripe-checkout-receipts.mjs",
+    "test:stripe-payments": "node --experimental-strip-types scripts/test-stripe-payment-state.mjs",
+    "test:payment-receipt-pdf": "node --experimental-strip-types scripts/test-payment-receipt-pdf.mjs",
     "check:google-review": "node scripts/check-google-review-readiness.mjs",
     "check:ux": "node scripts/check-store-ux.mjs"
   },

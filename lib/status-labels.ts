@@ -38,12 +38,18 @@ export const workStatusLabels: Record<string, string> = {
 };
 
 export const paymentRecordStatusLabels: Record<string, string> = {
+  not_created: "未作成",
+  payment_link_created: "決済URL作成済み",
+  open: "支払い待ち",
   received: "入金済み",
   partial: "一部入金",
   cancelled: "取消",
   paid: "入金済み",
   failed: "失敗",
-  pending: "確認中"
+  pending: "支払い待ち",
+  partially_refunded: "一部返金",
+  refunded: "返金済み",
+  disputed: "チャージバック確認中"
 };
 
 export const integrationStatusLabels: Record<string, string> = {

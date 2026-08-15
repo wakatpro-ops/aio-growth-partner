@@ -83,6 +83,9 @@ alter table public.store_accounting_integrations enable row level security;
 alter table public.store_payment_transactions enable row level security;
 alter table public.accounting_export_jobs enable row level security;
 alter table public.expense_receipts enable row level security;
+alter table public.stripe_webhook_events enable row level security;
+alter table public.payment_receipts enable row level security;
+alter table public.payment_receipt_issues enable row level security;
 alter table public.subsidy_impact_reports enable row level security;
 
 create or replace function public.is_platform_admin()
@@ -867,6 +870,23 @@ for select using (public.is_org_member(organization_id) or public.is_platform_ad
 create policy "write org store payment transactions" on public.store_payment_transactions
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "platform admin reads stripe webhook events" on public.stripe_webhook_events
+for select using (public.is_platform_admin());
+
+create policy "read org payment receipts" on public.payment_receipts
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org payment receipts" on public.payment_receipts
+for all using (public.is_org_editor(organization_id) or public.is_platform_admin())
+with check (public.is_org_editor(organization_id) or public.is_platform_admin());
+
+create policy "read org payment receipt issues" on public.payment_receipt_issues
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org payment receipt issues" on public.payment_receipt_issues
+for all using (public.is_org_editor(organization_id) or public.is_platform_admin())
+with check (public.is_org_editor(organization_id) or public.is_platform_admin());
 
 create policy "read org accounting export jobs" on public.accounting_export_jobs
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
