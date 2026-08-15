@@ -6,8 +6,9 @@ import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { growthActionChannelLabel, listExternalChannelAccounts } from "@/lib/phase5/growth-actions";
 import { getStore } from "@/lib/stores";
-import { upsertExternalChannelAccountAction } from "../../growth-actions/actions";
+import { selectMetaPageAction, upsertExternalChannelAccountAction } from "../../growth-actions/actions";
 import type { GrowthActionChannel } from "@/types/phase5";
+import { getMetaConnectionState } from "@/lib/phase5/sns-publishing";
 
 const channels: GrowthActionChannel[] = ["google_business_profile", "instagram", "line", "customer_message", "review_reply", "store_pop"];
 
@@ -16,21 +17,32 @@ export default async function ChannelSettingsPage({
   searchParams
 }: {
   params: Promise<{ storeId: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; meta_connected?: string; meta_selected?: string }>;
 }) {
   const { storeId } = await params;
-  const { error } = await searchParams;
+  const { error, meta_connected, meta_selected } = await searchParams;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "external_channel_accounts")) notFound();
   const industry = getIndustryConfig(store.industry_type_key);
   const accounts = await listExternalChannelAccounts(store.id);
+  const meta = await getMetaConnectionState(store.id);
 
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title="外部チャネル設定" description="将来のGoogle、Instagram、LINE連携に備えて、接続予定のアカウントを整理します。" />
       <StoreBusinessNav store={store} />
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
+      {meta_connected ? <p className="notice success">Meta認証が完了しました。投稿先のFacebookページを選んでください。</p> : null}
+      {meta_selected ? <p className="notice success">Facebook・Instagramの投稿先を保存しました。</p> : null}
+
+      <section className="card">
+        <h2>Instagram・Facebook直接投稿</h2>
+        <p>Metaへログインしたあと、実際に使うFacebookページを自分で選択します。AIO boostが勝手に最初のページを選ぶことはありません。</p>
+        {meta.envReady ? <div className="form-actions"><a className="button" href={`/api/meta/oauth/start?store_id=${encodeURIComponent(store.id)}`}>Metaへ接続／再接続</a></div> : <p className="notice">Metaアプリの環境設定が完了すると接続できます。現在もSNS画像・投稿文の作成と手動投稿は利用できます。</p>}
+        {meta.candidates.length > 0 ? <form className="form" action={selectMetaPageAction.bind(null, store.id)}><label className="field">投稿先Facebookページ<select name="page_id" required defaultValue=""><option value="" disabled>選択してください</option>{meta.candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}{candidate.instagramId ? "（Instagram接続あり）" : ""}</option>)}</select></label><div className="form-actions"><button className="button" type="submit">このページを投稿先に設定</button></div></form> : null}
+        {meta.accounts.length > 0 ? <div className="table-wrap"><table className="table"><thead><tr><th>媒体</th><th>アカウント</th><th>状態</th><th>認証期限</th></tr></thead><tbody>{meta.accounts.map((account) => <tr key={String(account.id)}><td>{String(account.channel)}</td><td>{String(account.account_name ?? "-")}</td><td>{account.connection_status === "connected" ? "接続済み" : String(account.connection_status)}</td><td>{String(account.token_expires_at ?? "-")}</td></tr>)}</tbody></table></div> : null}
+      </section>
 
       <form className="card form" action={upsertExternalChannelAccountAction.bind(null, store.id)}>
         <div className="grid cols-2">

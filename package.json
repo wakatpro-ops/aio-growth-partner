@@ -20,6 +20,8 @@
     "test:payment-receipt-pdf": "node --experimental-strip-types scripts/test-payment-receipt-pdf.mjs",
     "check:google-review": "node scripts/check-google-review-readiness.mjs",
     "check:google-workflows": "node scripts/check-google-business-workflows.mjs",
+    "check:sns-publish": "node scripts/check-sns-media-publish.mjs",
+    "test:sns-rules": "node --experimental-strip-types scripts/test-sns-rules.mjs",
     "check:ux": "node scripts/check-store-ux.mjs"
   },
   "dependencies": {
