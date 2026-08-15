@@ -1,6 +1,6 @@
 # AIO boost サービス・アカウント台帳
 
-最終確認日: 2026-08-07
+最終確認日: 2026-08-15
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
@@ -22,7 +22,7 @@
 | サービス | 所有ログイン／チーム | production | staging | 状態 |
 | --- | --- | --- | --- | --- |
 | GitHub | `wakatpro-ops` | `wakatpro-ops/aio-growth-partner` / `main` | PR・作業ブランチ | 確認済み |
-| Vercel | `wakatpro-3797` | project `aio-growth-partner` / `app.aioboost.jp` | project `aio-growth-partner-staging` / `staging.aioboost.jp` | 2026-08-07にDNS・HTTPS・Valid Configurationを確認 |
+| Vercel | account `wakatpro-3797` / team `wakatpro-3797's projects` | project `aio-growth-partner` / `app.aioboost.jp` | project `aio-growth-partner-staging` / `staging.aioboost.jp` | 2026-08-15にPro・activeを確認。両環境のProductionへ個別のSensitiveな`CRON_SECRET`を設定（値は記録しない） |
 | Supabase | `wakatpro-ops's Org` | project `aio-growth-partner` | project `aio-growth-partner-staging` | 2026-07-29分離確認 |
 | Google Cloud | 開発操作 `waka.t.pro@gmail.com` | project `AIO Growth Partner` / ID `aio-growth-partner` / number `368944976045` / production OAuth client / `app.aioboost.jp` | staging OAuth client `AIO boost staging Vercel` / `staging.aioboost.jp` | 2026-08-07に外部・本番公開、最小scope、ABロゴ保存を確認。法人所有・権限構成は要確認 |
 | Google Search Console | `waka.t.pro@gmail.com` | domain property `aioboost.jp` | なし | 2026-08-07にDNS TXTで所有権確認済み。確認文字列は記録しない |
