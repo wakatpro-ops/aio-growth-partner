@@ -29,7 +29,7 @@ if (missingTables.length > 0) {
   throw new Error(`archived_at migration is missing for: ${missingTables.join(", ")}`);
 }
 
-const requiredEntities = ["item", "customer", "estimate", "invoice", "order", "data_import", "marketing_draft", "ai_recommendation", "sales_ai_report", "growth_action", "expense_receipt"];
+const requiredEntities = ["item", "customer", "estimate", "invoice", "order", "data_import", "marketing_draft", "ai_recommendation", "sales_ai_report", "growth_action", "expense_receipt", "aio_improvement_task"];
 const missingEntities = requiredEntities.filter((entity) => !archiveLibrary.includes(`${entity}: {`));
 if (missingEntities.length > 0) {
   throw new Error(`archive configuration is missing for: ${missingEntities.join(", ")}`);

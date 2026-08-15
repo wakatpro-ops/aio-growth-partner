@@ -4,14 +4,16 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { StoreAiNextActions, StoreAiReadinessPanel } from "@/components/store-ai/store-ai-readiness-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
+import { getAioImprovementWorkspace } from "@/lib/aio-improvement";
 import { getStore } from "@/lib/stores";
-import { getStoreAiReadiness } from "@/lib/store-ai/readiness";
 
 export default async function StoreDetailPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
-  const readiness = await getStoreAiReadiness(store);
+  const aioWorkspace = await getAioImprovementWorkspace(store.id);
+  const readiness = aioWorkspace.readiness;
+  const activeTask = aioWorkspace.activeTask;
 
   return (
     <AppShell>
@@ -29,11 +31,11 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
           <Link className="text-link" href={`/stores/${store.id}/acquisition`}>集客の全機能を見る →</Link>
         </div>
         <div className="grid cols-2">
-          <Link className="hub-link primary" href={`/stores/${store.id}/aio-improvement`}>
+          <Link className="hub-link primary" href={activeTask ? `/stores/${store.id}/aio-improvement/tasks/${activeTask.id}` : `/stores/${store.id}/aio-improvement`}>
             <span className="badge">最優先</span>
-            <h3>AIにおすすめされやすくする</h3>
-            <p>想定される質問と、今いちばん効果の高い改善を確認します。</p>
-            <strong>改善を始める →</strong>
+            <h3>{activeTask?.title ?? "AIにおすすめされやすくする"}</h3>
+            <p>{activeTask?.description ?? "想定される質問と、今いちばん効果の高い改善を確認します。"}</p>
+            <strong>{activeTask ? "進行中の改善を続ける" : "改善を始める"} →</strong>
           </Link>
           <article className="static-card">
             <p className="eyebrow">お客様が尋ねる質問の例</p>

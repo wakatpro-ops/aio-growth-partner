@@ -60,6 +60,9 @@ alter table public.customers enable row level security;
 alter table public.customer_notes enable row level security;
 alter table public.customer_import_jobs enable row level security;
 alter table public.customer_message_drafts enable row level security;
+alter table public.aio_goals enable row level security;
+alter table public.aio_improvement_tasks enable row level security;
+alter table public.aio_readiness_snapshots enable row level security;
 alter table public.estimates enable row level security;
 alter table public.estimate_items enable row level security;
 alter table public.invoices enable row level security;
@@ -226,6 +229,12 @@ drop policy if exists "read org customer import jobs" on public.customer_import_
 drop policy if exists "write org customer import jobs" on public.customer_import_jobs;
 drop policy if exists "read org customer message drafts" on public.customer_message_drafts;
 drop policy if exists "write org customer message drafts" on public.customer_message_drafts;
+drop policy if exists "read org aio goals" on public.aio_goals;
+drop policy if exists "write org aio goals" on public.aio_goals;
+drop policy if exists "read org aio improvement tasks" on public.aio_improvement_tasks;
+drop policy if exists "write org aio improvement tasks" on public.aio_improvement_tasks;
+drop policy if exists "read org aio readiness snapshots" on public.aio_readiness_snapshots;
+drop policy if exists "write org aio readiness snapshots" on public.aio_readiness_snapshots;
 drop policy if exists "read org estimates" on public.estimates;
 drop policy if exists "write org estimates" on public.estimates;
 drop policy if exists "read org estimate items" on public.estimate_items;
@@ -636,6 +645,27 @@ create policy "read org customer message drafts" on public.customer_message_draf
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org customer message drafts" on public.customer_message_drafts
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org aio goals" on public.aio_goals
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org aio goals" on public.aio_goals
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org aio improvement tasks" on public.aio_improvement_tasks
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org aio improvement tasks" on public.aio_improvement_tasks
+for all using (public.is_org_member(organization_id) or public.is_platform_admin())
+with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org aio readiness snapshots" on public.aio_readiness_snapshots
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org aio readiness snapshots" on public.aio_readiness_snapshots
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
 
