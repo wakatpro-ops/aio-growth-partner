@@ -10,6 +10,7 @@
     "check:secrets": "node scripts/check-client-secrets.mjs",
     "check:archives": "node scripts/check-archive-coverage.mjs",
     "check:aio-loop": "node scripts/check-aio-closed-loop.mjs",
+    "check:results": "node scripts/check-results-visibility.mjs",
     "check:customer-crm": "node scripts/check-customer-crm.mjs",
     "check:inventory-sales": "node scripts/check-inventory-sales-sync.mjs",
     "test:sales-import-parser": "node --experimental-strip-types scripts/test-sales-import-parser.mjs",

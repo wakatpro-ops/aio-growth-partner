@@ -140,6 +140,8 @@ export const GOOGLE_PRODUCTION_REVIEW_SCOPES = [
   "https://www.googleapis.com/auth/business.manage"
 ] as const;
 
+export const GOOGLE_SEARCH_CONSOLE_SCOPE = "https://www.googleapis.com/auth/webmasters.readonly";
+
 export function googleScopes() {
   const configured = process.env.GOOGLE_OAUTH_SCOPES;
   if (configured) {
@@ -409,9 +411,14 @@ export async function getGoogleIntegrationState(storeId: string): Promise<Google
   };
 }
 
-export async function buildGoogleOAuthStartUrl(storeId: string) {
+export async function buildGoogleOAuthStartUrl(storeId: string, additionalScopes: string[] = []) {
   const envError = googleOAuthEnvError();
   if (envError) throw new Error(envError);
+  const allowedAdditionalScopes = new Set([GOOGLE_SEARCH_CONSOLE_SCOPE]);
+  if (additionalScopes.some((scope) => !allowedAdditionalScopes.has(scope))) {
+    throw new Error("許可されていないGoogle権限が指定されました。");
+  }
+  const requestedScopes = [...new Set([...googleScopes(), ...additionalScopes])];
   const store = await getStore(storeId);
   await requireGoogleEditor(store.organization_id);
   const supabase = createSupabaseAdminClient();
@@ -422,7 +429,7 @@ export async function buildGoogleOAuthStartUrl(storeId: string) {
     await logIntegration(supabase, resolved, "google_oauth_started", "ready", "Google OAuth接続を開始しました。", {
       store_id: store.id,
       nonce: decodedState.nonce,
-      scopes: googleScopes()
+      scopes: requestedScopes
     });
   }
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
@@ -431,9 +438,30 @@ export async function buildGoogleOAuthStartUrl(storeId: string) {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
-  url.searchParams.set("scope", googleScopes().join(" "));
+  url.searchParams.set("scope", requestedScopes.join(" "));
   url.searchParams.set("state", state);
   return url.toString();
+}
+
+export async function getStoredGoogleAccessToken({
+  organizationId,
+  storeId,
+  requiredScope
+}: {
+  organizationId: string;
+  storeId: string;
+  requiredScope: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const resolved = { organizationId, storeId };
+  const connection = await latestConnectedGoogleAccount(supabase, storeId);
+  if (!connection) throw new Error("Googleアカウントが接続されていません。");
+  requireScope(connection, requiredScope, "必要なGoogle API");
+  return {
+    accessToken: await getUsableGoogleAccessToken(supabase, connection, resolved),
+    connection
+  };
 }
 
 export async function handleGoogleOAuthCallback(url: URL) {
