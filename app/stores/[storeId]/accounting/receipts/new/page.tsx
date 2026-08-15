@@ -7,8 +7,9 @@ import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
 import { createExpenseReceiptAction } from "../../../compliance/actions";
 
-export default async function NewExpenseReceiptPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function NewExpenseReceiptPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ error?: string }> }) {
   const { storeId } = await params;
+  const { error } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
 
@@ -21,6 +22,7 @@ export default async function NewExpenseReceiptPage({ params }: { params: Promis
         action={<Link className="button secondary" href={`/stores/${store.id}/accounting/receipts`}>一覧へ戻る</Link>}
       />
       <StoreBusinessNav store={store} />
+      {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
       <section className="grid cols-2">
         <form className="card form" action={createExpenseReceiptAction.bind(null, store.id)} encType="multipart/form-data">
           <h2>画像またはPDFをアップロード</h2>
@@ -34,7 +36,9 @@ export default async function NewExpenseReceiptPage({ params }: { params: Promis
         <article className="card">
           <h2>AIOが整理する内容</h2>
           <ul className="compact-list">
-            <li>支払先、日付、合計金額、税額を読み取ります。</li>
+            <li>支払先、日付、合計金額、税額、登録番号を読み取ります。</li>
+            <li>複数ページのPDFと、8%・10%が混在する明細を整理します。</li>
+            <li>同じファイルや同内容の証憑を検知し、二重送信を防ぎます。</li>
             <li>消耗品、仕入、広告宣伝などの用途候補を整理します。</li>
             <li>freeeへ送る前に確認できる下書きデータを作ります。</li>
             <li>読み取り結果は必ず人間が確認してから会計処理に使ってください。</li>

@@ -879,8 +879,8 @@ create policy "read org expense receipts" on public.expense_receipts
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
 create policy "write org expense receipts" on public.expense_receipts
-for all using (public.is_org_member(organization_id) or public.is_platform_admin())
-with check (public.is_org_member(organization_id) or public.is_platform_admin());
+for all using (public.is_org_editor(organization_id) or public.is_platform_admin())
+with check (public.is_org_editor(organization_id) or public.is_platform_admin());
 
 create policy "read org subsidy impact reports" on public.subsidy_impact_reports
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());

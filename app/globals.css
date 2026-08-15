@@ -2151,3 +2151,51 @@ p {
     width: 100%;
   }
 }
+
+.receipt-preview-frame {
+  width: 100%;
+  min-height: 640px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.receipt-preview-image {
+  display: block;
+  width: 100%;
+  max-height: 720px;
+  object-fit: contain;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.confidence-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.confidence-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+}
+
+.confidence-item.low {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+@media (max-width: 760px) {
+  .confidence-grid {
+    grid-template-columns: 1fr;
+  }
+}

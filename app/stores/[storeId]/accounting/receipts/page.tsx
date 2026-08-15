@@ -2,13 +2,11 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
-import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getStoreAccountingIntegration } from "@/lib/phase6/compliance-data";
 import { listExpenseReceipts } from "@/lib/phase6/expense-receipts";
 import { getStore } from "@/lib/stores";
-import { sendReceiptToFreeeAction } from "../../compliance/actions";
 import { archiveStoreEntityAction } from "../../archive-actions";
 
 function yen(value: unknown) {
@@ -22,6 +20,8 @@ function statusLabel(status: string | null | undefined) {
     fallback: "確認待ち",
     needs_review: "確認待ち",
     review_required: "freee送信前確認",
+    ready: "送信可能",
+    sending: "送信中",
     sent: "送信済み",
     error: "要確認"
   };
@@ -49,7 +49,7 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
         action={<Link className="button" href={`/stores/${store.id}/accounting/receipts/new`}>レシートを読み取る</Link>}
       />
       <StoreBusinessNav store={store} />
-      {uploaded ? <p className="notice success">レシートを保存し、AIで内容を整理しました。内容を確認してから会計処理に利用してください。</p> : null}
+      {uploaded ? <p className="notice success">レシートを保存しました。内容を確認して承認してください。</p> : null}
       {freeeReceiptSent ? <p className="notice success">レシート候補をfreeeへ送信しました。</p> : null}
       {archived ? <p className="notice success">経費レシートを削除しました。会計連携履歴と元ファイルは保持されています。</p> : null}
       <section className="grid cols-3">
@@ -81,7 +81,8 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
                 <th>合計</th>
                 <th>税額</th>
                 <th>状態</th>
-                <th>freee候補</th>
+                <th>確認</th>
+                <th>freee</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -93,18 +94,11 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
                   <td>{receipt.category_name ?? "-"}</td>
                   <td>{yen(receipt.total_amount)}</td>
                   <td>{yen(receipt.tax_amount)}</td>
-                  <td><span className="badge">{statusLabel(receipt.ai_analysis_status)}</span></td>
+                  <td><span className="badge">{statusLabel(receipt.ai_analysis_status)}</span>{Number(receipt.page_count ?? 1) > 1 ? <span className="muted"> {Number(receipt.page_count)}ページ</span> : null}</td>
+                  <td><span className="badge">{receipt.approval_status === "approved" ? "承認済み" : "確認待ち"}</span></td>
                   <td><span className="badge">{statusLabel(receipt.freee_status)}</span></td>
                   <td>
-                    <form action={sendReceiptToFreeeAction.bind(null, store.id, receipt.id)}>
-                      <PendingSubmitButton
-                        className="button secondary"
-                        pendingLabel="freeeへ送信しています..."
-                        disabled={!freeeConnected || receipt.freee_status === "sent"}
-                      >
-                        freeeへ送信
-                      </PendingSubmitButton>
-                    </form>
+                    <Link className="button secondary" href={`/stores/${store.id}/accounting/receipts/${receipt.id}`}>内容を確認</Link>
                     <form action={archiveStoreEntityAction.bind(null, store.id, "expense_receipt", receipt.id, `/stores/${store.id}/accounting/receipts`)}>
                       <ConfirmSubmitButton message={`${receipt.vendor_name ?? receipt.original_file_name ?? "このレシート"}を削除します。会計連携履歴と元ファイルは保持されます。`}>削除</ConfirmSubmitButton>
                     </form>
@@ -113,7 +107,7 @@ export default async function ExpenseReceiptsPage({ params, searchParams }: { pa
               ))}
               {receipts.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>まだレシートはありません。仕入れや経費のレシートを読み取ると、会計入力の下書きとして使えます。</td>
+                  <td colSpan={9}>まだレシートはありません。仕入れや経費のレシートを読み取ると、会計入力の下書きとして使えます。</td>
                 </tr>
               ) : null}
             </tbody>
