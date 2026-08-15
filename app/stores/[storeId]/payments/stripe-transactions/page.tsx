@@ -22,7 +22,7 @@ export default async function StripeTransactionsPage({ params }: { params: Promi
       <StoreBusinessNav store={store} />
       <section className="card">
         <table className="table">
-          <thead><tr><th>日時</th><th>請求書</th><th>外部ID</th><th>金額</th><th>状態</th></tr></thead>
+          <thead><tr><th>日時</th><th>請求書</th><th>外部ID</th><th>決済額</th><th>返金額</th><th>状態</th><th>詳細</th></tr></thead>
           <tbody>
             {transactions.map((transaction) => (
               <tr key={transaction.id}>
@@ -30,10 +30,12 @@ export default async function StripeTransactionsPage({ params }: { params: Promi
                 <td>{transaction.invoice?.document_number ?? "-"}</td>
                 <td>{transaction.external_payment_intent_id ?? "-"}</td>
                 <td>{yen(Number(transaction.amount ?? 0))}</td>
+                <td>{yen(Number(transaction.amount_refunded ?? 0))}</td>
                 <td><span className="badge">{labelFor(paymentRecordStatusLabels, transaction.status)}</span></td>
+                <td>{transaction.failure_message ?? (transaction.last_event_id ? `最終イベント: ${transaction.last_event_id}` : "-")}</td>
               </tr>
             ))}
-            {transactions.length === 0 ? <tr><td colSpan={5}>まだStripe外部決済履歴はありません。</td></tr> : null}
+            {transactions.length === 0 ? <tr><td colSpan={7}>まだStripe外部決済履歴はありません。</td></tr> : null}
           </tbody>
         </table>
       </section>
