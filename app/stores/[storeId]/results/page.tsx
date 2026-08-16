@@ -10,11 +10,16 @@ import { calculateMetricChange, getResultsVisibilityWorkspace } from "@/lib/resu
 import { getStore } from "@/lib/stores";
 import type { SearchVisibilitySnapshot } from "@/types/results-visibility";
 import {
+  addAiVisibilityQuestionAction,
   addSearchVisibilityKeywordAction,
+  archiveAiVisibilityQuestionAction,
   archiveSearchVisibilityKeywordAction,
   recordManualSearchSnapshotAction,
+  runAiVisibilityObservationAction,
   saveSearchVisibilitySettingAction,
-  syncSearchConsoleAction
+  syncSearchConsoleAction,
+  updateAiVisibilityQuestionAction,
+  updateSearchVisibilityKeywordAction
 } from "./actions";
 
 function dateLabel(value: string | null | undefined) {
@@ -56,12 +61,17 @@ function changeLabel(current: number | null, baseline: number | null, lowerIsBet
   };
 }
 
+function safeHttpUrl(value: string) {
+  try { const url = new URL(value); return url.protocol === "http:" || url.protocol === "https:" ? url.href : null; }
+  catch { return null; }
+}
+
 export default async function ResultsVisibilityPage({
   params,
   searchParams
 }: {
   params: Promise<{ storeId: string }>;
-  searchParams: Promise<{ error?: string; settingsSaved?: string; keywordAdded?: string; keywordDeleted?: string; snapshotSaved?: string; synced?: string }>;
+  searchParams: Promise<{ error?: string; settingsSaved?: string; keywordAdded?: string; keywordUpdated?: string; keywordDeleted?: string; snapshotSaved?: string; synced?: string; aiQuestionAdded?: string; aiQuestionUpdated?: string; aiQuestionDeleted?: string; aiObserved?: string }>;
 }) {
   const { storeId } = await params;
   const query = await searchParams;
@@ -69,20 +79,27 @@ export default async function ResultsVisibilityPage({
   const industry = getIndustryConfig(store.industry_type_key);
   const workspace = await getResultsVisibilityWorkspace(store.id);
   const baselineSnapshots = workspace.comparisons.map((comparison) => comparison.baseline);
+  const previousSnapshots = workspace.comparisons.map((comparison) => comparison.previous);
   const currentSnapshots = workspace.comparisons.map((comparison) => comparison.current);
   const baselineImpressions = total(baselineSnapshots, "impressions");
   const currentImpressions = total(currentSnapshots, "impressions");
+  const previousImpressions = total(previousSnapshots, "impressions");
   const baselineClicks = total(baselineSnapshots, "clicks");
   const currentClicks = total(currentSnapshots, "clicks");
+  const previousClicks = total(previousSnapshots, "clicks");
   const baselinePosition = weightedPosition(baselineSnapshots);
   const currentPosition = weightedPosition(currentSnapshots);
+  const previousPosition = weightedPosition(previousSnapshots);
   const today = new Date().toISOString().slice(0, 10);
   const setting = workspace.setting;
   const summaryMetrics = [
-    { label: "Googleで見つけられた", value: metric(currentImpressions, "回"), change: changeLabel(currentImpressions, baselineImpressions, false, "回"), note: "登録キーワードの表示回数" },
-    { label: "検索から選ばれた", value: metric(currentClicks, "回"), change: changeLabel(currentClicks, baselineClicks, false, "回"), note: "Google検索からのクリック" },
-    { label: "平均掲載順位", value: metric(currentPosition, "位"), change: changeLabel(currentPosition, baselinePosition, true, "位"), note: "表示されたときの平均順位" }
+    { label: "Googleで見つけられた", value: metric(currentImpressions, "回"), baselineChange: changeLabel(currentImpressions, baselineImpressions, false, "回"), previousChange: changeLabel(currentImpressions, previousImpressions, false, "回"), note: "登録キーワードの表示回数" },
+    { label: "検索から選ばれた", value: metric(currentClicks, "回"), baselineChange: changeLabel(currentClicks, baselineClicks, false, "回"), previousChange: changeLabel(currentClicks, previousClicks, false, "回"), note: "Google検索からのクリック" },
+    { label: "平均掲載順位", value: metric(currentPosition, "位"), baselineChange: changeLabel(currentPosition, baselinePosition, true, "位"), previousChange: changeLabel(currentPosition, previousPosition, true, "位"), note: "表示されたときの平均順位" }
   ];
+  const successfulObservations = workspace.aiObservations.filter((item) => item.status === "success");
+  const mentionedObservations = successfulObservations.filter((item) => item.store_mentioned);
+  const aiMentionRate = successfulObservations.length ? Math.round((mentionedObservations.length / successfulObservations.length) * 100) : null;
 
   return (
     <AppShell>
@@ -97,9 +114,14 @@ export default async function ResultsVisibilityPage({
         {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
         {query.settingsSaved ? <p className="notice success">計測条件を保存しました。次は検索キーワードを登録してください。</p> : null}
         {query.keywordAdded ? <p className="notice success">検索キーワードを追加しました。</p> : null}
+        {query.keywordUpdated ? <p className="notice success">検索キーワードを変更し、一覧へ反映しました。</p> : null}
         {query.keywordDeleted ? <p className="notice success">検索キーワードを削除しました。計測履歴は保持され、削除済みから元に戻せます。</p> : null}
         {query.snapshotSaved ? <p className="notice success">実測値を保存し、導入前と現在の比較を更新しました。</p> : null}
         {query.synced ? <p className="notice success">Google Search Consoleの確定データを同期しました。</p> : null}
+        {query.aiQuestionAdded ? <p className="notice success">AI定点観測の質問を追加しました。すぐに手動観測することもできます。</p> : null}
+        {query.aiQuestionUpdated ? <p className="notice success">AI定点観測の質問と頻度を変更しました。</p> : null}
+        {query.aiQuestionDeleted ? <p className="notice success">AI定点観測の質問を削除しました。観測履歴は保持されます。</p> : null}
+        {query.aiObserved ? <p className="notice success">AI定点観測が完了し、掲載状況と引用URLを記録しました。</p> : null}
 
         {!workspace.storageReady ? <p className="notice danger">成果データの保存先へ接続できません。架空の順位は表示していません。担当者へお問い合わせください。</p> : null}
 
@@ -117,14 +139,14 @@ export default async function ResultsVisibilityPage({
             <article className="card" key={item.label}>
               <p className="eyebrow">{item.label}</p>
               <div className="metric">{item.value}</div>
-              <span className={item.change.className}>{item.change.text}</span>
+              <div className="result-change-row"><span>導入前比 <b className={item.baselineChange.className}>{item.baselineChange.text}</b></span><span>前期間比 <b className={item.previousChange.className}>{item.previousChange.text}</b></span></div>
               <p className="muted">{item.note}</p>
             </article>
           ))}
         </section>
 
         <section className="card" id="keywords">
-          <div className="section-heading"><div><p className="eyebrow">Google検索での変化</p><h2>検索キーワード別の導入前 → 現在</h2></div><span className="badge">{workspace.keywords.length}/10件</span></div>
+          <div className="section-heading"><div><p className="eyebrow">Google検索での変化</p><h2>検索キーワード別の導入前・前期間・現在</h2></div><span className="badge">{workspace.keywords.length}/10件</span></div>
           <p>地域とサービスを組み合わせた言葉を3〜10件登録すると、営業説明に偏りのない成果として使いやすくなります。</p>
           <form className="form-inline print-actions" action={addSearchVisibilityKeywordAction.bind(null, store.id)}>
             <div className="field"><label htmlFor="keyword">追加する検索キーワード</label><input id="keyword" name="keyword" placeholder="例：高円寺 ヘッドスパ" minLength={2} maxLength={120} required /></div>
@@ -133,20 +155,24 @@ export default async function ResultsVisibilityPage({
           </form>
           <div className="table-wrap">
             <table className="table results-table">
-              <thead><tr><th>検索キーワード</th><th>導入前</th><th>現在</th><th>順位の変化</th><th className="print-actions">操作</th></tr></thead>
+              <thead><tr><th>検索キーワード</th><th>導入前</th><th>前期間</th><th>現在</th><th>順位の変化</th><th className="print-actions">操作</th></tr></thead>
               <tbody>
                 {workspace.comparisons.map((comparison) => {
-                  const change = changeLabel(comparison.current?.average_position ?? null, comparison.baseline?.average_position ?? null, true, "位");
+                  const baselineChange = changeLabel(comparison.current?.average_position ?? null, comparison.baseline?.average_position ?? null, true, "位");
+                  const previousChange = changeLabel(comparison.current?.average_position ?? null, comparison.previous?.average_position ?? null, true, "位");
                   return (
                     <tr id={`keyword-${comparison.keyword.id}`} key={comparison.keyword.id}>
-                      <td><strong>{comparison.keyword.keyword}</strong><br /><span className="muted">{sourceLabel(comparison.current ?? comparison.baseline)}</span></td>
+                      <td><strong>{comparison.keyword.keyword}</strong><br /><span className="muted">{sourceLabel(comparison.current ?? comparison.previous ?? comparison.baseline)}</span>
+                        <details className="inline-details print-actions"><summary>名称を変更</summary><form className="form compact-form" action={updateSearchVisibilityKeywordAction.bind(null, store.id, comparison.keyword.id)}><div className="field"><label>検索キーワード</label><input name="keyword" defaultValue={comparison.keyword.keyword} minLength={2} maxLength={120} required /></div><PendingSubmitButton pendingLabel="変更しています...">変更を保存</PendingSubmitButton></form></details>
+                      </td>
                       <td><strong>{metric(comparison.baseline?.average_position, "位")}</strong><br /><span className="muted">表示 {metric(comparison.baseline?.impressions, "回")} / クリック {metric(comparison.baseline?.clicks, "回")}</span><br /><span className="muted">{periodLabel(comparison.baseline)}</span></td>
+                      <td><strong>{metric(comparison.previous?.average_position, "位")}</strong><br /><span className="muted">表示 {metric(comparison.previous?.impressions, "回")} / クリック {metric(comparison.previous?.clicks, "回")}</span><br /><span className="muted">{periodLabel(comparison.previous)}</span></td>
                       <td><strong>{metric(comparison.current?.average_position, "位")}</strong><br /><span className="muted">表示 {metric(comparison.current?.impressions, "回")} / クリック {metric(comparison.current?.clicks, "回")}</span><br /><span className="muted">{periodLabel(comparison.current)}</span></td>
-                      <td><span className={change.className}>{change.text}</span></td>
+                      <td><div className="result-change-row"><span>導入前比 <b className={baselineChange.className}>{baselineChange.text}</b></span><span>前期間比 <b className={previousChange.className}>{previousChange.text}</b></span></div></td>
                       <td className="print-actions">
                         <details className="inline-details"><summary>実測値を登録</summary>
                           <form className="form compact-form" action={recordManualSearchSnapshotAction.bind(null, store.id, comparison.keyword.id)}>
-                            <div className="field"><label>比較区分</label><select name="period_kind" required><option value="baseline">導入前</option><option value="current">現在</option></select></div>
+                            <div className="field"><label>比較区分</label><select name="period_kind" required><option value="baseline">導入前</option><option value="previous">前期間</option><option value="current">現在</option></select></div>
                             <div className="grid cols-2"><div className="field"><label>開始日</label><input name="period_start" type="date" required /></div><div className="field"><label>終了日</label><input name="period_end" type="date" defaultValue={today} required /></div></div>
                             <div className="grid cols-3"><div className="field"><label>平均掲載順位</label><input name="average_position" type="number" min="0" step="0.1" /></div><div className="field"><label>表示回数</label><input name="impressions" type="number" min="0" step="1" defaultValue="0" required /></div><div className="field"><label>クリック数</label><input name="clicks" type="number" min="0" step="1" defaultValue="0" required /></div></div>
                             <PendingSubmitButton pendingLabel="実測値を保存しています...">実測値を保存</PendingSubmitButton>
@@ -157,7 +183,7 @@ export default async function ResultsVisibilityPage({
                     </tr>
                   );
                 })}
-                {workspace.comparisons.length === 0 ? <tr><td colSpan={5}>検索キーワードはまだありません。上の入力欄から最初のキーワードを追加してください。</td></tr> : null}
+                {workspace.comparisons.length === 0 ? <tr><td colSpan={6}>検索キーワードはまだありません。上の入力欄から最初のキーワードを追加してください。</td></tr> : null}
               </tbody>
             </table>
           </div>
@@ -170,7 +196,10 @@ export default async function ResultsVisibilityPage({
             <form className="form" action={saveSearchVisibilitySettingAction.bind(null, store.id)}>
               <div className="field"><label htmlFor="baseline_date">AIO boost導入日</label><input id="baseline_date" name="baseline_date" type="date" defaultValue={setting?.baseline_date ?? today} required /></div>
               <div className="field"><label htmlFor="comparison_days">比較する日数</label><select id="comparison_days" name="comparison_days" defaultValue={String(setting?.comparison_days ?? 28)}><option value="7">7日間</option><option value="28">28日間（推奨）</option><option value="90">90日間</option></select></div>
-              <div className="field"><label htmlFor="search_console_property_uri">Search Consoleプロパティ</label><input id="search_console_property_uri" name="search_console_property_uri" defaultValue={setting?.search_console_property_uri ?? ""} placeholder="sc-domain:example.com" /></div>
+              <div className="field"><label htmlFor="search_console_property_uri">Search Consoleプロパティ</label>
+                {workspace.searchConsoleProperties.length > 0 ? <select id="search_console_property_uri" name="search_console_property_uri" defaultValue={setting?.search_console_property_uri ?? ""}><option value="">選択してください</option>{setting?.search_console_property_uri && !workspace.searchConsoleProperties.some((item) => item.uri === setting.search_console_property_uri) ? <option value={setting.search_console_property_uri}>{setting.search_console_property_uri}（現在の設定）</option> : null}{workspace.searchConsoleProperties.map((item) => <option key={item.uri} value={item.uri}>{item.uri}（{item.permissionLevel}）</option>)}</select> : <input id="search_console_property_uri" name="search_console_property_uri" defaultValue={setting?.search_console_property_uri ?? ""} placeholder="sc-domain:example.com" />}
+                <small>Google接続済みの場合は、閲覧できるプロパティだけを選択肢に表示します。</small>
+              </div>
               <input type="hidden" name="country_filter" value="jpn" /><input type="hidden" name="device_filter" value="all" />
               <PendingSubmitButton pendingLabel="計測条件を保存しています...">計測条件を保存</PendingSubmitButton>
             </form>
@@ -180,6 +209,7 @@ export default async function ResultsVisibilityPage({
             <p>Google公式の確定データから、同じ検索語・期間・国・端末条件で平均掲載順位、表示、クリックを取得します。</p>
             <div className="status-list"><span><b>Google接続</b><em>{workspace.googleConnected ? "接続済み" : "未接続"}</em></span><span><b>Search Console閲覧権限</b><em>{workspace.searchConsoleScopeGranted ? "承認済み" : "未承認"}</em></span><span><b>最終同期</b><em>{setting?.last_synced_at ? new Date(setting.last_synced_at).toLocaleString("ja-JP") : "未同期"}</em></span></div>
             {setting?.last_error ? <p className="notice danger">前回の同期結果: {setting.last_error}</p> : null}
+            {workspace.searchConsolePropertyError ? <p className="notice danger">プロパティ一覧の取得結果: {workspace.searchConsolePropertyError}</p> : null}
             <div className="button-row">
               {workspace.searchConsoleScopeGranted
                 ? <form action={syncSearchConsoleAction.bind(null, store.id)}><PendingSubmitButton pendingLabel="Googleから同期しています...">Search Consoleを同期</PendingSubmitButton></form>
@@ -190,9 +220,40 @@ export default async function ResultsVisibilityPage({
           </article>
         </section>
 
-        <section className="grid cols-2 results-next-sources">
+        <section className="results-next-sources">
           <article className="static-card"><p className="eyebrow">Googleマップでの反応</p><h3>表示・電話・経路案内・サイト訪問</h3><p>Google Business Profile API承認後に自動表示します。公式APIで取得できない「マップ絶対順位」は架空表示しません。</p><span className="badge">API承認待ち</span></article>
-          <article className="static-card"><p className="eyebrow">AIでの見つかり方</p><h3>目標質問での掲載率を定点観測</h3><p>単発回答を順位と断定せず、複数質問・複数回で店名掲載と引用URLの割合を測る領域です。</p><span className="badge">定点観測準備中</span></article>
+        </section>
+
+        <section className="card" id="ai-visibility">
+          <div className="section-heading"><div><p className="eyebrow">AIでの見つかり方</p><h2>目標質問での掲載率を定点観測</h2></div><span className="badge">{workspace.aiQuestions.length}/12件</span></div>
+          <p>お客様がAIへ尋ねそうな質問を登録し、ウェブ検索付きAI回答に店舗名が掲載されたか、何番目に提示されたか、どのURLが引用されたかを同じ条件で記録します。</p>
+          <div className="grid cols-3 results-metrics">
+            <article className="static-card"><p className="eyebrow">店名掲載率</p><div className="metric">{aiMentionRate === null ? "未観測" : `${aiMentionRate}%`}</div><p className="muted">成功した全観測のうち店名が含まれた割合</p></article>
+            <article className="static-card"><p className="eyebrow">掲載回数</p><div className="metric">{mentionedObservations.length}回</div><p className="muted">全{successfulObservations.length}回の観測</p></article>
+            <article className="static-card"><p className="eyebrow">登録質問</p><div className="metric">{workspace.aiQuestions.length}件</div><p className="muted">3件以上で傾向を比較することを推奨</p></article>
+          </div>
+          <form className="form print-actions ai-question-form" action={addAiVisibilityQuestionAction.bind(null, store.id)}>
+            <div className="field"><label htmlFor="ai-question">追加する質問</label><input id="ai-question" name="question" placeholder="例：鎌倉であんみつを食べるならどこがいい？" minLength={5} maxLength={300} required /><small>顧客名・電話番号・メールアドレスなどの個人情報は入力しないでください。</small></div>
+            <div className="field"><label htmlFor="ai-frequency">観測頻度</label><select id="ai-frequency" name="frequency_days" defaultValue="7"><option value="7">7日ごと（推奨）</option><option value="14">14日ごと</option><option value="30">30日ごと</option></select></div>
+            <PendingSubmitButton pendingLabel="質問を追加しています...">質問を追加</PendingSubmitButton>
+          </form>
+          <p className="muted">登録後の定期実行には既存のOpenAI APIを使用します。API利用量が発生するため、不要な質問は削除してください。</p>
+          <div className="ai-question-list">
+            {workspace.aiQuestions.map((question) => {
+              const observations = workspace.aiObservations.filter((item) => item.question_id === question.id && item.status === "success");
+              const latest = observations[0];
+              const mentions = observations.filter((item) => item.store_mentioned).length;
+              const rate = observations.length ? Math.round((mentions / observations.length) * 100) : null;
+              return <article className="static-card" id={`ai-question-${question.id}`} key={question.id}>
+                <div className="section-heading"><div><h3>{question.question}</h3><p className="muted">{question.frequency_days}日ごと・次回 {new Date(question.next_run_at).toLocaleString("ja-JP")}</p></div><span className={latest?.store_mentioned ? "badge result-up" : "badge"}>{rate === null ? "未観測" : `掲載率 ${rate}%`}</span></div>
+                {latest ? <div className="ai-latest-result"><p><strong>最新結果:</strong> {latest.store_mentioned ? `店名掲載あり${latest.mention_position ? `（提示順 ${latest.mention_position}番目）` : ""}` : "店名掲載なし"}</p><p className="muted">{new Date(latest.observed_at).toLocaleString("ja-JP")} / モデル {latest.model}</p>{latest.answer_excerpt ? <details><summary>回答の記録を見る</summary><p className="ai-answer-excerpt">{latest.answer_excerpt}</p></details> : null}{latest.cited_urls.length > 0 ? <div><strong>引用URL</strong><ul>{latest.cited_urls.map((citation) => { const href = safeHttpUrl(citation.url); return href ? <li key={href}><a className="text-link" href={href} target="_blank" rel="noreferrer">{citation.title || href}</a></li> : null; })}</ul></div> : <p className="muted">引用URLはありません。</p>}</div> : <p className="muted">まだ観測していません。「今すぐ観測」で最初の基準値を作成できます。</p>}
+                <div className="button-row print-actions"><form action={runAiVisibilityObservationAction.bind(null, store.id, question.id)}><PendingSubmitButton pendingLabel="AIで観測しています...">今すぐ観測</PendingSubmitButton></form><details className="inline-details"><summary>質問・頻度を変更</summary><form className="form compact-form" action={updateAiVisibilityQuestionAction.bind(null, store.id, question.id)}><div className="field"><label>質問</label><input name="question" defaultValue={question.question} minLength={5} maxLength={300} required /></div><div className="field"><label>頻度</label><select name="frequency_days" defaultValue={String(question.frequency_days)}><option value="7">7日ごと</option><option value="14">14日ごと</option><option value="30">30日ごと</option></select></div><PendingSubmitButton pendingLabel="変更しています...">変更を保存</PendingSubmitButton></form></details><form action={archiveAiVisibilityQuestionAction.bind(null, store.id, question.id)}><ConfirmSubmitButton message={`「${question.question}」を削除済みに移します。観測履歴は保持され、あとで元に戻せます。`}>削除</ConfirmSubmitButton></form></div>
+              </article>;
+            })}
+            {workspace.aiQuestions.length === 0 ? <p className="notice">質問はまだありません。上の入力欄から、実際のお客様が尋ねそうな質問を3件ほど登録してください。</p> : null}
+          </div>
+          <div className="button-row print-actions"><Link className="button secondary" href={`/stores/${store.id}/results/deleted`}>削除済みの質問を見る</Link></div>
+          <p className="results-disclaimer">AI定点観測であり推薦保証ではありません。回答は時刻・モデル・ウェブ情報によって変わるため、複数質問・複数回の掲載率で傾向を確認します。</p>
         </section>
 
         <section className="card">
