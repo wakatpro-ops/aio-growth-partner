@@ -3,12 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
+  addAiVisibilityQuestionFromForm,
   addSearchVisibilityKeywordFromForm,
+  archiveAiVisibilityQuestion,
   archiveSearchVisibilityKeyword,
   recordManualSearchSnapshotFromForm,
+  restoreAiVisibilityQuestion,
   restoreSearchVisibilityKeyword,
+  runAiVisibilityObservation,
   saveSearchVisibilitySettingFromForm,
-  syncSearchConsole
+  syncSearchConsole,
+  updateAiVisibilityQuestionFromForm,
+  updateSearchVisibilityKeywordFromForm
 } from "@/lib/results-visibility";
 
 function errorParam(error: unknown) {
@@ -39,6 +45,13 @@ export async function addSearchVisibilityKeywordAction(storeId: string, formData
   redirect(`${resultsPath(storeId)}?keywordAdded=1#keywords`);
 }
 
+export async function updateSearchVisibilityKeywordAction(storeId: string, keywordId: string, formData: FormData) {
+  try { await updateSearchVisibilityKeywordFromForm(storeId, keywordId, formData); }
+  catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#keyword-${keywordId}`); }
+  revalidateResults(storeId);
+  redirect(`${resultsPath(storeId)}?keywordUpdated=1#keyword-${keywordId}`);
+}
+
 export async function archiveSearchVisibilityKeywordAction(storeId: string, keywordId: string) {
   try { await archiveSearchVisibilityKeyword(storeId, keywordId); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#keywords`); }
@@ -65,4 +78,39 @@ export async function syncSearchConsoleAction(storeId: string) {
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#search-console`); }
   revalidateResults(storeId);
   redirect(`${resultsPath(storeId)}?synced=1#search-console`);
+}
+
+export async function addAiVisibilityQuestionAction(storeId: string, formData: FormData) {
+  try { await addAiVisibilityQuestionFromForm(storeId, formData); }
+  catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-visibility`); }
+  revalidateResults(storeId);
+  redirect(`${resultsPath(storeId)}?aiQuestionAdded=1#ai-visibility`);
+}
+
+export async function updateAiVisibilityQuestionAction(storeId: string, questionId: string, formData: FormData) {
+  try { await updateAiVisibilityQuestionFromForm(storeId, questionId, formData); }
+  catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-question-${questionId}`); }
+  revalidateResults(storeId);
+  redirect(`${resultsPath(storeId)}?aiQuestionUpdated=1#ai-question-${questionId}`);
+}
+
+export async function archiveAiVisibilityQuestionAction(storeId: string, questionId: string) {
+  try { await archiveAiVisibilityQuestion(storeId, questionId); }
+  catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-visibility`); }
+  revalidateResults(storeId);
+  redirect(`${resultsPath(storeId)}?aiQuestionDeleted=1#ai-visibility`);
+}
+
+export async function restoreAiVisibilityQuestionAction(storeId: string, questionId: string) {
+  try { await restoreAiVisibilityQuestion(storeId, questionId); }
+  catch (error) { redirect(`${resultsPath(storeId)}/deleted?error=${errorParam(error)}`); }
+  revalidateResults(storeId);
+  redirect(`${resultsPath(storeId)}/deleted?aiRestored=1`);
+}
+
+export async function runAiVisibilityObservationAction(storeId: string, questionId: string) {
+  try { await runAiVisibilityObservation(storeId, questionId); }
+  catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-question-${questionId}`); }
+  revalidateResults(storeId);
+  redirect(`${resultsPath(storeId)}?aiObserved=1#ai-question-${questionId}`);
 }
