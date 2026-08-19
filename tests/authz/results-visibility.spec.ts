@@ -220,18 +220,26 @@ test("URL・API: active所属は自組織だけ読め、platform adminは横断�
   await platformAdmin.close();
 });
 
-test("Server Action: viewerの直接送信でも成果データを書き換えない", async ({ browser }) => {
+test("Server Action: viewer・未所属・他組織・停止アカウントの直接送信でも成果データを書き換えない", async ({ browser }) => {
   const before = await admin.from("search_visibility_keywords").select("id", { count: "exact", head: true }).eq("store_id", storeA);
-  const context = await browserSession(browser, "viewer");
-  const page = await context.newPage();
-  await page.goto(`${baseUrl}/stores/${storeA}/results`);
-  await page.getByLabel("追加する検索キーワード").fill(`viewer denied ${runId}`);
-  await page.getByRole("button", { name: "キーワードを追加" }).click();
-  await page.waitForURL(/error=/);
-  await expect(page.getByText("成果の計測設定を変更する権限がありません。", { exact: false })).toBeVisible();
+  for (const name of ["viewer", "noMembershipApprovedUnpaid", "noMembershipIssued", "otherOwner", "suspendedProfile"] as PersonaName[]) {
+    // Load a valid form first, then replace the HttpOnly session cookie before submitting.
+    // This exercises the Server Action boundary directly instead of relying on page navigation guards.
+    const context = await browserSession(browser, "viewer");
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/stores/${storeA}/results`);
+    const switched = await context.request.post(`${baseUrl}/api/auth/session`, {
+      data: { access_token: personas[name].accessToken, expires_in: 3600 }
+    });
+    expect(switched.status(), `${name}へセッション差替え`).toBe(200);
+    await page.getByLabel("追加する検索キーワード").fill(`${name} denied ${runId}`);
+    await page.getByRole("button", { name: "キーワードを追加" }).click();
+    await page.waitForURL(/error=/);
+    await expect(page.getByText("登録しました", { exact: false }), `${name}へ成功表示を返さない`).toHaveCount(0);
+    await context.close();
+  }
   const after = await admin.from("search_visibility_keywords").select("id", { count: "exact", head: true }).eq("store_id", storeA);
   expect(after.count).toBe(before.count);
-  await context.close();
 });
 
 test("DB REST/RPC: viewer・未所属・他組織を拒否し、editorだけ自組織へ書ける", async () => {
