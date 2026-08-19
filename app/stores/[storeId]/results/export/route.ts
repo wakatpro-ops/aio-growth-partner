@@ -1,4 +1,5 @@
 import { getResultsVisibilityWorkspace } from "@/lib/results-visibility";
+import { getStoreForApi } from "@/lib/stores";
 
 function cell(value: unknown) {
   return `"${String(value ?? "").replaceAll('"', '""')}"`;
@@ -6,6 +7,13 @@ function cell(value: unknown) {
 
 export async function GET(_request: Request, { params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
+  const storeAccess = await getStoreForApi(storeId);
+  if (!storeAccess.ok) {
+    return Response.json(
+      { error: storeAccess.status === 401 ? "ログインが必要です。" : "店舗を確認できませんでした。" },
+      { status: storeAccess.status, headers: { "cache-control": "no-store" } }
+    );
+  }
   const workspace = await getResultsVisibilityWorkspace(storeId);
   const rows: Array<Array<unknown>> = [["検索キーワード", "区分", "取得元", "期間開始", "期間終了", "平均掲載順位", "表示回数", "クリック数", "CTR", "取得日時"]];
   for (const comparison of workspace.comparisons) {

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getCurrentUserAccess } from "@/lib/auth/server";
+import { canEditResults, getCurrentUserAccess } from "@/lib/auth/server";
 import { getStoredGoogleAccessToken, GOOGLE_SEARCH_CONSOLE_SCOPE } from "@/lib/phase5/google-integrations";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
@@ -18,7 +18,6 @@ import type {
 } from "@/types/results-visibility";
 import type { Store } from "@/types/domain";
 
-const editableRoles = new Set(["org_owner", "store_manager", "staff"]);
 const validDevices = new Set(["all", "desktop", "mobile", "tablet"]);
 const demoPersistence: Record<string, { organizationId: string; storeId: string }> = {
   "store-general-demo": { organizationId: "00000000-0000-4000-8000-000000000001", storeId: "00000000-0000-4000-8000-000000000101" },
@@ -45,8 +44,7 @@ async function context(storeId: string, write = false): Promise<ResultsContext> 
   const access = await getCurrentUserAccess();
   if (write) {
     if (!access) throw new Error("ログインが必要です。");
-    const role = access.organizationRoles[store.organization_id];
-    if (!access.isPlatformAdmin && !editableRoles.has(role)) {
+    if (!(await canEditResults(store.organization_id))) {
       throw new Error("成果の計測設定を変更する権限がありません。");
     }
     if (!supabase) throw new Error("Supabase環境変数が未設定です。");

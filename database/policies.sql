@@ -134,12 +134,19 @@ security definer
 set search_path = public
 as $$
   select exists (
-    select 1 from public.organization_members member
+    select 1
+    from public.organization_members member
+    join public.organizations organization on organization.id = member.organization_id
+    join public.user_profiles profile on profile.user_id = member.user_id
     where member.organization_id = org_id
       and member.user_id = auth.uid()
       and member.role_key in ('org_owner', 'store_manager', 'staff')
       and member.status = 'active'
       and member.archived_at is null
+      and organization.status = 'active'
+      and organization.archived_at is null
+      and profile.status = 'active'
+      and profile.archived_at is null
   );
 $$;
 

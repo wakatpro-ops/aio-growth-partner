@@ -11,6 +11,8 @@
     "check:archives": "node scripts/check-archive-coverage.mjs",
     "check:aio-loop": "node scripts/check-aio-closed-loop.mjs",
     "check:results": "node scripts/check-results-visibility.mjs",
+    "test:authz-policy": "node --experimental-strip-types --test scripts/test-authz-policy.mjs",
+    "test:authz-integration": "playwright test tests/authz/results-visibility.spec.ts --workers=1",
     "check:customer-crm": "node scripts/check-customer-crm.mjs",
     "check:inventory-sales": "node scripts/check-inventory-sales-sync.mjs",
     "test:sales-import-parser": "node --experimental-strip-types scripts/test-sales-import-parser.mjs",
@@ -38,6 +40,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^22.9.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
