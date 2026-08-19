@@ -2,10 +2,13 @@ import { readFileSync } from "node:fs";
 
 const migration = readFileSync("supabase/migrations/202608160001_results_visibility.sql", "utf8");
 const followupMigration = readFileSync("supabase/migrations/202608160002_results_visibility_followup.sql", "utf8");
+const authorizationMigration = readFileSync("supabase/migrations/202608190001_results_authorization_hardening.sql", "utf8");
+const accountHelpersMigration = readFileSync("supabase/migrations/202608200001_account_access_helpers_hardening.sql", "utf8");
 const service = readFileSync("lib/results-visibility.ts", "utf8");
 const page = readFileSync("app/stores/[storeId]/results/page.tsx", "utf8");
 const actions = readFileSync("app/stores/[storeId]/results/actions.ts", "utf8");
 const cron = readFileSync("app/api/cron/search-visibility/route.ts", "utf8");
+const exportRoute = readFileSync("app/stores/[storeId]/results/export/route.ts", "utf8");
 const googleIntegration = readFileSync("lib/phase5/google-integrations.ts", "utf8");
 const storeTop = readFileSync("app/stores/[storeId]/page.tsx", "utf8");
 
@@ -19,6 +22,19 @@ for (const table of ["ai_visibility_questions", "ai_visibility_observations"]) {
   if (!followupMigration.includes(`alter table public.${table} enable row level security`)) throw new Error(`${table} does not enable RLS`);
 }
 if (!followupMigration.includes("'baseline', 'previous', 'current'")) throw new Error("Previous-period snapshot support is missing");
+for (const table of ["search_visibility_settings", "search_visibility_keywords", "search_visibility_snapshots", "ai_visibility_questions", "ai_visibility_observations"]) {
+  if (!authorizationMigration.includes(`write editors ${table.replaceAll("_", " ")}`)) {
+    throw new Error(`${table} editor-only RLS is missing`);
+  }
+}
+if (!authorizationMigration.includes("public.is_org_editor(organization_id)")) throw new Error("Results editor role enforcement is missing");
+for (const helper of ["public.is_platform_admin()", "public.is_org_member(org_id uuid)"]) {
+  if (!accountHelpersMigration.includes(helper)) throw new Error(`Hardened account access helper is missing: ${helper}`);
+}
+for (const condition of ["member.status = 'active'", "organization.status = 'active'", "profile.status = 'active'"]) {
+  if (!accountHelpersMigration.includes(condition)) throw new Error(`Account access helper condition is missing: ${condition}`);
+}
+if (!authorizationMigration.includes("search_visibility_keywords_store_org_fkey") || !authorizationMigration.includes("ai_visibility_observations_question_store_org_fkey")) throw new Error("Results parent ID integrity constraints are missing");
 
 for (const label of ["成果を見る", "Google検索での変化", "Googleマップでの反応", "AIでの見つかり方", "平均掲載順位", "順位保証ではなく、実測値の推移"]) {
   if (!page.includes(label)) throw new Error(`Results UI is missing: ${label}`);
@@ -44,6 +60,7 @@ for (const label of ["前期間比", "名称を変更", "今すぐ観測", "引�
 }
 
 if (!cron.includes("CRON_SECRET") || !actions.includes("syncSearchConsoleAction")) throw new Error("Manual or scheduled sync is missing");
+if (!exportRoute.includes("getStoreForApi") || !exportRoute.includes("status: storeAccess.status")) throw new Error("Results export API does not return explicit authorization errors");
 if (!storeTop.includes("/results") || !storeTop.includes("実測成果")) throw new Error("Store top result entry is missing");
 if (page.includes("現在8位") || page.includes("必ず上位")) throw new Error("Unsafe fixed ranking claim found");
 

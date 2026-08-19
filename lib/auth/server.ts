@@ -5,6 +5,12 @@ import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/env";
+import {
+  evaluateAccountAccess,
+  mayEditResults,
+  mayManageOrganization,
+  mayReadOrganization
+} from "@/lib/auth/access-policy";
 
 export const authAccessTokenCookie = "aio_auth_access_token";
 
@@ -15,6 +21,7 @@ export type CurrentUserAccess = {
   organizationIds: string[];
   organizationRoles: Record<string, string>;
   isPlatformAdmin: boolean;
+  accountActive: true;
 };
 
 export const getCurrentUserAccess = cache(async (): Promise<CurrentUserAccess | null> => {
@@ -45,31 +52,47 @@ export const getCurrentUserAccess = cache(async (): Promise<CurrentUserAccess | 
     supabase.from("organization_members").select("organization_id, role_key, status, archived_at").eq("user_id", user.id)
   ]);
 
-  if (profileResult.data?.status === "archived" || profileResult.data?.archived_at) return null;
+  if (profileResult.error || membershipsResult.error || !profileResult.data) return null;
 
-  const role = String(profileResult.data?.role ?? "user");
-  const activeMemberships = (membershipsResult.data ?? []).filter((item) => item.status !== "archived" && !item.archived_at);
-  const membershipOrganizationIds = activeMemberships
+  const membershipOrganizationIds = (membershipsResult.data ?? [])
     .map((item) => String(item.organization_id ?? ""))
     .filter(Boolean);
   const { data: activeOrganizations } = membershipOrganizationIds.length > 0
-    ? await supabase.from("organizations").select("id").in("id", membershipOrganizationIds).neq("status", "archived").is("archived_at", null)
-    : { data: [] as Array<{ id: string }> };
-  const organizationIds = (activeOrganizations ?? []).map((organization) => String(organization.id));
-  const activeOrganizationSet = new Set(organizationIds);
-  const organizationRoles = Object.fromEntries(
-    activeMemberships
-      .filter((membership) => activeOrganizationSet.has(String(membership.organization_id)))
-      .map((membership) => [String(membership.organization_id), String(membership.role_key ?? "staff")])
-  );
+    ? await supabase.from("organizations").select("id, status, archived_at").in("id", membershipOrganizationIds)
+    : { data: [] as Array<{ id: string; status: string | null; archived_at: string | null }> };
+  const organizationsById = new Map((activeOrganizations ?? []).map((organization) => [String(organization.id), organization]));
+  const bannedUntil = user.banned_until ? Date.parse(user.banned_until) : Number.NaN;
+  const evaluated = evaluateAccountAccess({
+    authenticated: true,
+    sessionState: "active",
+    profileRole: String(profileResult.data.role ?? "user"),
+    profileStatus: String(profileResult.data.status ?? ""),
+    profileArchived: Boolean(profileResult.data.archived_at),
+    authUserBanned: Number.isFinite(bannedUntil) && bannedUntil > Date.now(),
+    memberships: (membershipsResult.data ?? []).map((membership) => {
+      const organizationId = String(membership.organization_id ?? "");
+      const organization = organizationsById.get(organizationId);
+      return {
+        organizationId,
+        role: String(membership.role_key ?? "viewer"),
+        membershipStatus: String(membership.status ?? ""),
+        membershipArchived: Boolean(membership.archived_at),
+        organizationStatus: organization ? String(organization.status ?? "") : null,
+        organizationArchived: Boolean(organization?.archived_at)
+      };
+    })
+  });
+
+  if (!evaluated.accountActive) return null;
 
   return {
     userId: user.id,
     email: user.email ?? null,
-    role,
-    organizationIds,
-    organizationRoles,
-    isPlatformAdmin: role === "platform_admin"
+    role: String(profileResult.data.role ?? "user"),
+    organizationIds: evaluated.organizationIds,
+    organizationRoles: evaluated.organizationRoles,
+    isPlatformAdmin: evaluated.isPlatformAdmin,
+    accountActive: true
   };
 });
 
@@ -83,13 +106,17 @@ export async function requirePlatformAdmin() {
 export async function canAccessOrganization(organizationId: string) {
   const access = await getCurrentUserAccess();
   if (!access) return false;
-  if (access.isPlatformAdmin) return true;
-  return access.organizationIds.includes(organizationId);
+  return mayReadOrganization(access, organizationId);
 }
 
 export async function canManageOrganization(organizationId: string) {
   const access = await getCurrentUserAccess();
   if (!access) return false;
-  if (access.isPlatformAdmin) return true;
-  return access.organizationRoles[organizationId] === "org_owner";
+  return mayManageOrganization(access, organizationId);
+}
+
+export async function canEditResults(organizationId: string) {
+  const access = await getCurrentUserAccess();
+  if (!access) return false;
+  return mayEditResults(access, organizationId);
 }

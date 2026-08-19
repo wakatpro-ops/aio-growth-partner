@@ -61,6 +61,8 @@ export async function getStore(storeId: string): Promise<Store> {
   const { data, error } = await supabase.from("stores").select("*").eq("id", storeId).is("archived_at", null).single();
   if (error || !data) {
     if (demoStores.some((store) => store.id === storeId)) {
+      const access = await getCurrentUserAccess();
+      if (!access?.isPlatformAdmin) notFound();
       return getDemoStore(storeId);
     }
     notFound();
@@ -68,6 +70,8 @@ export async function getStore(storeId: string): Promise<Store> {
 
   const store = data as Store;
   if (isDemoStore(store)) {
+    const access = await getCurrentUserAccess();
+    if (!access?.isPlatformAdmin) notFound();
     return getDemoStore(storeId);
   }
 
@@ -80,6 +84,38 @@ export async function getStore(storeId: string): Promise<Store> {
   }
 
   return store;
+}
+
+export type StoreApiAccessResult =
+  | { ok: true; store: Store }
+  | { ok: false; status: 401 | 404 };
+
+export async function getStoreForApi(storeId: string): Promise<StoreApiAccessResult> {
+  const access = await getCurrentUserAccess();
+  if (!access) return { ok: false, status: 401 };
+
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) {
+    const demoStore = demoStores.find((store) => store.id === storeId);
+    if (!demoStore || !access.isPlatformAdmin) return { ok: false, status: 404 };
+    return { ok: true, store: demoStore };
+  }
+
+  const { data, error } = await supabase
+    .from("stores")
+    .select("*")
+    .eq("id", storeId)
+    .eq("status", "active")
+    .is("archived_at", null)
+    .maybeSingle();
+  if (error || !data) return { ok: false, status: 404 };
+
+  const store = data as Store;
+  if (isDemoStore(store) && !access.isPlatformAdmin) return { ok: false, status: 404 };
+  if (!access.isPlatformAdmin && !access.organizationIds.includes(store.organization_id)) {
+    return { ok: false, status: 404 };
+  }
+  return { ok: true, store: isDemoStore(store) ? getDemoStore(storeId) : store };
 }
 
 export async function updateStoreFromForm(storeId: string, formData: FormData) {
