@@ -100,8 +100,18 @@ export default async function GoogleBusinessProfilePage({
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
 
       <section className="card">
+        <h2>審査中もGoogleビジネスプロフィールは利用できます</h2>
+        <p className="notice success">店舗情報の編集や投稿など、Google管理画面で行う通常の操作は審査中も利用できます。</p>
+        <p>AIO boostで承認待ちなのは、プロフィール候補の自動取得や投稿の自動反映です。承認までは、AIO boostで下書きを作成・確認してから、Google管理画面へコピーして投稿できます。</p>
+        <div className="form-actions">
+          <Link className="button" href={`/stores/${store.id}/growth-actions`}>Google投稿下書きを作る</Link>
+          <Link className="button secondary" href="https://business.google.com/" target="_blank">Google管理画面を開く</Link>
+        </div>
+      </section>
+
+      <section className="card">
         <p>Google接続状態: <span className="badge">{googleConnectionStatusLabel(state.connection?.status)}</span></p>
-        <p>プロフィール設定: <span className="badge">{googleConnectionStatusLabel(setting?.status)}</span></p>
+        <p>AIO boostの連携方式: <span className="badge">{googleConnectionStatusLabel(setting?.status)}</span></p>
         <p>投稿支援の状態: <span className="badge">{applicationResultLabel(applicationResult)}</span></p>
         <p>連携状態: <span className="badge">{gbpApiStatusLabel(apiStatus)}</span></p>
         <p>補足: {rejectionReason}</p>
