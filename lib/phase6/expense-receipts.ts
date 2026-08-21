@@ -28,10 +28,10 @@ async function resolveStore(storeId: string) {
   return { organizationId: demo?.organizationId ?? store.organization_id, storeId: demo?.storeId ?? store.id, publicStoreId: store.id, store };
 }
 
-async function requireReceiptEditor(organizationId: string) {
+async function requireReceiptEditor(organizationId: string, storeId: string) {
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
-  const role = access.organizationRoles[organizationId];
+  const role = access.organizationRoles[organizationId] ?? access.storeRoles[storeId];
   if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) throw new Error("経費レシートを変更する権限がありません。");
   return access;
 }
@@ -151,7 +151,7 @@ export async function createReceiptFromForm(storeId: string, formData: FormData)
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("保存の準備ができていません。時間をおいて再度お試しください。");
   const resolved = await resolveStore(storeId);
-  const access = await requireReceiptEditor(resolved.organizationId);
+  const access = await requireReceiptEditor(resolved.organizationId, resolved.publicStoreId);
   const file = formData.get("receipt_file");
   if (!(file instanceof File) || file.size === 0) throw new Error("レシート画像またはPDFを選択してください。");
   if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(file.type)) throw new Error("JPG、PNG、WebP、PDFのいずれかを選択してください。");
@@ -194,7 +194,7 @@ export async function updateExpenseReceiptFromForm(storeId: string, receiptId: s
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("保存の準備ができていません。");
   const resolved = await resolveStore(storeId);
-  await requireReceiptEditor(resolved.organizationId);
+  await requireReceiptEditor(resolved.organizationId, resolved.publicStoreId);
   const draft = receiptDraftFromForm(formData);
   const integrationResult = await supabase.from("store_accounting_integrations").select("external_company_id, office_name").eq("store_id", resolved.storeId).eq("provider", "freee").maybeSingle();
   const fingerprint = receiptContentFingerprint({ vendorName: draft.vendorName, receiptDate: draft.receiptDate, totalAmount: draft.totalAmount, invoiceRegistrationNumber: draft.invoiceRegistrationNumber });
@@ -213,7 +213,7 @@ export async function approveExpenseReceipt(storeId: string, receiptId: string, 
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("承認の準備ができていません。");
   const resolved = await resolveStore(storeId);
-  const access = await requireReceiptEditor(resolved.organizationId);
+  const access = await requireReceiptEditor(resolved.organizationId, resolved.publicStoreId);
   const missing = validateReceiptForApproval(receiptDraftFromForm(formData));
   if (missing.length > 0) throw new Error(`承認前に確認してください: ${missing.join("、")}`);
   await updateExpenseReceiptFromForm(storeId, receiptId, formData);
@@ -226,7 +226,7 @@ export async function reanalyzeExpenseReceipt(storeId: string, receiptId: string
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("再解析の準備ができていません。");
   const resolved = await resolveStore(storeId);
-  const access = await requireReceiptEditor(resolved.organizationId);
+  const access = await requireReceiptEditor(resolved.organizationId, resolved.publicStoreId);
   const { data: receipt } = await supabase.from("expense_receipts").select("*").eq("store_id", resolved.storeId).eq("id", receiptId).is("archived_at", null).maybeSingle();
   if (!receipt?.storage_path) throw new Error("再解析する元ファイルが見つかりません。");
   const { data: file, error: downloadError } = await supabase.storage.from(receipt.storage_bucket || "receipt-files").download(receipt.storage_path);

@@ -16,6 +16,18 @@ export type MembershipAccessState = {
   organizationArchived?: boolean;
 };
 
+export type StoreMembershipAccessState = {
+  storeId: string;
+  organizationId: string;
+  role: string;
+  membershipStatus?: string | null;
+  membershipArchived?: boolean;
+  storeStatus?: string | null;
+  storeArchived?: boolean;
+  organizationStatus?: string | null;
+  organizationArchived?: boolean;
+};
+
 export type AccountAccessInput = {
   authenticated: boolean;
   sessionState: SessionState;
@@ -25,6 +37,7 @@ export type AccountAccessInput = {
   authUserBanned?: boolean;
   application?: ApplicationAccessState | null;
   memberships: MembershipAccessState[];
+  storeMemberships?: StoreMembershipAccessState[];
 };
 
 export type EvaluatedAccountAccess = {
@@ -32,6 +45,8 @@ export type EvaluatedAccountAccess = {
   isPlatformAdmin: boolean;
   organizationIds: string[];
   organizationRoles: Record<string, string>;
+  storeIds: string[];
+  storeRoles: Record<string, string>;
   application?: ApplicationAccessState | null;
 };
 
@@ -50,6 +65,8 @@ export function evaluateAccountAccess(input: AccountAccessInput): EvaluatedAccou
       isPlatformAdmin: false,
       organizationIds: [],
       organizationRoles: {},
+      storeIds: [],
+      storeRoles: {},
       application: input.application ?? null
     };
   }
@@ -65,13 +82,46 @@ export function evaluateAccountAccess(input: AccountAccessInput): EvaluatedAccou
     activeMemberships.map((membership) => [membership.organizationId, membership.role])
   );
 
+  const activeStoreMemberships = (input.storeMemberships ?? []).filter((membership) => (
+    membership.membershipStatus === "active"
+    && !membership.membershipArchived
+    && membership.storeStatus === "active"
+    && !membership.storeArchived
+    && membership.organizationStatus === "active"
+    && !membership.organizationArchived
+  ));
+  const storeRoles = Object.fromEntries(
+    activeStoreMemberships.map((membership) => [membership.storeId, membership.role])
+  );
+
   return {
     accountActive: true,
     isPlatformAdmin: input.profileRole === "platform_admin",
     organizationIds: Object.keys(organizationRoles),
     organizationRoles,
+    storeIds: Object.keys(storeRoles),
+    storeRoles,
     application: input.application ?? null
   };
+}
+
+export function mayReadStore(access: EvaluatedAccountAccess, storeId: string, organizationId: string) {
+  return access.accountActive
+    && (access.isPlatformAdmin
+      || access.organizationIds.includes(organizationId)
+      || access.storeIds.includes(storeId));
+}
+
+export function mayEditStore(access: EvaluatedAccountAccess, storeId: string, organizationId: string) {
+  if (!mayReadStore(access, storeId, organizationId)) return false;
+  if (access.isPlatformAdmin) return true;
+  const organizationRole = access.organizationRoles[organizationId] ?? "";
+  const storeRole = access.storeRoles[storeId] ?? "";
+  return resultEditorRoles.has(organizationRole) || new Set(["store_manager", "staff"]).has(storeRole);
+}
+
+export function mayManageStoreStaff(access: EvaluatedAccountAccess, organizationId: string) {
+  return mayManageOrganization(access, organizationId);
 }
 
 export function mayReadOrganization(access: EvaluatedAccountAccess, organizationId: string) {

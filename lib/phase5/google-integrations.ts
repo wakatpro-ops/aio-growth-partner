@@ -70,10 +70,10 @@ export type GoogleIntegrationState = {
   envReady: boolean;
 };
 
-async function requireGoogleEditor(organizationId: string) {
+async function requireGoogleEditor(organizationId: string, storeId: string) {
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
-  const role = access.organizationRoles[organizationId];
+  const role = access.organizationRoles[organizationId] ?? access.storeRoles[storeId];
   if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) {
     throw new Error("Google連携を操作する権限がありません。");
   }
@@ -420,7 +420,7 @@ export async function buildGoogleOAuthStartUrl(storeId: string, additionalScopes
   }
   const requestedScopes = [...new Set([...googleScopes(), ...additionalScopes])];
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   const state = encodeState(storeId);
   if (supabase) {
@@ -560,7 +560,7 @@ export async function handleGoogleOAuthCallback(url: URL) {
 
 export async function disconnectGoogle(storeId: string) {
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -623,7 +623,7 @@ export async function disconnectGoogle(storeId: string) {
 
 export async function upsertGoogleBusinessProfile(storeId: string, formData: FormData) {
   const store = await getStore(storeId);
-  const access = await requireGoogleEditor(store.organization_id);
+  const access = await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -720,7 +720,7 @@ function locationCandidate(accountName: string, raw: Record<string, unknown>): G
 
 export async function syncGoogleBusinessProfileCandidates(storeId: string) {
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1034,7 +1034,7 @@ async function failGoogleJob(supabase: SupabaseClient, jobId: string, message: s
 
 export async function publishGoogleBusinessPost(storeId: string, actionId: string) {
   const store = await getStore(storeId);
-  const access = await requireGoogleEditor(store.organization_id);
+  const access = await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1110,7 +1110,7 @@ function googleReviewRow(resolved: { organizationId: string; storeId: string }, 
 
 export async function syncGoogleBusinessReviews(storeId: string) {
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1149,7 +1149,7 @@ export async function syncGoogleBusinessReviews(storeId: string) {
 
 export async function saveGoogleReviewReplyDraft(storeId: string, reviewId: string, formData: FormData) {
   const store = await getStore(storeId);
-  const access = await requireGoogleEditor(store.organization_id);
+  const access = await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1166,7 +1166,7 @@ export async function saveGoogleReviewReplyDraft(storeId: string, reviewId: stri
 
 export async function approveGoogleReviewReply(storeId: string, reviewId: string) {
   const store = await getStore(storeId);
-  const access = await requireGoogleEditor(store.organization_id);
+  const access = await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1181,7 +1181,7 @@ export async function approveGoogleReviewReply(storeId: string, reviewId: string
 
 export async function publishGoogleReviewReply(storeId: string, reviewId: string) {
   const store = await getStore(storeId);
-  const access = await requireGoogleEditor(store.organization_id);
+  const access = await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1221,7 +1221,7 @@ export async function publishGoogleReviewReply(storeId: string, reviewId: string
 
 export async function upsertGoogleGmail(storeId: string, formData: FormData) {
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1241,7 +1241,7 @@ export async function upsertGoogleGmail(storeId: string, formData: FormData) {
 
 export async function upsertGoogleCalendar(storeId: string, formData: FormData) {
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1261,7 +1261,7 @@ export async function upsertGoogleCalendar(storeId: string, formData: FormData) 
 
 export async function prepareGooglePublishJob(storeId: string, actionId: string, formData: FormData) {
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);
@@ -1667,7 +1667,7 @@ async function executeCalendarEvent(accessToken: string, prepared: PreparedCalen
 
 export async function executeGoogleIntegration(storeId: string, actionId: string, target: GoogleExecutionTarget, formData: FormData) {
   const store = await getStore(storeId);
-  await requireGoogleEditor(store.organization_id);
+  await requireGoogleEditor(store.organization_id, store.id);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   const resolved = await ensureGooglePersistence(supabase, store);

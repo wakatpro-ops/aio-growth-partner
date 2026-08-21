@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { generateDemandActionPlan } from "@/lib/phase4/demand-actions";
@@ -10,6 +12,7 @@ function errorParam(error: unknown) {
 }
 
 export async function generateDemandActionPlanAction(storeId: string, returnTo: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const targetMonth = String(formData.get("target_month") ?? "");
   try {
     await generateDemandActionPlan(storeId, targetMonth);

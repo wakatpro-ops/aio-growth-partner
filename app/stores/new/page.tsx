@@ -1,18 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { publicIndustryOptions } from "@/lib/applications/options";
+import { getCurrentUserAccess } from "@/lib/auth/server";
 import { createStoreAction } from "../actions";
 
 export default async function NewStorePage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
+  const access = await getCurrentUserAccess();
+  if (!access) redirect("/login");
+  const ownsOrganization = access.organizationIds.some((id) => access.organizationRoles[id] === "org_owner");
+  const mayStartFirstOrganization = access.organizationIds.length === 0 && access.storeIds.length === 0;
+  if (!access.isPlatformAdmin && !ownsOrganization && !mayStartFirstOrganization) redirect("/forbidden");
   return (
     <AppShell>
       <PageHeader
         title="店舗追加"
         description="利用する店舗を登録します。店舗名、業態、連絡先、主な商品・サービスを入力してください。"
-        action={<Link className="button secondary" href="/onboarding">導入手順を見る</Link>}
+        action={<Link className="button secondary" href="/stores">店舗一覧へ戻る</Link>}
       />
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
       <form className="card form" action={createStoreAction}>

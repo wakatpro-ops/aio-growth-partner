@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -17,6 +19,7 @@ function errorParam(error: unknown) {
 }
 
 export async function createMarketingDraftAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await createMarketingDraftFromForm(storeId, formData);
   } catch (error) {
@@ -27,6 +30,7 @@ export async function createMarketingDraftAction(storeId: string, formData: Form
 }
 
 export async function updateMarketingDraftAction(storeId: string, draftId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await updateMarketingDraftFromForm(storeId, draftId, formData);
   } catch (error) {
@@ -37,6 +41,7 @@ export async function updateMarketingDraftAction(storeId: string, draftId: strin
 }
 
 export async function generateMarketingDraftAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let draftId: string | null = null;
   try {
     draftId = await generateMarketingDraft(
@@ -52,6 +57,7 @@ export async function generateMarketingDraftAction(storeId: string, formData: Fo
 }
 
 export async function generateMonthlyRecommendationAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let recommendationId: string | null = null;
   try {
     recommendationId = await generateMonthlyRecommendation(storeId, String(formData.get("month") ?? ""));
@@ -63,6 +69,7 @@ export async function generateMonthlyRecommendationAction(storeId: string, formD
 }
 
 export async function createDraftFromRecommendationAction(storeId: string, recommendationId: string) {
+  await requireStoreActionWriteAccess(storeId);
   let draftId: string | null = null;
   try {
     draftId = await createDraftFromRecommendation(storeId, recommendationId);

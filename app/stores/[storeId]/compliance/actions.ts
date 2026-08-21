@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDocument } from "@/lib/phase2/business-data";
@@ -32,12 +34,14 @@ function actionError(error: unknown) {
 }
 
 export async function createOrderAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   await createOrderFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/orders`);
   redirect(`/stores/${storeId}/orders?saved=order`);
 }
 
 export async function createOrderFromEstimateAction(storeId: string, estimateId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const estimate = await getDocument(storeId, estimateId, "estimates");
   if (!estimate) throw new Error("見積書が見つかりません。");
   const orderId = await createOrderFromEstimate(storeId, estimate);
@@ -47,6 +51,7 @@ export async function createOrderFromEstimateAction(storeId: string, estimateId:
 }
 
 export async function updateOrderAction(storeId: string, orderId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await updateOrderFromForm(storeId, orderId, formData);
   } catch (error) {
@@ -58,6 +63,7 @@ export async function updateOrderAction(storeId: string, orderId: string, formDa
 }
 
 export async function addOrderItemAction(storeId: string, orderId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await addOrderItemFromForm(storeId, orderId, formData);
   } catch (error) {
@@ -69,6 +75,7 @@ export async function addOrderItemAction(storeId: string, orderId: string, formD
 }
 
 export async function archiveOrderItemAction(storeId: string, orderId: string, orderItemId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await archiveOrderItem(storeId, orderId, orderItemId);
   } catch (error) {
@@ -80,6 +87,7 @@ export async function archiveOrderItemAction(storeId: string, orderId: string, o
 }
 
 export async function restoreOrderItemAction(storeId: string, orderId: string, orderItemId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await restoreOrderItem(storeId, orderId, orderItemId);
   } catch (error) {
@@ -91,6 +99,7 @@ export async function restoreOrderItemAction(storeId: string, orderId: string, o
 }
 
 export async function createInvoiceFromOrderAction(storeId: string, orderId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const invoiceId = await createInvoiceFromOrder(storeId, orderId);
   revalidatePath(`/stores/${storeId}/orders/${orderId}`);
   revalidatePath(`/stores/${storeId}/invoices`);
@@ -98,6 +107,7 @@ export async function createInvoiceFromOrderAction(storeId: string, orderId: str
 }
 
 export async function createPaymentAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   await createPaymentFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/payments`);
   revalidatePath(`/stores/${storeId}/invoices`);
@@ -105,12 +115,14 @@ export async function createPaymentAction(storeId: string, formData: FormData) {
 }
 
 export async function updateInvoiceSettingsAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   await updateInvoiceSettingsFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/settings/invoice`);
   redirect(`/stores/${storeId}/settings/invoice?saved=1`);
 }
 
 export async function updateStripeIntegrationAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   await updateStripeIntegrationFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/settings/payments/stripe`);
   revalidatePath(`/stores/${storeId}/settings/integrations`);
@@ -118,6 +130,7 @@ export async function updateStripeIntegrationAction(storeId: string, formData: F
 }
 
 export async function disconnectStripeIntegrationAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   await disconnectStripeConnect(storeId);
   revalidatePath(`/stores/${storeId}/settings/payments/stripe`);
   revalidatePath(`/stores/${storeId}/settings/integrations`);
@@ -125,6 +138,7 @@ export async function disconnectStripeIntegrationAction(storeId: string) {
 }
 
 export async function updateFreeeIntegrationAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   await updateFreeeIntegrationFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
   revalidatePath(`/stores/${storeId}/settings/integrations`);
@@ -132,6 +146,7 @@ export async function updateFreeeIntegrationAction(storeId: string, formData: Fo
 }
 
 export async function disconnectFreeeIntegrationAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   await disconnectFreeeConnect(storeId);
   revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
   revalidatePath(`/stores/${storeId}/settings/integrations`);
@@ -139,6 +154,7 @@ export async function disconnectFreeeIntegrationAction(storeId: string) {
 }
 
 export async function createExpenseReceiptAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let result;
   try {
     result = await createReceiptFromForm(storeId, formData);
@@ -151,6 +167,7 @@ export async function createExpenseReceiptAction(storeId: string, formData: Form
 }
 
 export async function updateExpenseReceiptAction(storeId: string, receiptId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await updateExpenseReceiptFromForm(storeId, receiptId, formData); }
   catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/accounting/receipts`);
@@ -159,6 +176,7 @@ export async function updateExpenseReceiptAction(storeId: string, receiptId: str
 }
 
 export async function approveExpenseReceiptAction(storeId: string, receiptId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await approveExpenseReceipt(storeId, receiptId, formData); }
   catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/accounting/receipts`);
@@ -167,6 +185,7 @@ export async function approveExpenseReceiptAction(storeId: string, receiptId: st
 }
 
 export async function reanalyzeExpenseReceiptAction(storeId: string, receiptId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await reanalyzeExpenseReceipt(storeId, receiptId); }
   catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/accounting/receipts/${receiptId}`);
@@ -174,6 +193,7 @@ export async function reanalyzeExpenseReceiptAction(storeId: string, receiptId: 
 }
 
 export async function refreshFreeeMastersAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await refreshFreeeMasterOptions(storeId); }
   catch (error) { redirect(`/stores/${storeId}/settings/accounting/freee?error=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/settings/accounting/freee`);
@@ -181,12 +201,14 @@ export async function refreshFreeeMastersAction(storeId: string) {
 }
 
 export async function sendInvoicesToFreeeAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const result = await sendInvoicesAndPaymentsToFreee(storeId);
   revalidatePath(`/stores/${storeId}/accounting/exports`);
   redirect(`/stores/${storeId}/accounting/exports?freeeSent=${result.sentCount}&freeeFailed=${result.failedCount}`);
 }
 
 export async function sendReceiptToFreeeAction(storeId: string, receiptId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await sendExpenseReceiptToFreee(storeId, receiptId); }
   catch (error) { redirect(`/stores/${storeId}/accounting/receipts/${receiptId}?error=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/accounting/receipts`);
@@ -196,6 +218,7 @@ export async function sendReceiptToFreeeAction(storeId: string, receiptId: strin
 }
 
 export async function updateInvoiceStripePaymentAction(storeId: string, invoiceId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   await updateInvoiceStripePaymentFromForm(storeId, invoiceId, formData);
   revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);
   revalidatePath(`/stores/${storeId}/payments/stripe-transactions`);
@@ -203,6 +226,7 @@ export async function updateInvoiceStripePaymentAction(storeId: string, invoiceI
 }
 
 export async function markStripeInvoicePaidAction(storeId: string, invoiceId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   await markStripeInvoicePaidFromForm(storeId, invoiceId, formData);
   revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);
   revalidatePath(`/stores/${storeId}/payments`);
@@ -211,6 +235,7 @@ export async function markStripeInvoicePaidAction(storeId: string, invoiceId: st
 }
 
 export async function createStripeCheckoutAction(storeId: string, invoiceId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await createInvoiceStripeCheckout(storeId, invoiceId); }
   catch (error) { redirect(`/stores/${storeId}/invoices/${invoiceId}?stripeError=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);
@@ -219,6 +244,7 @@ export async function createStripeCheckoutAction(storeId: string, invoiceId: str
 }
 
 export async function sendPaymentReceiptEmailAction(storeId: string, invoiceId: string, receiptId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await sendPaymentReceiptEmail(storeId, receiptId, String(formData.get("recipient_email") ?? ""), String(formData.get("reissue_reason") ?? "")); }
   catch (error) { redirect(`/stores/${storeId}/invoices/${invoiceId}?receiptError=${actionError(error)}`); }
   revalidatePath(`/stores/${storeId}/invoices/${invoiceId}`);

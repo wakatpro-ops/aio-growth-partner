@@ -47,7 +47,7 @@ async function context(storeId: string, write = false) {
   const store = await getStore(storeId);
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
-  if (write && !access.isPlatformAdmin && !editableRoles.has(access.organizationRoles[store.organization_id] ?? "viewer")) {
+  if (write && !access.isPlatformAdmin && !editableRoles.has(access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer")) {
     throw new Error("AIO改善を変更する権限がありません。");
   }
   const supabase = createSupabaseAdminClient();

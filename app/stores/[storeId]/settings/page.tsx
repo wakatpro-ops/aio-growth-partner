@@ -21,8 +21,15 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
   const readiness = await getStoreAiReadiness(store);
   const access = await getCurrentUserAccess();
   const canArchiveStore = Boolean(access?.isPlatformAdmin || access?.organizationRoles[store.organization_id] === "org_owner");
+  const canManageStaff = canArchiveStore;
 
   const settings = [
+    ...(canManageStaff ? [{
+      title: "スタッフアカウント",
+      body: "この店舗だけを利用できるスタッフを招待し、登録・編集・閲覧のみの権限を設定します。",
+      href: `/stores/${store.id}/settings/staff`,
+      badge: "店舗ごとの権限"
+    }] : []),
     {
       title: "店舗プロフィール",
       body: "店舗名、URL、Google情報、業態別の強みを整えると、AIの投稿・診断・提案が店舗らしくなります。",
@@ -69,6 +76,13 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
         description="店舗情報、外部サービス、請求に関する設定をまとめています。"
       />
       <StoreBusinessNav store={store} />
+      {canArchiveStore ? (
+        <section className="card">
+          <h2>別の店舗を追加する</h2>
+          <p>同じ法人契約のまま、店舗数・利用ユーザー数の追加料金なしで店舗を登録できます。</p>
+          <Link className="button" href="/stores/new">店舗を追加</Link>
+        </section>
+      ) : null}
       <StoreAiReadinessPanel readiness={readiness} storeId={store.id} />
       <section className="grid cols-2">
         <StoreAiNextActions readiness={readiness} />

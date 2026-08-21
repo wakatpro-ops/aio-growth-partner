@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -32,6 +34,7 @@ function revalidateResults(storeId: string) {
 }
 
 export async function saveSearchVisibilitySettingAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await saveSearchVisibilitySettingFromForm(storeId, formData); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#measurement-settings`); }
   revalidateResults(storeId);
@@ -39,6 +42,7 @@ export async function saveSearchVisibilitySettingAction(storeId: string, formDat
 }
 
 export async function addSearchVisibilityKeywordAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await addSearchVisibilityKeywordFromForm(storeId, formData); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#keywords`); }
   revalidateResults(storeId);
@@ -46,6 +50,7 @@ export async function addSearchVisibilityKeywordAction(storeId: string, formData
 }
 
 export async function updateSearchVisibilityKeywordAction(storeId: string, keywordId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await updateSearchVisibilityKeywordFromForm(storeId, keywordId, formData); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#keyword-${keywordId}`); }
   revalidateResults(storeId);
@@ -53,6 +58,7 @@ export async function updateSearchVisibilityKeywordAction(storeId: string, keywo
 }
 
 export async function archiveSearchVisibilityKeywordAction(storeId: string, keywordId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await archiveSearchVisibilityKeyword(storeId, keywordId); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#keywords`); }
   revalidateResults(storeId);
@@ -60,6 +66,7 @@ export async function archiveSearchVisibilityKeywordAction(storeId: string, keyw
 }
 
 export async function restoreSearchVisibilityKeywordAction(storeId: string, keywordId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await restoreSearchVisibilityKeyword(storeId, keywordId); }
   catch (error) { redirect(`${resultsPath(storeId)}/deleted?error=${errorParam(error)}`); }
   revalidateResults(storeId);
@@ -67,6 +74,7 @@ export async function restoreSearchVisibilityKeywordAction(storeId: string, keyw
 }
 
 export async function recordManualSearchSnapshotAction(storeId: string, keywordId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await recordManualSearchSnapshotFromForm(storeId, keywordId, formData); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#keyword-${keywordId}`); }
   revalidateResults(storeId);
@@ -74,6 +82,7 @@ export async function recordManualSearchSnapshotAction(storeId: string, keywordI
 }
 
 export async function syncSearchConsoleAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await syncSearchConsole(storeId); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#search-console`); }
   revalidateResults(storeId);
@@ -81,6 +90,7 @@ export async function syncSearchConsoleAction(storeId: string) {
 }
 
 export async function addAiVisibilityQuestionAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await addAiVisibilityQuestionFromForm(storeId, formData); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-visibility`); }
   revalidateResults(storeId);
@@ -88,6 +98,7 @@ export async function addAiVisibilityQuestionAction(storeId: string, formData: F
 }
 
 export async function updateAiVisibilityQuestionAction(storeId: string, questionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try { await updateAiVisibilityQuestionFromForm(storeId, questionId, formData); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-question-${questionId}`); }
   revalidateResults(storeId);
@@ -95,6 +106,7 @@ export async function updateAiVisibilityQuestionAction(storeId: string, question
 }
 
 export async function archiveAiVisibilityQuestionAction(storeId: string, questionId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await archiveAiVisibilityQuestion(storeId, questionId); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-visibility`); }
   revalidateResults(storeId);
@@ -102,6 +114,7 @@ export async function archiveAiVisibilityQuestionAction(storeId: string, questio
 }
 
 export async function restoreAiVisibilityQuestionAction(storeId: string, questionId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await restoreAiVisibilityQuestion(storeId, questionId); }
   catch (error) { redirect(`${resultsPath(storeId)}/deleted?error=${errorParam(error)}`); }
   revalidateResults(storeId);
@@ -109,6 +122,7 @@ export async function restoreAiVisibilityQuestionAction(storeId: string, questio
 }
 
 export async function runAiVisibilityObservationAction(storeId: string, questionId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try { await runAiVisibilityObservation(storeId, questionId); }
   catch (error) { redirect(`${resultsPath(storeId)}?error=${errorParam(error)}#ai-question-${questionId}`); }
   revalidateResults(storeId);

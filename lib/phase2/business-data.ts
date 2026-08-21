@@ -1,4 +1,5 @@
 import "server-only";
+import { canEditStore } from "@/lib/auth/server";
 import { setStoreEntityArchived } from "@/lib/archive-management";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
@@ -9,6 +10,12 @@ import type { Store } from "@/types/domain";
 
 type DocumentKind = "estimates" | "invoices";
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
+
+async function requireStoreEditor(storeId: string) {
+  const store = await getStore(storeId);
+  if (!(await canEditStore(store.id, store.organization_id))) throw new Error("この店舗の情報を変更する権限がありません。");
+  return store;
+}
 
 const demoPersistence = {
   "store-general-demo": {
@@ -391,7 +398,7 @@ export async function getDocument(storeId: string, documentId: string, kind: Doc
 }
 
 export async function createItemFromForm(storeId: string, formData: FormData) {
-  const store = await getStore(storeId);
+  const store = await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForWrite(supabase, store);
@@ -431,6 +438,7 @@ export async function createItemFromForm(storeId: string, formData: FormData) {
 }
 
 export async function updateItemFromForm(storeId: string, itemId: string, formData: FormData) {
+  await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
@@ -461,7 +469,7 @@ export async function deleteItem(storeId: string, itemId: string) {
 }
 
 export async function updateStockFromForm(storeId: string, formData: FormData) {
-  const store = await getStore(storeId);
+  const store = await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForWrite(supabase, store);
@@ -477,7 +485,7 @@ export async function updateStockFromForm(storeId: string, formData: FormData) {
 }
 
 export async function createCustomerFromForm(storeId: string, formData: FormData) {
-  const store = await getStore(storeId);
+  const store = await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForWrite(supabase, store);
@@ -493,6 +501,7 @@ export async function createCustomerFromForm(storeId: string, formData: FormData
 }
 
 export async function updateCustomerFromForm(storeId: string, customerId: string, formData: FormData) {
+  await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
@@ -515,7 +524,7 @@ export async function deleteCustomer(storeId: string, customerId: string) {
 }
 
 export async function createDocumentFromForm(storeId: string, kind: DocumentKind, formData: FormData) {
-  const store = await getStore(storeId);
+  const store = await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForWrite(supabase, store);
@@ -577,6 +586,7 @@ export async function createDocumentFromForm(storeId: string, kind: DocumentKind
 }
 
 export async function updateDocumentFromForm(storeId: string, documentId: string, kind: DocumentKind, formData: FormData) {
+  await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);

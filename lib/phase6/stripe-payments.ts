@@ -18,10 +18,10 @@ async function resolveStore(storeId: string) {
   return { organizationId: demo?.organizationId ?? store.organization_id, storeId: demo?.storeId ?? store.id, publicStoreId: store.id, store };
 }
 
-async function requireEditor(organizationId: string) {
+async function requireEditor(organizationId: string, storeId: string) {
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
-  const role = access.organizationRoles[organizationId];
+  const role = access.organizationRoles[organizationId] ?? access.storeRoles[storeId];
   if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) throw new Error("決済を操作する権限がありません。");
   return access;
 }
@@ -52,7 +52,7 @@ export async function createInvoiceStripeCheckout(storeId: string, invoiceId: st
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Stripe決済の準備ができていません。");
   const resolved = await resolveStore(storeId);
-  await requireEditor(resolved.organizationId);
+  await requireEditor(resolved.organizationId, resolved.publicStoreId);
   const invoice = await getDocument(storeId, invoiceId, "invoices");
   if (!invoice) throw new Error("請求書が見つかりません。");
   if (invoice.total <= 0) throw new Error("請求金額が0円以下のため、決済URLを作成できません。");
@@ -136,7 +136,7 @@ export async function recordPaymentReceiptIssue(storeId: string, receiptId: stri
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("領収書履歴の準備ができていません。");
   const resolved = await resolveStore(storeId);
-  const access = await requireEditor(resolved.organizationId);
+  const access = await requireEditor(resolved.organizationId, resolved.publicStoreId);
   const { data: receipt } = await supabase.from("payment_receipts").select("id, last_issued_at").eq("store_id", resolved.storeId).eq("id", receiptId).maybeSingle();
   if (!receipt) throw new Error("領収書が見つかりません。");
   await supabase.from("payment_receipt_issues").insert({ organization_id: resolved.organizationId, store_id: resolved.storeId, receipt_id: receiptId,
@@ -148,7 +148,7 @@ export async function sendPaymentReceiptEmail(storeId: string, receiptId: string
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("領収書送付の準備ができていません。");
   const resolved = await resolveStore(storeId);
-  const access = await requireEditor(resolved.organizationId);
+  const access = await requireEditor(resolved.organizationId, resolved.publicStoreId);
   const email = recipientEmail.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("送付先メールアドレスを確認してください。");
   const { data: receipt } = await supabase.from("payment_receipts").select("*, invoice:invoices(document_number,title)").eq("store_id", resolved.storeId).eq("id", receiptId).maybeSingle();

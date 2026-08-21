@@ -8,7 +8,10 @@ import { hasSupabaseBrowserEnv } from "@/lib/supabase/env";
 import {
   evaluateAccountAccess,
   mayEditResults,
+  mayEditStore,
   mayManageOrganization,
+  mayManageStoreStaff,
+  mayReadStore,
   mayReadOrganization
 } from "@/lib/auth/access-policy";
 
@@ -20,6 +23,8 @@ export type CurrentUserAccess = {
   role: string;
   organizationIds: string[];
   organizationRoles: Record<string, string>;
+  storeIds: string[];
+  storeRoles: Record<string, string>;
   isPlatformAdmin: boolean;
   accountActive: true;
 };
@@ -47,20 +52,32 @@ export const getCurrentUserAccess = cache(async (): Promise<CurrentUserAccess | 
   const supabase = createSupabaseAdminClient();
   if (!supabase) return null;
 
-  const [profileResult, membershipsResult] = await Promise.all([
+  const [profileResult, membershipsResult, storeMembershipsResult] = await Promise.all([
     supabase.from("user_profiles").select("role, status, archived_at").eq("user_id", user.id).maybeSingle(),
-    supabase.from("organization_members").select("organization_id, role_key, status, archived_at").eq("user_id", user.id)
+    supabase.from("organization_members").select("organization_id, role_key, status, archived_at").eq("user_id", user.id),
+    supabase.from("store_memberships").select("store_id, organization_id, role_key, status, archived_at").eq("user_id", user.id)
   ]);
 
   if (profileResult.error || membershipsResult.error || !profileResult.data) return null;
+  if (storeMembershipsResult.error && storeMembershipsResult.error.code !== "42P01") return null;
 
   const membershipOrganizationIds = (membershipsResult.data ?? [])
     .map((item) => String(item.organization_id ?? ""))
     .filter(Boolean);
-  const { data: activeOrganizations } = membershipOrganizationIds.length > 0
-    ? await supabase.from("organizations").select("id, status, archived_at").in("id", membershipOrganizationIds)
-    : { data: [] as Array<{ id: string; status: string | null; archived_at: string | null }> };
+  const rawStoreMemberships = storeMembershipsResult.data ?? [];
+  const storeOrganizationIds = rawStoreMemberships.map((item) => String(item.organization_id ?? "")).filter(Boolean);
+  const allOrganizationIds = [...new Set([...membershipOrganizationIds, ...storeOrganizationIds])];
+  const storeIds = rawStoreMemberships.map((item) => String(item.store_id ?? "")).filter(Boolean);
+  const [{ data: activeOrganizations }, { data: activeStores }] = await Promise.all([
+    allOrganizationIds.length > 0
+      ? supabase.from("organizations").select("id, status, archived_at").in("id", allOrganizationIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; status: string | null; archived_at: string | null }> }),
+    storeIds.length > 0
+      ? supabase.from("stores").select("id, status, archived_at").in("id", storeIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; status: string | null; archived_at: string | null }> })
+  ]);
   const organizationsById = new Map((activeOrganizations ?? []).map((organization) => [String(organization.id), organization]));
+  const storesById = new Map((activeStores ?? []).map((store) => [String(store.id), store]));
   const bannedUntil = user.banned_until ? Date.parse(user.banned_until) : Number.NaN;
   const evaluated = evaluateAccountAccess({
     authenticated: true,
@@ -80,6 +97,23 @@ export const getCurrentUserAccess = cache(async (): Promise<CurrentUserAccess | 
         organizationStatus: organization ? String(organization.status ?? "") : null,
         organizationArchived: Boolean(organization?.archived_at)
       };
+    }),
+    storeMemberships: rawStoreMemberships.map((membership) => {
+      const storeId = String(membership.store_id ?? "");
+      const organizationId = String(membership.organization_id ?? "");
+      const store = storesById.get(storeId);
+      const organization = organizationsById.get(organizationId);
+      return {
+        storeId,
+        organizationId,
+        role: String(membership.role_key ?? "viewer"),
+        membershipStatus: String(membership.status ?? ""),
+        membershipArchived: Boolean(membership.archived_at),
+        storeStatus: store ? String(store.status ?? "") : null,
+        storeArchived: Boolean(store?.archived_at),
+        organizationStatus: organization ? String(organization.status ?? "") : null,
+        organizationArchived: Boolean(organization?.archived_at)
+      };
     })
   });
 
@@ -91,6 +125,8 @@ export const getCurrentUserAccess = cache(async (): Promise<CurrentUserAccess | 
     role: String(profileResult.data.role ?? "user"),
     organizationIds: evaluated.organizationIds,
     organizationRoles: evaluated.organizationRoles,
+    storeIds: evaluated.storeIds,
+    storeRoles: evaluated.storeRoles,
     isPlatformAdmin: evaluated.isPlatformAdmin,
     accountActive: true
   };
@@ -119,4 +155,19 @@ export async function canEditResults(organizationId: string) {
   const access = await getCurrentUserAccess();
   if (!access) return false;
   return mayEditResults(access, organizationId);
+}
+
+export async function canAccessStore(storeId: string, organizationId: string) {
+  const access = await getCurrentUserAccess();
+  return access ? mayReadStore(access, storeId, organizationId) : false;
+}
+
+export async function canEditStore(storeId: string, organizationId: string) {
+  const access = await getCurrentUserAccess();
+  return access ? mayEditStore(access, storeId, organizationId) : false;
+}
+
+export async function canManageStoreStaff(organizationId: string) {
+  const access = await getCurrentUserAccess();
+  return access ? mayManageStoreStaff(access, organizationId) : false;
 }

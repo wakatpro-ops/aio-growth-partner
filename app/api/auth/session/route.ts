@@ -44,6 +44,12 @@ export async function POST(request: Request) {
       })
       .eq("invited_user_id", data.user.id)
       .in("invitation_status", ["invite_link_sent", "invite_generated"]);
+
+    await admin.from("store_memberships").update({
+      invitation_status: "accepted",
+      accepted_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }).eq("user_id", data.user.id).eq("status", "active").is("archived_at", null);
   }
 
   const response = NextResponse.json({ ok: true });

@@ -17,16 +17,14 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
 
   const allStores = await listStores({ includeArchived: showArchived });
   const stores = allStores.filter((store) => showArchived ? Boolean(store.archived_at) : !store.archived_at);
-  if (!showArchived && !access.isPlatformAdmin && stores.length === 1) {
-    redirect(`/stores/${stores[0].id}`);
-  }
+  const canAddStore = access.isPlatformAdmin || access.organizationIds.some((id) => access.organizationRoles[id] === "org_owner");
 
   return (
     <AppShell>
       <PageHeader
         title={access.isPlatformAdmin ? "店舗一覧" : "利用店舗の選択"}
         description={access.isPlatformAdmin ? "管理者として、利用中の店舗を確認できます。" : "利用する店舗を選んで、店舗AIホームへ進みます。"}
-        action={access.isPlatformAdmin ? <Link className="button" href="/admin/stores">管理者用店舗一覧</Link> : undefined}
+        action={canAddStore ? <Link className="button" href="/stores/new">店舗を追加</Link> : undefined}
       />
       {query.archived ? <p className="notice success">店舗を削除しました。関連データは保持され、必要なら元に戻せます。</p> : null}
       {query.restored ? <p className="notice success">店舗を元に戻しました。</p> : null}
@@ -36,6 +34,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
       <div className="button-row">
         <Link className={`button ${showArchived ? "secondary" : ""}`} href="/stores">利用中</Link>
         <Link className={`button ${showArchived ? "" : "secondary"}`} href="/stores?view=archived">削除済み</Link>
+        {access.isPlatformAdmin ? <Link className="button secondary" href="/admin/stores">管理者用店舗一覧</Link> : null}
       </div>
       <div className="card">
         {stores.length === 0 ? (

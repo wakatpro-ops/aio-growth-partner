@@ -32,10 +32,10 @@ async function context(storeId: string) {
   return { ...persisted, publicStoreId: store.id, store };
 }
 
-async function requireEditor(organizationId: string) {
+async function requireEditor(organizationId: string, storeId: string) {
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
-  const role = access.organizationRoles[organizationId];
+  const role = access.organizationRoles[organizationId] ?? access.storeRoles[storeId];
   if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) throw new Error("SNS投稿を変更する権限がありません。");
   return access;
 }
@@ -76,7 +76,7 @@ function encryptMetaToken(value: string) {
 }
 
 export async function getMetaOAuthUrl(storeId: string) {
-  const resolved = await context(storeId); await requireEditor(resolved.organizationId);
+  const resolved = await context(storeId); await requireEditor(resolved.organizationId, resolved.publicStoreId);
   if (!process.env.META_APP_ID || !process.env.META_APP_SECRET || !process.env.META_REDIRECT_URI || !metaSecret()) throw new Error("Meta連携は準備中です。管理者がMetaアプリ情報を設定すると接続できます。");
   const query = new URLSearchParams({ client_id: process.env.META_APP_ID, redirect_uri: process.env.META_REDIRECT_URI, state: encodeMetaState(storeId), response_type: "code", scope: META_OAUTH_SCOPES.join(",") });
   return `https://www.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/dialog/oauth?${query}`;
@@ -90,7 +90,7 @@ async function getMetaPages(token: string): Promise<Array<MetaPageCandidate & { 
 }
 
 export async function completeMetaOAuth(code: string, state: string | null) {
-  const storeId = decodeMetaState(state); const resolved = await context(storeId); await requireEditor(resolved.organizationId);
+  const storeId = decodeMetaState(state); const resolved = await context(storeId); await requireEditor(resolved.organizationId, resolved.publicStoreId);
   if (!process.env.META_APP_ID || !process.env.META_APP_SECRET || !process.env.META_REDIRECT_URI) throw new Error("Meta OAuth環境変数が未設定です。");
   const query = new URLSearchParams({ client_id: process.env.META_APP_ID, client_secret: process.env.META_APP_SECRET, redirect_uri: process.env.META_REDIRECT_URI, code });
   const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/oauth/access_token?${query}`, { cache: "no-store" });
@@ -120,7 +120,7 @@ export async function disconnectMeta(storeId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Meta連携を解除できませんでした。");
   const resolved = await context(storeId);
-  const access = await requireEditor(resolved.organizationId);
+  const access = await requireEditor(resolved.organizationId, resolved.publicStoreId);
   const { data: oauth } = await supabase.from("external_channel_accounts").select("access_token_encrypted").eq("store_id", resolved.storeId).eq("channel", "meta_oauth").eq("external_provider", "meta").maybeSingle();
 
   if (oauth?.access_token_encrypted) {
@@ -147,7 +147,7 @@ export async function disconnectMeta(storeId: string) {
 
 export async function selectMetaPage(storeId: string, pageId: string) {
   const supabase = createSupabaseAdminClient(); if (!supabase) throw new Error("Meta接続を保存できません。");
-  const resolved = await context(storeId); await requireEditor(resolved.organizationId);
+  const resolved = await context(storeId); await requireEditor(resolved.organizationId, resolved.publicStoreId);
   const { data: oauth } = await supabase.from("external_channel_accounts").select("*").eq("store_id", resolved.storeId).eq("channel", "meta_oauth").eq("external_provider", "meta").maybeSingle();
   if (!oauth?.access_token_encrypted) throw new Error("先にMetaへ接続してください。");
   const pages = await getMetaPages(decryptMetaToken(oauth.access_token_encrypted));
@@ -195,7 +195,7 @@ export async function uploadSnsMedia(storeId: string, actionId: string, formData
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("画像を保存する準備ができていません。");
   const resolved = await context(storeId);
-  const access = await requireEditor(resolved.organizationId);
+  const access = await requireEditor(resolved.organizationId, resolved.publicStoreId);
   const file = formData.get("image_file");
   if (!(file instanceof File) || file.size === 0) throw new Error("JPG、PNG、WebP画像を選択してください。");
   if (file.size > 8 * 1024 * 1024) throw new Error("画像は8MB以内にしてください。");
@@ -228,7 +228,7 @@ async function getOwnedJob(storeId: string, actionId: string, jobId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("保存の準備ができていません。");
   const resolved = await context(storeId);
-  const access = await requireEditor(resolved.organizationId);
+  const access = await requireEditor(resolved.organizationId, resolved.publicStoreId);
   const { data } = await supabase.from("image_caption_jobs").select("*").eq("store_id", resolved.storeId).eq("growth_action_id", actionId).eq("id", jobId).is("archived_at", null).maybeSingle();
   if (!data) throw new Error("SNS画像が見つかりません。");
   return { supabase, resolved, access, job: data };

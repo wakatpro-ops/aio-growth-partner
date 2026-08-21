@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -16,6 +18,7 @@ function errorParam(error: unknown) {
 }
 
 export async function uploadCustomerImportAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let jobId: string | null = null;
   try {
     jobId = await createCustomerImportJobFromForm(storeId, formData);
@@ -27,6 +30,7 @@ export async function uploadCustomerImportAction(storeId: string, formData: Form
 }
 
 export async function executeCustomerImportAction(storeId: string, jobId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await executeCustomerImportFromForm(storeId, jobId, formData);
   } catch (error) {
@@ -39,6 +43,7 @@ export async function executeCustomerImportAction(storeId: string, jobId: string
 }
 
 export async function createCustomerNoteAction(storeId: string, customerId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await createCustomerNoteFromForm(storeId, customerId, formData);
   } catch (error) {
@@ -49,6 +54,7 @@ export async function createCustomerNoteAction(storeId: string, customerId: stri
 }
 
 export async function updateCustomerNoteAction(storeId: string, customerId: string, noteId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await updateCustomerNoteFromForm(storeId, noteId, formData);
   } catch (error) {
@@ -59,6 +65,7 @@ export async function updateCustomerNoteAction(storeId: string, customerId: stri
 }
 
 export async function createCustomerMessageAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let draftId: string | null = null;
   try {
     draftId = await createCustomerMessageDraftFromForm(storeId, formData);
@@ -70,6 +77,7 @@ export async function createCustomerMessageAction(storeId: string, formData: For
 }
 
 export async function updateCustomerMessageAction(storeId: string, draftId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await updateCustomerMessageDraftFromForm(storeId, draftId, formData);
   } catch (error) {
