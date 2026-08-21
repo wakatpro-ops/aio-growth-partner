@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { setStoreEntityArchived, type StoreArchiveEntity } from "@/lib/archive-management";
@@ -27,6 +29,7 @@ export async function archiveStoreEntityAction(
 }
 
 export async function restoreStoreEntityAction(storeId: string, entity: StoreArchiveEntity, recordId: string) {
+  await requireStoreActionWriteAccess(storeId);
   await setStoreEntityArchived(storeId, entity, recordId, false);
   revalidatePath(`/stores/${storeId}`);
   revalidatePath(`/stores/${storeId}/archives`);

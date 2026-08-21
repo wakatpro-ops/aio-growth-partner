@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { executeUnifiedImport, saveUnifiedImportReview, uploadUnifiedImportFile } from "@/lib/unified-import/data";
@@ -10,6 +12,7 @@ function errorParam(error: unknown) {
 }
 
 export async function uploadUnifiedImportAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let result: { jobId: string; duplicate: boolean } | null = null;
   try {
     result = await uploadUnifiedImportFile(storeId, formData);
@@ -21,6 +24,7 @@ export async function uploadUnifiedImportAction(storeId: string, formData: FormD
 }
 
 export async function saveUnifiedImportReviewAction(storeId: string, jobId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let result: { unresolved: number; approved: number } | null = null;
   try {
     result = await saveUnifiedImportReview(storeId, jobId, formData);
@@ -32,6 +36,7 @@ export async function saveUnifiedImportReviewAction(storeId: string, jobId: stri
 }
 
 export async function executeUnifiedImportAction(storeId: string, jobId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await executeUnifiedImport(storeId, jobId);
   } catch (error) {

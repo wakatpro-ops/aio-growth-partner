@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   evaluateAccountAccess,
+  mayEditStore,
   mayEditResults,
+  mayManageStoreStaff,
+  mayReadStore,
   mayReadOrganization
 } from "../lib/auth/access-policy.ts";
 
@@ -19,6 +22,55 @@ test("認証済みでも組織・役割に未所属なら店舗データを読�
   assert.equal(access.accountActive, true);
   assert.equal(mayReadOrganization(access, "org-a"), false);
   assert.equal(mayEditResults(access, "org-a"), false);
+  assert.equal(mayReadStore(access, "store-a", "org-a"), false);
+  assert.equal(mayEditStore(access, "store-a", "org-a"), false);
+});
+
+test("店舗スタッフは割り当て店舗だけを利用し、他店舗とスタッフ管理を拒否される", () => {
+  for (const role of ["store_manager", "staff", "viewer"]) {
+    const access = evaluateAccountAccess({
+      ...active,
+      profileRole: "user",
+      memberships: [],
+      storeMemberships: [{
+        storeId: "store-a", organizationId: "org-a", role,
+        membershipStatus: "active", membershipArchived: false,
+        storeStatus: "active", storeArchived: false,
+        organizationStatus: "active", organizationArchived: false
+      }]
+    });
+    assert.equal(mayReadStore(access, "store-a", "org-a"), true);
+    assert.equal(mayReadStore(access, "store-b", "org-a"), false);
+    assert.equal(mayReadStore(access, "store-c", "org-b"), false);
+    assert.equal(mayEditStore(access, "store-a", "org-a"), role !== "viewer");
+    assert.equal(mayManageStoreStaff(access, "org-a"), false);
+  }
+});
+
+test("停止・削除済み・店舗削除済みの店舗所属は採用しない", () => {
+  const variants = [
+    { membershipStatus: "suspended", membershipArchived: false, storeStatus: "active", storeArchived: false },
+    { membershipStatus: "active", membershipArchived: true, storeStatus: "active", storeArchived: false },
+    { membershipStatus: "active", membershipArchived: false, storeStatus: "archived", storeArchived: false },
+    { membershipStatus: "active", membershipArchived: false, storeStatus: "active", storeArchived: true }
+  ];
+  for (const variant of variants) {
+    const access = evaluateAccountAccess({ ...active, profileRole: "user", memberships: [], storeMemberships: [{
+      storeId: "store-a", organizationId: "org-a", role: "staff", organizationStatus: "active", organizationArchived: false, ...variant
+    }] });
+    assert.equal(mayReadStore(access, "store-a", "org-a"), false);
+  }
+});
+
+test("法人オーナーは全店舗とスタッフ管理を利用できる", () => {
+  const access = evaluateAccountAccess({ ...active, profileRole: "user", memberships: [{
+    organizationId: "org-a", role: "org_owner", membershipStatus: "active", membershipArchived: false,
+    organizationStatus: "active", organizationArchived: false
+  }] });
+  assert.equal(mayReadStore(access, "store-any", "org-a"), true);
+  assert.equal(mayEditStore(access, "store-any", "org-a"), true);
+  assert.equal(mayManageStoreStaff(access, "org-a"), true);
+  assert.equal(mayManageStoreStaff(access, "org-b"), false);
 });
 
 test("申請が承認・入金・発行済みでも未所属なら店舗データを読めない", () => {

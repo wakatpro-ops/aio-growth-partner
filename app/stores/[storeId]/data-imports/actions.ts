@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { executeImportJob, saveImportItemMatchesFromForm, saveMappingsFromForm, uploadGoogleSheetFromForm, uploadImportFileFromForm } from "@/lib/phase4/sales-import-data";
@@ -10,6 +12,7 @@ function errorParam(error: unknown) {
 }
 
 export async function uploadImportFileAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let jobId: string | null = null;
   try {
     jobId = await uploadImportFileFromForm(storeId, formData);
@@ -21,6 +24,7 @@ export async function uploadImportFileAction(storeId: string, formData: FormData
 }
 
 export async function uploadGoogleSheetAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let jobId: string | null = null;
   try {
     jobId = await uploadGoogleSheetFromForm(storeId, formData);
@@ -32,6 +36,7 @@ export async function uploadGoogleSheetAction(storeId: string, formData: FormDat
 }
 
 export async function saveImportMappingsAction(storeId: string, importJobId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await saveMappingsFromForm(storeId, importJobId, formData);
   } catch (error) {
@@ -42,6 +47,7 @@ export async function saveImportMappingsAction(storeId: string, importJobId: str
 }
 
 export async function executeImportJobAction(storeId: string, importJobId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await executeImportJob(storeId, importJobId);
   } catch (error) {
@@ -54,6 +60,7 @@ export async function executeImportJobAction(storeId: string, importJobId: strin
 }
 
 export async function saveImportItemMatchesAction(storeId: string, importJobId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await saveImportItemMatchesFromForm(storeId, importJobId, formData);
   } catch (error) {
@@ -64,6 +71,7 @@ export async function saveImportItemMatchesAction(storeId: string, importJobId: 
 }
 
 export async function retryImportErrorsAction(storeId: string, importJobId: string) {
+  await requireStoreActionWriteAccess(storeId);
   try {
     await executeImportJob(storeId, importJobId, { retryErrorsOnly: true });
   } catch (error) {

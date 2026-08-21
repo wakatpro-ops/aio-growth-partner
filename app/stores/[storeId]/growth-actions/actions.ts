@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
@@ -34,6 +36,7 @@ function errorRedirect(path: string, error: unknown): never {
 }
 
 export async function generateGrowthActionsAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions`;
   try {
     await generateGrowthActions(storeId);
@@ -45,6 +48,7 @@ export async function generateGrowthActionsAction(storeId: string) {
 }
 
 export async function updateGrowthActionStatusAction(storeId: string, actionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}`;
   const status = String(formData.get("status") ?? "todo") as GrowthActionStatus;
   try {
@@ -58,6 +62,7 @@ export async function updateGrowthActionStatusAction(storeId: string, actionId: 
 }
 
 export async function updateGrowthActionDraftAction(storeId: string, actionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/edit`;
   try {
     await updateGrowthActionDraft(storeId, actionId, formData);
@@ -72,6 +77,7 @@ export async function updateGrowthActionDraftAction(storeId: string, actionId: s
 }
 
 export async function submitGrowthActionApprovalAction(storeId: string, actionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}`;
   try {
     await submitGrowthActionApproval(storeId, actionId, formData);
@@ -85,6 +91,7 @@ export async function submitGrowthActionApprovalAction(storeId: string, actionId
 }
 
 export async function markGoogleBusinessProfileManualPostAction(storeId: string, actionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/manual-post`;
   try {
     await markGoogleBusinessProfileManualPost(storeId, actionId, formData);
@@ -100,6 +107,7 @@ export async function markGoogleBusinessProfileManualPostAction(storeId: string,
 }
 
 export async function markSnsManualPostAction(storeId: string, actionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
   try {
     await markSnsManualPost(storeId, actionId, formData);
@@ -115,6 +123,7 @@ export async function markSnsManualPostAction(storeId: string, actionId: string,
 }
 
 export async function uploadSnsMediaAction(storeId: string, actionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
   let duplicate = false;
   try {
@@ -126,6 +135,7 @@ export async function uploadSnsMediaAction(storeId: string, actionId: string, fo
 }
 
 export async function approveSnsMediaAction(storeId: string, actionId: string, jobId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
   try { await approveSnsMedia(storeId, actionId, jobId, formData); revalidatePath(path); }
   catch (error) { errorRedirect(path, error); }
@@ -133,6 +143,7 @@ export async function approveSnsMediaAction(storeId: string, actionId: string, j
 }
 
 export async function archiveSnsMediaAction(storeId: string, actionId: string, jobId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
   try { await archiveSnsMedia(storeId, actionId, jobId); revalidatePath(path); }
   catch (error) { errorRedirect(path, error); }
@@ -140,6 +151,7 @@ export async function archiveSnsMediaAction(storeId: string, actionId: string, j
 }
 
 export async function queueSnsPublishAction(storeId: string, actionId: string, jobId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
   try {
     const queued = await queueSnsPublish(storeId, actionId, jobId, formData);
@@ -150,6 +162,7 @@ export async function queueSnsPublishAction(storeId: string, actionId: string, j
 }
 
 export async function retrySnsPublishAction(storeId: string, actionId: string, jobId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
   try { await executeSnsPublishJob(jobId); revalidatePath(path); }
   catch (error) { errorRedirect(path, error); }
@@ -157,6 +170,7 @@ export async function retrySnsPublishAction(storeId: string, actionId: string, j
 }
 
 export async function selectMetaPageAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/channels`;
   try { await selectMetaPage(storeId, String(formData.get("page_id") ?? "")); revalidatePath(path); }
   catch (error) { errorRedirect(path, error); }
@@ -164,6 +178,7 @@ export async function selectMetaPageAction(storeId: string, formData: FormData) 
 }
 
 export async function disconnectMetaAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/channels`;
   try { await disconnectMeta(storeId); revalidatePath(path); }
   catch (error) { errorRedirect(path, error); }
@@ -171,6 +186,7 @@ export async function disconnectMetaAction(storeId: string) {
 }
 
 export async function upsertExternalChannelAccountAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/channels`;
   try {
     await upsertExternalChannelAccount(storeId, formData);
@@ -182,6 +198,7 @@ export async function upsertExternalChannelAccountAction(storeId: string, formDa
 }
 
 export async function disconnectGoogleAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/google`;
   try {
     await disconnectGoogle(storeId);
@@ -193,6 +210,7 @@ export async function disconnectGoogleAction(storeId: string) {
 }
 
 export async function upsertGoogleBusinessProfileAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/google/business-profile`;
   try {
     await upsertGoogleBusinessProfile(storeId, formData);
@@ -205,6 +223,7 @@ export async function upsertGoogleBusinessProfileAction(storeId: string, formDat
 }
 
 export async function syncGoogleBusinessProfileCandidatesAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/google/business-profile`;
   let accountsCount = 0;
   let locationsCount = 0;
@@ -221,6 +240,7 @@ export async function syncGoogleBusinessProfileCandidatesAction(storeId: string)
 }
 
 export async function upsertGoogleGmailAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/google/gmail`;
   try {
     await upsertGoogleGmail(storeId, formData);
@@ -233,6 +253,7 @@ export async function upsertGoogleGmailAction(storeId: string, formData: FormDat
 }
 
 export async function upsertGoogleCalendarAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/settings/google/calendar`;
   try {
     await upsertGoogleCalendar(storeId, formData);
@@ -245,6 +266,7 @@ export async function upsertGoogleCalendarAction(storeId: string, formData: Form
 }
 
 export async function prepareGooglePublishJobAction(storeId: string, actionId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/send`;
   try {
     await prepareGooglePublishJob(storeId, actionId, formData);
@@ -258,6 +280,7 @@ export async function prepareGooglePublishJobAction(storeId: string, actionId: s
 }
 
 export async function executeGoogleIntegrationAction(storeId: string, actionId: string, target: "gmail" | "google_calendar", formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/send`;
   let jobId: string | null = null;
   try {
@@ -273,6 +296,7 @@ export async function executeGoogleIntegrationAction(storeId: string, actionId: 
 }
 
 export async function publishGoogleBusinessPostAction(storeId: string, actionId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/send`;
   let jobId: string | null = null;
   try {
@@ -288,6 +312,7 @@ export async function publishGoogleBusinessPostAction(storeId: string, actionId:
 }
 
 export async function syncGoogleBusinessReviewsAction(storeId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/reviews`;
   let count = 0;
   try {
@@ -302,6 +327,7 @@ export async function syncGoogleBusinessReviewsAction(storeId: string) {
 }
 
 export async function saveGoogleReviewReplyDraftAction(storeId: string, reviewId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/reviews`;
   try {
     await saveGoogleReviewReplyDraft(storeId, reviewId, formData);
@@ -313,6 +339,7 @@ export async function saveGoogleReviewReplyDraftAction(storeId: string, reviewId
 }
 
 export async function approveGoogleReviewReplyAction(storeId: string, reviewId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/reviews`;
   try {
     await approveGoogleReviewReply(storeId, reviewId);
@@ -324,6 +351,7 @@ export async function approveGoogleReviewReplyAction(storeId: string, reviewId: 
 }
 
 export async function publishGoogleReviewReplyAction(storeId: string, reviewId: string) {
+  await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/reviews`;
   try {
     await publishGoogleReviewReply(storeId, reviewId);

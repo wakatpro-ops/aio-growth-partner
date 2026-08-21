@@ -66,7 +66,7 @@ export async function setStoreEntityArchived(storeId: string, entity: StoreArchi
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
   const store = await getStore(storeId);
-  const role = access.organizationRoles[store.organization_id] ?? "viewer";
+  const role = access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer";
   if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) {
     throw new Error("削除・復元する権限がありません。");
   }

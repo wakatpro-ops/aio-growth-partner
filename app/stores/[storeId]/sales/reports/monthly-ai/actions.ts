@@ -1,5 +1,7 @@
 "use server";
 
+import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
+
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSalesAiReport } from "@/lib/phase4/sales-ai-report";
@@ -10,6 +12,7 @@ function errorParam(error: unknown) {
 }
 
 export async function generateSalesAiReportAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
   let reportId: string | null = null;
   const month = String(formData.get("target_month") ?? "");
   try {

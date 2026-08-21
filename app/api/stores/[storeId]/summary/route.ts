@@ -27,7 +27,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ storeId: s
     return NextResponse.json({ error: "店舗を確認できませんでした。" }, { status: 404 });
   }
 
-  if (!access.isPlatformAdmin && !access.organizationIds.includes(String(data.organization_id))) {
+  if (!access.isPlatformAdmin && !access.organizationIds.includes(String(data.organization_id)) && !access.storeIds.includes(String(data.id))) {
     return NextResponse.json({ error: "店舗を確認できませんでした。" }, { status: 404 });
   }
 

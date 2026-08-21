@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { notFound, redirect } from "next/navigation";
 import { getIndustryConfig } from "@/config/industries";
-import { canAccessOrganization, canManageOrganization, getCurrentUserAccess } from "@/lib/auth/server";
+import { canAccessStore, canEditStore, canManageOrganization, getCurrentUserAccess } from "@/lib/auth/server";
 import { normalizeIndustryTypeKey } from "@/lib/applications/options";
 import { demoStores, getDemoStore } from "@/lib/industry/demo-data";
 import { isDemoStore } from "@/lib/mvp/status";
@@ -44,7 +44,7 @@ export async function listStores({ includeArchived = false, includeDemo = false 
   if (access.isPlatformAdmin) {
     return stores;
   }
-  return stores.filter((store) => access.organizationIds.includes(store.organization_id));
+  return stores.filter((store) => access.organizationIds.includes(store.organization_id) || access.storeIds.includes(store.id));
 }
 
 export async function listProductionStores(): Promise<Store[]> {
@@ -79,7 +79,7 @@ export async function getStore(storeId: string): Promise<Store> {
   if (!access) {
     redirect("/login");
   }
-  if (!access.isPlatformAdmin && !access.organizationIds.includes(store.organization_id)) {
+  if (!(await canAccessStore(store.id, store.organization_id))) {
     notFound();
   }
 
@@ -112,7 +112,7 @@ export async function getStoreForApi(storeId: string): Promise<StoreApiAccessRes
 
   const store = data as Store;
   if (isDemoStore(store) && !access.isPlatformAdmin) return { ok: false, status: 404 };
-  if (!access.isPlatformAdmin && !access.organizationIds.includes(store.organization_id)) {
+  if (!(await canAccessStore(store.id, store.organization_id))) {
     return { ok: false, status: 404 };
   }
   return { ok: true, store: isDemoStore(store) ? getDemoStore(storeId) : store };
@@ -122,7 +122,7 @@ export async function updateStoreFromForm(storeId: string, formData: FormData) {
   const store = await getStore(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
-  if (!(await canAccessOrganization(store.organization_id))) throw new Error("この店舗を更新する権限がありません。");
+  if (!(await canEditStore(store.id, store.organization_id))) throw new Error("この店舗を更新する権限がありません。");
 
   const industryTypeKey = normalizeIndustryTypeKey(String(formData.get("industry") ?? store.industry_type_key));
   const industry = getIndustryConfig(industryTypeKey);
@@ -281,7 +281,7 @@ export async function createStoreFromForm(formData: FormData) {
   const industry = getIndustryConfig(industryTypeKey);
   const useSampleData = String(formData.get("use_sample_data") ?? "") === "yes";
 
-  let organizationId = access.organizationIds[0];
+  let organizationId = access.organizationIds.find((id) => access.organizationRoles[id] === "org_owner");
   let createdOwnOrganization = false;
   if (!organizationId) {
     const { data: approvedApplication } = await supabase
@@ -314,7 +314,7 @@ export async function createStoreFromForm(formData: FormData) {
     if (memberError) throw new Error(`組織メンバーを作成できませんでした: ${memberError.message}`);
   }
 
-  if (!createdOwnOrganization && !(await canAccessOrganization(organizationId))) {
+  if (!createdOwnOrganization && !(await canManageOrganization(organizationId))) {
     throw new Error("この組織に店舗を作成する権限がありません。");
   }
 

@@ -166,7 +166,7 @@ function providerName(provider: string) {
 async function assertImportWriteAccess(store: Store) {
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
-  const role = access.organizationRoles[store.organization_id] ?? "viewer";
+  const role = access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer";
   if (!access.isPlatformAdmin && !editableRoles.has(role)) throw new Error("売上データを取り込む権限がありません。");
   return access;
 }

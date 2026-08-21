@@ -28,7 +28,7 @@ function number(value: FormDataEntryValue | null) {
 async function context(storeId: string, write = false) {
   const [store, access] = await Promise.all([getStore(storeId), getCurrentUserAccess()]);
   if (!access) throw new Error("ログインが必要です。");
-  const role = access.organizationRoles[store.organization_id] ?? "viewer";
+  const role = access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer";
   if (write && !access.isPlatformAdmin && !editableRoles.has(role)) throw new Error("在庫を変更する権限がありません。");
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");

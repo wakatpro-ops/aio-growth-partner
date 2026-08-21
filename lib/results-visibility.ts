@@ -1,6 +1,6 @@
 import "server-only";
 
-import { canEditResults, getCurrentUserAccess } from "@/lib/auth/server";
+import { canEditStore, getCurrentUserAccess } from "@/lib/auth/server";
 import { getStoredGoogleAccessToken, GOOGLE_SEARCH_CONSOLE_SCOPE } from "@/lib/phase5/google-integrations";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
@@ -44,7 +44,7 @@ async function context(storeId: string, write = false): Promise<ResultsContext> 
   const access = await getCurrentUserAccess();
   if (write) {
     if (!access) throw new Error("ログインが必要です。");
-    if (!(await canEditResults(store.organization_id))) {
+    if (!(await canEditStore(store.id, store.organization_id))) {
       throw new Error("成果の計測設定を変更する権限がありません。");
     }
     if (!supabase) throw new Error("Supabase環境変数が未設定です。");
