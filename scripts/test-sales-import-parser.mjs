@@ -1,4 +1,5 @@
 import { MAX_IMPORT_ROWS, parseImportFile } from "../lib/phase4/import-parser.ts";
+import { buildImportStorageFileName } from "../lib/storage-object-name.ts";
 
 const encode = (value) => new TextEncoder().encode(value).buffer;
 
@@ -32,6 +33,14 @@ function simpleSalesPdf() {
 const valid = await parseImportFile("sales.csv", encode("売上日,商品名,合計\n2026-08-15,商品A,1000"));
 requireCheck(valid.importType === "csv" && valid.rows.length === 1, "正常CSVを解析できませんでした。");
 
+const japaneseStorageName = buildImportStorageFileName("売上明細_20260821185743.csv", "898cbf80c23446ce98b1fad04599770c");
+requireCheck(japaneseStorageName === "20260821185743-898cbf80c23446ce.csv", "日本語ファイル名を安全なStorageキーへ変換できませんでした。");
+requireCheck(/^[a-zA-Z0-9_-]+\.(csv|tsv|xlsx|xls|pdf|bin)$/u.test(japaneseStorageName), "Storageファイル名に利用できない文字が残っています。");
+
+const traversalStorageName = buildImportStorageFileName("../../顧客 売上?.CSV", "not-a-checksum");
+requireCheck(traversalStorageName === "sales-import-file.csv", "パストラバーサルを含むファイル名を安全に変換できませんでした。");
+requireCheck(!traversalStorageName.includes("/") && !traversalStorageName.includes(".."), "Storageファイル名にパス文字が残っています。");
+
 const validPdf = await parseImportFile("sales.pdf", simpleSalesPdf());
 requireCheck(validPdf.importType === "pdf" && validPdf.rows.length === 1 && validPdf.headers.length === 3, "正常な表形式PDFを解析できませんでした。");
 
@@ -47,4 +56,4 @@ await parseImportFile("large.csv", encode(largeRows)).then(
   (error) => requireCheck(String(error).includes("ファイルを分割"), "行数超過の案内が不明確です。")
 );
 
-console.log("Sales import parser CSV/PDF, empty, corrupt, unsupported, and large-file tests passed.");
+console.log("Sales import parser and safe Storage object name tests passed.");

@@ -4,6 +4,7 @@ import { getCurrentUserAccess } from "@/lib/auth/server";
 import { applyImportedSaleInventory } from "@/lib/inventory-operations";
 import { generateDemandActionPlan } from "@/lib/phase4/demand-actions";
 import { buildSuggestedMappings, normalizeSalesRows, parseImportFile } from "@/lib/phase4/import-parser";
+import { buildImportStorageFileName } from "@/lib/storage-object-name";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import type { Store } from "@/types/domain";
@@ -312,7 +313,7 @@ export async function uploadImportFileFromForm(storeId: string, formData: FormDa
 
   if (jobError || !job) throw new Error(`取り込みジョブを作成できませんでした: ${jobError?.message ?? "unknown error"}`);
 
-  const safeFileName = file.name.replace(/[^\p{L}\p{N}._-]/gu, "_").slice(0, 180) || "sales-import";
+  const safeFileName = buildImportStorageFileName(file.name, fileChecksum);
   const storagePath = `organizations/${resolved.organizationId}/stores/${resolved.storeId}/imports/${job.id}/${safeFileName}`;
   const { error: uploadError } = await supabase.storage.from(storageBucket).upload(storagePath, buffer, {
     contentType: file.type || "application/octet-stream",
@@ -336,6 +337,7 @@ export async function uploadImportFileFromForm(storeId: string, formData: FormDa
     checksum: fileChecksum
   });
   if (fileRecordError) {
+    await supabase.storage.from(storageBucket).remove([storagePath]);
     await supabase.from("data_import_jobs").update({ status: "failed", error_message: fileRecordError.message }).eq("id", job.id);
     throw new Error(`取り込みファイルの記録を保存できませんでした: ${fileRecordError.message}`);
   }
