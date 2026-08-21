@@ -26,10 +26,10 @@ export function ImportUploadForm({ action }: { action: (formData: FormData) => v
         </div>
         <div className="field">
           <label htmlFor="file">CSV / Excel / PDFファイル</label>
-          <input id="file" name="file" type="file" accept=".csv,.tsv,.xlsx,.xls,.pdf,text/csv,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+          <input id="file" name="file" type="file" accept=".csv,.tsv,.xlsx,.xls,.xlsm,.pdf,text/csv,application/pdf,application/vnd.ms-excel,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
         </div>
       </div>
-      <p className="muted">4MB・50,000行まで。PDFは文字を選択できる表形式の売上帳票に対応します。取込前に商品との対応を必ず確認できます。</p>
+      <p className="muted">4MB・50,000行まで。マクロ付きExcelはマクロを実行せず、保存済みセル値だけを読み取ります。取込前に商品との対応を必ず確認できます。</p>
       <PendingSubmitButton pendingLabel="ファイルを読み込んでいます...">アップロードしてプレビュー</PendingSubmitButton>
     </form>
   );

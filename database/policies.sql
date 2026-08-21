@@ -28,6 +28,8 @@ alter table public.image_caption_jobs enable row level security;
 alter table public.demand_alerts enable row level security;
 alter table public.external_data_sources enable row level security;
 alter table public.data_import_jobs enable row level security;
+alter table public.unified_import_jobs enable row level security;
+alter table public.unified_import_rows enable row level security;
 alter table public.data_import_files enable row level security;
 alter table public.data_column_mappings enable row level security;
 alter table public.sales_transactions enable row level security;
@@ -195,6 +197,10 @@ drop policy if exists "read org external data sources" on public.external_data_s
 drop policy if exists "write org external data sources" on public.external_data_sources;
 drop policy if exists "read org data import jobs" on public.data_import_jobs;
 drop policy if exists "write org data import jobs" on public.data_import_jobs;
+drop policy if exists "read org unified import jobs" on public.unified_import_jobs;
+drop policy if exists "write org unified import jobs" on public.unified_import_jobs;
+drop policy if exists "read org unified import rows" on public.unified_import_rows;
+drop policy if exists "write org unified import rows" on public.unified_import_rows;
 drop policy if exists "read org data import files" on public.data_import_files;
 drop policy if exists "write org data import files" on public.data_import_files;
 drop policy if exists "read org data column mappings" on public.data_column_mappings;
@@ -461,6 +467,40 @@ for select using (public.is_org_member(organization_id) or public.is_platform_ad
 create policy "write org data import jobs" on public.data_import_jobs
 for all using (public.is_org_member(organization_id) or public.is_platform_admin())
 with check (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "read org unified import jobs" on public.unified_import_jobs
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org unified import jobs" on public.unified_import_jobs
+for all using (
+  public.is_platform_admin() or (
+    public.is_org_editor(organization_id)
+    and exists (select 1 from public.stores where stores.id = unified_import_jobs.store_id and stores.organization_id = unified_import_jobs.organization_id and stores.archived_at is null)
+  )
+)
+with check (
+  public.is_platform_admin() or (
+    public.is_org_editor(organization_id)
+    and exists (select 1 from public.stores where stores.id = unified_import_jobs.store_id and stores.organization_id = unified_import_jobs.organization_id and stores.archived_at is null)
+  )
+);
+
+create policy "read org unified import rows" on public.unified_import_rows
+for select using (public.is_org_member(organization_id) or public.is_platform_admin());
+
+create policy "write org unified import rows" on public.unified_import_rows
+for all using (
+  public.is_platform_admin() or (
+    public.is_org_editor(organization_id)
+    and exists (select 1 from public.unified_import_jobs jobs where jobs.id = unified_import_rows.import_job_id and jobs.organization_id = unified_import_rows.organization_id and jobs.store_id = unified_import_rows.store_id)
+  )
+)
+with check (
+  public.is_platform_admin() or (
+    public.is_org_editor(organization_id)
+    and exists (select 1 from public.unified_import_jobs jobs where jobs.id = unified_import_rows.import_job_id and jobs.organization_id = unified_import_rows.organization_id and jobs.store_id = unified_import_rows.store_id)
+  )
+);
 
 create policy "read org data import files" on public.data_import_files
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());

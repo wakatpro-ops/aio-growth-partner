@@ -35,12 +35,13 @@ export default async function DataImportsPage({ params, searchParams }: { params
     <AppShell>
       <PageHeader
         eyebrow={industry.name}
-        title="外部売上データ取り込み"
-        description="CSV / Excelから売上データを取り込み、一覧・レポートへ反映します。"
-        action={<Link className="button" href={`/stores/${store.id}/data-imports/new`}>新規取り込み</Link>}
+        title="データ取り込み"
+        description="AIに任せる共通取込と、列を指定する売上専用取込を選べます。"
+        action={<div className="button-row"><Link className="button" href={`/stores/${store.id}/data-imports/ai`}>AIに任せて取り込む</Link><Link className="button secondary" href={`/stores/${store.id}/data-imports/new`}>売上だけ取り込む</Link></div>}
       />
       <StoreBusinessNav store={store} />
       {archived ? <p className="notice success">取込履歴を削除しました。取り込み済みの売上データは会計・分析の証跡として保持されます。</p> : null}
+      <section className="card"><h2>どの種類か分からないファイルはこちら</h2><p>マクロ付きExcelや、売上・経費・顧客・商品・在庫が混ざったファイルは、AIデータ取込が内容を分類して不明点だけ質問します。</p><Link className="button" href={`/stores/${store.id}/data-imports/ai`}>AIデータ取込を開く</Link></section>
       <div className="card">
         <table className="table">
           <thead>
