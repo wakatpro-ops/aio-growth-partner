@@ -175,6 +175,14 @@ export async function inviteStoreStaff(storeId: string, formData: FormData) {
 
   const existingUser = await findAuthUserByEmail(supabase, email);
   if (existingUser) {
+    const { data: existingProfile } = await supabase.from("user_profiles")
+      .select("role, status, archived_at").eq("user_id", existingUser.id).maybeSingle();
+    if (existingProfile?.role === "platform_admin") {
+      throw new Error("このユーザーはAIO boost運営管理者のため、店舗スタッフへ追加する必要はありません。");
+    }
+    if (existingProfile && (existingProfile.status !== "active" || existingProfile.archived_at)) {
+      throw new Error("このアカウントは停止または削除されています。AIO boost運営へ確認してください。");
+    }
     const { data: organizationMembership } = await supabase.from("organization_members")
       .select("id").eq("organization_id", store.organization_id).eq("user_id", existingUser.id)
       .eq("status", "active").is("archived_at", null).maybeSingle();
@@ -191,9 +199,12 @@ export async function inviteStoreStaff(storeId: string, formData: FormData) {
     existingUserHasSignedIn: Boolean(existingUser?.last_sign_in_at)
   });
   const timestamp = new Date().toISOString();
-  await supabase.from("user_profiles").upsert({
-    user_id: delivery.userId, display_name: displayName, role: "user", status: "active", archived_at: null, updated_at: timestamp
-  }, { onConflict: "user_id" });
+  if (!existingUser) {
+    const { error: profileError } = await supabase.from("user_profiles").insert({
+      user_id: delivery.userId, display_name: displayName, role: "user", status: "active", updated_at: timestamp
+    });
+    if (profileError) throw new Error(`スタッフプロフィールを保存できませんでした: ${profileError.message}`);
+  }
   const payload = {
     organization_id: store.organization_id,
     store_id: store.id,
