@@ -152,9 +152,9 @@ export async function parseImportFile(fileName: string, buffer: ArrayBuffer): Pr
   if (buffer.byteLength === 0) throw new Error("空ファイルは取り込めません。");
   if (buffer.byteLength > MAX_IMPORT_FILE_SIZE) throw new Error("ファイルは4MB以下にしてください。");
   if (lowerName.endsWith(".pdf")) return parsePdf(buffer);
-  if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+  if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls") || lowerName.endsWith(".xlsm")) {
     const XLSX = await import("xlsx");
-    const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
+    const workbook = XLSX.read(buffer, { type: "array", cellDates: false, cellFormula: false, bookVBA: false });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const matrix = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false, defval: "" });
@@ -170,7 +170,7 @@ export async function parseImportFile(fileName: string, buffer: ArrayBuffer): Pr
     };
   }
 
-  if (!lowerName.endsWith(".csv") && !lowerName.endsWith(".tsv")) throw new Error("CSV、TSV、Excel、PDFのいずれかを選択してください。");
+  if (!lowerName.endsWith(".csv") && !lowerName.endsWith(".tsv")) throw new Error("CSV、TSV、Excel、PDF（ExcelはXLSX・XLS・XLSM）のいずれかを選択してください。");
 
   const decoded = decodeCsv(buffer);
   const delimiter = detectDelimiter(decoded.text);

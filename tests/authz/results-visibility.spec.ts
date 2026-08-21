@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Browser, type BrowserContext } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -45,6 +46,7 @@ const storeB = randomUUID();
 const storeArchivedOrg = randomUUID();
 const personas = {} as Record<PersonaName, Persona>;
 let seedKeywordId = "";
+let seedUnifiedImportJobId = "";
 
 function jwtClient(accessToken: string): SupabaseClient {
   return createClient(supabaseUrl!, anonKey!, {
@@ -167,6 +169,20 @@ test.beforeAll(async () => {
   if (keyword.error || !keyword.data) throw new Error("fixture results作成失敗");
   seedKeywordId = keyword.data.id;
 
+  const unifiedImport = await admin.from("unified_import_jobs").insert({
+    organization_id: orgA,
+    store_id: storeA,
+    original_filename: `authz-${runId}.csv`,
+    storage_bucket: "import-files",
+    storage_path: `authz/${runId}.csv`,
+    file_sha256: `authz-${runId}`,
+    file_type: "csv",
+    status: "review_required",
+    created_by: personas.owner.id
+  }).select("id").single();
+  if (unifiedImport.error || !unifiedImport.data) throw new Error("fixture unified import作成失敗");
+  seedUnifiedImportJobId = unifiedImport.data.id;
+
   for (const name of Object.keys(personas) as PersonaName[]) await signIn(name);
 });
 
@@ -179,6 +195,8 @@ test.afterAll(async () => {
 test("URL直接入力: 未認証・未所属・他組織・停止状態を拒否する", async ({ browser, page }) => {
   await page.goto(`${baseUrl}/stores/${storeA}/results`);
   await expect(page).toHaveURL(/\/login/);
+  await page.goto(`${baseUrl}/stores/${storeA}/data-imports/ai`);
+  await expect(page).toHaveURL(/\/login/);
 
   for (const name of [
     "noMembershipPending", "noMembershipApprovedUnpaid", "noMembershipIssued", "pendingMember", "archivedMember",
@@ -189,6 +207,8 @@ test("URL直接入力: 未認証・未所属・他組織・停止状態を拒否
     await deniedPage.goto(`${baseUrl}/stores/${storeA}/results`);
     await expect(deniedPage.getByRole("heading", { name: "成果を見る" }), `${name}へ成果本文を返さない`).toHaveCount(0);
     await expect(deniedPage.getByText("ページが見つかりません").or(deniedPage.getByRole("heading", { name: "ログイン" }))).toBeVisible();
+    await deniedPage.goto(`${baseUrl}/stores/${storeA}/data-imports/ai`);
+    await expect(deniedPage.getByRole("heading", { name: "AIデータ取込" }), `${name}へ取込画面を返さない`).toHaveCount(0);
     await context.close();
   }
 
@@ -242,6 +262,71 @@ test("Server Action: viewer・未所属・他組織・停止アカウントの�
   expect(after.count).toBe(before.count);
 });
 
+test("AI共通取込のServer Action: viewer・未所属・他組織・停止アカウントの直接送信を拒否する", async ({ browser }) => {
+  const before = await admin.from("unified_import_jobs").select("id", { count: "exact", head: true }).eq("store_id", storeA);
+  for (const name of ["viewer", "noMembershipIssued", "otherOwner", "suspendedProfile"] as PersonaName[]) {
+    const context = await browserSession(browser, "owner");
+    const page = await context.newPage();
+    await page.goto(`${baseUrl}/stores/${storeA}/data-imports/ai`);
+    const switched = await context.request.post(`${baseUrl}/api/auth/session`, {
+      data: { access_token: personas[name].accessToken, expires_in: 3600 }
+    });
+    expect(switched.status(), `${name}へセッション差替え`).toBe(200);
+    await page.getByLabel("CSV・Excel・PDFファイル").setInputFiles({
+      name: `denied-${name}.csv`,
+      mimeType: "text/csv",
+      buffer: Buffer.from("売上日,商品名,合計\n2026-08-22,拒否テスト,1000")
+    });
+    await page.getByRole("button", { name: "アップロードしてAI解析" }).click();
+    await page.waitForURL(/error=/);
+    await expect(page.getByText("取り込みを確定", { exact: false }), `${name}へ成功画面を返さない`).toHaveCount(0);
+    await context.close();
+  }
+  const after = await admin.from("unified_import_jobs").select("id", { count: "exact", head: true }).eq("store_id", storeA);
+  expect(after.count).toBe(before.count);
+});
+
+test("AI共通取込の正常系: XLSM複数シートを質問確認後に各DBへ振り分ける", async ({ browser }) => {
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["商品名", "商品コード", "販売価格", "在庫管理"],
+    [`AUTHZ オイル ${runId}`, `OIL-${runId}`, 3000, "あり"]
+  ]), "商品");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["商品名", "商品コード", "棚卸数"],
+    [`AUTHZ オイル ${runId}`, `OIL-${runId}`, 8]
+  ]), "在庫");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["売上日", "商品名", "商品コード", "数量", "合計"],
+    ["2026-08-22", `AUTHZ オイル ${runId}`, `OIL-${runId}`, 1, 3000]
+  ]), "売上");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["支払日", "支払先", "勘定科目", "支払額"],
+    ["2026-08-22", `AUTHZ 仕入先 ${runId}`, "消耗品費", 1000]
+  ]), "経費");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ["名前", "電話番号", "メール", "備考"],
+    [`AUTHZ 顧客 ${runId}`, `090${runId.padEnd(8, "0")}`.slice(0, 11), `customer-${runId}@example.com`, "統合テスト"]
+  ]), "顧客");
+  const fileBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsm" });
+
+  const context = await browserSession(browser, "owner");
+  const page = await context.newPage();
+  await page.goto(`${baseUrl}/stores/${storeA}/data-imports/ai`);
+  await page.getByLabel("CSV・Excel・PDFファイル").setInputFiles({ name: `workflow-${runId}.xlsm`, mimeType: "application/vnd.ms-excel.sheet.macroEnabled.12", buffer: fileBuffer });
+  await page.getByRole("button", { name: "アップロードしてAI解析" }).click();
+  await page.waitForURL(new RegExp(`/data-imports/ai/[0-9a-f-]+$`));
+  await expect(page.getByText("マクロ付きExcelです", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "回答と分類を保存" }).click();
+  await page.waitForURL(/reviewed=1/);
+  await expect(page.getByRole("button", { name: "確認した内容で取り込みを確定" })).toBeVisible();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "確認した内容で取り込みを確定" }).click();
+  await page.waitForURL(/completed=1/);
+  await expect(page.getByText("取り込みが完了しました。成功5件、失敗0件です。")).toBeVisible();
+  await context.close();
+});
+
 test("DB REST/RPC: viewer・未所属・他組織を拒否し、editorだけ自組織へ書ける", async () => {
   const anonymous = createClient(supabaseUrl!, anonKey!, { auth: { autoRefreshToken: false, persistSession: false } });
   const viewer = jwtClient(personas.viewer.accessToken!);
@@ -273,6 +358,13 @@ test("DB REST/RPC: viewer・未所属・他組織を拒否し、editorだけ自�
   expect(otherRead.error).toBeNull();
   expect(otherRead.data).toHaveLength(0);
 
+  const viewerImportRead = await viewer.from("unified_import_jobs").select("id").eq("id", seedUnifiedImportJobId);
+  expect(viewerImportRead.error).toBeNull();
+  expect(viewerImportRead.data).toHaveLength(1);
+  const outsiderImportRead = await outsider.from("unified_import_jobs").select("id").eq("id", seedUnifiedImportJobId);
+  expect(outsiderImportRead.error).toBeNull();
+  expect(outsiderImportRead.data).toHaveLength(0);
+
   for (const [name, client] of blocked) {
     const read = await client.from("search_visibility_keywords").select("id").eq("id", seedKeywordId);
     expect(read.error, `${name} DB read`).toBeNull();
@@ -290,7 +382,37 @@ test("DB REST/RPC: viewer・未所属・他組織を拒否し、editorだけ自�
       keyword: `${name} denied ${runId}`
     });
     expect(result.error, `${name} DB write`).not.toBeNull();
+    const importResult = await client.from("unified_import_jobs").insert({
+      organization_id: orgA,
+      store_id: storeA,
+      original_filename: `${name}-${runId}.csv`,
+      storage_path: `authz/${name}-${runId}.csv`,
+      file_sha256: `${name}-${runId}`,
+      file_type: "csv"
+    });
+    expect(importResult.error, `${name} unified import DB write`).not.toBeNull();
   }
+
+  const spoofedImport = await owner.from("unified_import_jobs").insert({
+    organization_id: orgA,
+    store_id: storeB,
+    original_filename: `spoofed-${runId}.csv`,
+    storage_path: `authz/spoofed-${runId}.csv`,
+    file_sha256: `spoofed-${runId}`,
+    file_type: "csv"
+  });
+  expect(spoofedImport.error, "unified importの組織・店舗親子不一致").not.toBeNull();
+
+  const spoofedImportRow = await owner.from("unified_import_rows").insert({
+    import_job_id: seedUnifiedImportJobId,
+    organization_id: orgA,
+    store_id: storeB,
+    sheet_name: "不正",
+    row_number: 1,
+    raw_data: {},
+    suggested_record_type: "sale"
+  });
+  expect(spoofedImportRow.error, "unified import行の親ジョブ・店舗不一致").not.toBeNull();
 
   const ownerInsert = await owner.from("search_visibility_keywords").insert({
     organization_id: orgA,

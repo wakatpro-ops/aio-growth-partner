@@ -51,7 +51,6 @@ alter table public.growth_actions add column if not exists archived_by uuid refe
 
 alter table public.expense_receipts add column if not exists archived_at timestamptz;
 alter table public.expense_receipts add column if not exists archived_by uuid references auth.users(id) on delete set null;
-
 create index if not exists stores_active_idx on public.stores(organization_id, created_at desc) where archived_at is null;
 create index if not exists items_active_idx on public.items(store_id, created_at desc) where archived_at is null;
 create index if not exists customers_active_idx on public.customers(store_id, created_at desc) where archived_at is null;

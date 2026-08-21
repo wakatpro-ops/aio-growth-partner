@@ -1,4 +1,4 @@
-const allowedImportExtensions = new Set(["csv", "tsv", "xlsx", "xls", "pdf"]);
+const allowedImportExtensions = new Set(["csv", "tsv", "xlsx", "xls", "xlsm", "pdf"]);
 
 function importExtension(fileName: string) {
   const extension = fileName.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/gu, "") ?? "";

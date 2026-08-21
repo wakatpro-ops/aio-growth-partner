@@ -16,6 +16,7 @@ export type StoreArchiveEntity =
   | "invoice"
   | "order"
   | "data_import"
+  | "unified_import"
   | "marketing_draft"
   | "ai_recommendation"
   | "sales_ai_report"
@@ -40,6 +41,7 @@ const entityConfigs: Record<StoreArchiveEntity, EntityConfig> = {
   invoice: { table: "invoices", label: "請求書", select: "document_number, title", describe: (row) => [row.document_number, row.title].filter(Boolean).join(" / ") },
   order: { table: "orders", label: "受注", select: "order_number, title", describe: (row) => [row.order_number, row.title].filter(Boolean).join(" / ") },
   data_import: { table: "data_import_jobs", label: "売上データ取込", select: "original_filename, status", describe: (row) => String(row.original_filename ?? "ファイル名なし") },
+  unified_import: { table: "unified_import_jobs", label: "AI共通データ取込", select: "original_filename, status", describe: (row) => String(row.original_filename ?? "ファイル名なし") },
   marketing_draft: { table: "marketing_drafts", label: "集客下書き", select: "title, channel", describe: (row) => String(row.title ?? "タイトル未設定") },
   ai_recommendation: { table: "ai_recommendations", label: "AI改善提案", select: "title, month", describe: (row) => [row.month, row.title].filter(Boolean).join(" / ") },
   sales_ai_report: { table: "sales_ai_reports", label: "AI月次売上レポート", select: "title, target_month", describe: (row) => [row.target_month, row.title].filter(Boolean).join(" / ") },

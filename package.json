@@ -16,6 +16,8 @@
     "check:customer-crm": "node scripts/check-customer-crm.mjs",
     "check:inventory-sales": "node scripts/check-inventory-sales-sync.mjs",
     "test:sales-import-parser": "node --experimental-strip-types scripts/test-sales-import-parser.mjs",
+    "test:unified-import": "node --experimental-strip-types scripts/test-unified-import.mjs",
+    "check:unified-import": "node scripts/check-unified-import.mjs",
     "check:ocr-freee": "node scripts/check-ocr-freee-workflow.mjs",
     "test:receipt-review": "node --experimental-strip-types scripts/test-receipt-review.mjs",
     "check:stripe-payments": "node scripts/check-stripe-checkout-receipts.mjs",
