@@ -31,7 +31,10 @@
     "check:ux": "node scripts/check-store-ux.mjs",
     "test:url-onboarding": "node --experimental-strip-types scripts/test-url-first-onboarding.mjs",
     "check:url-onboarding": "node scripts/check-url-first-onboarding.mjs",
-    "test:e2e:url-onboarding": "playwright test --config=playwright.url-onboarding.config.ts"
+    "test:e2e:url-onboarding": "playwright test --config=playwright.url-onboarding.config.ts",
+    "test:initial-setup": "node --experimental-strip-types --test scripts/test-initial-setup.mjs",
+    "check:initial-setup": "node scripts/check-initial-setup.mjs",
+    "test:staging:initial-setup": "node scripts/test-staging-initial-setup.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

@@ -18,6 +18,10 @@ export type OnboardingSnapshot = {
   title: string;
   content: Record<string, unknown>;
   status: string;
+  confirmation_status?: "pending" | "applying" | "completed";
+  confirmation_payload?: Record<string, unknown>;
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
   created_at: string;
   updated_at: string;
 };

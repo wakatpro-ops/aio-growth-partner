@@ -33,6 +33,7 @@ export async function POST(request: Request) {
   }
 
   const admin = createSupabaseAdminClient();
+  let nextPath = "/dashboard";
   if (admin) {
     await admin
       .from("applications")
@@ -50,9 +51,21 @@ export async function POST(request: Request) {
       accepted_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     }).eq("user_id", data.user.id).eq("status", "active").is("archived_at", null);
+
+    const { data: onboardingApplication } = await admin.from("applications")
+      .select("store_id, onboarding_status")
+      .eq("invited_user_id", data.user.id)
+      .not("store_id", "is", null)
+      .neq("onboarding_status", "completed")
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (onboardingApplication?.store_id) {
+      nextPath = `/onboarding/setup-review?storeId=${encodeURIComponent(String(onboardingApplication.store_id))}`;
+    }
   }
 
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true, next_path: nextPath });
   response.cookies.set(authAccessTokenCookie, accessToken, {
     httpOnly: true,
     maxAge: Math.max(60, Math.min(expiresIn, 60 * 60 * 24)),

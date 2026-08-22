@@ -365,8 +365,14 @@ create table if not exists public.onboarding_snapshots (
   unique (store_id, snapshot_type)
 );
 
+alter table public.onboarding_snapshots add column if not exists confirmation_status text not null default 'pending';
+alter table public.onboarding_snapshots add column if not exists confirmation_payload jsonb not null default '{}'::jsonb;
+alter table public.onboarding_snapshots add column if not exists confirmed_at timestamptz;
+alter table public.onboarding_snapshots add column if not exists confirmed_by uuid references auth.users(id) on delete set null;
+
 create index if not exists onboarding_snapshots_store_idx on public.onboarding_snapshots(store_id);
 create index if not exists onboarding_snapshots_application_idx on public.onboarding_snapshots(application_id);
+create index if not exists onboarding_snapshots_confirmation_idx on public.onboarding_snapshots(store_id, confirmation_status, updated_at desc);
 create index if not exists application_activity_logs_application_idx on public.application_activity_logs(application_id, created_at desc);
 
 create table if not exists public.ai_generation_logs (
@@ -1188,6 +1194,9 @@ create table if not exists public.items (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.items add column if not exists onboarding_source_key text;
+create unique index if not exists items_store_onboarding_source_uidx on public.items(store_id, onboarding_source_key);
 
 alter table public.demand_alerts
 add column if not exists item_id uuid references public.items(id) on delete set null;

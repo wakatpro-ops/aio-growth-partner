@@ -27,7 +27,7 @@ export default async function AioImprovementPage({
   searchParams
 }: {
   params: Promise<{ storeId: string }>;
-  searchParams: Promise<{ error?: string; goalSaved?: string; rediagnosed?: string; archived?: string }>;
+  searchParams: Promise<{ error?: string; goalSaved?: string; rediagnosed?: string; archived?: string; setup?: string }>;
 }) {
   const { storeId } = await params;
   const query = await searchParams;
@@ -50,6 +50,7 @@ export default async function AioImprovementPage({
       {query.goalSaved ? <p className="notice success">目指す質問を保存しました。次の改善提案に反映されます。</p> : null}
       {query.rediagnosed ? <p className="notice success">現在の情報で再診断し、履歴を保存しました。</p> : null}
       {query.archived ? <p className="notice success">改善項目を削除しました。削除済みデータから元に戻せます。</p> : null}
+      {query.setup === "completed" ? <p className="notice success">初期設定を反映しました。店舗情報、請求書設定、選択したメニューを利用できます。まず最初のAIO改善を1件だけ進めましょう。</p> : null}
 
       <section className="aio-cycle-hero">
         <article>

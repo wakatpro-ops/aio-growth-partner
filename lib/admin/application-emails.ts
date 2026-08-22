@@ -271,7 +271,7 @@ export async function sendApplicationReceivedEmails(application: SalesApplicatio
 }
 
 export function applicationInviteEmail(application: SalesApplication, passwordSetupUrl: string) {
-  const onboardingUrl = appUrl(application.store_id ? `/onboarding?storeId=${application.store_id}` : "/onboarding");
+  const onboardingUrl = appUrl(application.store_id ? `/onboarding/setup-review?storeId=${application.store_id}` : "/onboarding");
 
   return {
     subject: "AIO boost 利用開始のご案内",
@@ -307,7 +307,7 @@ export async function sendApplicationInviteEmail(applicationId: string, applicat
 
 export function applicationGuideEmail(application: SalesApplication, templateKey: string) {
   const loginUrl = appUrl("/login");
-  const onboardingUrl = appUrl(application.store_id ? `/onboarding?storeId=${application.store_id}` : "/onboarding");
+  const onboardingUrl = appUrl(application.store_id ? `/onboarding/setup-review?storeId=${application.store_id}` : "/onboarding");
   const storeUrl = application.store_id ? appUrl(`/stores/${application.store_id}`) : onboardingUrl;
 
   const templates: Record<string, { subject: string; text: string }> = {
