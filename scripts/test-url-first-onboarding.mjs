@@ -8,6 +8,9 @@ import {
 } from "../lib/applications/url-safety.ts";
 import { buildRuleBasedDiagnosis, extractStoreProfile, htmlToVisibleText } from "../lib/applications/page-extraction.ts";
 import { createPublicAnalysisToken, hashPublicAnalysisToken } from "../lib/applications/public-analysis-token.ts";
+import { createVerificationCode, normalizeVerificationEmail, verificationCodeHash, verificationCodeMatches, verificationEmailHash } from "../lib/applications/contact-verification.ts";
+import { approvedAnalysisDetail, publicAnalysisPreview } from "../lib/applications/analysis-presentation.ts";
+import { createOperatorReviewToken, verifyOperatorReviewToken } from "../lib/applications/operator-review-token.ts";
 
 const publicLookup = async () => [{ address: "93.184.216.34", family: 4 }];
 
@@ -85,5 +88,28 @@ const token = createPublicAnalysisToken();
 assert.ok(token.length >= 40);
 assert.equal(hashPublicAnalysisToken(token).length, 64);
 assert.notEqual(hashPublicAnalysisToken(token), token);
+
+const code = createVerificationCode();
+assert.match(code, /^\d{6}$/u);
+assert.equal(normalizeVerificationEmail(" Owner@Example.COM "), "owner@example.com");
+assert.equal(verificationEmailHash("Owner@example.com"), verificationEmailHash("owner@EXAMPLE.com"));
+const codeHash = verificationCodeHash(token, "owner@example.com", code);
+assert.equal(verificationCodeMatches(codeHash, verificationCodeHash(token, "owner@example.com", code)), true);
+assert.equal(verificationCodeMatches(codeHash, verificationCodeHash(token, "owner@example.com", code === "000000" ? "111111" : "000000")), false);
+assert.equal(verificationCodeMatches(codeHash, verificationCodeHash(`${token}x`, "owner@example.com", code)), false, "a code must not work with another analysis token");
+
+const preview = publicAnalysisPreview({ profile, diagnosis });
+assert.equal(preview.profile.store_name, profile.store_name);
+assert.equal("target_questions" in preview.diagnosis, false, "target questions must not be exposed before operator approval");
+assert.equal("address" in preview.profile, false, "extracted profile details must not be exposed before operator approval");
+const detail = approvedAnalysisDetail({ profile, diagnosis, sourceUrl: "https://example.com", finalUrl: "https://example.com", status: "converted", aiStatus: "success" });
+assert.equal(detail.diagnosis.target_questions.length, 3);
+assert.match(detail.profile.address, /東京都/u);
+
+process.env.CRON_SECRET = "unit-test-secret-that-is-not-used-outside-tests";
+const reviewToken = createOperatorReviewToken("00000000-0000-4000-8000-000000000001", 1_000_000);
+assert.equal(verifyOperatorReviewToken(reviewToken, 1_001_000)?.applicationId, "00000000-0000-4000-8000-000000000001");
+assert.equal(verifyOperatorReviewToken(`${reviewToken}x`, 1_001_000), null, "tampered review tokens must be rejected");
+assert.equal(verifyOperatorReviewToken(reviewToken, 1_000_000 + 8 * 24 * 60 * 60 * 1_000), null, "expired review tokens must be rejected");
 
 console.log("URL-first onboarding safety, extraction, diagnosis, and token tests passed.");

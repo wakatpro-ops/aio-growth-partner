@@ -288,11 +288,31 @@ alter table public.applications add column if not exists source_analysis_id uuid
 alter table public.applications add column if not exists intake_answers jsonb not null default '{}'::jsonb;
 alter table public.applications add column if not exists ai_target_questions jsonb not null default '[]'::jsonb;
 alter table public.applications add column if not exists ai_dashboard_plan jsonb not null default '{}'::jsonb;
+alter table public.applications add column if not exists applicant_company_name text;
+alter table public.applications add column if not exists applicant_store_relationship text;
+alter table public.applications add column if not exists applicant_authority_confirmed_at timestamptz;
+alter table public.applications add column if not exists intake_review_status text not null default 'not_required';
+alter table public.applications add column if not exists intake_reviewed_at timestamptz;
+alter table public.applications add column if not exists intake_reviewed_by uuid references auth.users(id) on delete set null;
+alter table public.applications add column if not exists intake_review_note text;
+
+alter table public.public_store_analyses add column if not exists verification_name text;
+alter table public.public_store_analyses add column if not exists verification_email text;
+alter table public.public_store_analyses add column if not exists verification_email_hash text;
+alter table public.public_store_analyses add column if not exists verification_code_hash text;
+alter table public.public_store_analyses add column if not exists verification_code_expires_at timestamptz;
+alter table public.public_store_analyses add column if not exists verification_attempts integer not null default 0;
+alter table public.public_store_analyses add column if not exists verification_sent_at timestamptz;
+alter table public.public_store_analyses add column if not exists verification_send_count integer not null default 0;
+alter table public.public_store_analyses add column if not exists verification_window_started_at timestamptz;
+alter table public.public_store_analyses add column if not exists verified_at timestamptz;
 
 create unique index if not exists applications_source_analysis_uidx on public.applications(source_analysis_id) where source_analysis_id is not null;
 create index if not exists public_store_analyses_created_idx on public.public_store_analyses(created_at desc);
 create index if not exists public_store_analyses_rate_limit_idx on public.public_store_analyses(rate_limit_key, created_at desc) where rate_limit_key is not null;
 create index if not exists public_store_analyses_expiry_idx on public.public_store_analyses(expires_at) where converted_application_id is null;
+create index if not exists public_store_analyses_verification_email_idx on public.public_store_analyses(verification_email_hash, verification_sent_at desc) where verification_email_hash is not null;
+create index if not exists applications_intake_review_idx on public.applications(intake_review_status, created_at desc) where intake_review_status <> 'not_required';
 
 alter table public.public_store_analyses enable row level security;
 revoke all on table public.public_store_analyses from anon, authenticated;

@@ -2476,6 +2476,25 @@ p {
   scroll-margin-top: 24px;
 }
 
+.consent-row {
+  align-items: flex-start;
+  background: #f5f8f6;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  line-height: 1.7;
+  padding: 16px;
+}
+
+.consent-row input {
+  flex: 0 0 auto;
+  height: 20px;
+  margin-top: 3px;
+  width: 20px;
+}
+
 @media (max-width: 760px) {
   .analysis-hero {
     grid-template-columns: 1fr;

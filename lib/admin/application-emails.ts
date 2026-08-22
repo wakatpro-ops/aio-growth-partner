@@ -32,6 +32,9 @@ export const applicationEmailTemplateLabels: Record<string, string> = {
   applicant_auto_reply: "申込者自動返信",
   admin_new_application: "管理者通知",
   account_invite: "初回パスワード設定案内",
+  intake_review_approved: "事前審査承認・詳細診断案内",
+  intake_review_changes_requested: "事前審査・追加確認案内",
+  intake_review_rejected: "事前審査結果案内",
   demo_invitation: "オンライン説明案内",
   invoice_issued: "請求書発行案内",
   payment_approved: "入金確認・承認完了案内",
@@ -49,7 +52,10 @@ export type ApplicationEmailTemplateKey =
   | typeof applicationEmailTemplates[number][0]
   | "application_received"
   | "admin_new_application"
-  | "account_invite";
+  | "account_invite"
+  | "intake_review_approved"
+  | "intake_review_changes_requested"
+  | "intake_review_rejected";
 
 function formatDateTime(value: string | null | undefined) {
   const date = value ? new Date(value) : new Date();
@@ -136,6 +142,22 @@ async function sendAndLog(applicationId: string, input: {
 }
 
 export function applicantAutoReply(application: SalesApplication) {
+  if (application.intake_review_status === "pending") {
+    return {
+      subject: "AIO boost 詳細診断のお申し込みを受け付けました",
+      text: [
+        `${application.contact_name} 様`, "", "AIO boostへお申し込みいただき、ありがとうございます。",
+        "メールアドレスの確認と正式申込を受け付けました。", "",
+        `店舗名: ${application.store_name}`, `受付日時: ${formatDateTime(application.created_at)}`, "",
+        "現在、株式会社 Navi Lifeが対象店舗との関係と申込内容を確認しています。",
+        "通常2営業日以内を目安に、確認済みメールアドレスへ結果をご案内します。",
+        "承認後、専用リンクから想定質問・診断根拠・抽出店舗情報を含む詳細診断をご覧いただけます。", "",
+        "メール確認は店舗所有権の証明ではなく、確認のため追加資料をお願いする場合があります。",
+        "この時点で契約成立、請求、外部投稿、アカウント発行は行われません。", "",
+        "AIO boost"
+      ].join("\n")
+    };
+  }
   return {
     subject: "AIO boostへのお申し込みを受け付けました",
     text: [
@@ -158,6 +180,41 @@ export function applicantAutoReply(application: SalesApplication) {
   };
 }
 
+export async function sendIntakeReviewOutcomeEmail(
+  application: SalesApplication,
+  status: "approved" | "changes_requested" | "rejected",
+  note: string,
+  detailUrl?: string
+) {
+  const content = status === "approved"
+    ? {
+      subject: "AIO boost 詳細診断をご確認いただけます",
+      templateKey: "intake_review_approved" as const,
+      lines: [
+        "株式会社 Navi Lifeによる申込内容の事前確認が完了しました。",
+        "以下の専用リンクから、想定質問・診断根拠・店舗情報を含む詳細診断をご確認ください。",
+        "", detailUrl ?? "", "", "リンクの有効期限は7日間です。第三者へ転送しないでください。"
+      ]
+    }
+    : status === "changes_requested"
+      ? {
+        subject: "AIO boost お申し込み内容の追加確認について",
+        templateKey: "intake_review_changes_requested" as const,
+        lines: ["申込内容について、株式会社 Navi Lifeから追加確認があります。", "", note || "詳細はこのメールへの返信でご確認ください。"]
+      }
+      : {
+        subject: "AIO boost 詳細診断のお申し込みについて",
+        templateKey: "intake_review_rejected" as const,
+        lines: ["申込内容を確認しましたが、今回は詳細診断を開放できませんでした。", "", note || "ご不明点はこのメールへの返信でお問い合わせください。"]
+      };
+  return sendAndLog(application.id, {
+    to: application.email,
+    subject: content.subject,
+    templateKey: content.templateKey,
+    text: [`${application.contact_name} 様`, "", ...content.lines, "", "この確認は契約成立や利用開始の承認とは異なります。", "", "AIO boost"].join("\n")
+  });
+}
+
 export function adminNewApplicationNotice(application: SalesApplication) {
   return {
     subject: "【AIO】新しい導入申し込みが届きました",
@@ -168,6 +225,12 @@ export function adminNewApplicationNotice(application: SalesApplication) {
       `担当者名: ${application.contact_name}`,
       `メール: ${application.email}`,
       `電話番号: ${application.phone ?? "-"}`,
+      ...(application.intake_review_status === "pending" ? [
+        `会社名: ${application.applicant_company_name ?? "-"}`,
+        `店舗との関係: ${application.applicant_store_relationship ?? "-"}`,
+        `管理権限同意: ${application.applicant_authority_confirmed_at ? "確認済み" : "未確認"}`,
+        "事前審査: 株式会社 Navi Lifeの確認待ち"
+      ] : []),
       `業態: ${application.industry_label ?? application.industry_type_key ?? "-"}`,
       `店舗数: ${application.store_count}`,
       "",

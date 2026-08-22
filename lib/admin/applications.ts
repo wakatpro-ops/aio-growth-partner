@@ -6,6 +6,8 @@ import { getIndustryConfig } from "@/config/industries";
 import { normalizeIndustryTypeKey } from "@/lib/applications/options";
 import { requirePlatformAdmin } from "@/lib/auth/server";
 import { sendApplicationInviteEmail } from "@/lib/admin/application-emails";
+import { sendIntakeReviewOutcomeEmail } from "@/lib/admin/application-emails";
+import { createOperatorReviewToken } from "@/lib/applications/operator-review-token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey } from "@/types/domain";
 import type { ApplicationEmailLog } from "@/lib/admin/application-emails";
@@ -46,6 +48,22 @@ export const approvalStatusLabels: Record<string, string> = {
   rejected: "見送り"
 };
 
+export const intakeReviewStatusLabels: Record<string, string> = {
+  not_required: "対象外",
+  pending: "確認待ち",
+  approved: "承認済み",
+  changes_requested: "追加確認",
+  rejected: "見送り"
+};
+
+export const applicantStoreRelationshipLabels: Record<string, string> = {
+  owner: "店舗オーナー",
+  employee: "店舗スタッフ・従業員",
+  operator: "店舗運営会社",
+  authorized_agent: "正規代理人",
+  other: "その他"
+};
+
 export const accountStatusLabels: Record<string, string> = {
   not_created: "未発行",
   preparing: "発行準備中",
@@ -84,6 +102,13 @@ export type SalesApplication = {
   intake_answers?: Record<string, unknown> | null;
   ai_target_questions?: string[] | null;
   ai_dashboard_plan?: Record<string, unknown> | null;
+  applicant_company_name?: string | null;
+  applicant_store_relationship?: string | null;
+  applicant_authority_confirmed_at?: string | null;
+  intake_review_status?: string | null;
+  intake_reviewed_at?: string | null;
+  intake_reviewed_by?: string | null;
+  intake_review_note?: string | null;
   admin_checklist?: Record<string, unknown> | null;
   status: string;
   sales_notes?: string | null;
@@ -427,6 +452,55 @@ export async function updateApplicationSalesAction(applicationId: string, formDa
   revalidatePath("/admin/applications");
   revalidatePath(`/admin/applications/${applicationId}`);
   redirect(`/admin/applications/${applicationId}?saved=1`);
+}
+
+export async function updateApplicationIntakeReviewAction(applicationId: string, formData: FormData) {
+  "use server";
+
+  const access = await requirePlatformAdmin();
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("Supabase環境変数が未設定です。")}`);
+  const nextStatus = String(formData.get("intake_review_status") ?? "pending");
+  if (!["pending", "approved", "changes_requested", "rejected"].includes(nextStatus)) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("事前審査の状態が不正です。")}`);
+  }
+  const note = text(formData.get("intake_review_note")) ?? "";
+  if (["changes_requested", "rejected"].includes(nextStatus) && !note) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("追加確認または見送りの場合は、申込者向けの理由を入力してください。")}`);
+  }
+  const { data: application, error: fetchError } = await supabase.from("applications").select("*").eq("id", applicationId).maybeSingle();
+  if (fetchError || !application || !application.source_analysis_id || application.intake_review_status === "not_required") {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("URL診断からの事前審査対象申込を確認できません。")}`);
+  }
+  const reviewedAt = new Date().toISOString();
+  const { error } = await supabase.from("applications").update({
+    intake_review_status: nextStatus,
+    intake_review_note: note || null,
+    intake_reviewed_at: nextStatus === "pending" ? null : reviewedAt,
+    intake_reviewed_by: nextStatus === "pending" ? null : access.userId,
+    updated_at: reviewedAt
+  }).eq("id", applicationId);
+  if (error) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(error.message)}`);
+
+  let detailUrl: string | undefined;
+  if (nextStatus === "approved") {
+    const token = createOperatorReviewToken(applicationId);
+    detailUrl = `${productionAppUrl.replace(/\/$/u, "")}/apply/result?token=${encodeURIComponent(token)}`;
+  }
+  const emailResult = nextStatus === "pending"
+    ? null
+    : await sendIntakeReviewOutcomeEmail(application as SalesApplication, nextStatus as "approved" | "changes_requested" | "rejected", note, detailUrl);
+  await insertApplicationLog(
+    applicationId,
+    "intake_review_updated",
+    `事前審査を「${intakeReviewStatusLabels[nextStatus]}」へ更新しました。`,
+    application.intake_review_status,
+    nextStatus,
+    { email_status: emailResult?.status ?? "not_sent" }
+  );
+  revalidatePath("/admin/applications");
+  revalidatePath(`/admin/applications/${applicationId}`);
+  redirect(`/admin/applications/${applicationId}?reviewed=1&email=${emailResult ? (emailResult.ok ? "sent" : "failed") : "not_sent"}`);
 }
 
 export async function prepareApplicationAccountAction(applicationId: string) {

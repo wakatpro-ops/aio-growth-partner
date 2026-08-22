@@ -9,6 +9,7 @@ import {
   approvalStatusLabels,
   billingStatusLabels,
   listApplications,
+  intakeReviewStatusLabels,
   paymentStatusLabels,
   restoreApplicationAction
 } from "@/lib/admin/applications";
@@ -51,6 +52,7 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
               <th>店舗</th>
               <th>担当者</th>
               <th>営業ステータス</th>
+              <th>詳細診断審査</th>
               <th>請求</th>
               <th>入金</th>
               <th>承認</th>
@@ -71,6 +73,7 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
                   <p className="muted">{application.email}</p>
                 </td>
                 <td><span className="badge">{applicationStatusLabel[application.status] ?? application.status}</span></td>
+                <td>{application.source_analysis_id ? <span className="badge">{intakeReviewStatusLabels[application.intake_review_status ?? "pending"] ?? application.intake_review_status}</span> : "-"}</td>
                 <td>{billingStatusLabels[application.billing_status ?? "not_issued"] ?? application.billing_status ?? "未発行"}</td>
                 <td>{paymentStatusLabels[application.payment_status ?? "unpaid"] ?? application.payment_status ?? "未入金"}</td>
                 <td>{approvalStatusLabels[application.approval_status ?? "pending"] ?? application.approval_status ?? "未承認"}</td>

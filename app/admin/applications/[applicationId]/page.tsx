@@ -13,14 +13,17 @@ import {
 } from "@/lib/admin/application-emails";
 import {
   accountStatusLabels,
+  applicantStoreRelationshipLabels,
   applicationStatuses,
   applicationStatusLabel,
   approvalStatusLabels,
   billingStatusLabels,
   getApplication,
+  intakeReviewStatusLabels,
   loginGuideTemplate,
   paymentStatusLabels,
   prepareApplicationAccountAction,
+  updateApplicationIntakeReviewAction,
   updateApplicationSalesAction
 } from "@/lib/admin/applications";
 
@@ -134,7 +137,7 @@ export default async function AdminApplicationDetailPage({
   searchParams
 }: {
   params: Promise<{ applicationId: string }>;
-  searchParams: Promise<{ saved?: string; prepared?: string; email?: string; error?: string }>;
+  searchParams: Promise<{ saved?: string; prepared?: string; reviewed?: string; email?: string; error?: string }>;
 }) {
   const { applicationId } = await params;
   const query = await searchParams;
@@ -162,6 +165,7 @@ export default async function AdminApplicationDetailPage({
       />
       {query.saved ? <p className="notice success">申込情報を保存しました。</p> : null}
       {query.prepared ? <p className="notice success">招待リンクを発行し、利用開始メールを送信しました。</p> : null}
+      {query.reviewed ? <p className="notice success">詳細診断の事前審査を更新しました。</p> : null}
       {query.email === "sent" ? <p className="notice success">案内メールを送信しました。</p> : null}
       {query.email === "failed" ? <p className="notice danger">メール送信に失敗しました。送信履歴で詳細を確認してください。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
@@ -182,6 +186,9 @@ export default async function AdminApplicationDetailPage({
               <tr><th>担当者</th><td>{displayValue(application.contact_name)}</td></tr>
               <tr><th>メール</th><td>{displayValue(application.email)}</td></tr>
               <tr><th>電話</th><td>{displayValue(application.phone)}</td></tr>
+              {application.source_analysis_id ? <tr><th>会社名</th><td>{displayValue(application.applicant_company_name)}</td></tr> : null}
+              {application.source_analysis_id ? <tr><th>店舗との関係</th><td>{applicantStoreRelationshipLabels[application.applicant_store_relationship ?? ""] ?? displayValue(application.applicant_store_relationship)}</td></tr> : null}
+              {application.source_analysis_id ? <tr><th>管理権限への同意</th><td>{application.applicant_authority_confirmed_at ? `同意済み（${formatDateTime(application.applicant_authority_confirmed_at)}）` : "未確認"}</td></tr> : null}
               <tr><th>業態</th><td>{displayValue(enrichment.industryLabel || application.industry_type_key, "general_store")}</td></tr>
               <tr><th>店舗数</th><td>{displayValue(application.store_count)}</td></tr>
               <tr><th>課題</th><td>{displayValue(application.pain_points)}</td></tr>
@@ -229,6 +236,35 @@ export default async function AdminApplicationDetailPage({
           {!canPrepareAccount ? <p className="muted">入金確認済みにしてから実行してください。</p> : null}
         </article>
       </section>
+
+      {application.source_analysis_id ? (
+        <section className="card">
+          <p className="eyebrow">詳細診断を開放する前の確認</p>
+          <h2>株式会社 Navi Lifeによる事前審査</h2>
+          <p>店舗URL、申込者との関係、連絡先、管理権限の同意を確認してください。この承認は詳細診断の閲覧許可であり、契約・請求・アカウント発行の承認ではありません。</p>
+          <div className="notice">
+            現在の状態: <strong>{intakeReviewStatusLabels[application.intake_review_status ?? "pending"] ?? application.intake_review_status}</strong>
+            {application.intake_reviewed_at ? <span> / 確認日時: {formatDateTime(application.intake_reviewed_at)}</span> : null}
+          </div>
+          <form className="form" action={updateApplicationIntakeReviewAction.bind(null, application.id)}>
+            <div className="field">
+              <label htmlFor="intake_review_status">事前審査の状態</label>
+              <select id="intake_review_status" name="intake_review_status" defaultValue={application.intake_review_status ?? "pending"}>
+                <option value="pending">確認待ち</option>
+                <option value="approved">承認して詳細診断を案内</option>
+                <option value="changes_requested">追加確認を依頼</option>
+                <option value="rejected">見送り</option>
+              </select>
+            </div>
+            <div className="field">
+              <label htmlFor="intake_review_note">申込者への案内・確認事項</label>
+              <textarea id="intake_review_note" name="intake_review_note" defaultValue={application.intake_review_note ?? ""} placeholder="追加確認・見送りの場合は理由を入力してください。承認時は任意です。" />
+            </div>
+            <p className="muted">承認・追加確認・見送りを保存すると、確認済みメールアドレスへ結果を送信します。</p>
+            <PendingSubmitButton pendingLabel="事前審査を保存しています...">事前審査を保存してメール送信</PendingSubmitButton>
+          </form>
+        </section>
+      ) : null}
 
       <section className="grid cols-2">
         <article className="card">
