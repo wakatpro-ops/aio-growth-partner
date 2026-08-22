@@ -132,6 +132,17 @@ function applicationInviteInfo(application: NonNullable<Awaited<ReturnType<typeo
   };
 }
 
+function applicationOperatorReviewInfo(application: NonNullable<Awaited<ReturnType<typeof getApplication>>["application"]>) {
+  const checklist = recordFromUnknown(application.admin_checklist);
+  const review = recordFromUnknown(checklist.operator_review);
+  return {
+    url: typeof review.last_url === "string" ? review.last_url : "",
+    issuedAt: typeof review.issued_at === "string" ? review.issued_at : "",
+    sentTo: typeof review.sent_to === "string" ? review.sent_to : "",
+    status: typeof review.status === "string" ? review.status : ""
+  };
+}
+
 export default async function AdminApplicationDetailPage({
   params,
   searchParams
@@ -152,6 +163,7 @@ export default async function AdminApplicationDetailPage({
   const guide = loginGuideTemplate(application);
   const enrichment = applicationEnrichment(application);
   const inviteInfo = applicationInviteInfo(application);
+  const operatorReviewInfo = applicationOperatorReviewInfo(application);
   const reflectedStoreId = application.approved_store_id ?? application.store_id;
   const reflectedOrganizationId = application.approved_organization_id ?? application.organization_id;
   const recommendedEmails = recommendedApplicationEmailTemplates(application);
@@ -246,6 +258,20 @@ export default async function AdminApplicationDetailPage({
             現在の状態: <strong>{intakeReviewStatusLabels[application.intake_review_status ?? "pending"] ?? application.intake_review_status}</strong>
             {application.intake_reviewed_at ? <span> / 確認日時: {formatDateTime(application.intake_reviewed_at)}</span> : null}
           </div>
+          {operatorReviewInfo.url && application.intake_review_status === "approved" ? (
+            <div className="mini-card">
+              <h3>発行済み詳細診断リンク</h3>
+              <p className="muted">承認メールが届かない場合の再案内に使用できます。有効期限は発行から7日間です。</p>
+              <textarea className="copy-box" readOnly value={operatorReviewInfo.url} />
+              <table className="table compact">
+                <tbody>
+                  <tr><th>送信先</th><td>{displayValue(operatorReviewInfo.sentTo)}</td></tr>
+                  <tr><th>発行日時</th><td>{formatDateTime(operatorReviewInfo.issuedAt)}</td></tr>
+                </tbody>
+              </table>
+              <p className="notice">このリンクは申込者専用です。第三者へ共有しないでください。</p>
+            </div>
+          ) : null}
           <form className="form" action={updateApplicationIntakeReviewAction.bind(null, application.id)}>
             <div className="field">
               <label htmlFor="intake_review_status">事前審査の状態</label>
