@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const migration = readFileSync("supabase/migrations/202608220002_url_first_ai_onboarding.sql", "utf8");
+const migration = readFileSync("supabase/migrations/202608230001_url_first_ai_onboarding.sql", "utf8");
 const schema = readFileSync("database/schema.sql", "utf8");
 const analysisRoute = readFileSync("app/api/public/store-analysis/route.ts", "utf8");
 const applicationRoute = readFileSync("app/api/applications/route.ts", "utf8");
