@@ -9,7 +9,7 @@ export default function SetPasswordPage() {
         <h1>ログイン用パスワードの設定</h1>
         <p>
           AIO boostの利用を開始するため、今後ログインに使うパスワードを設定してください。
-          設定後、初回導入画面へ進みます。
+          設定後、AIが準備した店舗情報やメニューを確認する画面へ進みます。
         </p>
         <Suspense fallback={<p className="notice">初回設定画面を準備しています。</p>}>
           <SetPasswordForm />

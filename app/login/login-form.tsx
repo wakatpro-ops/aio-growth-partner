@@ -41,14 +41,16 @@ export function LoginForm() {
       headers: { "content-type": "application/json" },
       method: "POST"
     });
+    const result = await sessionResponse.json().catch(() => null);
     if (!sessionResponse.ok) {
-      const result = await sessionResponse.json().catch(() => null);
       setLoading(false);
       setMessage(result?.error ?? "ログイン状態を保存できませんでした。もう一度ログインしてください。");
       return;
     }
 
-    window.location.href = "/dashboard";
+    window.location.href = typeof result?.next_path === "string" && result.next_path.startsWith("/")
+      ? result.next_path
+      : "/dashboard";
   }
 
   return (

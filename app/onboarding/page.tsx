@@ -4,6 +4,7 @@ import { ApplicationIntakeSummary } from "@/components/onboarding/application-in
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { getAioImprovementWorkspace } from "@/lib/aio-improvement";
+import { canCurrentUserConfirmInitialSetup } from "@/lib/onboarding/initial-setup";
 import { getStore, getStoreOnboardingSnapshot, listProductionStores } from "@/lib/stores";
 
 function recordValue(value: unknown) {
@@ -37,6 +38,11 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const readiness = aioWorkspace.readiness;
   const industry = getIndustryConfig(selectedStore.industry_type_key);
   const intakeSnapshot = await getStoreOnboardingSnapshot(selectedStore.id);
+  const needsInitialSetupReview = Boolean(
+    intakeSnapshot
+    && intakeSnapshot.confirmation_status !== "completed"
+    && await canCurrentUserConfirmInitialSetup(selectedStore)
+  );
   const priority = readiness.nextBestActions[0];
   const activeTask = aioWorkspace.activeTask;
   const intakeContent = intakeSnapshot?.content ?? {};
@@ -57,6 +63,15 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         description="設定を全部終える画面ではありません。まず、AIにおすすめされるための改善を1件だけ進めます。"
       />
       {created ? <p className="notice success">店舗を登録しました。申し込み内容から最初の改善を用意しました。</p> : null}
+
+      {needsInitialSetupReview ? (
+        <section className="card setup-confirm-panel">
+          <p className="step-label">利用開始前の確認</p>
+          <h2>AIが準備した初期設定を確認してください</h2>
+          <p>店舗情報、メニュー候補、請求書情報、管理画面構成を確認します。違う部分だけ修正すれば利用を開始できます。</p>
+          <Link className="button" href={`/onboarding/setup-review?storeId=${selectedStore.id}`}>初期設定を確認して利用を開始</Link>
+        </section>
+      ) : null}
 
       <section className="ai-question-panel">
         <p className="eyebrow">お客様がAIに尋ねる質問の例</p>

@@ -227,7 +227,7 @@ function buildApplicationHandoff(application: SalesApplication, applicationId: s
 }
 
 function passwordSetupRedirectUrl(storeId: string) {
-  const nextPath = `/onboarding?storeId=${storeId}`;
+  const nextPath = `/onboarding/setup-review?storeId=${storeId}`;
   return `${productionAppUrl}/auth/set-password?next=${encodeURIComponent(nextPath)}`;
 }
 
@@ -757,7 +757,7 @@ export function loginGuideTemplate(application: SalesApplication) {
     "5. 請求書設定、商品・サービス、顧客情報を整える",
     "",
     `ログインURL: ${productionAppUrl}/login`,
-    `初回オンボーディング: ${productionAppUrl}/onboarding${application.store_id ? `?storeId=${application.store_id}` : ""}`,
+    `AI初期設定の確認: ${productionAppUrl}${application.store_id ? `/onboarding/setup-review?storeId=${application.store_id}` : "/onboarding"}`,
     `店舗画面: ${storeUrl}`,
     "",
     "注意:",
