@@ -119,8 +119,6 @@ async function createUrlFirstApplication(json: unknown) {
     .join("\n");
   const enrichment = {
     source_analysis_id: draft.id,
-    source_url: draft.source_url,
-    final_url: draft.final_url,
     industry_detail_key: industryOption.key,
     industry_label: industryOption.label,
     website_url: draft.source_url,
@@ -156,6 +154,8 @@ async function createUrlFirstApplication(json: unknown) {
     admin_checklist: {
       public_application_enrichment: {
         ...enrichment,
+        source_url: draft.source_url,
+        final_url: draft.final_url,
         extracted_profile: confirmedProfile
       }
     }
