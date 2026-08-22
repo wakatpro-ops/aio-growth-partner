@@ -473,20 +473,31 @@ export async function updateApplicationIntakeReviewAction(applicationId: string,
     redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("URL診断からの事前審査対象申込を確認できません。")}`);
   }
   const reviewedAt = new Date().toISOString();
-  const { error } = await supabase.from("applications").update({
-    intake_review_status: nextStatus,
-    intake_review_note: note || null,
-    intake_reviewed_at: nextStatus === "pending" ? null : reviewedAt,
-    intake_reviewed_by: nextStatus === "pending" ? null : access.userId,
-    updated_at: reviewedAt
-  }).eq("id", applicationId);
-  if (error) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(error.message)}`);
-
   let detailUrl: string | undefined;
   if (nextStatus === "approved") {
     const token = createOperatorReviewToken(applicationId);
     detailUrl = `${productionAppUrl.replace(/\/$/u, "")}/apply/result?token=${encodeURIComponent(token)}`;
   }
+  const adminChecklist = recordFromJson(application.admin_checklist);
+  const { error } = await supabase.from("applications").update({
+    intake_review_status: nextStatus,
+    intake_review_note: note || null,
+    intake_reviewed_at: nextStatus === "pending" ? null : reviewedAt,
+    intake_reviewed_by: nextStatus === "pending" ? null : access.userId,
+    admin_checklist: {
+      ...adminChecklist,
+      operator_review: {
+        ...recordFromJson(adminChecklist.operator_review),
+        status: nextStatus,
+        last_url: detailUrl ?? null,
+        issued_at: detailUrl ? reviewedAt : null,
+        sent_to: application.email
+      }
+    },
+    updated_at: reviewedAt
+  }).eq("id", applicationId);
+  if (error) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(error.message)}`);
+
   const emailResult = nextStatus === "pending"
     ? null
     : await sendIntakeReviewOutcomeEmail(application as SalesApplication, nextStatus as "approved" | "changes_requested" | "rejected", note, detailUrl);
@@ -496,7 +507,7 @@ export async function updateApplicationIntakeReviewAction(applicationId: string,
     `事前審査を「${intakeReviewStatusLabels[nextStatus]}」へ更新しました。`,
     application.intake_review_status,
     nextStatus,
-    { email_status: emailResult?.status ?? "not_sent" }
+    { email_status: emailResult?.status ?? "not_sent", detail_url_stored: Boolean(detailUrl) }
   );
   revalidatePath("/admin/applications");
   revalidatePath(`/admin/applications/${applicationId}`);

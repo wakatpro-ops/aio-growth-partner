@@ -34,7 +34,8 @@
     "test:e2e:url-onboarding": "playwright test --config=playwright.url-onboarding.config.ts",
     "test:initial-setup": "node --experimental-strip-types --test scripts/test-initial-setup.mjs",
     "check:initial-setup": "node scripts/check-initial-setup.mjs",
-    "test:staging:initial-setup": "node scripts/test-staging-initial-setup.mjs"
+    "test:staging:initial-setup": "node scripts/test-staging-initial-setup.mjs",
+    "test:staging:full-onboarding": "node scripts/test-staging-full-onboarding.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
