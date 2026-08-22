@@ -6,6 +6,14 @@ import { getIndustryConfig } from "@/config/industries";
 import { getAioImprovementWorkspace } from "@/lib/aio-improvement";
 import { getStore, getStoreOnboardingSnapshot, listProductionStores } from "@/lib/stores";
 
+function recordValue(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function listValue(value: unknown) {
+  return Array.isArray(value) ? value.map(String).filter(Boolean) : [];
+}
+
 export default async function OnboardingPage({ searchParams }: { searchParams: Promise<{ storeId?: string; created?: string }> }) {
   const { storeId, created } = await searchParams;
   const stores = await listProductionStores();
@@ -31,6 +39,15 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
   const intakeSnapshot = await getStoreOnboardingSnapshot(selectedStore.id);
   const priority = readiness.nextBestActions[0];
   const activeTask = aioWorkspace.activeTask;
+  const intakeContent = intakeSnapshot?.content ?? {};
+  const intakeQuestions = listValue(intakeContent.ai_target_questions);
+  const dashboardPlan = recordValue(intakeContent.ai_dashboard_plan);
+  const intakeTopImprovement = recordValue(dashboardPlan.top_improvement);
+  const primaryQuestion = intakeQuestions[0] ?? readiness.targetQuestions[0];
+  const intakePriorityTitle = typeof intakeTopImprovement.title === "string" ? intakeTopImprovement.title : "";
+  const intakePriorityDescription = typeof intakeTopImprovement.description === "string" ? intakeTopImprovement.description : "";
+  const firstTaskTitle = activeTask?.title || intakePriorityTitle || priority?.label || "外部への反映を確認";
+  const firstTaskDescription = activeTask?.description || intakePriorityDescription || priority?.benefit || "整えた内容をGoogleやWebへ反映できる状態にします。";
 
   return (
     <AppShell>
@@ -43,16 +60,16 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
 
       <section className="ai-question-panel">
         <p className="eyebrow">お客様がAIに尋ねる質問の例</p>
-        <h2>「{readiness.targetQuestions[0]}」</h2>
+        <h2>「{primaryQuestion}」</h2>
         <p>{selectedStore.name}がおすすめされる根拠を、店舗情報と外部の公開情報に増やしていきます。</p>
       </section>
 
       <section className="card first-priority-card">
         <div className="section-heading">
-          <div><p className="step-label">最初にやること</p><h2>{activeTask?.title ?? priority?.label ?? "外部への反映を確認"}</h2></div>
+          <div><p className="step-label">最初にやること</p><h2>{firstTaskTitle}</h2></div>
           <span className="badge priority-high">最優先</span>
         </div>
-        <p>{activeTask?.description ?? priority?.benefit ?? "整えた内容をGoogleやWebへ反映できる状態にします。"}</p>
+        <p>{firstTaskDescription}</p>
         <div className="button-row">
           <Link className="button" href={activeTask ? `/stores/${selectedStore.id}/aio-improvement/tasks/${activeTask.id}` : `/stores/${selectedStore.id}/aio-improvement`}>{activeTask ? "進行中の改善を続ける" : "改善内容を確認する"}</Link>
           <Link className="button secondary" href={`/stores/${selectedStore.id}`}>店舗トップを先に見る</Link>
