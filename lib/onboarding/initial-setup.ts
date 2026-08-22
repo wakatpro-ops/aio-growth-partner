@@ -8,6 +8,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import type { IndustryTypeKey, Store } from "@/types/domain";
 import { mayConfirmInitialSetup, parseInitialSetupForm } from "./initial-setup-rules";
+import { normalizeOperatingModel, operatingModelFeatureFlags, type OperatingLocation, type OperatingModel } from "@/lib/applications/operating-model";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -33,6 +34,8 @@ export type InitialSetupReview = {
   industryOptions: Array<{ key: string; label: string }>;
   industryPresets: Record<string, { dashboardCards: Array<{ key: string; label: string }>; recommendedFeatures: string[] }>;
   aiRecommendedFeatures: string[];
+  operatingModel: OperatingModel;
+  additionalLocations: OperatingLocation[];
 };
 
 function record(value: unknown): JsonRecord {
@@ -102,6 +105,20 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
     ? aiDashboardPlan.recommended_modules.map((item) => String(record(item).label ?? "").trim()).filter(Boolean).slice(0, 20)
     : [];
   const services = strings(extracted.services);
+  const operatingModel = normalizeOperatingModel(content.operating_model ?? store.operating_model);
+  const additionalLocations = operatingModel.structure.locations.filter((location) => {
+    const sameName = location.name && location.name === store.name;
+    const sameAddress = location.address && location.address === store.address;
+    return !(sameName || sameAddress);
+  }).slice(0, 9);
+  operatingModel.structure.locations = [{
+    name: store.name,
+    address: store.address ?? "",
+    websiteUrl: store.website_url ?? "",
+    companyName: operatingModel.structure.companyNames[0] ?? "",
+    brandName: store.brand_name ?? operatingModel.structure.brandNames[0] ?? "",
+    source: "published"
+  }, ...additionalLocations];
   const industryOptions = [{ key: "general_store", label: "汎用店舗" }, ...publicIndustryOptions.map((option) => ({ key: option.key, label: option.label }))];
   const industryPresets = Object.fromEntries(industryOptions.map((option) => {
     const config = getIndustryConfig(normalizeIndustryTypeKey(option.key));
@@ -126,7 +143,9 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
     },
     industryOptions,
     industryPresets,
-    aiRecommendedFeatures
+    aiRecommendedFeatures,
+    operatingModel,
+    additionalLocations
   };
 }
 
@@ -150,7 +169,22 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
 
   const extracted = record(record(snapshot.content).extracted_profile);
   const candidateCount = strings(extracted.services).length;
-  const input = parseInitialSetupForm(formData, String(snapshot.id), candidateCount);
+  const snapshotContent = record(snapshot.content);
+  const setupModel = normalizeOperatingModel(snapshotContent.operating_model ?? store.operating_model);
+  const setupAdditionalLocations = setupModel.structure.locations.filter((location) => {
+    const sameName = location.name && location.name === store.name;
+    const sameAddress = location.address && location.address === store.address;
+    return !(sameName || sameAddress);
+  }).slice(0, 9);
+  setupModel.structure.locations = [{
+    name: store.name,
+    address: store.address ?? "",
+    websiteUrl: store.website_url ?? "",
+    companyName: setupModel.structure.companyNames[0] ?? "",
+    brandName: store.brand_name ?? setupModel.structure.brandNames[0] ?? "",
+    source: "published"
+  }, ...setupAdditionalLocations];
+  const input = parseInitialSetupForm(formData, String(snapshot.id), candidateCount, setupModel);
   const normalizedIndustry = normalizeIndustryTypeKey(input.industryTypeKey) as IndustryTypeKey;
   if (normalizedIndustry !== input.industryTypeKey) throw new Error("選択した業種を確認してください。");
   const industry = getIndustryConfig(normalizedIndustry);
@@ -180,6 +214,8 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       industry_type_key: normalizedIndustry,
       cards: industry.dashboardCards
     },
+    operating_model: input.operatingModel,
+    additional_locations: input.additionalLocations,
     confirmed_by: access.userId,
     confirmed_at: now
   };
@@ -204,7 +240,9 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       phone: input.phone || null,
       website_url: input.websiteUrl || null,
       description: input.description || null,
-      feature_flags: industry.defaultFeatureFlags,
+      feature_flags: { ...(store.feature_flags ?? {}), ...industry.defaultFeatureFlags, ...operatingModelFeatureFlags(input.operatingModel) },
+      brand_name: input.operatingModel.structure.locations[0]?.brandName || input.operatingModel.structure.brandNames[0] || null,
+      operating_model: input.operatingModel,
       profile_data: {
         ...currentProfile,
         services: selectedMenus.map((menu) => menu.name),
@@ -220,6 +258,9 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       updated_at: now
     }).eq("id", store.id).eq("organization_id", store.organization_id);
     if (storeError) throw new Error(`店舗情報を反映できませんでした: ${storeError.message}`);
+
+    const { error: organizationError } = await supabase.from("organizations").update({ operating_model: input.operatingModel, updated_at: now }).eq("id", store.organization_id);
+    if (organizationError) throw new Error(`組織の運営設定を反映できませんでした: ${organizationError.message}`);
 
     const { error: invoiceError } = await supabase.from("invoice_number_sequences").upsert({
       organization_id: store.organization_id,
@@ -275,6 +316,60 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
         .eq("store_id", store.id).eq("onboarding_source_key", menu.sourceKey).is("archived_at", null);
     }
 
+    for (const location of input.additionalLocations) {
+      const { data: addedStore, error: addedStoreError } = await supabase.from("stores").upsert({
+        organization_id: store.organization_id,
+        source_application_id: snapshot.application_id,
+        onboarding_source_key: location.sourceKey,
+        industry_type_key: normalizedIndustry,
+        name: location.name,
+        brand_name: location.brandName || null,
+        address: location.address || null,
+        website_url: location.websiteUrl || null,
+        phone: null,
+        description: null,
+        profile_data: {
+          data_mode: "production",
+          onboarding_status: "not_started",
+          created_from_initial_setup_store_id: store.id,
+          dashboard_plan: { industry_type_key: normalizedIndustry, cards: industry.dashboardCards }
+        },
+        feature_flags: { ...industry.defaultFeatureFlags, ...operatingModelFeatureFlags(input.operatingModel) },
+        operating_model: input.operatingModel,
+        status: "active",
+        archived_at: null,
+        archived_by: null,
+        updated_at: now
+      }, { onConflict: "organization_id,onboarding_source_key" }).select("id").single();
+      if (addedStoreError || !addedStore) throw new Error(`追加店舗「${location.name}」を作成できませんでした: ${addedStoreError?.message ?? "unknown"}`);
+      const { error: addedInvoiceError } = await supabase.from("invoice_number_sequences").upsert({
+        organization_id: store.organization_id,
+        store_id: addedStore.id,
+        prefix: normalizedIndustry === "auto_repair" ? "INV-AUTO" : "INV",
+        next_number: 1,
+        qualified_invoice_issuer_name: location.companyName || input.invoiceIssuerName,
+        updated_at: now
+      }, { onConflict: "store_id" });
+      if (addedInvoiceError) throw new Error(`追加店舗「${location.name}」の請求書設定を作成できませんでした: ${addedInvoiceError.message}`);
+      const { error: addedSnapshotError } = await supabase.from("onboarding_snapshots").upsert({
+        organization_id: store.organization_id,
+        store_id: addedStore.id,
+        application_id: snapshot.application_id,
+        snapshot_type: "application_intake",
+        title: "複数店舗候補から作成した初期設定下書き",
+        content: {
+          ...snapshotContent,
+          extracted_profile: { ...extracted, store_name: location.name, address: location.address, website_url: location.websiteUrl },
+          operating_model: input.operatingModel,
+          parent_setup_snapshot_id: snapshot.id
+        },
+        status: "active",
+        confirmation_status: "pending",
+        updated_at: now
+      }, { onConflict: "store_id,snapshot_type" });
+      if (addedSnapshotError) throw new Error(`追加店舗「${location.name}」の初期設定下書きを作成できませんでした: ${addedSnapshotError.message}`);
+    }
+
     const { error: completeError } = await supabase.from("onboarding_snapshots").update({
       confirmation_status: "completed",
       confirmation_payload: confirmationPayload,
@@ -292,7 +387,7 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       targetType: "onboarding_snapshot",
       targetId: String(snapshot.id),
       message: "店舗オーナーがAI初期設定を確認し、正式データへ反映しました。",
-      metadata: { confirmed_by: access.userId, selected_menu_count: selectedMenus.length, industry_type_key: normalizedIndustry }
+      metadata: { confirmed_by: access.userId, selected_menu_count: selectedMenus.length, industry_type_key: normalizedIndustry, additional_store_count: input.additionalLocations.length }
     });
     return { completed: true, alreadyCompleted: false, selectedMenuCount: selectedMenus.length };
   } catch (error) {

@@ -7,6 +7,7 @@ import { normalizeIndustryTypeKey } from "@/lib/applications/options";
 import { demoStores, getDemoStore } from "@/lib/industry/demo-data";
 import { isDemoStore } from "@/lib/mvp/status";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { normalizeOperatingModel, operatingModelFeatureFlags } from "@/lib/applications/operating-model";
 import type { IndustryTypeKey, Store } from "@/types/domain";
 
 export type OnboardingSnapshot = {
@@ -150,6 +151,35 @@ export async function updateStoreFromForm(storeId: string, formData: FormData) {
     updated_at: new Date().toISOString()
   }).eq("id", store.id).eq("organization_id", store.organization_id);
   if (error) throw new Error(`店舗情報を保存できませんでした: ${error.message}`);
+}
+
+export async function updateStoreOperatingModel(storeId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  if (!(await canManageOrganization(store.organization_id))) throw new Error("運営方法を変更できるのは店舗オーナーだけです。");
+  const current = normalizeOperatingModel(store.operating_model);
+  const next = normalizeOperatingModel({
+    ...current,
+    structure: { ...current.structure, mode: String(formData.get("structure_mode") ?? current.structure.mode) },
+    systems: Object.fromEntries(Object.entries(current.systems).map(([key, value]) => [key, { ...value, authority: String(formData.get(`system_${key}`) ?? value.authority) }])),
+    register: { mode: String(formData.get("register_mode") ?? current.register.mode) },
+    operations: {
+      serviceMode: String(formData.get("service_mode") ?? current.operations.serviceMode),
+      reservationResources: ["staff", "seat", "room", "equipment", "table", "vehicle", "other"].filter((key) => formData.get(`resource_${key}`) === "on")
+    },
+    sharing: Object.fromEntries(Object.entries(current.sharing).map(([key, value]) => [key, String(formData.get(`sharing_${key}`) ?? value)])),
+    detection: { ...current.detection, source: "applicant" },
+    applicantConfirmedAt: new Date().toISOString()
+  }, current);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Supabase環境変数が未設定です。");
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("stores").update({
+    operating_model: next,
+    feature_flags: { ...(store.feature_flags ?? {}), ...operatingModelFeatureFlags(next) },
+    updated_at: now
+  }).eq("id", store.id).eq("organization_id", store.organization_id);
+  if (error) throw new Error(`運営方法を保存できませんでした: ${error.message}`);
+  await supabase.from("organizations").update({ operating_model: next, updated_at: now }).eq("id", store.organization_id);
 }
 
 export async function archiveStore(storeId: string) {

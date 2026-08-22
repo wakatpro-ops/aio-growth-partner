@@ -26,6 +26,7 @@ import {
   updateApplicationIntakeReviewAction,
   updateApplicationSalesAction
 } from "@/lib/admin/applications";
+import { normalizeOperatingModel } from "@/lib/applications/operating-model";
 
 const billingStatuses = [
   ["not_issued", "未発行"],
@@ -116,7 +117,8 @@ function applicationEnrichment(application: NonNullable<Awaited<ReturnType<typeo
     extractedProfile,
     intakeAnswers: recordFromUnknown(application.intake_answers ?? fallback.intake_answers),
     targetQuestions: listFromUnknown(application.ai_target_questions ?? fallback.ai_target_questions),
-    dashboardPlan
+    dashboardPlan,
+    operatingModel: normalizeOperatingModel(application.operating_model ?? fallback.operating_model)
   };
 }
 
@@ -289,6 +291,21 @@ export default async function AdminApplicationDetailPage({
             <p className="muted">承認・追加確認・見送りを保存すると、確認済みメールアドレスへ結果を送信します。</p>
             <PendingSubmitButton pendingLabel="事前審査を保存しています...">事前審査を保存してメール送信</PendingSubmitButton>
           </form>
+        </section>
+      ) : null}
+
+      {application.source_analysis_id ? (
+        <section className="card">
+          <p className="eyebrow">申込者が確認したAI下書き</p>
+          <h2>店舗運営モデル（5領域）</h2>
+          <p className="muted">複数法人候補はここで確認し、自動では別契約・別組織を作成しません。</p>
+          <table className="table compact"><tbody>
+            <tr><th>法人・ブランド・店舗</th><td>{enrichment.operatingModel.structure.mode} / 店舗候補 {enrichment.operatingModel.structure.locations.length}件</td></tr>
+            <tr><th>既存システムとの分担</th><td>{Object.entries(enrichment.operatingModel.systems).map(([key, value]) => `${key}: ${value.authority}${value.serviceNames.length ? `（${value.serviceNames.join("、")}）` : ""}`).join(" / ")}</td></tr>
+            <tr><th>簡易会計</th><td>{enrichment.operatingModel.register.mode}</td></tr>
+            <tr><th>予約・スタッフ・設備</th><td>{enrichment.operatingModel.operations.serviceMode} / {enrichment.operatingModel.operations.reservationResources.join("、") || "対象なし"}</td></tr>
+            <tr><th>情報の共有範囲</th><td>{Object.entries(enrichment.operatingModel.sharing).map(([key, value]) => `${key}: ${value}`).join(" / ")}</td></tr>
+          </tbody></table>
         </section>
       ) : null}
 

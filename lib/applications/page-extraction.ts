@@ -17,6 +17,22 @@ export type ExtractedStoreProfile = {
   target_customers: string[];
   social_urls: string[];
   source_urls: string[];
+  location_candidates: Array<{
+    name: string;
+    address: string;
+    website_url: string;
+    company_name: string;
+    brand_name: string;
+  }>;
+  detected_systems: Record<"sales" | "reservations" | "customers" | "inventory" | "accounting", string[]>;
+  operating_signals: {
+    reservation: boolean;
+    walk_in: boolean;
+    staff: boolean;
+    room: boolean;
+    equipment: boolean;
+    table: boolean;
+  };
   field_origins: Record<string, EvidenceOrigin>;
 };
 
@@ -158,6 +174,21 @@ function visibleServiceCandidates(html: string) {
   return unique(values, 10);
 }
 
+const systemSignals: Record<keyof ExtractedStoreProfile["detected_systems"], Array<[string, RegExp]>> = {
+  sales: [["Airレジ", /Air\s*レジ|エアレジ/iu], ["Square", /Square/iu], ["スマレジ", /スマレジ/iu], ["POS+", /POS\+/iu], ["Uレジ", /Uレジ/iu]],
+  reservations: [["ホットペッパービューティー", /ホットペッパー(?:ビューティー)?/iu], ["STORES予約", /STORES\s*予約/iu], ["RESERVA", /RESERVA/iu], ["Airリザーブ", /Air\s*リザーブ|エアリザーブ/iu], ["EPARK", /EPARK/iu], ["TableCheck", /TableCheck/iu]],
+  customers: [["LINE公式アカウント", /LINE公式(?:アカウント)?/iu], ["Salesforce", /Salesforce/iu]],
+  inventory: [["ロジクラ", /ロジクラ/iu], ["zaico", /zaico/iu]],
+  accounting: [["freee", /freee/iu], ["マネーフォワード", /マネーフォワード/iu], ["弥生", /弥生/iu]]
+};
+
+function detectedSystems(text: string): ExtractedStoreProfile["detected_systems"] {
+  return Object.fromEntries(Object.entries(systemSignals).map(([key, candidates]) => [
+    key,
+    candidates.filter(([, pattern]) => pattern.test(text)).map(([name]) => name)
+  ])) as ExtractedStoreProfile["detected_systems"];
+}
+
 export function extractStoreProfile(pages: PublicPageSnapshot[]): ExtractedStoreProfile {
   const primary = pages[0];
   const fullVisibleText = pages.map((page) => `${page.title} ${page.description} ${htmlToVisibleText(page.html)}`).join(" ").slice(0, 60_000);
@@ -190,6 +221,30 @@ export function extractStoreProfile(pages: PublicPageSnapshot[]): ExtractedStore
   const services = unique([...structuredServices, ...pages.flatMap((page) => visibleServiceCandidates(page.html))], 12);
   const socialUrls = unique(pages.flatMap((page) => extractSocialUrls(page.html, page.url)), 12);
   const industry = detectIndustry(`${storeName} ${description} ${services.join(" ")} ${fullVisibleText.slice(0, 12_000)}`);
+  const locationCandidates = businessRecords.flatMap((business) => {
+    const type = Array.isArray(business['@type']) ? business['@type'].join(" ") : String(business['@type'] ?? "");
+    const name = cleanText(String(business.name ?? ""), 140);
+    const candidateAddress = addressFrom(business.address);
+    const websiteUrl = cleanText(String(business.url ?? ""), 2_000);
+    if (/^Organization$/iu.test(type.trim()) && !candidateAddress) return [];
+    if (!name && !candidateAddress && !websiteUrl) return [];
+    return [{
+      name,
+      address: candidateAddress,
+      website_url: websiteUrl,
+      company_name: /Organization/iu.test(type) ? name : companyName,
+      brand_name: cleanText(String((business.brand as Record<string, unknown> | undefined)?.name ?? business.brand ?? ""), 140)
+    }];
+  }).filter((candidate, index, values) => values.findIndex((item) => `${item.name}|${item.address}|${item.website_url}` === `${candidate.name}|${candidate.address}|${candidate.website_url}`) === index).slice(0, 10);
+  const systems = detectedSystems(fullVisibleText);
+  const operatingSignals = {
+    reservation: /予約|appointment|reserve/iu.test(fullVisibleText),
+    walk_in: /予約なし|飛び込み|当日受付|walk[ -]?in/iu.test(fullVisibleText),
+    staff: /スタッフ|担当者|指名|stylist|therapist/iu.test(fullVisibleText),
+    room: /個室|施術室|room/iu.test(fullVisibleText),
+    equipment: /設備|機器|マシン|equipment/iu.test(fullVisibleText),
+    table: /席|テーブル|座席|table/iu.test(fullVisibleText)
+  };
 
   return {
     store_name: storeName,
@@ -205,6 +260,15 @@ export function extractStoreProfile(pages: PublicPageSnapshot[]): ExtractedStore
     target_customers: [],
     social_urls: socialUrls,
     source_urls: pages.map((page) => page.url),
+    location_candidates: locationCandidates.length ? locationCandidates : [{
+      name: storeName,
+      address,
+      website_url: primary.url,
+      company_name: companyName,
+      brand_name: ""
+    }],
+    detected_systems: systems,
+    operating_signals: operatingSignals,
     field_origins: {
       store_name: storeName ? "published" : "missing",
       company_name: companyName ? "published" : "missing",

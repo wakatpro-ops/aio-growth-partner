@@ -117,9 +117,24 @@ try {
       description: "公開URLから整理した統合テスト用店舗説明",
       services: ["ハーブピーリング", "アロマリンパマッサージ"],
       strengths: ["丁寧なカウンセリング", "完全予約制"],
-      target_customers: ["美容と健康を整えたい方"]
+      target_customers: ["美容と健康を整えたい方"],
+      location_candidates: [
+        { name: "AI抽出テストサロン", address: "東京都杉並区梅里2-35-13", website_url: "https://example.com/a", company_name: "統合テスト株式会社", brand_name: "テストブランド" },
+        { name: "AI抽出テストサロン中野店", address: "東京都中野区中央1-1", website_url: "https://example.com/b", company_name: "統合テスト株式会社", brand_name: "テストブランド" }
+      ]
     };
-    assert.equal((await admin.from("public_store_analyses").update({ extracted_profile: deterministicProfile }).eq("id", analysisId)).error, null);
+    const deterministicOperatingModel = {
+      version: 1,
+      structure: { mode: "multi_store", companyNames: ["統合テスト株式会社"], brandNames: ["テストブランド"], locations: deterministicProfile.location_candidates.map((item) => ({ name: item.name, address: item.address, websiteUrl: item.website_url, companyName: item.company_name, brandName: item.brand_name, source: "published" })) },
+      systems: {
+        sales: { authority: "external", serviceNames: ["Airレジ"] }, reservations: { authority: "external", serviceNames: ["予約システム"] }, customers: { authority: "aio_boost", serviceNames: [] }, inventory: { authority: "file_import", serviceNames: [] }, accounting: { authority: "external", serviceNames: ["freee"] }
+      },
+      register: { mode: "external_pos" },
+      operations: { serviceMode: "reservation_only", reservationResources: ["staff", "room"] },
+      sharing: { menus: "brand", invoices: "store", customers: "company", staff: "store", inventory: "store" },
+      detection: { source: "ai", notes: ["統合テスト"] }
+    };
+    assert.equal((await admin.from("public_store_analyses").update({ extracted_profile: deterministicProfile, operating_model_draft: deterministicOperatingModel }).eq("id", analysisId)).error, null);
 
     const normalizedEmail = ownerEmail.toLowerCase();
     const verificationFields = {
@@ -170,7 +185,8 @@ try {
       company_name: "統合テスト株式会社",
       store_relationship: "owner",
       authority_confirmed: true,
-      message: "実サイトの全工程統合テスト"
+      message: "実サイトの全工程統合テスト",
+      operating_model: deterministicOperatingModel
     });
     assert.equal(application.response.status, 200, JSON.stringify(application.body));
     assert.equal(application.body?.ok, true);
@@ -189,7 +205,7 @@ try {
     assert.equal(duplicateApplication.body?.already_submitted, true);
 
     const { data: storedApplication, error: appError } = await admin.from("applications")
-      .select("id, intake_review_status, status, payment_status, organization_id, store_id")
+      .select("id, intake_review_status, status, payment_status, organization_id, store_id, store_count, operating_model")
       .eq("source_analysis_id", analysisId)
       .single();
     if (appError || !storedApplication) throw appError ?? new Error("application missing");
@@ -197,12 +213,15 @@ try {
     assert.equal(storedApplication.intake_review_status, "pending");
     assert.equal(storedApplication.organization_id, null);
     assert.equal(storedApplication.store_id, null);
+    assert.equal(storedApplication.store_count, 2);
+    assert.equal(storedApplication.operating_model?.structure?.mode, "multi_store");
 
     const adminContext = await browser.newContext({ viewport: { width: 1280, height: 900 } });
     const adminPage = await adminContext.newPage();
     await signIn(adminPage, adminEmail, adminPassword);
     await adminPage.goto(`${baseUrl}/admin/applications/${applicationId}`);
     await adminPage.getByRole("heading", { name: "株式会社 Navi Lifeによる事前審査" }).waitFor();
+    await adminPage.getByRole("heading", { name: "店舗運営モデル（5領域）" }).waitFor();
     assert.equal(await adminPage.getByRole("button", { name: "招待リンクを発行して利用開始メール送信" }).isEnabled(), false);
     await adminPage.locator("#intake_review_status").selectOption("approved");
     await adminPage.locator("#intake_review_note").fill("店舗オーナー本人の申込として確認済み");
@@ -271,7 +290,9 @@ try {
     assert.equal(await ownerPage.locator("#address").getAttribute("value"), "東京都杉並区梅里2-35-13");
     assert.equal(await ownerPage.locator("#menu_name_0").getAttribute("value"), "ハーブピーリング");
     assert.equal(await ownerPage.locator("#menu_name_1").getAttribute("value"), "アロマリンパマッサージ");
+    assert.equal(await ownerPage.locator('input[name="location_enabled_0"]').isChecked(), true);
 
+    await ownerPage.locator("#register_mode").selectOption("simple_register");
     await ownerPage.locator("#store_name").fill("確認済み統合テストサロン");
     await ownerPage.locator("#address").fill("東京都杉並区梅里二丁目35番13号");
     await ownerPage.locator("#menu_name_0").fill("確認済みハーブピーリング");
@@ -284,16 +305,19 @@ try {
     await ownerPage.waitForURL((url) => url.pathname === `/stores/${storeId}/aio-improvement` && url.searchParams.get("setup") === "completed", { timeout: 45_000 });
     await ownerPage.getByText("初期設定を反映しました。", { exact: false }).waitFor();
 
-    const [{ data: finalStore }, { data: finalItems }, { data: finalSnapshot }, { data: finalInvoice }, { data: finalApplication }] = await Promise.all([
-      admin.from("stores").select("name, address, profile_data, industry_type_key").eq("id", storeId).single(),
+    const [{ data: finalStore }, { data: finalItems }, { data: finalSnapshot }, { data: finalInvoice }, { data: finalApplication }, { data: organizationStores }] = await Promise.all([
+      admin.from("stores").select("name, address, profile_data, industry_type_key, operating_model, feature_flags").eq("id", storeId).single(),
       admin.from("items").select("name, unit_price, archived_at, onboarding_source_key").eq("store_id", storeId).is("archived_at", null),
       admin.from("onboarding_snapshots").select("confirmation_status, confirmed_by, confirmation_payload").eq("store_id", storeId).eq("snapshot_type", "application_intake").single(),
       admin.from("invoice_number_sequences").select("prefix, qualified_invoice_issuer_name").eq("store_id", storeId).single(),
-      admin.from("applications").select("onboarding_status, account_status").eq("id", applicationId).single()
+      admin.from("applications").select("onboarding_status, account_status").eq("id", applicationId).single(),
+      admin.from("stores").select("id, name, onboarding_source_key, operating_model").eq("organization_id", organizationId).is("archived_at", null)
     ]);
     assert.equal(finalStore?.name, "確認済み統合テストサロン");
     assert.equal(finalStore?.address, "東京都杉並区梅里二丁目35番13号");
     assert.equal(finalStore?.profile_data?.onboarding_status, "completed");
+    assert.equal(finalStore?.operating_model?.register?.mode, "simple_register");
+    assert.equal(finalStore?.feature_flags?.simple_register, true);
     assert.deepEqual((finalItems ?? []).map((item) => item.name), ["確認済みハーブピーリング"]);
     assert.equal(finalItems?.[0]?.unit_price, 11000);
     assert.equal(finalSnapshot?.confirmation_status, "completed");
@@ -302,6 +326,8 @@ try {
     assert.equal(finalInvoice?.qualified_invoice_issuer_name, "統合テスト株式会社");
     assert.equal(finalApplication?.onboarding_status, "completed");
     assert.equal(finalApplication?.account_status, "issued");
+    assert.equal(organizationStores?.length, 2);
+    assert.ok(organizationStores?.some((item) => item.name === "AI抽出テストサロン中野店" && item.onboarding_source_key));
 
     await ownerPage.goto(`${baseUrl}/onboarding/setup-review?storeId=${storeId}`);
     await ownerPage.getByRole("heading", { name: "初期設定は反映済みです" }).waitFor();
@@ -327,7 +353,9 @@ try {
     ai_profile_handoff: true,
     menu_edit_and_exclusion: true,
     invoice_handoff: true,
-    duplicate_setup_prevented: true
+    duplicate_setup_prevented: true,
+    adaptive_operating_model: true,
+    additional_store_created: true
   }));
 } finally {
   if (organizationId) {

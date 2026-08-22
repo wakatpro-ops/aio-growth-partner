@@ -79,6 +79,7 @@ export type ModuleKey =
   | "order_workflow"
   | "order_management"
   | "payment_management"
+  | "simple_register"
   | "accounting_csv_export"
   | "accounting_export"
   | "pdf_issue_logs"
@@ -148,6 +149,7 @@ export type Store = {
   source_application_id?: string | null;
   industry_type_key: IndustryTypeKey;
   name: string;
+  brand_name?: string | null;
   address: string;
   phone: string;
   website_url?: string;
@@ -155,6 +157,7 @@ export type Store = {
   description?: string;
   profile_data: Record<string, unknown>;
   feature_flags: FeatureFlags;
+  operating_model?: Record<string, unknown>;
   status: "active" | "inactive";
   archived_at?: string | null;
   archived_by?: string | null;

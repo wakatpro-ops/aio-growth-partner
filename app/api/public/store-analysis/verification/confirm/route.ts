@@ -9,6 +9,7 @@ import {
 } from "@/lib/applications/contact-verification";
 import { hashPublicAnalysisToken } from "@/lib/applications/public-analysis-token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { normalizeOperatingModel } from "@/lib/applications/operating-model";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,5 +54,10 @@ export async function POST(request: Request) {
     updated_at: verifiedAt
   }).eq("id", draft.id);
   if (error) return NextResponse.json({ ok: false, error: "現在、確認結果を保存できません。時間をおいてお試しください。" }, { status: 503 });
-  return NextResponse.json({ ok: true, contact_name: draft.verification_name, email });
+  return NextResponse.json({
+    ok: true,
+    contact_name: draft.verification_name,
+    email,
+    operating_model_draft: normalizeOperatingModel(draft.operating_model_draft)
+  });
 }

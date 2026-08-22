@@ -2,12 +2,14 @@ import "server-only";
 import OpenAI from "openai";
 import { publicIndustryOptions } from "@/lib/applications/options";
 import { buildRuleBasedDiagnosis, extractStoreProfile, htmlToVisibleText } from "@/lib/applications/page-extraction";
+import { buildOperatingModelDraft, type OperatingModel } from "@/lib/applications/operating-model";
 import type { ClarifyingQuestion, ExtractedStoreProfile, ReadinessItem } from "@/lib/applications/page-extraction";
 import type { PublicSiteFetchResult } from "@/lib/applications/url-safety";
 import type { IndustryTypeKey } from "@/types/domain";
 
 export type StoreAnalysisResult = {
   profile: ExtractedStoreProfile;
+  operatingModelDraft: OperatingModel;
   diagnosis: {
     business_summary: string;
     readiness_score: number;
@@ -47,6 +49,23 @@ function normalizeAiResult(value: unknown, profile: ExtractedStoreProfile, fallb
     ? record.store_profile as Record<string, unknown>
     : {};
   const selectedIndustry = industry(profileValue.industry_key, profile);
+  const locationCandidates = Array.isArray(profileValue.location_candidates)
+    ? profileValue.location_candidates.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const location = item as Record<string, unknown>;
+        const name = safeText(location.name, "", 140);
+        const address = safeText(location.address, "", 240);
+        const websiteUrl = safeText(location.website_url, "", 2_000);
+        if (!name && !address && !websiteUrl) return [];
+        return [{ name, address, website_url: websiteUrl, company_name: safeText(location.company_name, "", 140), brand_name: safeText(location.brand_name, "", 140) }];
+      }).slice(0, 10)
+    : profile.location_candidates;
+  const aiSystems = profileValue.detected_systems && typeof profileValue.detected_systems === "object"
+    ? profileValue.detected_systems as Record<string, unknown>
+    : {};
+  const aiSignals = profileValue.operating_signals && typeof profileValue.operating_signals === "object"
+    ? profileValue.operating_signals as Record<string, unknown>
+    : {};
   const enrichedProfile: ExtractedStoreProfile = {
     ...profile,
     store_name: safeText(profileValue.store_name, profile.store_name, 140),
@@ -60,6 +79,9 @@ function normalizeAiResult(value: unknown, profile: ExtractedStoreProfile, fallb
     services: uniqueStrings(profileValue.services, profile.services, 12),
     strengths: uniqueStrings(profileValue.strengths, profile.strengths, 8),
     target_customers: uniqueStrings(profileValue.target_customers, profile.target_customers, 8),
+    location_candidates: locationCandidates.length ? locationCandidates : profile.location_candidates,
+    detected_systems: Object.fromEntries((["sales", "reservations", "customers", "inventory", "accounting"] as const).map((key) => [key, uniqueStrings(aiSystems[key], profile.detected_systems[key], 8)])) as ExtractedStoreProfile["detected_systems"],
+    operating_signals: Object.fromEntries((["reservation", "walk_in", "staff", "room", "equipment", "table"] as const).map((key) => [key, typeof aiSignals[key] === "boolean" ? aiSignals[key] : profile.operating_signals[key]])) as ExtractedStoreProfile["operating_signals"],
     field_origins: {
       ...profile.field_origins,
       ...Object.fromEntries(["store_name", "company_name", "address", "phone", "opening_hours", "description", "services", "strengths", "target_customers"].map((key) => [
@@ -156,7 +178,10 @@ async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicS
               description: "公開内容に基づく店舗説明",
               services: ["具体的なメニューまたはサービス"],
               strengths: ["公開情報から説明できる特徴や強み"],
-              target_customers: ["公開情報から読み取れる対象顧客"]
+              target_customers: ["公開情報から読み取れる対象顧客"],
+              location_candidates: [{ name: "店舗名", address: "住所", website_url: "店舗固有URL", company_name: "法人名", brand_name: "ブランド名" }],
+              detected_systems: { sales: ["POS名"], reservations: ["予約システム名"], customers: ["顧客管理名"], inventory: ["在庫管理名"], accounting: ["会計ソフト名"] },
+              operating_signals: { reservation: false, walk_in: false, staff: false, room: false, equipment: false, table: false }
             },
             business_summary: "店舗の特徴を2文以内。情報不足ならその旨を含める",
             target_questions: ["地域・目的・サービスを含む想定質問を必ず3件"],
@@ -176,7 +201,7 @@ export async function analyzeFetchedStoreSite(fetched: PublicSiteFetchResult): P
   const extracted = extractStoreProfile(fetched.pages);
   const fallback = buildRuleBasedDiagnosis(extracted);
   if (!process.env.OPENAI_API_KEY?.trim()) {
-    return { profile: extracted, diagnosis: fallback, ai: { status: "fallback", model: null, errorCode: "missing_openai_api_key" } };
+    return { profile: extracted, diagnosis: fallback, operatingModelDraft: buildOperatingModelDraft(extracted), ai: { status: "fallback", model: null, errorCode: "missing_openai_api_key" } };
   }
 
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -186,11 +211,11 @@ export async function analyzeFetchedStoreSite(fetched: PublicSiteFetchResult): P
     lastModel = model;
     try {
       const normalized = normalizeAiResult(await requestAiAnalysis(client, model, fetched, extracted), extracted, fallback);
-      return { ...normalized, ai: { status: "success", model, errorCode: null } };
+      return { ...normalized, operatingModelDraft: buildOperatingModelDraft(normalized.profile, "ai"), ai: { status: "success", model, errorCode: null } };
     } catch (error) {
       lastCode = errorCode(error);
       if (lastCode !== "openai_model_not_found") break;
     }
   }
-  return { profile: extracted, diagnosis: fallback, ai: { status: "fallback", model: lastModel, errorCode: lastCode } };
+  return { profile: extracted, diagnosis: fallback, operatingModelDraft: buildOperatingModelDraft(extracted), ai: { status: "fallback", model: lastModel, errorCode: lastCode } };
 }
