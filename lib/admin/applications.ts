@@ -8,6 +8,7 @@ import { requirePlatformAdmin } from "@/lib/auth/server";
 import { sendApplicationInviteEmail } from "@/lib/admin/application-emails";
 import { sendIntakeReviewOutcomeEmail } from "@/lib/admin/application-emails";
 import { createOperatorReviewToken } from "@/lib/applications/operator-review-token";
+import { normalizeOperatingModel, operatingModelFeatureFlags } from "@/lib/applications/operating-model";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey } from "@/types/domain";
 import type { ApplicationEmailLog } from "@/lib/admin/application-emails";
@@ -102,6 +103,7 @@ export type SalesApplication = {
   intake_answers?: Record<string, unknown> | null;
   ai_target_questions?: string[] | null;
   ai_dashboard_plan?: Record<string, unknown> | null;
+  operating_model?: Record<string, unknown> | null;
   applicant_company_name?: string | null;
   applicant_store_relationship?: string | null;
   applicant_authority_confirmed_at?: string | null;
@@ -215,6 +217,7 @@ function buildApplicationHandoff(application: SalesApplication, applicationId: s
     intake_answers: intakeAnswers,
     ai_target_questions: targetQuestions,
     ai_dashboard_plan: dashboardPlan,
+    operating_model: normalizeOperatingModel(application.operating_model),
     ai: {
       status: application.ai_analysis_status,
       model: application.ai_analysis_model,
@@ -543,6 +546,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
   const storeId = application.store_id ?? randomUUID();
   const inviteEmail = application.invite_email ?? application.email;
   const handoff = buildApplicationHandoff(application as SalesApplication, applicationId);
+  const operatingModel = normalizeOperatingModel(application.operating_model);
+  const firstLocation = operatingModel.structure.locations[0];
   const extractedProfile = recordFromJson(handoff.extracted_profile);
   const extractedServices = listFromJson(extractedProfile.services);
   const extractedStrengths = listFromJson(extractedProfile.strengths);
@@ -556,7 +561,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     const { error } = await supabase.from("organizations").insert({
       id: organizationId,
       name: `${application.store_name} 運用組織`,
-      plan_key: "starter"
+      plan_key: "starter",
+      operating_model: operatingModel
     });
     if (error) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(`組織を作成できませんでした: ${error.message}`)}`);
   }
@@ -568,6 +574,7 @@ export async function prepareApplicationAccountAction(applicationId: string) {
       source_application_id: applicationId,
       industry_type_key: industryTypeKey,
       name: application.store_name,
+      brand_name: firstLocation?.brandName || operatingModel.structure.brandNames[0] || null,
       address: extractedAddress,
       phone: extractedPhone,
       website_url: application.website_url,
@@ -588,7 +595,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
         sales_approved: true,
         application_intake: handoff
       },
-      feature_flags: industry.defaultFeatureFlags,
+      feature_flags: { ...industry.defaultFeatureFlags, ...operatingModelFeatureFlags(operatingModel) },
+      operating_model: operatingModel,
       status: "active"
     });
     if (error) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(`店舗を作成できませんでした: ${error.message}`)}`);
@@ -616,6 +624,9 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     website_url: application.website_url ?? null,
     google_business_url: application.google_maps_url ?? null,
     description: extractedDescription ?? null,
+    brand_name: firstLocation?.brandName || operatingModel.structure.brandNames[0] || null,
+    operating_model: operatingModel,
+    feature_flags: { ...industry.defaultFeatureFlags, ...operatingModelFeatureFlags(operatingModel) },
     profile_data: {
       ...currentProfile,
       data_mode: currentProfile.data_mode ?? "production",
@@ -635,6 +646,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     updated_at: new Date().toISOString()
   }).eq("id", storeId);
   if (storeUpdateError) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(`申込内容を店舗へ反映できませんでした: ${storeUpdateError.message}`)}`);
+
+  await supabase.from("organizations").update({ operating_model: operatingModel, updated_at: new Date().toISOString() }).eq("id", organizationId);
 
   const { error: snapshotError } = await supabase.from("onboarding_snapshots").upsert({
     organization_id: organizationId,

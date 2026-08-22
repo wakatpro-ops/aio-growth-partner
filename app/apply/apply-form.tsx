@@ -16,12 +16,24 @@ type PreviewPayload = {
 
 type Stage = "idle" | "analyzing" | "preview" | "sending_code" | "code" | "verifying" | "verified" | "submitting" | "success";
 
+type OperatingModelDraft = {
+  version: 1;
+  structure: { mode: string; companyNames: string[]; brandNames: string[]; locations: Array<Record<string, string>> };
+  systems: Record<string, { authority: string; serviceNames: string[] }>;
+  register: { mode: string };
+  operations: { serviceMode: string; reservationResources: string[] };
+  sharing: Record<string, string>;
+  detection: { source: string; notes: string[] };
+};
+
 export function ApplyForm() {
   const [stage, setStage] = useState<Stage>("idle");
   const [sourceUrl, setSourceUrl] = useState("");
   const [preview, setPreview] = useState<PreviewPayload | null>(null);
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
+  const [operatingModel, setOperatingModel] = useState<OperatingModelDraft | null>(null);
+  const [structureMode, setStructureMode] = useState("single_store");
   const [error, setError] = useState("");
 
   async function analyze(event: FormEvent<HTMLFormElement>) {
@@ -98,6 +110,9 @@ export function ApplyForm() {
         setStage("code");
         return;
       }
+      const nextOperatingModel = data.operating_model_draft as OperatingModelDraft;
+      setOperatingModel(nextOperatingModel);
+      setStructureMode(nextOperatingModel.structure.mode);
       setStage("verified");
     } catch {
       setError("確認中に通信が途切れました。もう一度お試しください。");
@@ -119,7 +134,33 @@ export function ApplyForm() {
       company_name: String(formData.get("company_name") ?? ""),
       store_relationship: String(formData.get("store_relationship") ?? ""),
       authority_confirmed: formData.get("authority_confirmed") === "on",
-      message: String(formData.get("message") ?? "")
+      message: String(formData.get("message") ?? ""),
+      operating_model: operatingModel ? {
+        ...operatingModel,
+        structure: {
+          ...operatingModel.structure,
+          mode: String(formData.get("structure_mode") ?? operatingModel.structure.mode),
+          companyNames: String(formData.get("company_names") ?? operatingModel.structure.companyNames.join("、")).split(/[、,\n]/u).map((value) => value.trim()).filter(Boolean),
+          brandNames: String(formData.get("brand_names") ?? operatingModel.structure.brandNames.join("、")).split(/[、,\n]/u).map((value) => value.trim()).filter(Boolean),
+          locations: [
+            ...operatingModel.structure.locations.slice(0, 1),
+            ...String(formData.get("additional_locations") ?? "").split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 9).map((line) => {
+              const [name = "", address = "", websiteUrl = ""] = line.split("|").map((value) => value.trim());
+              return { name, address, websiteUrl, companyName: "", brandName: "", source: "applicant" };
+            })
+          ]
+        },
+        systems: Object.fromEntries(Object.entries(operatingModel.systems).map(([key, value]) => [key, {
+          ...value,
+          authority: String(formData.get(`system_${key}`) ?? value.authority)
+        }])),
+        register: { mode: String(formData.get("register_mode") ?? operatingModel.register.mode) },
+        operations: {
+          serviceMode: String(formData.get("service_mode") ?? operatingModel.operations.serviceMode),
+          reservationResources: ["staff", "seat", "room", "equipment", "table", "vehicle", "other"].filter((key) => formData.get(`resource_${key}`) === "on")
+        },
+        sharing: Object.fromEntries(Object.entries(operatingModel.sharing).map(([key, value]) => [key, String(formData.get(`sharing_${key}`) ?? value)]))
+      } : undefined
     };
     try {
       const response = await fetch("/api/applications", {
@@ -194,6 +235,17 @@ export function ApplyForm() {
                 <div className="field"><label htmlFor="company_name">会社名</label><input id="company_name" name="company_name" autoComplete="organization" placeholder="法人の場合に入力してください" /></div>
                 <div className="field"><label htmlFor="store_relationship">対象店舗との関係 <span className="required-mark">必須</span></label><select id="store_relationship" name="store_relationship" required defaultValue=""><option value="" disabled>選択してください</option><option value="owner">店舗オーナー</option><option value="employee">店舗スタッフ・従業員</option><option value="operator">店舗運営会社</option><option value="authorized_agent">正規代理人</option><option value="other">その他</option></select></div>
               </div>
+              {operatingModel ? (
+                <section className="stack">
+                  <div><p className="eyebrow">AIが準備した運営設定</p><h3>お店に必要な機能だけを使うため、5項目をご確認ください</h3><p className="muted">分からない項目は「まだ決めていない」のままで申し込めます。運営会社の承認後、初回設定で編集できます。</p></div>
+                  <div className="field"><label htmlFor="structure_mode">1. 店舗・ブランドの構成</label><select id="structure_mode" name="structure_mode" value={structureMode} onChange={(event) => setStructureMode(event.target.value)}><option value="single_store">1法人・1ブランド・1店舗</option><option value="multi_store">同じ法人・ブランドで複数店舗</option><option value="multi_brand">同じ法人で複数ブランド・店舗</option><option value="multi_company">複数法人をまとめて管理したい</option></select>{operatingModel.structure.locations.length > 1 ? <p className="muted">公開ページから {operatingModel.structure.locations.length} 店舗候補を確認しました。正式登録前に個別確認できます。</p> : null}</div>
+                  {structureMode !== "single_store" ? <div className="stack"><div className="grid cols-2"><div className="field"><label htmlFor="company_names">法人名（複数は読点区切り）</label><input id="company_names" name="company_names" defaultValue={operatingModel.structure.companyNames.join("、")} /></div><div className="field"><label htmlFor="brand_names">ブランド名（複数は読点区切り）</label><input id="brand_names" name="brand_names" defaultValue={operatingModel.structure.brandNames.join("、")} /></div></div><div className="field"><label htmlFor="additional_locations">追加店舗候補</label><textarea id="additional_locations" name="additional_locations" defaultValue={operatingModel.structure.locations.slice(1).map((item) => `${item.name} | ${item.address} | ${item.websiteUrl}`).join("\n")} placeholder={'1行に1店舗：店舗名 | 住所 | 店舗URL\n例：中野店 | 東京都中野区… | https://…'} /><p className="muted">AIが確認できなかった店舗だけ追記してください。初回設定で登録する店舗を選べます。</p></div></div> : null}
+                  <div className="field"><span className="field-label">2. 既存システムとの役割分担</span><div className="grid cols-2">{Object.entries(operatingModel.systems).map(([key, value]) => <label key={key}>{({ sales: "売上", reservations: "予約", customers: "顧客", inventory: "在庫", accounting: "会計" } as Record<string, string>)[key] ?? key}<select name={`system_${key}`} defaultValue={value.authority}><option value="aio_boost">AIO boostで管理</option><option value="external">既存システムを正本にする</option><option value="file_import">CSV・Excel取込で連携</option><option value="not_managed">管理しない</option></select>{value.serviceNames.length ? <small>検出: {value.serviceNames.join("、")}</small> : null}</label>)}</div></div>
+                  <div className="field"><label htmlFor="register_mode">3. 会計・レジの使い方</label><select id="register_mode" name="register_mode" defaultValue={operatingModel.register.mode}><option value="undecided">まだ決めていない</option><option value="external_pos">既存のPOS・レジを使う</option><option value="simple_register">AIO boostの簡易会計を使う</option><option value="not_needed">レジ機能は不要</option></select></div>
+                  <div className="field"><label htmlFor="service_mode">4. 予約・スタッフ・設備の運用</label><select id="service_mode" name="service_mode" defaultValue={operatingModel.operations.serviceMode}><option value="reservation_only">予約制</option><option value="walk_in_only">予約なし・来店順</option><option value="both">予約と当日受付の両方</option><option value="remote_or_visit">訪問・オンライン対応</option><option value="not_used">予約管理は不要</option></select><div className="checkbox-grid">{[["staff", "スタッフ"], ["seat", "席"], ["room", "部屋"], ["equipment", "設備"], ["table", "テーブル"], ["vehicle", "車両"], ["other", "その他"]].map(([key, label]) => <label className="check-card" key={key}><input type="checkbox" name={`resource_${key}`} defaultChecked={operatingModel.operations.reservationResources.includes(key)} /><span>{label}</span></label>)}</div></div>
+                  {structureMode !== "single_store" ? <div className="field"><span className="field-label">5. 店舗間で共有する情報</span><div className="grid cols-2">{Object.entries(operatingModel.sharing).map(([key, value]) => <label key={key}>{({ menus: "メニュー", invoices: "請求書設定", customers: "顧客", staff: "スタッフ", inventory: "在庫" } as Record<string, string>)[key] ?? key}<select name={`sharing_${key}`} defaultValue={value}><option value="company">法人共通</option><option value="brand">ブランド共通</option><option value="store">店舗ごと</option></select></label>)}</div></div> : null}
+                </section>
+              ) : null}
               <div className="field"><label htmlFor="application_message">補足・確認事項</label><textarea id="application_message" name="message" placeholder="代理申込の場合の関係や、確認してほしい内容をご記入ください" /></div>
               <label className="consent-row"><input name="authority_confirmed" type="checkbox" required /><span>私は対象店舗のオーナー、従業員、運営会社または正規に許可された代理人であり、この店舗について詳細診断を申し込む正当な権限があります。 <span className="required-mark">必須</span></span></label>
               <p className="muted">競合店舗の大量調査、継続監視、嫌がらせ目的の利用は禁止しています。必要に応じて店舗との関係を追加確認します。</p>

@@ -25,6 +25,11 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
 
   const settings = [
     ...(canManageStaff ? [{
+      title: "運営方法とシステム連携",
+      body: "複数店舗、既存POSとの役割分担、簡易会計、予約対象、店舗間の共有範囲を設定します。",
+      href: `/stores/${store.id}/settings/operations`,
+      badge: "5項目を最適化"
+    }, {
       title: "スタッフアカウント",
       body: "この店舗だけを利用できるスタッフを招待し、登録・編集・閲覧のみの権限を設定します。",
       href: `/stores/${store.id}/settings/staff`,

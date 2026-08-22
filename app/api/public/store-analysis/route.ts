@@ -83,6 +83,7 @@ export async function POST(request: Request) {
       status,
       fetch_summary: fetchSummary,
       extracted_profile: result.profile,
+      operating_model_draft: result.operatingModelDraft,
       analysis_result: result.diagnosis,
       clarifying_questions: result.diagnosis.clarifying_questions,
       readiness_score: result.diagnosis.readiness_score,

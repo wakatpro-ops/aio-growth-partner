@@ -19,6 +19,8 @@ export type InitialSetupInput = {
   invoiceRegistrationNumber: string;
   invoicePrefix: string;
   menus: InitialSetupMenuInput[];
+  operatingModel: OperatingModel;
+  additionalLocations: Array<OperatingLocation & { sourceKey: string }>;
 };
 
 export type InitialSetupAccess = {
@@ -58,7 +60,12 @@ export function initialSetupCandidateKey(snapshotId: string, index: number) {
   return `initial-setup:${snapshotId}:${index}`;
 }
 
-export function parseInitialSetupForm(formData: FormData, snapshotId: string, candidateCount: number): InitialSetupInput {
+export function initialSetupStoreCandidateKey(snapshotId: string, index: number) {
+  if (!snapshotId || !Number.isInteger(index) || index < 0 || index >= 10) throw new Error("追加店舗候補を確認できません。");
+  return `initial-store:${snapshotId}:${index}`;
+}
+
+export function parseInitialSetupForm(formData: FormData, snapshotId: string, candidateCount: number, fallbackOperatingModel?: unknown): InitialSetupInput {
   if (formData.get("final_confirmation") !== "on") {
     throw new Error("内容を確認し、正式データへの反映に同意してください。");
   }
@@ -111,6 +118,43 @@ export function parseInitialSetupForm(formData: FormData, snapshotId: string, ca
     });
   }
 
+  const fallback = normalizeOperatingModel(fallbackOperatingModel);
+  const operatingModel = normalizeOperatingModel({
+    ...fallback,
+    structure: { ...fallback.structure, mode: text(formData, "structure_mode", 40) || fallback.structure.mode },
+    systems: Object.fromEntries(Object.entries(fallback.systems).map(([key, value]) => [key, { ...value, authority: text(formData, `system_${key}`, 40) || value.authority }])),
+    register: { mode: text(formData, "register_mode", 40) || fallback.register.mode },
+    operations: {
+      serviceMode: text(formData, "service_mode", 40) || fallback.operations.serviceMode,
+      reservationResources: ["staff", "seat", "room", "equipment", "table", "vehicle", "other"].filter((key) => formData.get(`resource_${key}`) === "on")
+    },
+    sharing: Object.fromEntries(Object.entries(fallback.sharing).map(([key, value]) => [key, text(formData, `sharing_${key}`, 40) || value])),
+    detection: { ...fallback.detection, source: "applicant" },
+    applicantConfirmedAt: new Date().toISOString()
+  }, fallback);
+  const additionalLocations = fallback.structure.locations.slice(1, 10).flatMap((location, index) => {
+    if (formData.get(`location_enabled_${index}`) !== "on") return [];
+    const websiteUrl = text(formData, `location_website_${index}`, 2_000);
+    if (websiteUrl) {
+      try {
+        const url = new URL(websiteUrl);
+        if (!["http:", "https:"].includes(url.protocol)) throw new Error("unsupported");
+      } catch { throw new Error(`追加店舗${index + 1}のURLを確認してください。`); }
+    }
+    const name = text(formData, `location_name_${index}`, 160);
+    if (!name) throw new Error(`追加店舗${index + 1}の店舗名を入力してください。`);
+    return [{
+      name,
+      address: text(formData, `location_address_${index}`, 240),
+      websiteUrl,
+      companyName: text(formData, `location_company_${index}`, 160),
+      brandName: text(formData, `location_brand_${index}`, 160),
+      source: "applicant" as const,
+      sourceKey: initialSetupStoreCandidateKey(snapshotId, index)
+    }];
+  });
+  operatingModel.structure.locations = [operatingModel.structure.locations[0], ...additionalLocations].filter(Boolean) as OperatingLocation[];
+
   return {
     storeName,
     industryTypeKey,
@@ -121,6 +165,9 @@ export function parseInitialSetupForm(formData: FormData, snapshotId: string, ca
     invoiceIssuerName,
     invoiceRegistrationNumber,
     invoicePrefix,
-    menus
+    menus,
+    operatingModel,
+    additionalLocations
   };
 }
+import { normalizeOperatingModel, type OperatingLocation, type OperatingModel } from "../applications/operating-model.ts";

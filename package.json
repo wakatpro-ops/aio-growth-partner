@@ -35,7 +35,9 @@
     "test:initial-setup": "node --experimental-strip-types --test scripts/test-initial-setup.mjs",
     "check:initial-setup": "node scripts/check-initial-setup.mjs",
     "test:staging:initial-setup": "node scripts/test-staging-initial-setup.mjs",
-    "test:staging:full-onboarding": "node scripts/test-staging-full-onboarding.mjs"
+    "test:staging:full-onboarding": "node scripts/test-staging-full-onboarding.mjs",
+    "test:operating-model": "node --experimental-strip-types --test scripts/test-adaptive-operating-model.mjs",
+    "check:operating-model": "node scripts/check-adaptive-operating-model.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

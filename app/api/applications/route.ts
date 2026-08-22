@@ -6,6 +6,7 @@ import { hashPublicAnalysisToken } from "@/lib/applications/public-analysis-toke
 import { sendApplicationReceivedEmails } from "@/lib/admin/application-emails";
 import type { SalesApplication } from "@/lib/admin/applications";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { normalizeOperatingModel } from "@/lib/applications/operating-model";
 
 const applicationSchema = z.object({
   industry_detail_key: z.string().default("other_service"),
@@ -34,6 +35,7 @@ const urlFirstApplicationSchema = z.object({
   company_name: z.string().trim().max(160).optional().default(""),
   store_relationship: z.enum(["owner", "employee", "operator", "authorized_agent", "other"]),
   authority_confirmed: z.literal(true),
+  operating_model: z.unknown().optional(),
   message: z.string().trim().max(2_000).optional().default("")
 });
 
@@ -82,6 +84,9 @@ async function createUrlFirstApplication(json: unknown) {
   }
 
   const profile = recordValue(draft.extracted_profile);
+  const operatingModel = normalizeOperatingModel(parsed.data.operating_model, normalizeOperatingModel(draft.operating_model_draft));
+  operatingModel.detection.source = "applicant";
+  operatingModel.applicantConfirmedAt = new Date().toISOString();
   const diagnosis = recordValue(draft.analysis_result);
   const clarifyingQuestions = Array.isArray(draft.clarifying_questions) ? draft.clarifying_questions : [];
   const industryOption = findPublicIndustryOption(String(profile.industry_key ?? "other_service"));
@@ -109,7 +114,8 @@ async function createUrlFirstApplication(json: unknown) {
     applicant_company_name: parsed.data.company_name,
     applicant_store_relationship: parsed.data.store_relationship,
     applicant_authority_confirmed: true,
-    applicant_message: parsed.data.message
+    applicant_message: parsed.data.message,
+    operating_model: operatingModel
   };
   const enrichment = {
     source_analysis_id: draft.id,
@@ -140,7 +146,7 @@ async function createUrlFirstApplication(json: unknown) {
     contact_name: parsed.data.contact_name,
     email: parsed.data.email.toLowerCase(),
     phone: parsed.data.phone,
-    store_count: 1,
+    store_count: Math.max(1, operatingModel.structure.locations.length),
     pain_points: String(topImprovement.description ?? "AIOおすすめ準備度の改善"),
     message: parsed.data.message,
     status: "new",
@@ -148,13 +154,15 @@ async function createUrlFirstApplication(json: unknown) {
     applicant_store_relationship: parsed.data.store_relationship,
     applicant_authority_confirmed_at: authorityConfirmedAt,
     intake_review_status: "pending",
+    operating_model: operatingModel,
     ...enrichment,
     admin_checklist: {
       public_application_enrichment: {
         ...enrichment,
         source_url: draft.source_url,
         final_url: draft.final_url,
-        extracted_profile: confirmedProfile
+        extracted_profile: confirmedProfile,
+        operating_model: operatingModel
       }
     }
   };
