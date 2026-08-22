@@ -82,6 +82,8 @@ function aiAnalysisStatusLabel(value: string) {
 
 function applicationEnrichment(application: NonNullable<Awaited<ReturnType<typeof getApplication>>["application"]>) {
   const fallback = recordFromUnknown(recordFromUnknown(application.admin_checklist)?.public_application_enrichment);
+  const extractedProfile = recordFromUnknown(fallback.extracted_profile);
+  const dashboardPlan = recordFromUnknown(application.ai_dashboard_plan ?? fallback.ai_dashboard_plan);
   const social = recordFromUnknown(application.social_urls ?? fallback.social_urls);
   const socialUrls = [
     social.instagram ? `Instagram: ${String(social.instagram)}` : "",
@@ -105,7 +107,13 @@ function applicationEnrichment(application: NonNullable<Awaited<ReturnType<typeo
     analysisError: application.ai_analysis_error ?? String(fallback.ai_analysis_error ?? ""),
     analysisErrorCode: application.ai_analysis_error_code ?? String(fallback.ai_analysis_error_code ?? ""),
     analysisModel: application.ai_analysis_model ?? String(fallback.ai_analysis_model ?? ""),
-    analyzedAt: application.ai_analyzed_at ?? String(fallback.ai_analyzed_at ?? "")
+    analyzedAt: application.ai_analyzed_at ?? String(fallback.ai_analyzed_at ?? ""),
+    sourceAnalysisId: application.source_analysis_id ?? String(fallback.source_analysis_id ?? ""),
+    sourceUrl: String(fallback.source_url ?? application.website_url ?? ""),
+    extractedProfile,
+    intakeAnswers: recordFromUnknown(application.intake_answers ?? fallback.intake_answers),
+    targetQuestions: listFromUnknown(application.ai_target_questions ?? fallback.ai_target_questions),
+    dashboardPlan
   };
 }
 
@@ -281,7 +289,42 @@ export default async function AdminApplicationDetailPage({
               </ul>
             ) : <p>-</p>}
           </article>
+          {enrichment.targetQuestions.length ? (
+            <article className="mini-card">
+              <h3>お客様の想定質問</h3>
+              <ul className="compact-list">{enrichment.targetQuestions.map((item) => <li key={item}>{item}</li>)}</ul>
+            </article>
+          ) : null}
+          {enrichment.sourceAnalysisId ? (
+            <article className="mini-card">
+              <h3>URL起点の診断</h3>
+              <p><span className="badge">診断から申込へ変換済み</span></p>
+              <p>{enrichment.sourceUrl ? <a href={enrichment.sourceUrl} target="_blank">解析元の店舗ページを確認</a> : "解析元URLなし"}</p>
+              <p className="muted">AIの読み取り結果と申込者の修正内容を初期設定へ引き継ぎます。</p>
+            </article>
+          ) : null}
         </div>
+        {enrichment.sourceAnalysisId ? (
+          <details className="disclosure" style={{ marginTop: 18 }}>
+            <summary>URLから読み取った店舗情報と追加回答を確認</summary>
+            <div className="grid cols-2" style={{ marginTop: 16 }}>
+              <article className="static-card">
+                <span>店舗プロフィール下書き</span>
+                <strong>{displayValue(enrichment.extractedProfile.store_name, application.store_name)}</strong>
+                <p>{displayValue(enrichment.extractedProfile.address)}</p>
+                <p>{displayValue(enrichment.extractedProfile.description)}</p>
+                <p>サービス: {listFromUnknown(enrichment.extractedProfile.services).join("、") || "-"}</p>
+                <p>強み: {listFromUnknown(enrichment.extractedProfile.strengths).join("、") || "-"}</p>
+              </article>
+              <article className="static-card">
+                <span>申込者の追加回答</span>
+                {Object.entries(enrichment.intakeAnswers).length ? (
+                  <ul className="compact-list">{Object.entries(enrichment.intakeAnswers).filter(([, value]) => String(value).trim()).map(([key, value]) => <li key={key}><strong>{key}</strong>: {displayValue(value)}</li>)}</ul>
+                ) : <p>追加回答はありません。</p>}
+              </article>
+            </div>
+          </details>
+        ) : null}
       </section>
 
       <section className="card">

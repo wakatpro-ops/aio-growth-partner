@@ -382,8 +382,9 @@ for select using (public.is_org_member(organization_id) or public.is_platform_ad
 create policy "read accounting org" on public.accounting_integrations
 for select using (public.is_org_member(organization_id) or public.is_platform_admin());
 
-create policy "anonymous applications insert" on public.applications
-for insert to anon with check (true);
+-- Public applications are created by the bounded server route after URL-token
+-- validation. Direct anonymous PostgREST inserts remain intentionally disabled.
+revoke insert on table public.applications from anon;
 
 create policy "admin read applications" on public.applications
 for select using (public.is_platform_admin());

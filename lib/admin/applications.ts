@@ -80,6 +80,10 @@ export type SalesApplication = {
   ai_analysis_error_code?: string | null;
   ai_analysis_model?: string | null;
   ai_analyzed_at?: string | null;
+  source_analysis_id?: string | null;
+  intake_answers?: Record<string, unknown> | null;
+  ai_target_questions?: string[] | null;
+  ai_dashboard_plan?: Record<string, unknown> | null;
   admin_checklist?: Record<string, unknown> | null;
   status: string;
   sales_notes?: string | null;
@@ -152,6 +156,11 @@ function buildApplicationHandoff(application: SalesApplication, applicationId: s
   const setupSteps = listFromJson(application.ai_recommended_setup_steps);
   const growthOpportunities = listFromJson(application.ai_growth_opportunities);
   const meetingPoints = listFromJson(application.ai_first_meeting_points);
+  const targetQuestions = listFromJson(application.ai_target_questions);
+  const dashboardPlan = recordFromJson(application.ai_dashboard_plan);
+  const intakeAnswers = recordFromJson(application.intake_answers);
+  const enrichment = recordFromJson(recordFromJson(application.admin_checklist).public_application_enrichment);
+  const extractedProfile = recordFromJson(enrichment.extracted_profile);
 
   return {
     application_id: applicationId,
@@ -176,6 +185,11 @@ function buildApplicationHandoff(application: SalesApplication, applicationId: s
     reference_urls: referenceUrls,
     current_tools: currentTools,
     improvement_goals: improvementGoals,
+    source_analysis_id: application.source_analysis_id,
+    extracted_profile: extractedProfile,
+    intake_answers: intakeAnswers,
+    ai_target_questions: targetQuestions,
+    ai_dashboard_plan: dashboardPlan,
     ai: {
       status: application.ai_analysis_status,
       model: application.ai_analysis_model,
@@ -444,6 +458,14 @@ export async function prepareApplicationAccountAction(applicationId: string) {
   const storeId = application.store_id ?? randomUUID();
   const inviteEmail = application.invite_email ?? application.email;
   const handoff = buildApplicationHandoff(application as SalesApplication, applicationId);
+  const extractedProfile = recordFromJson(handoff.extracted_profile);
+  const extractedServices = listFromJson(extractedProfile.services);
+  const extractedStrengths = listFromJson(extractedProfile.strengths);
+  const extractedTargets = listFromJson(extractedProfile.target_customers);
+  const extractedAddress = typeof extractedProfile.address === "string" ? extractedProfile.address : "";
+  const extractedPhone = typeof extractedProfile.phone === "string" ? extractedProfile.phone : application.phone;
+  const extractedDescription = typeof extractedProfile.description === "string" ? extractedProfile.description : application.pain_points;
+  const extractedOpeningHours = typeof extractedProfile.opening_hours === "string" ? extractedProfile.opening_hours : "";
 
   if (!application.organization_id) {
     const { error } = await supabase.from("organizations").insert({
@@ -461,16 +483,23 @@ export async function prepareApplicationAccountAction(applicationId: string) {
       source_application_id: applicationId,
       industry_type_key: industryTypeKey,
       name: application.store_name,
-      phone: application.phone,
+      address: extractedAddress,
+      phone: extractedPhone,
       website_url: application.website_url,
       google_business_url: application.google_maps_url,
-      description: application.pain_points,
+      description: extractedDescription,
       profile_data: {
         data_mode: "production",
         onboarding_status: "not_started",
         created_from_application_id: applicationId,
         contact_name: application.contact_name,
         contact_email: application.email,
+        services: extractedServices,
+        strengths: extractedStrengths.join("、"),
+        target_customer: extractedTargets.join("、"),
+        opening_hours: extractedOpeningHours,
+        url_first_onboarding: Boolean(application.source_analysis_id),
+        dashboard_plan: application.ai_dashboard_plan ?? {},
         sales_approved: true,
         application_intake: handoff
       },
@@ -491,15 +520,17 @@ export async function prepareApplicationAccountAction(applicationId: string) {
 
   const { data: currentStore } = await supabase
     .from("stores")
-    .select("profile_data")
+    .select("profile_data, address, phone")
     .eq("id", storeId)
     .maybeSingle();
   const currentProfile = recordFromJson(currentStore?.profile_data);
   const { error: storeUpdateError } = await supabase.from("stores").update({
     source_application_id: applicationId,
+    address: extractedAddress || currentStore?.address || null,
+    phone: extractedPhone || currentStore?.phone || null,
     website_url: application.website_url ?? null,
     google_business_url: application.google_maps_url ?? null,
-    description: application.pain_points ?? null,
+    description: extractedDescription ?? null,
     profile_data: {
       ...currentProfile,
       data_mode: currentProfile.data_mode ?? "production",
@@ -508,6 +539,12 @@ export async function prepareApplicationAccountAction(applicationId: string) {
       contact_name: application.contact_name,
       contact_email: application.email,
       contact_phone: application.phone,
+      services: extractedServices.length ? extractedServices : currentProfile.services,
+      strengths: extractedStrengths.length ? extractedStrengths.join("、") : currentProfile.strengths,
+      target_customer: extractedTargets.length ? extractedTargets.join("、") : currentProfile.target_customer,
+      opening_hours: extractedOpeningHours || currentProfile.opening_hours,
+      url_first_onboarding: Boolean(application.source_analysis_id),
+      dashboard_plan: application.ai_dashboard_plan ?? currentProfile.dashboard_plan ?? {},
       application_intake: handoff
     },
     updated_at: new Date().toISOString()

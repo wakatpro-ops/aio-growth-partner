@@ -2372,3 +2372,122 @@ p {
     grid-template-columns: 1fr;
   }
 }
+
+.url-first-intake {
+  scroll-margin-top: 24px;
+}
+
+.url-first-form {
+  background: linear-gradient(145deg, #ffffff, #f1f8f4);
+  border: 2px solid #8dbda5;
+  padding: clamp(24px, 4vw, 40px);
+}
+
+.url-first-form h2 {
+  font-size: clamp(25px, 4vw, 36px);
+}
+
+.url-first-form input {
+  background: #fff;
+  border-width: 2px;
+  font-size: 17px;
+  min-height: 58px;
+}
+
+.url-analysis-button {
+  font-size: 17px;
+  justify-content: center;
+  min-height: 56px;
+  width: min(100%, 420px);
+}
+
+.analysis-result {
+  scroll-margin-top: 24px;
+}
+
+.analysis-hero {
+  align-items: center;
+  background: linear-gradient(135deg, #f0faf5, #fff);
+  display: grid;
+  gap: 28px;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
+}
+
+.readiness-score {
+  align-items: center;
+  background: #155c46;
+  border-radius: 16px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+  min-height: 190px;
+  padding: 24px;
+  text-align: center;
+}
+
+.readiness-score strong {
+  font-size: clamp(44px, 7vw, 68px);
+  line-height: 1;
+}
+
+.readiness-score small {
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.5;
+}
+
+.analysis-result .ai-question-panel {
+  margin-bottom: 0;
+}
+
+.analysis-result .ai-question-panel .static-card {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: #fff;
+}
+
+.analysis-result .ai-question-panel .static-card span,
+.analysis-result .ai-question-panel .static-card strong {
+  color: #fff;
+}
+
+.extracted-profile-grid .static-card span {
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+.diagnosis-cta {
+  align-items: flex-start;
+  background: linear-gradient(135deg, #e4f4eb, #fff8e6);
+  border-color: #9cc8ad;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(24px, 4vw, 40px);
+}
+
+.diagnosis-cta .button {
+  font-size: 17px;
+  min-height: 54px;
+}
+
+.confirmation-form {
+  border: 2px solid #8dbda5;
+  scroll-margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+  .analysis-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .readiness-score {
+    min-height: 160px;
+  }
+
+  .url-analysis-button,
+  .diagnosis-cta .button,
+  .confirmation-form .form-actions .button {
+    width: 100%;
+  }
+}

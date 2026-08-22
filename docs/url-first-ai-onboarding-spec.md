@@ -125,7 +125,7 @@ AIが利用できない場合は、ルール抽出による結果を表示し、
 
 新規 `public_store_analyses` を申込前の診断下書きとして追加する。
 
-- `id`, `public_token`, `source_url`, `final_url`, `status`
+- `id`, `public_token_hash`, `source_url`, `final_url`, `status`。ブラウザへ返す生トークンはDBへ保存せず、SHA-256ハッシュだけを保存する
 - `fetch_summary`, `extracted_profile`, `analysis_result`, `clarifying_questions`
 - `readiness_score`, `top_improvement`
 - `ai_status`, `ai_model`, `ai_error_code`

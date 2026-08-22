@@ -24,6 +24,7 @@ function UrlList({ urls }: { urls: string[] }) {
 
 export function ApplicationIntakeSummary({ content }: { content: Record<string, unknown> }) {
   const ai = recordFromContent(content.ai);
+  const extracted = recordFromContent(content.extracted_profile);
   const social = recordFromContent(content.social_urls);
   const urls = [
     textValue(content.website_url),
@@ -45,6 +46,8 @@ export function ApplicationIntakeSummary({ content }: { content: Record<string, 
     ? listFromContent(ai.first_meeting_points)
     : listFromContent(content.ai_first_meeting_points);
   const businessSummary = textValue(ai.business_summary) || textValue(content.ai_business_summary);
+  const targetQuestions = listFromContent(content.ai_target_questions);
+  const intakeAnswers = recordFromContent(content.intake_answers);
 
   return (
     <section className="card">
@@ -56,6 +59,26 @@ export function ApplicationIntakeSummary({ content }: { content: Record<string, 
           <h3>お店のまとめ</h3>
           <p>{businessSummary || textValue(content.pain_points) || "店舗の特徴を確認しながら初期設定を進めます。"}</p>
         </article>
+        {targetQuestions.length ? (
+          <article className="mini-card">
+            <h3>お客様の想定質問</h3>
+            <ul className="compact-list">{targetQuestions.map((item) => <li key={item}>{item}</li>)}</ul>
+          </article>
+        ) : null}
+        {Object.keys(extracted).length ? (
+          <article className="mini-card">
+            <h3>URLから引き継いだ情報</h3>
+            <p>{textValue(extracted.address) || "住所は初回確認で追加できます。"}</p>
+            <p>サービス: {listFromContent(extracted.services).join("、") || "初回確認で追加できます。"}</p>
+            <p>強み: {listFromContent(extracted.strengths).join("、") || "初回確認で追加できます。"}</p>
+          </article>
+        ) : null}
+        {Object.keys(intakeAnswers).length ? (
+          <article className="mini-card">
+            <h3>追加で確認した内容</h3>
+            <ul className="compact-list">{Object.entries(intakeAnswers).filter(([, value]) => textValue(value)).map(([key, value]) => <li key={key}>{textValue(value)}</li>)}</ul>
+          </article>
+        ) : null}
         <article className="mini-card">
           <h3>申込時の基本情報</h3>
           <table className="table compact">

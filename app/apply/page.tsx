@@ -7,12 +7,30 @@ export default function ApplyPage() {
       <div className="stack">
         <div>
           <div className="eyebrow">Apply</div>
-          <h1>導入相談・利用申し込み</h1>
-          <p>店舗業務の整理、請求・入金管理、売上分析、AI集客支援の導入についてご相談いただけます。入力内容をもとに、AIOが導入前の初期整理を行います。</p>
+          <h1>お店のURLだけで、AIO改善を始められます</h1>
+          <p>AIがお店の公開ページから業態、地域、メニュー、特徴を整理し、「どんな質問でおすすめされる準備をすべきか」を先にお見せします。</p>
           <div className="button-row" style={{ marginTop: 16 }}>
             <Link className="button secondary" href="/pricing">料金と含まれる機能を見る</Link>
           </div>
         </div>
+        <section className="grid cols-3">
+          <article className="card">
+            <p className="muted">1</p>
+            <h2>URLを1件入力</h2>
+            <p>公式サイトがなくても、予約サイトや店舗ポータルのURLで始められます。</p>
+          </article>
+          <article className="card">
+            <p className="muted">2</p>
+            <h2>AIが事前診断</h2>
+            <p>想定質問、AIおすすめ準備度、最初に改善すると良いことを表示します。</p>
+          </article>
+          <article className="card">
+            <p className="muted">3</p>
+            <h2>不足だけを確認</h2>
+            <p>読み取れなかった重要項目だけ答えると、管理画面の初期設定下書きが整います。</p>
+          </article>
+        </section>
+        <ApplyForm />
         <section className="apply-pricing-summary" aria-labelledby="apply-pricing-title">
           <div>
             <p className="eyebrow">AIO boost オールインワンプラン</p>
@@ -21,34 +39,16 @@ export default function ApplyPage() {
           </div>
           <Link className="button secondary" href="/pricing">料金の詳細を確認</Link>
         </section>
-        <section className="grid cols-3">
-          <article className="card">
-            <p className="muted">1</p>
-            <h2>お店の情報を入力</h2>
-            <p>業態、URL、使っているツール、改善したいことを分かる範囲で入力します。</p>
-          </article>
-          <article className="card">
-            <p className="muted">2</p>
-            <h2>AIが初期整理</h2>
-            <p>お店の概要、活かせそうなポイント、最初に整える項目をまとめます。</p>
-          </article>
-          <article className="card">
-            <p className="muted">3</p>
-            <h2>担当者がご案内</h2>
-            <p>入力内容をもとに、より具体的な導入イメージをご案内します。</p>
-          </article>
-        </section>
         <section className="card">
           <h2>ご利用開始までの流れ</h2>
           <ol className="compact-list">
-            <li>このフォームから導入希望内容を送信します。</li>
-            <li>担当者より、導入内容とご利用開始までの流れをご案内します。</li>
+            <li>URLから無料の事前診断を確認します。</li>
+            <li>診断結果を確認し、連絡先と不足している情報だけを送信します。</li>
             <li>ご契約内容を確認後、初期設定とアカウント発行を進めます。</li>
             <li>ログイン後、初回導入ガイドに沿って店舗設定を進めます。</li>
           </ol>
           <p className="notice">このフォームは導入相談・利用申し込みの受付です。送信後、担当者より確認のうえご案内します。</p>
         </section>
-        <ApplyForm />
       </div>
     </main>
   );
