@@ -129,7 +129,6 @@ async function createUrlFirstApplication(json: unknown) {
     reference_urls: listValue(profile.source_urls),
     current_tools: [],
     improvement_goals: ["AIO改善"],
-    extracted_profile: confirmedProfile,
     intake_answers: safeAnswers,
     ai_business_summary: String(diagnosis.business_summary ?? profile.description ?? ""),
     ai_recommended_setup_steps: setupSteps,
@@ -154,7 +153,12 @@ async function createUrlFirstApplication(json: unknown) {
     message: answerSummary,
     status: "new",
     ...enrichment,
-    admin_checklist: { public_application_enrichment: enrichment }
+    admin_checklist: {
+      public_application_enrichment: {
+        ...enrichment,
+        extracted_profile: confirmedProfile
+      }
+    }
   };
   const result = await supabase.from("applications").insert(payload).select("*").single();
   if (result.error) {
