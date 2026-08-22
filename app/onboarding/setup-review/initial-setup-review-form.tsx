@@ -102,6 +102,12 @@ export function InitialSetupReviewForm({ review }: { review: InitialSetupReview 
       <section className="card">
         <div className="section-heading"><div><p className="step-label">4 / 4</p><h2>管理画面の構成を確認</h2></div><span className="badge">{review.industryOptions.find((item) => item.key === selectedIndustry)?.label ?? selectedIndustry}向け</span></div>
         <p>選択した業種に合わせて、名称、AIの考え方、表示する主な機能を整えます。利用開始後も店舗設定から業種を変更できます。</p>
+        {review.aiRecommendedFeatures.length ? (
+          <>
+            <h3>AIが公開情報からおすすめした機能</h3>
+            <div className="button-row setup-feature-list">{review.aiRecommendedFeatures.map((feature) => <span className="badge" key={feature}>{feature}</span>)}</div>
+          </>
+        ) : null}
         <h3>最初に表示する内容</h3>
         <div className="grid cols-3">{preset.dashboardCards.map((card) => <article className="static-card" key={card.key}><strong>{card.label}</strong></article>)}</div>
         <h3>利用できる主な機能</h3>

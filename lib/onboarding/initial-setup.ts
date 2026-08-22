@@ -32,6 +32,7 @@ export type InitialSetupReview = {
   };
   industryOptions: Array<{ key: string; label: string }>;
   industryPresets: Record<string, { dashboardCards: Array<{ key: string; label: string }>; recommendedFeatures: string[] }>;
+  aiRecommendedFeatures: string[];
 };
 
 function record(value: unknown): JsonRecord {
@@ -96,6 +97,10 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
 
   const content = record(snapshot.content);
   const extracted = record(content.extracted_profile);
+  const aiDashboardPlan = record(content.ai_dashboard_plan);
+  const aiRecommendedFeatures = Array.isArray(aiDashboardPlan.recommended_modules)
+    ? aiDashboardPlan.recommended_modules.map((item) => String(record(item).label ?? "").trim()).filter(Boolean).slice(0, 20)
+    : [];
   const services = strings(extracted.services);
   const industryOptions = [{ key: "general_store", label: "汎用店舗" }, ...publicIndustryOptions.map((option) => ({ key: option.key, label: option.label }))];
   const industryPresets = Object.fromEntries(industryOptions.map((option) => {
@@ -120,7 +125,8 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
       prefix: String(invoice?.prefix ?? (store.industry_type_key === "auto_repair" ? "INV-AUTO" : "INV"))
     },
     industryOptions,
-    industryPresets
+    industryPresets,
+    aiRecommendedFeatures
   };
 }
 
@@ -169,7 +175,11 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       prefix: input.invoicePrefix
     },
     menus: input.menus,
-    dashboard: { industry_type_key: normalizedIndustry, cards: industry.dashboardCards },
+    dashboard: {
+      ...record(record(store.profile_data).dashboard_plan),
+      industry_type_key: normalizedIndustry,
+      cards: industry.dashboardCards
+    },
     confirmed_by: access.userId,
     confirmed_at: now
   };
@@ -201,7 +211,11 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
         onboarding_status: "completed",
         initial_setup_confirmed_at: now,
         initial_setup_confirmed_by: access.userId,
-        dashboard_plan: { industry_type_key: normalizedIndustry, cards: industry.dashboardCards }
+        dashboard_plan: {
+          ...record(currentProfile.dashboard_plan),
+          industry_type_key: normalizedIndustry,
+          cards: industry.dashboardCards
+        }
       },
       updated_at: now
     }).eq("id", store.id).eq("organization_id", store.organization_id);
