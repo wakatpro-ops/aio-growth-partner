@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { publicAnalysisPreview } from "@/lib/applications/analysis-presentation";
 import { analyzeFetchedStoreSite } from "@/lib/applications/store-analysis";
 import { createPublicAnalysisToken, hashPublicAnalysisToken, publicRequestFingerprint } from "@/lib/applications/public-analysis-token";
 import { fetchPublicStoreSite, normalizePublicUrl, PublicUrlError } from "@/lib/applications/url-safety";
@@ -95,15 +96,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, code: "save_failed", error: "診断結果を保存できませんでした。もう一度お試しください。" }, { status: 503 });
     }
 
+    const preview = publicAnalysisPreview({ profile: result.profile, diagnosis: result.diagnosis });
     return NextResponse.json({
       ok: true,
       analysis_token: token,
       status,
-      source_url: normalized.toString(),
-      final_url: fetched.finalUrl,
-      profile: result.profile,
-      diagnosis: result.diagnosis,
-      ai_status: result.ai.status
+      profile: preview.profile,
+      diagnosis: preview.diagnosis
     });
   } catch (error) {
     const safe = publicError(error);

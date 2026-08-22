@@ -28,14 +28,13 @@ const applicationSchema = z.object({
 
 const urlFirstApplicationSchema = z.object({
   analysis_token: z.string().trim().min(32).max(128),
-  store_name: z.string().trim().min(1).max(160),
-  industry_detail_key: z.string().trim().min(1).max(80),
-  address: z.string().trim().max(300).optional().default(""),
-  representative_service: z.string().trim().max(300).optional().default(""),
   contact_name: z.string().trim().min(1).max(120),
   email: z.string().trim().email().max(240),
-  phone: z.string().trim().max(80).optional().default(""),
-  answers: z.record(z.string().max(2_000)).optional().default({})
+  phone: z.string().trim().min(8).max(80),
+  company_name: z.string().trim().max(160).optional().default(""),
+  store_relationship: z.enum(["owner", "employee", "operator", "authorized_agent", "other"]),
+  authority_confirmed: z.literal(true),
+  message: z.string().trim().max(2_000).optional().default("")
 });
 
 function cleanList(values: string[]) {
@@ -53,9 +52,6 @@ function listValue(value: unknown) {
 async function createUrlFirstApplication(json: unknown) {
   const parsed = urlFirstApplicationSchema.safeParse(json);
   if (!parsed.success) {
-    return NextResponse.json({ ok: false, error: "入力内容を確認してください。" }, { status: 400 });
-  }
-  if (Object.keys(parsed.data.answers).length > 6) {
     return NextResponse.json({ ok: false, error: "入力内容を確認してください。" }, { status: 400 });
   }
   const supabase = createSupabaseAdminClient();
@@ -78,45 +74,43 @@ async function createUrlFirstApplication(json: unknown) {
   if (!["success", "partial"].includes(draft.status) || new Date(draft.expires_at).getTime() <= Date.now()) {
     return NextResponse.json({ ok: false, error: "診断結果の有効期限が切れています。URLからもう一度診断してください。" }, { status: 410 });
   }
+  if (!draft.verified_at || !draft.verification_name || !draft.verification_email) {
+    return NextResponse.json({ ok: false, error: "先にメールアドレスの確認を完了してください。" }, { status: 403 });
+  }
+  if (parsed.data.contact_name !== draft.verification_name || parsed.data.email.toLowerCase() !== String(draft.verification_email).toLowerCase()) {
+    return NextResponse.json({ ok: false, error: "確認済みの名前とメールアドレスを変更する場合は、もう一度メール確認を行ってください。" }, { status: 403 });
+  }
 
   const profile = recordValue(draft.extracted_profile);
   const diagnosis = recordValue(draft.analysis_result);
   const clarifyingQuestions = Array.isArray(draft.clarifying_questions) ? draft.clarifying_questions : [];
-  const allowedAnswerIds = new Set(clarifyingQuestions.map((item: unknown) => String(recordValue(item).id ?? "")).filter(Boolean));
-  const safeAnswers = Object.fromEntries(Object.entries(parsed.data.answers).filter(([key]) => allowedAnswerIds.has(key)));
-  const industryOption = findPublicIndustryOption(parsed.data.industry_detail_key);
+  const industryOption = findPublicIndustryOption(String(profile.industry_key ?? "other_service"));
   const originalServices = listValue(profile.services);
-  const services = cleanList([parsed.data.representative_service, ...originalServices]);
-  const strengths = cleanList([
-    String(safeAnswers.strengths ?? ""),
-    ...listValue(profile.strengths)
-  ]);
-  const targetCustomers = cleanList([
-    String(safeAnswers.target_customers ?? ""),
-    ...listValue(profile.target_customers)
-  ]);
+  const services = cleanList(originalServices);
+  const strengths = cleanList(listValue(profile.strengths));
+  const targetCustomers = cleanList(listValue(profile.target_customers));
   const confirmedProfile = {
     ...profile,
-    store_name: parsed.data.store_name,
     industry_key: industryOption.key,
     industry_label: industryOption.label,
-    address: parsed.data.address || String(profile.address ?? ""),
-    phone: parsed.data.phone || String(profile.phone ?? ""),
     services,
     strengths,
     target_customers: targetCustomers,
-    confirmed_by_applicant: true,
-    confirmed_at: new Date().toISOString()
+    confirmed_by_applicant: false,
+    pending_operator_review: true
   };
   const targetQuestions = listValue(diagnosis.target_questions).slice(0, 3);
   const recommendedModules = Array.isArray(diagnosis.recommended_modules) ? diagnosis.recommended_modules : [];
   const setupSteps = recommendedModules.map((item) => String(recordValue(item).label ?? "")).filter(Boolean);
   const growthOpportunities = recommendedModules.map((item) => String(recordValue(item).reason ?? "")).filter(Boolean);
   const topImprovement = recordValue(draft.top_improvement);
-  const answerSummary = Object.entries(safeAnswers)
-    .filter(([, value]) => value.trim())
-    .map(([key, value]) => `${key}: ${value.trim()}`)
-    .join("\n");
+  const authorityConfirmedAt = new Date().toISOString();
+  const intakeAnswers = {
+    applicant_company_name: parsed.data.company_name,
+    applicant_store_relationship: parsed.data.store_relationship,
+    applicant_authority_confirmed: true,
+    applicant_message: parsed.data.message
+  };
   const enrichment = {
     source_analysis_id: draft.id,
     industry_detail_key: industryOption.key,
@@ -127,7 +121,7 @@ async function createUrlFirstApplication(json: unknown) {
     reference_urls: listValue(profile.source_urls),
     current_tools: [],
     improvement_goals: ["AIO改善"],
-    intake_answers: safeAnswers,
+    intake_answers: intakeAnswers,
     ai_business_summary: String(diagnosis.business_summary ?? profile.description ?? ""),
     ai_recommended_setup_steps: setupSteps,
     ai_growth_opportunities: growthOpportunities,
@@ -142,14 +136,18 @@ async function createUrlFirstApplication(json: unknown) {
   };
   const payload = {
     industry_type_key: industryOption.internalIndustryType,
-    store_name: parsed.data.store_name,
+    store_name: String(profile.store_name ?? "店舗名未確認"),
     contact_name: parsed.data.contact_name,
     email: parsed.data.email.toLowerCase(),
     phone: parsed.data.phone,
     store_count: 1,
     pain_points: String(topImprovement.description ?? "AIOおすすめ準備度の改善"),
-    message: answerSummary,
+    message: parsed.data.message,
     status: "new",
+    applicant_company_name: parsed.data.company_name || null,
+    applicant_store_relationship: parsed.data.store_relationship,
+    applicant_authority_confirmed_at: authorityConfirmedAt,
+    intake_review_status: "pending",
     ...enrichment,
     admin_checklist: {
       public_application_enrichment: {
@@ -178,7 +176,7 @@ async function createUrlFirstApplication(json: unknown) {
     updated_at: new Date().toISOString()
   }).eq("id", draft.id).is("converted_application_id", null);
   await sendApplicationReceivedEmails(result.data as SalesApplication).catch(() => undefined);
-  return NextResponse.json({ ok: true, already_submitted: false });
+  return NextResponse.json({ ok: true, already_submitted: false, review_status: "pending" });
 }
 
 export async function POST(request: Request) {
