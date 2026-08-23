@@ -12,6 +12,7 @@
     "check:aio-loop": "node scripts/check-aio-closed-loop.mjs",
     "check:results": "node scripts/check-results-visibility.mjs",
     "test:authz-policy": "node --experimental-strip-types --test scripts/test-authz-policy.mjs",
+    "test:post-login": "node --experimental-strip-types --test scripts/test-post-login-destination.mjs",
     "test:authz-integration": "playwright test tests/authz/results-visibility.spec.ts --workers=1",
     "check:customer-crm": "node scripts/check-customer-crm.mjs",
     "check:inventory-sales": "node scripts/check-inventory-sales-sync.mjs",
