@@ -111,11 +111,20 @@ export async function createInventoryMovementFromForm(storeId: string, formData:
   const itemId = text(formData.get("item_id"), 36);
   const movementType = String(formData.get("movement_type") ?? "adjustment");
   const inputQuantity = number(formData.get("quantity"));
-  const reason = text(formData.get("reason"), 1000);
+  const enteredReason = text(formData.get("reason"), 1000);
+  const supplierName = text(formData.get("supplier_name"), 300);
+  const purchaseDate = text(formData.get("purchase_date"), 20);
+  const unitCost = Math.max(0, number(formData.get("unit_cost")));
+  const reason = [
+    movementType === "receipt" && purchaseDate ? `仕入日: ${purchaseDate}` : null,
+    movementType === "receipt" && supplierName ? `仕入先: ${supplierName}` : null,
+    movementType === "receipt" && unitCost ? `仕入単価: ${unitCost.toLocaleString("ja-JP")}円` : null,
+    enteredReason
+  ].filter(Boolean).join(" / ");
   const reorderPoint = number(formData.get("reorder_point"));
   if (!itemId) throw new Error("対象の商品・メニューを選択してください。");
   if (!manualMovementTypes.has(movementType)) throw new Error("在庫変動の理由を選び直してください。");
-  if (!reason) throw new Error("在庫を変更する理由を入力してください。");
+  if (!enteredReason) throw new Error("在庫を変更する理由を入力してください。");
   if (movementType !== "stocktake" && inputQuantity <= 0) throw new Error("数量は0より大きい値を入力してください。");
   if (movementType === "stocktake" && inputQuantity < 0) throw new Error("棚卸後の数量は0以上で入力してください。");
 
@@ -138,6 +147,9 @@ export async function createInventoryMovementFromForm(storeId: string, formData:
     actorUserId: access.userId
   });
   await supabase.from("inventory_stocks").update({ reorder_point: Math.max(0, reorderPoint), updated_at: new Date().toISOString() }).eq("item_id", itemId);
+  if (movementType === "receipt" && unitCost > 0) {
+    await supabase.from("items").update({ cost_price: unitCost, updated_at: new Date().toISOString() }).eq("store_id", store.id).eq("id", itemId);
+  }
   await recordAudit(supabase, {
     organizationId: store.organization_id,
     storeId: store.id,
@@ -146,7 +158,11 @@ export async function createInventoryMovementFromForm(storeId: string, formData:
     targetType: "inventory_movement",
     targetId: movementId,
     message: `${item.name}の在庫変動を記録しました。`,
-    metadata: { movement_type: movementType, quantity_delta: delta }
+    metadata: {
+      movement_type: movementType,
+      quantity_delta: delta,
+      ...(movementType === "receipt" ? { supplier_name: supplierName, purchase_date: purchaseDate, unit_cost: unitCost, purchase_total: unitCost * inputQuantity } : {})
+    }
   });
 }
 

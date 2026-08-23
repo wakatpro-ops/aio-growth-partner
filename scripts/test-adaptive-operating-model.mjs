@@ -67,6 +67,18 @@ test("入力件数と列挙値を制限し、簡易会計は既存機能を追�
   assert.equal(flags.invoice_management, true);
 });
 
+test("ファイル取込を選ぶと未完成レジを有効化せず取込機能だけを有効にする", () => {
+  const model = normalizeOperatingModel({
+    systems: { reservations: { authority: "manual" } },
+    register: { mode: "file_import" }
+  });
+  assert.equal(model.systems.reservations.authority, "manual");
+  const flags = operatingModelFeatureFlags(model);
+  assert.equal(flags.simple_register, false);
+  assert.equal(flags.data_imports, true);
+  assert.equal(flags.excel_import, true);
+});
+
 test("初回確定で選択した追加店舗だけを重複防止キー付きで解析する", () => {
   const fallback = buildOperatingModelDraft(sampleProfile());
   const input = parseInitialSetupForm(setupForm(), "snapshot-5", 0, fallback);

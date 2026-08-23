@@ -43,6 +43,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: `/stores/${activeStoreId}`, label: "店舗トップ" },
     { href: `/stores/${activeStoreId}/aio-improvement`, label: "AIO改善" },
     { href: `/stores/${activeStoreId}/sales-hub`, label: "売上" },
+    { href: `/stores/${activeStoreId}/inventory`, label: "在庫・仕入" },
     { href: `/stores/${activeStoreId}/data-imports/ai`, label: "データ取り込み" },
     { href: `/stores/${activeStoreId}/settings`, label: "設定" }
   ] : navItems;

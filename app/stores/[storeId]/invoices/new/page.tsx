@@ -15,7 +15,7 @@ export default async function NewInvoicePage({ params }: { params: Promise<{ sto
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title={`${industry.businessLabels.invoice}を追加`} description="発行日、支払期限、請求金額を登録します。" />
-      <DocumentForm action={createInvoiceAction.bind(null, store.id)} customers={customers} kind="invoice" industryTypeKey={store.industry_type_key} />
+      <DocumentForm action={createInvoiceAction.bind(null, store.id)} customers={customers} kind="invoice" industryTypeKey={store.industry_type_key} storeName={store.name} storeAddress={store.address} storePhone={store.phone} />
     </AppShell>
   );
 }

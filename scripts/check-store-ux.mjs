@@ -12,7 +12,7 @@ const horizontalNav = readFileSync("components/phase2/store-business-nav.tsx", "
 const sidebar = readFileSync("components/layout/app-shell.tsx", "utf8");
 const settingsPage = readFileSync("app/stores/[storeId]/settings/page.tsx", "utf8");
 const acquisitionPage = readFileSync("app/stores/[storeId]/acquisition/page.tsx", "utf8");
-const requiredAreas = ["店舗トップ", "AIO改善", "売上", "データ取り込み", "設定"];
+const requiredAreas = ["店舗トップ", "AIO改善", "売上", "在庫・仕入", "データ取り込み", "設定"];
 const missingAreas = requiredAreas.filter((label) => !sidebar.includes(`label: \"${label}\"`));
 const duplicateHorizontalNav = /store-area-nav|store-area-link/u.test(horizontalNav);
 const obsoleteAcquisitionNav = sidebar.includes('label: "集客"');

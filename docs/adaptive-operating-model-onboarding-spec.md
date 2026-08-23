@@ -47,18 +47,21 @@
 - `aio_boost`: AIO boostを正本にする
 - `external`: 既存システムを正本にする
 - `file_import`: CSV・Excel等を定期取込する
+- `manual`: 電話・LINE・紙など現在の手動運用を継続する（予約領域）
 - `not_managed`: AIO boostでは管理しない
+- `undecided`: 利用開始後に決める
 
 既存サービス名は補足として保存する。API/OAuth接続を自動開始しない。
 
 ### 3.3 簡易レジ
 
 - `external_pos`: Airレジ等の既存POSを利用
-- `simple_register`: AIO boostの簡易会計を利用
+- `file_import`: CSV・Excelで売上データを取り込む
+- `simple_register`: AIO boostの簡易会計を利用（完成まで新規選択不可）
 - `not_needed`: レジ機能を利用しない
 - `undecided`: 利用開始後に決める
 
-`simple_register` の初期範囲は商品・メニュー選択、数量、税率、値引き、支払方法、売上登録、領収書、在庫連動、取消履歴とする。本格POSは別Issueとする。
+`simple_register` の目標範囲は商品・メニュー選択、数量、税率、値引き、支払方法、売上登録、領収書、在庫連動、取消履歴とする。専用画面と一連のテストが完成するまで、初期設定と運営設定では選択させない。本格POSは別Issueとする。
 
 ### 3.4 予約・スタッフ・設備
 
@@ -102,7 +105,7 @@
 
 ## 6. 機能表示
 
-- `simple_register` のときだけ簡易レジ候補を有効化する。
+- 既存データに `simple_register` が保存されていてもデータは保持するが、完成まで新規選択肢と主要メニューには表示しない。
 - `external_pos` ではPOS API/ファイル取込を優先し、簡易レジを前面に出さない。
 - `not_managed` は将来の表示最適化判断として保存する。今回の移行では既存ユーザーの導線を壊さないため、契約済みの主要導線を自動で非表示にはしない。
 - 既存の契約済み機能やデータを削除しない。

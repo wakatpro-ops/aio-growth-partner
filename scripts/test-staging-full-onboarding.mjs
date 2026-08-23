@@ -306,8 +306,8 @@ try {
     await assertNoHorizontalOverflow(ownerPage, "initial setup tablet");
     await ownerPage.getByRole("button", { name: "AIと一緒に仕上げる" }).click();
     await ownerPage.getByRole("button", { name: /同じ法人・ブランドで複数店舗/ }).click();
-    await ownerPage.getByRole("button", { name: /今の予約システムを使う/ }).click();
-    await ownerPage.getByRole("button", { name: /AIO boostの簡易会計を使う/ }).click();
+    await ownerPage.getByRole("button", { name: /既存の予約サービスを使う/ }).click();
+    await ownerPage.getByRole("button", { name: /CSV・Excelで売上を取り込む/ }).click();
     assert.equal(await ownerPage.locator("#store_name_editor").inputValue(), "AI抽出テストサロン");
     assert.equal(await ownerPage.locator("#address_editor").inputValue(), "東京都杉並区梅里2-35-13");
     await ownerPage.locator("#store_name_editor").fill("確認済み統合テストサロン");
@@ -340,8 +340,9 @@ try {
     assert.equal(finalStore?.name, "確認済み統合テストサロン");
     assert.equal(finalStore?.address, "東京都杉並区梅里二丁目35番13号");
     assert.equal(finalStore?.profile_data?.onboarding_status, "completed");
-    assert.equal(finalStore?.operating_model?.register?.mode, "simple_register");
-    assert.equal(finalStore?.feature_flags?.simple_register, true);
+    assert.equal(finalStore?.operating_model?.register?.mode, "file_import");
+    assert.equal(finalStore?.feature_flags?.simple_register, false);
+    assert.equal(finalStore?.feature_flags?.excel_import, true);
     assert.deepEqual((finalItems ?? []).map((item) => item.name), ["確認済みハーブピーリング"]);
     assert.equal(finalItems?.[0]?.unit_price, 11000);
     assert.equal(finalSnapshot?.confirmation_status, "completed");

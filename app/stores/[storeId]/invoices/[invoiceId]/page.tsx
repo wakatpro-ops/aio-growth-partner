@@ -180,7 +180,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           </tbody></table>
         </section>
       ) : null}
-      <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" industryTypeKey={store.industry_type_key} />
+      <DocumentForm action={updateInvoiceAction.bind(null, store.id, invoice.id)} document={invoice} customers={customers} kind="invoice" industryTypeKey={store.industry_type_key} storeName={store.name} storeAddress={store.address} storePhone={store.phone} />
       <section className="card">
         <h2>PDF発行・再発行履歴</h2>
         <form className="form-inline" action={`/stores/${store.id}/invoices/${invoice.id}/pdf/download`} method="get">

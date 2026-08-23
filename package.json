@@ -31,6 +31,7 @@
     "check:meta-review": "node scripts/check-meta-review-readiness.mjs",
     "test:sns-rules": "node --experimental-strip-types scripts/test-sns-rules.mjs",
     "check:ux": "node scripts/check-store-ux.mjs",
+    "check:store-operations-documents": "node scripts/check-store-operations-documents.mjs",
     "test:url-onboarding": "node --experimental-strip-types scripts/test-url-first-onboarding.mjs",
     "check:url-onboarding": "node scripts/check-url-first-onboarding.mjs",
     "test:e2e:url-onboarding": "playwright test --config=playwright.url-onboarding.config.ts",

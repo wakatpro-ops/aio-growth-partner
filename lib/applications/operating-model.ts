@@ -2,8 +2,8 @@ import type { ExtractedStoreProfile } from "./page-extraction.ts";
 import type { FeatureFlags } from "../../types/domain.ts";
 
 export const structureModes = ["single_store", "multi_store", "multi_brand", "multi_company"] as const;
-export const authorityModes = ["aio_boost", "external", "file_import", "not_managed"] as const;
-export const registerModes = ["external_pos", "simple_register", "not_needed", "undecided"] as const;
+export const authorityModes = ["aio_boost", "external", "file_import", "manual", "not_managed", "undecided"] as const;
+export const registerModes = ["external_pos", "file_import", "simple_register", "not_needed", "undecided"] as const;
 export const serviceModes = ["reservation_only", "walk_in_only", "both", "remote_or_visit", "not_used"] as const;
 export const resourceModes = ["staff", "seat", "room", "equipment", "table", "vehicle", "other"] as const;
 export const sharingScopes = ["company", "brand", "store"] as const;
@@ -168,6 +168,9 @@ export function operatingModelFeatureFlags(modelValue: unknown): FeatureFlags {
   }
   if (model.register.mode === "external_pos") {
     return { simple_register: false, pos_api_integrations: true, data_imports: true, csv_import: true, excel_import: true, sales_reports: true };
+  }
+  if (model.register.mode === "file_import") {
+    return { simple_register: false, data_imports: true, csv_import: true, excel_import: true, sales_reports: true };
   }
   return { simple_register: false };
 }

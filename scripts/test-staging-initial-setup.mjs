@@ -129,8 +129,8 @@ try {
     await ownerPage.getByRole("heading", { name: "すでにここまで準備できています" }).waitFor();
     await ownerPage.getByRole("button", { name: "AIと一緒に仕上げる" }).click();
     await ownerPage.getByRole("button", { name: /1法人・1ブランド・1店舗/ }).click();
-    await ownerPage.getByRole("button", { name: /AIO boostで管理する/ }).click();
-    await ownerPage.getByRole("button", { name: /AIO boostの簡易会計を使う/ }).click();
+    await ownerPage.getByRole("button", { name: /電話・LINE・紙などで管理する/ }).click();
+    await ownerPage.getByRole("button", { name: /CSV・Excelで売上を取り込む/ }).click();
     await ownerPage.getByRole("button", { name: "途中保存して終了" }).click();
     await ownerPage.waitForURL((url) => url.pathname === "/onboarding" && url.searchParams.get("setupDraft") === "saved");
     await ownerPage.getByText("いつでも続きから再開できます", { exact: false }).waitFor();

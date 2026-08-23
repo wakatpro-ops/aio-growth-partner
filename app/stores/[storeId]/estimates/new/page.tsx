@@ -15,7 +15,7 @@ export default async function NewEstimatePage({ params }: { params: Promise<{ st
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title={`${industry.businessLabels.estimate}を追加`} description="発行日、顧客、金額を登録します。" />
-      <DocumentForm action={createEstimateAction.bind(null, store.id)} customers={customers} kind="estimate" industryTypeKey={store.industry_type_key} />
+      <DocumentForm action={createEstimateAction.bind(null, store.id)} customers={customers} kind="estimate" industryTypeKey={store.industry_type_key} storeName={store.name} storeAddress={store.address} storePhone={store.phone} />
     </AppShell>
   );
 }
