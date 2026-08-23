@@ -8,6 +8,7 @@ import {
   buildExpectedOutcomes,
   normalizeDiagnosisSources,
   researchedIdentityMatches,
+  webCitationSources,
   type DiagnosisSource,
   type ExpectedOutcome,
   type StoreIdentification
@@ -309,7 +310,9 @@ async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicS
   if (!response.output_text?.trim()) {
     console.warn(`[store-analysis] Empty AI response: status=${response.status}, reason=${response.incomplete_details?.reason ?? "none"}`);
   }
-  return parseJsonObject(response.output_text || "");
+  const parsed = parseJsonObject(response.output_text || "");
+  const researchSources = Array.isArray(parsed.research_sources) ? parsed.research_sources : [];
+  return { ...parsed, research_sources: [...researchSources, ...webCitationSources(response)] };
 }
 
 export async function analyzeFetchedStoreSite(fetched: PublicSiteFetchResult, storeHint = ""): Promise<StoreAnalysisResult> {

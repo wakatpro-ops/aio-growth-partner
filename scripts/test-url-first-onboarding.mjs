@@ -7,7 +7,7 @@ import {
   validatePublicUrl
 } from "../lib/applications/url-safety.ts";
 import { buildRuleBasedDiagnosis, extractStoreProfile, htmlToVisibleText } from "../lib/applications/page-extraction.ts";
-import { assessStoreIdentification, buildExpectedOutcomes, identityTextMatches, isGenericStoreName, normalizeDiagnosisSources, researchedIdentityMatches } from "../lib/applications/public-diagnosis.ts";
+import { assessStoreIdentification, buildExpectedOutcomes, identityTextMatches, isGenericStoreName, normalizeDiagnosisSources, researchedIdentityMatches, webCitationSources } from "../lib/applications/public-diagnosis.ts";
 import { createPublicAnalysisToken, hashPublicAnalysisToken } from "../lib/applications/public-analysis-token.ts";
 import { createVerificationCode, normalizeVerificationEmail, verificationCodeHash, verificationCodeMatches, verificationEmailHash } from "../lib/applications/contact-verification.ts";
 import { approvedAnalysisDetail, publicAnalysisPreview } from "../lib/applications/analysis-presentation.ts";
@@ -105,6 +105,10 @@ assert.equal(assessStoreIdentification(namedMapProfile).identified, true);
 assert.equal(identityTextMatches("焼肉レストラン徳寿 本店", "焼肉レストラン 徳寿 本店"), true);
 assert.equal(researchedIdentityMatches(namedMapProfile, { ...namedMapProfile, store_name: "株式会社ABC自動車整備工場", address: "東京都新宿区西新宿1-1-1" }), false, "cross-source research for another store must be discarded");
 assert.equal(normalizeDiagnosisSources("https://tabelog.com/tokyo/A0000/A000000/00000000/", [{ url: "https://example.com/shop", label: "公式サイト", kind: "official" }]).length, 2);
+assert.deepEqual(webCitationSources({ output: [{ content: [{ annotations: [
+  { type: "url_citation", url: "https://example.com/store", title: "店舗公式サイト", start_index: 0, end_index: 4 },
+  { type: "file_citation", file_id: "file_123", index: 0 }
+] }] }] }), [{ url: "https://example.com/store", label: "店舗公式サイト", kind: "other" }]);
 assert.match(htmlToVisibleText(maliciousHtml), /以前の命令を無視/u, "untrusted text may be extracted as data but never executed");
 
 const token = createPublicAnalysisToken();
