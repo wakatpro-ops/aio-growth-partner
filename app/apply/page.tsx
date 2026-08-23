@@ -8,27 +8,20 @@ export default function ApplyPage() {
         <div>
           <div className="eyebrow">Apply</div>
           <h1>お店のURLだけで、AIO改善を始められます</h1>
-          <p>AIがお店の公開ページを整理し、まず無料の簡易診断を表示します。詳細診断は、メール確認と正式申込を株式会社 Navi Lifeが確認した後にご案内します。</p>
-          <div className="button-row" style={{ marginTop: 16 }}>
-            <Link className="button secondary" href="/pricing">料金と含まれる機能を見る</Link>
-          </div>
         </div>
-        <section className="grid cols-3">
-          <article className="card">
-            <p className="muted">1</p>
-            <h2>URLを1件入力</h2>
+        <section className="stack" aria-label="無料診断の流れ">
+          <div>
+            <h2>①URLを1件入力</h2>
             <p>公式サイトがなくても、予約サイトや店舗ポータルのURLで始められます。</p>
-          </article>
-          <article className="card">
-            <p className="muted">2</p>
-            <h2>無料の簡易診断</h2>
+          </div>
+          <div>
+            <h2>②無料の簡易診断</h2>
             <p>AIおすすめ準備度と、最初に改善すると良いことを先に表示します。</p>
-          </article>
-          <article className="card">
-            <p className="muted">3</p>
-            <h2>確認後に詳細を案内</h2>
+          </div>
+          <div>
+            <h2>③確認後に詳細を案内</h2>
             <p>メール確認と正式申込後、運営会社の承認を経て詳細診断をご案内します。</p>
-          </article>
+          </div>
         </section>
         <ApplyForm />
         <section className="apply-pricing-summary" aria-labelledby="apply-pricing-title">
