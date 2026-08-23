@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { authAccessTokenCookie } from "@/lib/auth/server";
+import { resolvePostLoginDestination } from "@/lib/auth/post-login";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/env";
 
@@ -35,6 +36,15 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
   let nextPath = "/dashboard";
   if (admin) {
+    const { data: profile } = await admin
+      .from("user_profiles")
+      .select("role, status, archived_at")
+      .eq("user_id", data.user.id)
+      .maybeSingle();
+    const isPlatformAdmin = profile?.role === "platform_admin"
+      && profile.status === "active"
+      && !profile.archived_at;
+
     await admin
       .from("applications")
       .update({
@@ -60,9 +70,10 @@ export async function POST(request: Request) {
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (onboardingApplication?.store_id) {
-      nextPath = `/onboarding/setup-review?storeId=${encodeURIComponent(String(onboardingApplication.store_id))}`;
-    }
+    nextPath = resolvePostLoginDestination({
+      isPlatformAdmin,
+      onboardingStoreId: onboardingApplication?.store_id ? String(onboardingApplication.store_id) : null
+    });
   }
 
   const response = NextResponse.json({ ok: true, next_path: nextPath });
