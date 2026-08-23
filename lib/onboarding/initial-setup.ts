@@ -46,6 +46,7 @@ export type InitialSetupReview = {
   };
   savedDraft: InitialSetupInput | null;
   savedDraftStep: number;
+  savedSkippedSteps: string[];
 };
 
 function record(value: unknown): JsonRecord {
@@ -195,7 +196,8 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
       additionalLocationCount: additionalLocations.length
     },
     savedDraft: Object.keys(savedDraftRecord).length ? savedDraftRecord as InitialSetupInput : null,
-    savedDraftStep: Math.min(7, Math.max(0, Number(record(snapshot.confirmation_payload).draft_step) || 0))
+    savedDraftStep: Math.min(7, Math.max(0, Number(record(snapshot.confirmation_payload).draft_step) || 0)),
+    savedSkippedSteps: strings(record(snapshot.confirmation_payload).draft_skipped_steps).slice(0, 6)
   };
 }
 
@@ -237,6 +239,7 @@ export async function saveInitialSetupDraft(storeId: string, formData: FormData)
       ...record(snapshot.confirmation_payload),
       draft,
       draft_step: Math.min(7, Math.max(0, Number(formData.get("conversation_step")) || 0)),
+      draft_skipped_steps: String(formData.get("skipped_steps") ?? "").split(",").map((item) => item.trim()).filter(Boolean).slice(0, 6),
       draft_saved_at: now,
       draft_saved_by: access.userId
     },

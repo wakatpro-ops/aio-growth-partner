@@ -27,7 +27,7 @@ export function InitialSetupReviewForm({ review }: { review: InitialSetupReview 
   const draft = review.savedDraft;
   const draftOperatingModel = draft?.operatingModel ?? review.operatingModel;
   const [currentStep, setCurrentStep] = useState(review.savedDraftStep);
-  const [skipped, setSkipped] = useState<string[]>([]);
+  const [skipped, setSkipped] = useState<string[]>(review.savedSkippedSteps);
   const [showMenuEditor, setShowMenuEditor] = useState(false);
   const [structureMode, setStructureMode] = useState(draftOperatingModel.structure.mode);
   const [systemAuthorities, setSystemAuthorities] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(draftOperatingModel.systems).map(([key, value]) => [key, value.authority])));
@@ -85,6 +85,7 @@ export function InitialSetupReviewForm({ review }: { review: InitialSetupReview 
       {draft ? <p className="notice success" role="status">途中保存した内容から再開しています。</p> : null}
 
       <input type="hidden" name="conversation_step" value={currentStep} />
+      <input type="hidden" name="skipped_steps" value={skipped.join(",")} />
       <input type="hidden" name="structure_mode" value={structureMode} />
       {Object.entries(systemAuthorities).map(([key, value]) => <input key={key} type="hidden" name={`system_${key}`} value={value} />)}
       <input type="hidden" name="register_mode" value={registerMode} /><input type="hidden" name="service_mode" value={serviceMode} />

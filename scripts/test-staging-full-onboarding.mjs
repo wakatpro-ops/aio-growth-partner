@@ -14,8 +14,10 @@ if (process.env.FULL_ONBOARDING_E2E_SECRET_ENV_FILE) {
 const baseUrl = process.env.FULL_ONBOARDING_E2E_BASE_URL ?? "https://staging.aioboost.jp";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-if (!baseUrl.includes("staging.aioboost.jp") || !supabaseUrl.includes("zlqqjifitnvorudxbepy")) {
-  throw new Error("This integration test is restricted to AIO boost staging.");
+const allowedStagingUrl = baseUrl.includes("staging.aioboost.jp") || baseUrl.includes("aio-growth-partner-staging-");
+const allowedStagingDatabase = supabaseUrl.includes("zlqqjifitnvorudxbepy");
+if (!allowedStagingUrl || !allowedStagingDatabase) {
+  throw new Error(`This integration test is restricted to AIO boost staging: ${JSON.stringify({ allowedStagingUrl, allowedStagingDatabase, supabaseConfigured: Boolean(supabaseUrl) })}`);
 }
 if (!adminKey) throw new Error("Staging Supabase admin credentials are unavailable.");
 
