@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
@@ -9,7 +10,7 @@ import { getStore } from "@/lib/stores";
 import { updateStockAction } from "../business/actions";
 
 const movementLabels: Record<string, string> = {
-  receipt: "入荷",
+  receipt: "仕入・入荷",
   stocktake: "棚卸",
   waste: "廃棄",
   return_in: "返品受入",
@@ -35,13 +36,29 @@ export default async function InventoryPage({ params, searchParams }: { params: 
   const [items, stocks, movements] = await Promise.all([listBusinessItems(store.id), listInventoryStocks(store.id), listInventoryMovements(store.id)]);
   const stockItems = items.filter((item) => item.is_stock_managed);
   const stockByItem = new Map(stocks.map((stock) => [stock.item_id, stock]));
+  const lowStockCount = stockItems.filter((item) => Number(stockByItem.get(item.id)?.quantity ?? 0) <= Number(stockByItem.get(item.id)?.reorder_point ?? 0)).length;
+  const purchaseCount = movements.filter((movement) => movement.movement_type === "receipt").length;
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title={industry.businessLabels.stock} description="入荷・棚卸・廃棄・返品と、受注・売上による自動増減を履歴付きで管理します。" />
+      <PageHeader eyebrow={industry.name} title="在庫・仕入" description="現在庫、仕入・入荷、棚卸、廃棄、受注・売上による増減を一つの画面で管理します。" action={<Link className="button" href={`/stores/${store.id}/items/new`}>商品・材料を登録</Link>} />
       <StoreBusinessNav store={store} />
       {query.saved ? <p className="notice success">在庫変動を記録しました。一覧と履歴に反映されています。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
+      <section className="grid cols-3">
+        <article className="card"><p className="muted">在庫管理中</p><div className="metric">{stockItems.length}件</div><Link className="text-link" href={`/stores/${store.id}/items`}>商品・材料を確認 →</Link></article>
+        <article className="card"><p className="muted">発注目安以下</p><div className="metric">{lowStockCount}件</div><p className="muted">数量が発注目安以下の商品です。</p></article>
+        <article className="card"><p className="muted">仕入・入荷履歴</p><div className="metric">{purchaseCount}件</div><Link className="text-link" href={`/stores/${store.id}/accounting/receipts`}>仕入レシートを確認 →</Link></article>
+      </section>
+      <section className="card">
+        <div className="section-heading"><div><p className="eyebrow">目的から選ぶ</p><h2>在庫・仕入メニュー</h2></div></div>
+        <div className="hub-grid">
+          <Link className="hub-link primary" href="#inventory-entry"><h3>仕入・入荷を記録</h3><p>仕入先、仕入日、単価、数量を記録し、現在庫と原価へ反映します。</p><strong>入力する →</strong></Link>
+          <Link className="hub-link" href={`/stores/${store.id}/accounting/receipts/new`}><h3>仕入レシートを読み取る</h3><p>レシートや伝票をOCRし、経費・freee用の確認データへ整理します。</p><strong>読み取りへ →</strong></Link>
+          <Link className="hub-link" href={`/stores/${store.id}/data-imports/ai`}><h3>在庫表をまとめて取り込む</h3><p>CSV・Excel・PDFをAIが分類し、商品と在庫へ整理します。</p><strong>データ取り込みへ →</strong></Link>
+        </div>
+      </section>
       <div className="grid cols-2">
         <section className="card">
           <h3>在庫一覧</h3>
@@ -68,8 +85,8 @@ export default async function InventoryPage({ params, searchParams }: { params: 
             </tbody>
           </table>
         </section>
-        <form className="card form" action={updateStockAction.bind(null, store.id)}>
-          <h3>在庫変動を記録</h3>
+        <form className="card form" id="inventory-entry" action={updateStockAction.bind(null, store.id)}>
+          <h3>仕入・在庫変動を記録</h3>
           <div className="field">
             <label htmlFor="item_id">対象</label>
             <select id="item_id" name="item_id" required>
@@ -81,7 +98,7 @@ export default async function InventoryPage({ params, searchParams }: { params: 
           <div className="field">
             <label htmlFor="movement_type">理由</label>
             <select id="movement_type" name="movement_type" defaultValue="receipt">
-              <option value="receipt">入荷</option>
+              <option value="receipt">仕入・入荷</option>
               <option value="stocktake">棚卸後の数量に合わせる</option>
               <option value="waste">廃棄</option>
               <option value="return_in">返品受入</option>
@@ -89,6 +106,20 @@ export default async function InventoryPage({ params, searchParams }: { params: 
               <option value="transfer_out">店舗間移動（出庫）</option>
               <option value="adjustment">増減調整（負数可）</option>
             </select>
+          </div>
+          <div className="grid cols-2">
+            <div className="field">
+              <label htmlFor="purchase_date">仕入日</label>
+              <input id="purchase_date" name="purchase_date" type="date" defaultValue={today} />
+            </div>
+            <div className="field">
+              <label htmlFor="supplier_name">仕入先</label>
+              <input id="supplier_name" name="supplier_name" placeholder="例：〇〇食品／△△商事" />
+            </div>
+            <div className="field">
+              <label htmlFor="unit_cost">仕入単価（税区分は会計側で確認）</label>
+              <input id="unit_cost" name="unit_cost" type="number" min="0" step="1" placeholder="0" />
+            </div>
           </div>
           <div className="field">
             <label htmlFor="quantity">数量</label>
@@ -101,10 +132,10 @@ export default async function InventoryPage({ params, searchParams }: { params: 
           </div>
           <div className="field">
             <label htmlFor="reason">変更理由 <span className="required-mark">必須</span></label>
-            <textarea id="reason" name="reason" placeholder="例：8月15日の入荷分／破損のため廃棄" required />
+            <textarea id="reason" name="reason" placeholder="例：通常仕入／破損のため廃棄／棚卸差異の調整" required />
           </div>
           <div className="form-actions">
-            <PendingSubmitButton pendingLabel="在庫変動を記録しています..." disabled={stockItems.length === 0}>在庫変動を記録</PendingSubmitButton>
+            <PendingSubmitButton pendingLabel="仕入・在庫変動を記録しています..." disabled={stockItems.length === 0}>仕入・在庫変動を記録</PendingSubmitButton>
             <a className="button secondary" href={`/stores/${store.id}/sales-hub`}>売上へ戻る</a>
           </div>
         </form>
