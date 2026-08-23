@@ -13,12 +13,15 @@ function safeNextPath(value: string | null) {
 export function SetPasswordForm() {
   const searchParams = useSearchParams();
   const next = safeNextPath(searchParams.get("next"));
+  const recoveryMode = searchParams.get("mode") === "recovery";
   const inviteError = searchParams.get("invite_error");
   const linkUnavailable = inviteError === "expired" || inviteError === "invalid";
   const [message, setMessage] = useState(
     linkUnavailable
       ? "この招待リンクは有効期限が切れているか、すでに無効になっています。担当者へ再発行をご依頼ください。"
-      : "今後ログインに使うパスワードを設定してください。"
+      : recoveryMode
+        ? "新しいパスワードを設定してください。"
+        : "今後ログインに使うパスワードを設定してください。"
   );
   const [loading, setLoading] = useState(false);
 
@@ -60,6 +63,7 @@ export function SetPasswordForm() {
       return;
     }
 
+    let destination = next;
     if (typeof result.email === "string" && result.email.length > 0) {
       const signInResult = supabase
         ? await supabase.auth.signInWithPassword({ email: result.email, password })
@@ -81,6 +85,10 @@ export function SetPasswordForm() {
           setMessage("パスワードは設定できましたが、ログイン状態を確認できませんでした。ログイン画面から新しいパスワードでお入りください。");
           return;
         }
+        const sessionResult = await sessionResponse.json().catch(() => null);
+        if (typeof sessionResult?.next_path === "string" && sessionResult.next_path.startsWith("/") && !sessionResult.next_path.startsWith("//")) {
+          destination = sessionResult.next_path;
+        }
       } else if (signInResult.error) {
         setLoading(false);
         setMessage("パスワードは設定できました。ログイン画面から新しいパスワードでお入りください。");
@@ -88,7 +96,7 @@ export function SetPasswordForm() {
       }
     }
 
-    window.location.href = next;
+    window.location.href = destination;
   }
 
   return (
@@ -108,7 +116,7 @@ export function SetPasswordForm() {
         <p>{message}</p>
       </form>
       <p className="muted">
-        招待メールの有効期限が切れている場合は、担当者へ再発行をご依頼ください。
+        {recoveryMode ? "再設定メールの有効期限が切れている場合は、ログイン画面からもう一度お手続きください。" : "招待メールの有効期限が切れている場合は、担当者へ再発行をご依頼ください。"}
       </p>
       <Link className="button secondary" href="/login">ログイン画面へ</Link>
     </>

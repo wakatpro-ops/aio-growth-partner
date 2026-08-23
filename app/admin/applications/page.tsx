@@ -26,7 +26,7 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
     <AppShell>
       <PageHeader
         title="申し込み管理"
-        description="公開フォームからの問い合わせを、説明、請求、入金確認、承認、アカウント発行まで管理します。"
+        description="公開フォームから届いた申込履歴を、説明、請求、入金確認、承認、アカウント発行まで管理します。店舗・顧客データとは別に保存されます。"
         action={<Link className="button secondary" href="/apply">公開フォームを確認</Link>}
       />
       {query.archived ? <p className="notice success">申込を削除しました。</p> : null}
@@ -42,14 +42,14 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
         <div className="section-heading">
           <div>
             <h2>申込一覧</h2>
-            <p>AIO利用契約は電子契約で締結し、月額200,000円（税別）を毎月前払いの請求書で運用します。</p>
+            <p>ここに表示されるのは登録店舗ではなく申込履歴です。店舗を削除しても営業・承認の証跡として残り、不要な申込は各行の「削除」から削除済みへ移動できます。</p>
           </div>
         </div>
         <table className="table">
           <thead>
             <tr>
               <th>申込日</th>
-              <th>店舗</th>
+              <th>申込対象店舗</th>
               <th>担当者</th>
               <th>営業ステータス</th>
               <th>詳細診断審査</th>
