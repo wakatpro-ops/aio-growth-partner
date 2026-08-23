@@ -313,6 +313,7 @@ try {
     await ownerPage.locator("#store_name_editor").fill("確認済み統合テストサロン");
     await ownerPage.locator("#address_editor").fill("東京都杉並区梅里二丁目35番13号");
     await ownerPage.getByRole("button", { name: "この店舗情報で進む" }).click();
+    await ownerPage.getByRole("button", { name: /手入力で進める/ }).click();
     await ownerPage.getByRole("button", { name: /内容を確認・編集する/ }).click();
     assert.equal(await ownerPage.locator("#menu_name_editor_0").inputValue(), "ハーブピーリング");
     assert.equal(await ownerPage.locator("#menu_name_editor_1").inputValue(), "アロマリンパマッサージ");

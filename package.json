@@ -36,6 +36,7 @@
     "test:e2e:url-onboarding": "playwright test --config=playwright.url-onboarding.config.ts",
     "test:initial-setup": "node --experimental-strip-types --test scripts/test-initial-setup.mjs",
     "check:initial-setup": "node scripts/check-initial-setup.mjs",
+    "check:onboarding-assistant": "node scripts/check-onboarding-import-assistant.mjs",
     "test:staging:initial-setup": "node scripts/test-staging-initial-setup.mjs",
     "test:staging:full-onboarding": "node scripts/test-staging-full-onboarding.mjs",
     "test:operating-model": "node --experimental-strip-types --test scripts/test-adaptive-operating-model.mjs",

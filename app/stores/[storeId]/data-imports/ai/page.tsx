@@ -23,7 +23,7 @@ const statusLabels: Record<string, string> = {
   failed: "失敗"
 };
 
-export default async function UnifiedImportPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ error?: string; archived?: string }> }) {
+export default async function UnifiedImportPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ error?: string; archived?: string; onboarding?: string }> }) {
   const { storeId } = await params;
   const query = await searchParams;
   const store = await getStore(storeId);
@@ -31,15 +31,17 @@ export default async function UnifiedImportPage({ params, searchParams }: { para
   if (!isFeatureEnabled(flags, "data_imports")) notFound();
   const industry = getIndustryConfig(store.industry_type_key);
   const jobs = await listUnifiedImportJobs(store.id);
+  const onboarding = query.onboarding === "1";
 
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title="AIデータ取込" description="CSV・Excel・PDFをそのままアップロードすると、売上・経費・顧客・商品・在庫へ振り分け候補を作ります。" />
       <StoreBusinessNav store={store} />
+      {onboarding ? <section className="notice"><strong>初回設定の途中です</strong><p>ファイルを解析し、内容を確認して取り込みを確定した後、初回設定へ戻ってください。途中で戻っても解析結果は保存されています。</p><Link className="button secondary" href={`/onboarding/setup-review?storeId=${store.id}`}>初回設定へ戻る</Link></section> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
       {query.archived ? <p className="notice success">取込履歴を削除しました。元ファイルと反映済みの業務データは証跡として保持されます。</p> : null}
 
-      <form className="card form" action={uploadUnifiedImportAction.bind(null, store.id)}>
+      <form className="card form" action={uploadUnifiedImportAction.bind(null, store.id, onboarding)}>
         <h2>ファイルをアップロードして解析</h2>
         <p>ファイルの種類や列名が分からなくても構いません。AIO boostが内容を分類し、判断できないところだけ質問します。</p>
         <div className="field">
@@ -67,7 +69,7 @@ export default async function UnifiedImportPage({ params, searchParams }: { para
                 <td><span className="badge">{statusLabels[job.status] ?? job.status}</span></td>
                 <td>{job.success_rows.toLocaleString("ja-JP")} / {job.error_rows.toLocaleString("ja-JP")}</td>
                 <td>{new Date(job.created_at).toLocaleString("ja-JP")}</td>
-                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/data-imports/ai/${job.id}`}>解析結果を確認</Link><form action={archiveStoreEntityAction.bind(null, store.id, "unified_import", job.id, `/stores/${store.id}/data-imports/ai`)}><ConfirmSubmitButton message={`取込履歴「${job.original_filename}」を削除します。反映済みの売上・経費などは証跡として保持され、取込履歴は削除済み画面から元に戻せます。`}>削除</ConfirmSubmitButton></form></div></td>
+                <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/data-imports/ai/${job.id}${onboarding ? "?onboarding=1" : ""}`}>解析結果を確認</Link><form action={archiveStoreEntityAction.bind(null, store.id, "unified_import", job.id, `/stores/${store.id}/data-imports/ai`)}><ConfirmSubmitButton message={`取込履歴「${job.original_filename}」を削除します。反映済みの売上・経費などは証跡として保持され、取込履歴は削除済み画面から元に戻せます。`}>削除</ConfirmSubmitButton></form></div></td>
               </tr>
             ))}
             {jobs.length === 0 ? <tr><td colSpan={6}>まだAIデータ取込履歴がありません。</td></tr> : null}
