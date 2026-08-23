@@ -31,6 +31,7 @@ export function DiagnosisClient() {
   const [draft, setDraft] = useState<ApplicationDraft | null>(null);
   const [stage, setStage] = useState<Stage>("loading");
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
 
   useEffect(() => {
     const stored = sessionStorage.getItem(APPLY_PREVIEW_STORAGE_KEY);
@@ -60,6 +61,7 @@ export function DiagnosisClient() {
     };
     setDraft(nextDraft);
     setError("");
+    setErrorCode("");
     setStage("sending_code");
     try {
       const response = await fetch("/api/public/store-analysis/verification/request", {
@@ -70,6 +72,7 @@ export function DiagnosisClient() {
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
         setError(data?.error ?? "確認メールを送信できませんでした。");
+        setErrorCode(data?.code ?? "");
         setStage("form");
         return;
       }
@@ -99,6 +102,7 @@ export function DiagnosisClient() {
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
         setError(data?.error ?? "申し込みを保存できませんでした。もう一度お試しください。");
+        setErrorCode(data?.code ?? "");
         setStage("submission_error");
         return;
       }
@@ -116,6 +120,7 @@ export function DiagnosisClient() {
     if (!preview || !draft || stage === "verifying") return;
     const formData = new FormData(event.currentTarget);
     setError("");
+    setErrorCode("");
     setStage("verifying");
     try {
       const response = await fetch("/api/public/store-analysis/verification/confirm", {
@@ -126,6 +131,7 @@ export function DiagnosisClient() {
       const data = await response.json().catch(() => null);
       if (!response.ok || !data?.ok) {
         setError(data?.error ?? "確認コードを確認できませんでした。");
+        setErrorCode(data?.code ?? "");
         setStage("code");
         return;
       }
@@ -185,8 +191,8 @@ export function DiagnosisClient() {
         </form>
       ) : null}
 
-      {stage === "submission_error" && draft ? <section className="notice danger" role="alert"><strong>メール確認は完了しましたが、申込を保存できませんでした</strong><p>{error}</p><button className="button" type="button" onClick={() => void submitVerifiedApplication(draft)}>正式申込をもう一度送る</button></section> : null}
-      {error && stage !== "submission_error" ? <section className="notice danger" role="alert"><strong>確認してください</strong><p>{error}</p></section> : null}
+      {stage === "submission_error" && draft ? <section className="notice danger" role="alert"><strong>{errorCode === "applicant_email_registered" ? "このメールアドレスは登録済みです" : "メール確認は完了しましたが、申込を保存できませんでした"}</strong><p>{error}</p>{errorCode === "applicant_email_registered" ? <div className="form-actions"><Link className="button secondary" href="/login">ログインする</Link><Link className="button secondary" href="/auth/forgot-password">パスワードを再設定</Link></div> : <button className="button" type="button" onClick={() => void submitVerifiedApplication(draft)}>正式申込をもう一度送る</button>}</section> : null}
+      {error && stage !== "submission_error" ? <section className="notice danger" role="alert"><strong>確認してください</strong><p>{error}</p>{errorCode === "applicant_email_registered" ? <div className="form-actions"><Link className="button secondary" href="/login">ログインする</Link><Link className="button secondary" href="/auth/forgot-password">パスワードを再設定</Link></div> : null}</section> : null}
       <Link className="back-link" href="/apply">← 別のURLで診断する</Link>
     </div>
   );

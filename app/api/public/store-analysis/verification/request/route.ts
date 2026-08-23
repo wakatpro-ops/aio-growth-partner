@@ -12,6 +12,11 @@ import {
   verificationWindowMinutes
 } from "@/lib/applications/contact-verification";
 import { hashPublicAnalysisToken } from "@/lib/applications/public-analysis-token";
+import {
+  applicantEmailAlreadyRegistered,
+  registeredApplicantEmailCode,
+  registeredApplicantEmailMessage
+} from "@/lib/applications/applicant-email";
 import { sendEmail } from "@/lib/email/sendgrid";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -50,6 +55,13 @@ export async function POST(request: Request) {
   }
 
   const email = normalizeVerificationEmail(parsed.data.email);
+  try {
+    if (await applicantEmailAlreadyRegistered(supabase, email)) {
+      return NextResponse.json({ ok: false, code: registeredApplicantEmailCode, error: registeredApplicantEmailMessage }, { status: 409 });
+    }
+  } catch {
+    return NextResponse.json({ ok: false, error: "現在、登録状況を確認できません。時間をおいてお試しください。" }, { status: 503 });
+  }
   const emailHash = verificationEmailHash(email);
   const hourAgo = new Date(now - 60 * 60_000).toISOString();
   const { count: emailSends } = await supabase.from("public_store_analyses")
