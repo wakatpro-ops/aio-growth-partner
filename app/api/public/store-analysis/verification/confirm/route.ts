@@ -9,7 +9,6 @@ import {
 } from "@/lib/applications/contact-verification";
 import { hashPublicAnalysisToken } from "@/lib/applications/public-analysis-token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { normalizeOperatingModel } from "@/lib/applications/operating-model";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -57,7 +56,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ok: true,
     contact_name: draft.verification_name,
-    email,
-    operating_model_draft: normalizeOperatingModel(draft.operating_model_draft)
+    email
   });
 }

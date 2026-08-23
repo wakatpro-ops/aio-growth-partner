@@ -12,7 +12,7 @@ const analysis = await analysisResponse.json();
 if (!analysisResponse.ok || !analysis.ok || typeof analysis.analysis_token !== "string") {
   throw new Error(`Staging analysis failed with status ${analysisResponse.status}.`);
 }
-if ("target_questions" in (analysis.diagnosis ?? {}) || "address" in (analysis.profile ?? {})) {
+if ("target_questions" in (analysis.diagnosis ?? {}) || "phone" in (analysis.profile ?? {})) {
   throw new Error("The unauthenticated preview exposed detailed diagnosis data.");
 }
 
@@ -24,8 +24,8 @@ const unverifiedResponse = await fetch(`${baseUrl}/api/applications`, {
     contact_name: "未確認テスト",
     email: "unverified@example.com",
     phone: "090-0000-0000",
-    company_name: "",
     store_relationship: "owner",
+    store_confirmed: true,
     authority_confirmed: true,
     message: ""
   })

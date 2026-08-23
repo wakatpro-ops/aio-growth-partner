@@ -6,7 +6,8 @@ const previewResponse = {
   status: "success",
   profile: {
     store_name: "ハーブピーリング＆アロマリンパマッサージnana",
-    industry_label: "美容室・サロン"
+    industry_label: "美容室・サロン",
+    address: "東京都杉並区高円寺南1-2-3"
   },
   diagnosis: {
     business_summary: "高円寺の完全個室サロンとして公開情報を確認しました。",
@@ -30,26 +31,28 @@ test("簡易診断からメール確認・正式申込・運営確認待ちま�
   await page.locator("#source_url").fill("https://example.com");
   await page.getByRole("button", { name: "URLから無料で簡易診断する" }).click();
 
+  await expect(page).toHaveURL(/\/apply\/analyzing$/u);
+  await expect(page.getByRole("heading", { name: "お店の公開情報を整理しています" })).toBeVisible();
+  await expect(page.getByText("AIにおすすめされる準備状況を診断しています")).toBeVisible();
+  await expect(page).toHaveURL(/\/apply\/diagnosis$/u);
   await expect(page.getByText("AIおすすめ準備度", { exact: true })).toBeVisible();
   await expect(page.getByText("82%")).toBeVisible();
   await expect(page.getByText("おすすめしたいお客様を具体化")).toBeVisible();
+  await expect(page.getByText("東京都杉並区高円寺南1-2-3")).toBeVisible();
   await expect(page.getByText(/想定質問/u)).toHaveCount(0);
-  await expect(page.locator("#phone")).toHaveCount(0);
+  await expect(page.locator("#structure_mode")).toHaveCount(0);
+  await expect(page.locator("#company_name")).toHaveCount(0);
   if (process.env.URL_ONBOARDING_SCREENSHOT) await page.screenshot({ path: process.env.URL_ONBOARDING_SCREENSHOT, fullPage: true });
 
-  await page.locator("#contact_name").fill("テスト担当者");
+  await page.locator('input[name="store_confirmed"]').check();
   await page.locator("#email").fill("owner@example.com");
-  await page.getByRole("button", { name: "確認コードをメールで受け取る" }).click();
-  await page.locator("#verification_code").fill("123456");
-  await page.getByRole("button", { name: "メールを確認して正式申込へ" }).click();
-
-  await expect(page.getByText("メール確認済み", { exact: true })).toBeVisible();
+  await page.locator("#contact_name").fill("テスト担当者");
   await page.locator("#phone").fill("090-1234-5678");
-  await page.locator("#company_name").fill("株式会社テスト");
   await page.locator("#store_relationship").selectOption("owner");
-  await page.locator("#application_message").fill("店舗オーナー本人です。");
   await page.locator('input[name="authority_confirmed"]').check();
-  await page.getByRole("button", { name: "確認内容に同意して正式申込を送る" }).click();
+  await page.getByRole("button", { name: "確認メールを受け取る" }).click();
+  await page.locator("#verification_code").fill("123456");
+  await page.getByRole("button", { name: "メールを確認して申し込む" }).click();
 
   await expect(page.getByRole("heading", { name: "株式会社 Navi Lifeが申込内容を確認します" })).toBeVisible();
   expect(submittedBody).toMatchObject({
@@ -57,10 +60,11 @@ test("簡易診断からメール確認・正式申込・運営確認待ちま�
     contact_name: "テスト担当者",
     email: "owner@example.com",
     phone: "090-1234-5678",
-    company_name: "株式会社テスト",
     store_relationship: "owner",
+    store_confirmed: true,
     authority_confirmed: true
   });
+  expect(submittedBody).not.toHaveProperty("operating_model");
 });
 
 test("誤った確認コードでは正式申込を開かない", async ({ page }) => {
@@ -70,13 +74,18 @@ test("誤った確認コードでは正式申込を開かない", async ({ page 
   await page.goto("/apply");
   await page.locator("#source_url").fill("https://example.com");
   await page.getByRole("button", { name: "URLから無料で簡易診断する" }).click();
-  await page.locator("#contact_name").fill("テスト担当者");
+  await expect(page).toHaveURL(/\/apply\/diagnosis$/u);
+  await page.locator('input[name="store_confirmed"]').check();
   await page.locator("#email").fill("owner@example.com");
-  await page.getByRole("button", { name: "確認コードをメールで受け取る" }).click();
+  await page.locator("#contact_name").fill("テスト担当者");
+  await page.locator("#phone").fill("090-1234-5678");
+  await page.locator("#store_relationship").selectOption("owner");
+  await page.locator('input[name="authority_confirmed"]').check();
+  await page.getByRole("button", { name: "確認メールを受け取る" }).click();
   await page.locator("#verification_code").fill("000000");
-  await page.getByRole("button", { name: "メールを確認して正式申込へ" }).click();
+  await page.getByRole("button", { name: "メールを確認して申し込む" }).click();
   await expect(page.getByText("確認コードが一致しません。")).toBeVisible();
-  await expect(page.locator("#phone")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "株式会社 Navi Lifeが申込内容を確認します" })).toHaveCount(0);
 });
 
 test("取得失敗時に技術的な内部情報を出さず再試行できる", async ({ page }) => {
@@ -84,9 +93,10 @@ test("取得失敗時に技術的な内部情報を出さず再試行できる",
   await page.goto("/apply");
   await page.locator("#source_url").fill("http://localhost:3000/admin");
   await page.getByRole("button", { name: "URLから無料で簡易診断する" }).click();
+  await expect(page).toHaveURL(/\/apply\/analyzing$/u);
   await expect(page.getByText("公開されている店舗ページのURLを入力してください。")).toBeVisible();
   await expect(page.getByText(/blocked_address|SUPABASE|stack/iu)).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "URLから無料で簡易診断する" })).toBeEnabled();
+  await expect(page.getByRole("link", { name: "別のURLを入力" })).toBeVisible();
 });
 
 test("スマートフォン幅でも横スクロールせず主操作が見える", async ({ page }) => {

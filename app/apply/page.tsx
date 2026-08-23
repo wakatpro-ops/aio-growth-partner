@@ -20,7 +20,7 @@ export default function ApplyPage() {
           </div>
           <div>
             <h2>③確認後に詳細を案内</h2>
-            <p>メール確認と正式申込後、運営会社の承認を経て詳細診断をご案内します。</p>
+            <p>診断結果で連絡先と店舗との関係だけを確認し、運営会社の承認後に詳細診断をご案内します。</p>
           </div>
         </section>
         <ApplyForm />
