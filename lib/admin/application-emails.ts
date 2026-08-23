@@ -149,7 +149,7 @@ export function applicantAutoReply(application: SalesApplication) {
         `${application.contact_name} 様`, "", "AIO boostへお申し込みいただき、ありがとうございます。",
         "メールアドレスの確認と正式申込を受け付けました。", "",
         `店舗名: ${application.store_name}`, `受付日時: ${formatDateTime(application.created_at)}`, "",
-        "現在、株式会社 Navi Lifeが対象店舗との関係と申込内容を確認しています。",
+        "現在、株式会社 Navi Lifeが申込内容と利用権限を確認しています。",
         "通常2営業日以内を目安に、確認済みメールアドレスへ結果をご案内します。",
         "承認後、専用リンクから想定質問・診断根拠・抽出店舗情報を含む詳細診断をご覧いただけます。", "",
         "メール確認は店舗所有権の証明ではなく、確認のため追加資料をお願いする場合があります。",
@@ -227,7 +227,7 @@ export function adminNewApplicationNotice(application: SalesApplication) {
       `電話番号: ${application.phone ?? "-"}`,
       ...(application.intake_review_status === "pending" ? [
         `会社名: ${application.applicant_company_name ?? "-"}`,
-        `店舗との関係: ${application.applicant_store_relationship ?? "-"}`,
+        ...(application.applicant_store_relationship ? [`店舗との関係: ${application.applicant_store_relationship}`] : []),
         `管理権限同意: ${application.applicant_authority_confirmed_at ? "確認済み" : "未確認"}`,
         "事前審査: 株式会社 Navi Lifeの確認待ち"
       ] : []),

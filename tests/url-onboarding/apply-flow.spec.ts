@@ -11,7 +11,7 @@ const previewResponse = {
   },
   diagnosis: {
     business_summary: "高円寺の完全個室サロンとして公開情報を確認しました。",
-    identification: { confidence: "high", label: "店舗を確認できました", reason: "店舗名と所在地などの公開情報が一致しています。" },
+    identification: { confidence: "high", label: "店舗を確認できました", reason: "店舗情報は登録後さらに解析しシステムの基本情報としてそのまま活用します。" },
     research_status: "cross_checked",
     checked_sources: [
       { url: "https://example.com", label: "公式サイト", kind: "input" },
@@ -53,6 +53,7 @@ test("簡易診断からメール確認・正式申込・運営確認待ちま�
   await expect(page.locator(".expected-outcomes-list > li")).toHaveCount(5);
   await expect(page.getByRole("heading", { name: "3件の情報源を照合しました" })).toBeVisible();
   await expect(page.getByText("東京都杉並区高円寺南1-2-3")).toBeVisible();
+  await expect(page.getByText("店舗情報は登録後さらに解析しシステムの基本情報としてそのまま活用します。")).toBeVisible();
   await expect(page.getByText(/想定質問/u)).toHaveCount(0);
   await expect(page.locator("#structure_mode")).toHaveCount(0);
   await expect(page.locator("#company_name")).toHaveCount(0);
@@ -62,7 +63,8 @@ test("簡易診断からメール確認・正式申込・運営確認待ちま�
   await page.locator("#email").fill("owner@example.com");
   await page.locator("#contact_name").fill("テスト担当者");
   await page.locator("#phone").fill("090-1234-5678");
-  await page.locator("#store_relationship").selectOption("owner");
+  await expect(page.locator("#store_relationship")).toHaveCount(0);
+  await expect(page.locator('input[name="authority_confirmed"]')).toHaveAttribute("required", "");
   await page.locator('input[name="authority_confirmed"]').check();
   await page.getByRole("button", { name: "確認メールを受け取る" }).click();
   await page.locator("#verification_code").fill("123456");
@@ -74,7 +76,6 @@ test("簡易診断からメール確認・正式申込・運営確認待ちま�
     contact_name: "テスト担当者",
     email: "owner@example.com",
     phone: "090-1234-5678",
-    store_relationship: "owner",
     store_confirmed: true,
     authority_confirmed: true
   });
@@ -93,7 +94,7 @@ test("誤った確認コードでは正式申込を開かない", async ({ page 
   await page.locator("#email").fill("owner@example.com");
   await page.locator("#contact_name").fill("テスト担当者");
   await page.locator("#phone").fill("090-1234-5678");
-  await page.locator("#store_relationship").selectOption("owner");
+  await expect(page.locator("#store_relationship")).toHaveCount(0);
   await page.locator('input[name="authority_confirmed"]').check();
   await page.getByRole("button", { name: "確認メールを受け取る" }).click();
   await page.locator("#verification_code").fill("000000");

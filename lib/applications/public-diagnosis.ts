@@ -49,7 +49,7 @@ export function assessStoreIdentification(profile: ExtractedStoreProfile): Store
     confidence,
     label: confidence === "high" ? "店舗を確認できました" : confidence === "medium" ? "店舗候補を確認できました" : "店舗を特定できませんでした",
     reason: identified
-      ? "店舗名と、所在地・連絡先・提供内容などの公開情報が一致しています。"
+      ? "店舗情報は登録後さらに解析しシステムの基本情報としてそのまま活用します。"
       : "店舗名と所在地など、別の店舗と区別するための情報を確認できませんでした。"
   };
 }
