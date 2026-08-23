@@ -28,7 +28,8 @@ const ownerEmail = `codex-full-owner-${suffix}@example.com`;
 const adminPassword = `Admin-${randomBytes(12).toString("base64url")}9!`;
 const ownerPassword = `Owner-${randomBytes(12).toString("base64url")}9!`;
 const verificationCode = "314159";
-const testSourceUrl = "https://example.com/";
+const testSourceUrl = process.env.FULL_ONBOARDING_E2E_SOURCE_URL ?? "https://www.tokuju.com/shop/shinratei/";
+const testStoreHint = process.env.FULL_ONBOARDING_E2E_STORE_HINT ?? "徳寿 しんら亭";
 const userIds = [];
 let applicationId = null;
 let analysisId = null;
@@ -91,19 +92,30 @@ try {
     await publicPage.getByRole("button", { name: "URLから無料で簡易診断する" }).click();
     await publicPage.waitForURL((url) => url.pathname === "/apply/analyzing");
     await publicPage.getByRole("heading", { name: "お店の公開情報を整理しています" }).waitFor();
+    const analysisOutcome = await Promise.race([
+      publicPage.waitForURL((url) => url.pathname === "/apply/diagnosis", { timeout: 90_000 }).then(() => "diagnosis"),
+      publicPage.locator('.identification-recovery[role="alert"]').waitFor({ timeout: 90_000 }).then(() => "needs_hint")
+    ]);
+    if (analysisOutcome === "needs_hint") {
+      const hintInput = publicPage.locator("#store_hint");
+      assert.equal(await hintInput.count(), 1, `analysis failed without a recoverable store hint: ${await publicPage.locator('.identification-recovery[role="alert"]').innerText()}`);
+      await hintInput.fill(testStoreHint);
+      await publicPage.getByRole("button", { name: "店舗名を使って再解析" }).click();
+    }
     await publicPage.waitForURL((url) => url.pathname === "/apply/diagnosis", { timeout: 90_000 });
     await publicPage.getByText("無料の簡易診断", { exact: true }).waitFor({ timeout: 90_000 });
-    await publicPage.getByText("AIおすすめ準備度", { exact: true }).waitFor();
-    await publicPage.getByRole("heading", { name: "連絡先と店舗との関係を確認します" }).waitFor();
+    await publicPage.getByRole("heading", { name: "この店舗には、こんな改善が期待できます" }).waitFor();
+    assert.equal(await publicPage.locator(".expected-outcomes-list > li").count(), 5);
+    await publicPage.getByRole("heading", { name: "連絡先を確認します" }).waitFor();
     assert.equal(await publicPage.locator("#structure_mode").count(), 0);
     await assertNoHorizontalOverflow(publicPage, "analysis preview desktop");
-    await publicContext.close();
-
-    const analysis = await api("/api/public/store-analysis", { source_url: testSourceUrl });
-    assert.equal(analysis.response.status, 200, JSON.stringify(analysis.body));
-    assert.equal(analysis.body?.ok, true);
-    const analysisToken = analysis.body.analysis_token;
+    const preview = await publicPage.evaluate((storageKey) => {
+      const raw = sessionStorage.getItem(storageKey);
+      return raw ? JSON.parse(raw) : null;
+    }, "aio-boost:apply-preview");
+    const analysisToken = preview?.analysis_token;
     assert.equal(typeof analysisToken, "string");
+    await publicContext.close();
     const tokenHash = sha256(analysisToken);
     const { data: storedAnalysis, error: analysisError } = await admin.from("public_store_analyses")
       .select("id, extracted_profile, analysis_result, status")
@@ -259,7 +271,9 @@ try {
     await adminPage.waitForURL((url) => url.searchParams.get("saved") === "1", { timeout: 30_000 });
     assert.equal(await adminPage.getByRole("button", { name: "招待リンクを発行して利用開始メール送信" }).isEnabled(), true);
     await adminPage.getByRole("button", { name: "招待リンクを発行して利用開始メール送信" }).click();
-    await adminPage.waitForURL((url) => url.searchParams.get("prepared") === "1", { timeout: 45_000 });
+    await adminPage.waitForURL((url) => url.searchParams.has("prepared") || url.searchParams.has("error"), { timeout: 45_000 });
+    assert.equal(new URL(adminPage.url()).searchParams.get("error"), null, `account issue failed: ${await adminPage.locator("body").innerText()}`);
+    assert.equal(new URL(adminPage.url()).searchParams.get("prepared"), "1");
     await adminPage.getByRole("heading", { name: "発行済み招待リンク" }).waitFor();
 
     const { data: issuedApplication, error: issuedError } = await admin.from("applications")
