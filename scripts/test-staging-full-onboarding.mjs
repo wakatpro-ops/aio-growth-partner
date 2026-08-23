@@ -87,9 +87,13 @@ try {
     await assertNoHorizontalOverflow(publicPage, "public apply desktop");
     await publicPage.locator("#source_url").fill(testSourceUrl);
     await publicPage.getByRole("button", { name: "URLから無料で簡易診断する" }).click();
+    await publicPage.waitForURL((url) => url.pathname === "/apply/analyzing");
+    await publicPage.getByRole("heading", { name: "お店の公開情報を整理しています" }).waitFor();
+    await publicPage.waitForURL((url) => url.pathname === "/apply/diagnosis", { timeout: 90_000 });
     await publicPage.getByText("無料の簡易診断", { exact: true }).waitFor({ timeout: 90_000 });
     await publicPage.getByText("AIおすすめ準備度", { exact: true }).waitFor();
-    await publicPage.getByRole("heading", { name: "まずメールアドレスを確認します" }).waitFor();
+    await publicPage.getByRole("heading", { name: "連絡先と店舗との関係を確認します" }).waitFor();
+    assert.equal(await publicPage.locator("#structure_mode").count(), 0);
     await assertNoHorizontalOverflow(publicPage, "analysis preview desktop");
     await publicContext.close();
 
@@ -170,8 +174,8 @@ try {
       contact_name: "別人",
       email: "tampered@example.com",
       phone: "090-1234-5678",
-      company_name: "統合テスト株式会社",
       store_relationship: "owner",
+      store_confirmed: true,
       authority_confirmed: true,
       message: "改ざん拒否確認"
     });
@@ -182,11 +186,10 @@ try {
       contact_name: "統合テスト店舗オーナー",
       email: normalizedEmail,
       phone: "090-1234-5678",
-      company_name: "統合テスト株式会社",
       store_relationship: "owner",
+      store_confirmed: true,
       authority_confirmed: true,
-      message: "実サイトの全工程統合テスト",
-      operating_model: deterministicOperatingModel
+      message: "実サイトの全工程統合テスト"
     });
     assert.equal(application.response.status, 200, JSON.stringify(application.body));
     assert.equal(application.body?.ok, true);
@@ -197,8 +200,8 @@ try {
       contact_name: "統合テスト店舗オーナー",
       email: normalizedEmail,
       phone: "090-1234-5678",
-      company_name: "統合テスト株式会社",
       store_relationship: "owner",
+      store_confirmed: true,
       authority_confirmed: true
     });
     assert.equal(duplicateApplication.response.status, 200);

@@ -32,10 +32,9 @@ const urlFirstApplicationSchema = z.object({
   contact_name: z.string().trim().min(1).max(120),
   email: z.string().trim().email().max(240),
   phone: z.string().trim().min(8).max(80),
-  company_name: z.string().trim().max(160).optional().default(""),
   store_relationship: z.enum(["owner", "employee", "operator", "authorized_agent", "other"]),
+  store_confirmed: z.literal(true),
   authority_confirmed: z.literal(true),
-  operating_model: z.unknown().optional(),
   message: z.string().trim().max(2_000).optional().default("")
 });
 
@@ -84,9 +83,9 @@ async function createUrlFirstApplication(json: unknown) {
   }
 
   const profile = recordValue(draft.extracted_profile);
-  const operatingModel = normalizeOperatingModel(parsed.data.operating_model, normalizeOperatingModel(draft.operating_model_draft));
-  operatingModel.detection.source = "applicant";
-  operatingModel.applicantConfirmedAt = new Date().toISOString();
+  const operatingModel = normalizeOperatingModel(draft.operating_model_draft);
+  operatingModel.detection.source = "ai";
+  delete operatingModel.applicantConfirmedAt;
   const diagnosis = recordValue(draft.analysis_result);
   const clarifyingQuestions = Array.isArray(draft.clarifying_questions) ? draft.clarifying_questions : [];
   const industryOption = findPublicIndustryOption(String(profile.industry_key ?? "other_service"));
@@ -110,12 +109,15 @@ async function createUrlFirstApplication(json: unknown) {
   const growthOpportunities = recommendedModules.map((item) => String(recordValue(item).reason ?? "")).filter(Boolean);
   const topImprovement = recordValue(draft.top_improvement);
   const authorityConfirmedAt = new Date().toISOString();
+  const detectedCompanyName = String(profile.company_name ?? "").trim();
   const intakeAnswers = {
-    applicant_company_name: parsed.data.company_name,
+    applicant_company_name: detectedCompanyName,
     applicant_store_relationship: parsed.data.store_relationship,
+    applicant_store_confirmed: true,
     applicant_authority_confirmed: true,
     applicant_message: parsed.data.message,
-    operating_model: operatingModel
+    operating_model: operatingModel,
+    operating_model_confirmed_by_applicant: false
   };
   const enrichment = {
     source_analysis_id: draft.id,
@@ -150,7 +152,7 @@ async function createUrlFirstApplication(json: unknown) {
     pain_points: String(topImprovement.description ?? "AIOおすすめ準備度の改善"),
     message: parsed.data.message,
     status: "new",
-    applicant_company_name: parsed.data.company_name || null,
+    applicant_company_name: detectedCompanyName || null,
     applicant_store_relationship: parsed.data.store_relationship,
     applicant_authority_confirmed_at: authorityConfirmedAt,
     intake_review_status: "pending",

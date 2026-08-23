@@ -2395,6 +2395,58 @@ p {
   scroll-margin-top: 24px;
 }
 
+.apply-analysis-screen {
+  min-height: 62vh;
+  justify-content: center;
+}
+
+.apply-analysis-screen .submit-progress {
+  padding: clamp(24px, 5vw, 44px);
+}
+
+.analysis-progress-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.analysis-progress-list li {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  gap: 12px;
+  opacity: 0.58;
+}
+
+.analysis-progress-list li span {
+  align-items: center;
+  background: #e8efeb;
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 30px;
+  height: 30px;
+  justify-content: center;
+}
+
+.analysis-progress-list li.is-current,
+.analysis-progress-list li.is-complete {
+  color: var(--accent-strong);
+  opacity: 1;
+}
+
+.analysis-progress-list li.is-current span,
+.analysis-progress-list li.is-complete span {
+  background: var(--accent);
+  color: #fff;
+}
+
+.store-match-confirmation {
+  background: #eef8f2;
+  border-color: #8dbda5;
+}
+
 .url-first-form {
   background: linear-gradient(145deg, #ffffff, #f1f8f4);
   border: 2px solid #8dbda5;

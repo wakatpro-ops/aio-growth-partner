@@ -13,7 +13,8 @@ export function publicAnalysisPreview(input: { profile: unknown; diagnosis: unkn
   return {
     profile: {
       store_name: String(profile.store_name ?? ""),
-      industry_label: String(profile.industry_label ?? "")
+      industry_label: String(profile.industry_label ?? ""),
+      address: String(profile.address ?? "")
     },
     diagnosis: {
       business_summary: String(diagnosis.business_summary ?? ""),

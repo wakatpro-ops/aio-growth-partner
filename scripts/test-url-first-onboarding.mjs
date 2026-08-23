@@ -101,7 +101,8 @@ assert.equal(verificationCodeMatches(codeHash, verificationCodeHash(`${token}x`,
 const preview = publicAnalysisPreview({ profile, diagnosis });
 assert.equal(preview.profile.store_name, profile.store_name);
 assert.equal("target_questions" in preview.diagnosis, false, "target questions must not be exposed before operator approval");
-assert.equal("address" in preview.profile, false, "extracted profile details must not be exposed before operator approval");
+assert.match(preview.profile.address, /東京都/u, "store identity may include the address for applicant confirmation");
+assert.equal("phone" in preview.profile, false, "contact details must not be copied into the applicant form");
 const detail = approvedAnalysisDetail({ profile, diagnosis, sourceUrl: "https://example.com", finalUrl: "https://example.com", status: "converted", aiStatus: "success" });
 assert.equal(detail.diagnosis.target_questions.length, 3);
 assert.match(detail.profile.address, /東京都/u);
