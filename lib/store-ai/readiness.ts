@@ -180,7 +180,7 @@ export async function getStoreAiReadiness(store: Store): Promise<StoreAiReadines
       value: publishReady ? "反映先または下書きあり" : "まだ外部には反映されていません",
       complete: publishReady,
       weight: 15,
-      href: `/stores/${store.id}/acquisition`,
+      href: `/stores/${store.id}/settings/google`,
       priority: "おすすめ",
       badge: "外部への反映",
       benefit: "整えた内容をGoogle・Web・SNSに反映して、外部から参照できる状態にします。",

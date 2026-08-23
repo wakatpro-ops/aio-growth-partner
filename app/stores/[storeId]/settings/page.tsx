@@ -1,16 +1,10 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
-import {
-  StoreAiLearnedFeedback,
-  StoreAiNextActions,
-  StoreAiReadinessPanel
-} from "@/components/store-ai/store-ai-readiness-panel";
 import { PageHeader } from "@/components/ui/page-header";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
-import { getStoreAiReadiness } from "@/lib/store-ai/readiness";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { archiveStoreAction } from "../../actions";
 
@@ -18,7 +12,6 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
   const { storeId } = await params;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
-  const readiness = await getStoreAiReadiness(store);
   const access = await getCurrentUserAccess();
   const canArchiveStore = Boolean(access?.isPlatformAdmin || access?.organizationRoles[store.organization_id] === "org_owner");
   const canManageStaff = canArchiveStore;
@@ -88,11 +81,6 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
           <Link className="button" href="/stores/new">店舗を追加</Link>
         </section>
       ) : null}
-      <StoreAiReadinessPanel readiness={readiness} storeId={store.id} />
-      <section className="grid cols-2">
-        <StoreAiNextActions readiness={readiness} />
-        <StoreAiLearnedFeedback readiness={readiness} />
-      </section>
       <section className="card">
         <h2>設定メニュー</h2>
         <div className="action-card-list">

@@ -126,7 +126,7 @@ export default async function AioImprovementPage({
               <PendingSubmitButton pendingLabel="改善計画を作成しています...">この改善に着手する</PendingSubmitButton>
             </form>
           ) : (
-            <Link className="button" href={`/stores/${store.id}/acquisition`}>公開状況を確認する</Link>
+            <Link className="button" href={`/stores/${store.id}/settings/google`}>公開状況を確認する</Link>
           )}
           <Link className="button secondary" href={activeTask?.source_href ?? priority?.href ?? `/stores/${store.id}/settings/profile`}>元の情報を確認する</Link>
         </div>
