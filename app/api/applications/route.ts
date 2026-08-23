@@ -7,6 +7,12 @@ import { sendApplicationReceivedEmails } from "@/lib/admin/application-emails";
 import type { SalesApplication } from "@/lib/admin/applications";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeOperatingModel } from "@/lib/applications/operating-model";
+import {
+  applicantEmailAlreadyRegistered,
+  isDuplicateApplicantEmailError,
+  registeredApplicantEmailCode,
+  registeredApplicantEmailMessage
+} from "@/lib/applications/applicant-email";
 
 const applicationSchema = z.object({
   industry_detail_key: z.string().default("other_service"),
@@ -79,6 +85,13 @@ async function createUrlFirstApplication(json: unknown) {
   }
   if (parsed.data.contact_name !== draft.verification_name || parsed.data.email.toLowerCase() !== String(draft.verification_email).toLowerCase()) {
     return NextResponse.json({ ok: false, error: "確認済みの名前とメールアドレスを変更する場合は、もう一度メール確認を行ってください。" }, { status: 403 });
+  }
+  try {
+    if (await applicantEmailAlreadyRegistered(supabase, parsed.data.email)) {
+      return NextResponse.json({ ok: false, code: registeredApplicantEmailCode, error: registeredApplicantEmailMessage }, { status: 409 });
+    }
+  } catch {
+    return NextResponse.json({ ok: false, error: "現在、登録状況を確認できません。時間をおいてお試しください。" }, { status: 503 });
   }
 
   const profile = recordValue(draft.extracted_profile);
@@ -174,6 +187,9 @@ async function createUrlFirstApplication(json: unknown) {
       .eq("source_analysis_id", draft.id)
       .maybeSingle();
     if (existing) return NextResponse.json({ ok: true, already_submitted: true });
+    if (isDuplicateApplicantEmailError(result.error)) {
+      return NextResponse.json({ ok: false, code: registeredApplicantEmailCode, error: registeredApplicantEmailMessage }, { status: 409 });
+    }
     return NextResponse.json({ ok: false, error: "申し込みを保存できませんでした。時間をおいてもう一度お試しください。" }, { status: 503 });
   }
 
@@ -243,6 +259,13 @@ export async function POST(request: Request) {
   let applicationId: string | null = null;
   let savedApplication: Record<string, unknown> | null = null;
   if (supabase) {
+    try {
+      if (await applicantEmailAlreadyRegistered(supabase, parsed.data.email)) {
+        return NextResponse.json({ ok: false, code: registeredApplicantEmailCode, error: registeredApplicantEmailMessage }, { status: 409 });
+      }
+    } catch {
+      return NextResponse.json({ ok: false, error: "現在、登録状況を確認できません。時間をおいてお試しください。" }, { status: 503 });
+    }
     const basePayload = {
       industry_type_key: industryOption.internalIndustryType,
       store_name: parsed.data.store_name,
@@ -266,6 +289,9 @@ export async function POST(request: Request) {
     const result = await supabase.from("applications").insert(fullPayload).select("*").single();
 
     if (result.error) {
+      if (isDuplicateApplicantEmailError(result.error)) {
+        return NextResponse.json({ ok: false, code: registeredApplicantEmailCode, error: registeredApplicantEmailMessage }, { status: 409 });
+      }
       const fallbackResult = await supabase
         .from("applications")
         .insert({
@@ -278,6 +304,9 @@ export async function POST(request: Request) {
         .single();
 
       if (fallbackResult.error) {
+        if (isDuplicateApplicantEmailError(fallbackResult.error)) {
+          return NextResponse.json({ ok: false, code: registeredApplicantEmailCode, error: registeredApplicantEmailMessage }, { status: 409 });
+        }
         return NextResponse.json({ ok: false, error: fallbackResult.error.message }, { status: 500 });
       }
 

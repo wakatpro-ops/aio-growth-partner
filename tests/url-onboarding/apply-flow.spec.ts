@@ -103,6 +103,24 @@ test("誤った確認コードでは正式申込を開かない", async ({ page 
   await expect(page.getByRole("heading", { name: "株式会社 Navi Lifeが申込内容を確認します" })).toHaveCount(0);
 });
 
+test("登録済みメールアドレスは確認メール送信前に拒否する", async ({ page }) => {
+  await page.route("**/api/public/store-analysis", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(previewResponse) }));
+  await page.route("**/api/public/store-analysis/verification/request", (route) => route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ ok: false, code: "applicant_email_registered", error: "このメールアドレスはすでに登録があります。ログインするか、パスワード再設定をご利用ください。" }) }));
+  await page.goto("/apply");
+  await page.locator("#source_url").fill("https://example.com");
+  await page.getByRole("button", { name: "URLから無料で簡易診断する" }).click();
+  await expect(page).toHaveURL(/\/apply\/diagnosis$/u);
+  await page.locator('input[name="store_confirmed"]').check();
+  await page.locator("#email").fill("registered@example.com");
+  await page.locator("#contact_name").fill("登録済み担当者");
+  await page.locator("#phone").fill("090-1234-5678");
+  await page.locator('input[name="authority_confirmed"]').check();
+  await page.getByRole("button", { name: "確認メールを受け取る" }).click();
+  await expect(page.getByText("このメールアドレスはすでに登録があります。ログインするか、パスワード再設定をご利用ください。")).toBeVisible();
+  await expect(page.getByRole("link", { name: "ログインする" })).toHaveAttribute("href", "/login");
+  await expect(page.getByRole("link", { name: "パスワードを再設定" })).toHaveAttribute("href", "/auth/forgot-password");
+});
+
 test("取得失敗時に技術的な内部情報を出さず再試行できる", async ({ page }) => {
   await page.route("**/api/public/store-analysis", (route) => route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({ ok: false, code: "blocked_address", error: "公開されている店舗ページのURLを入力してください。" }) }));
   await page.goto("/apply");

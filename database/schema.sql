@@ -1873,6 +1873,7 @@ alter table public.stores add column if not exists archived_at timestamptz;
 alter table public.stores add column if not exists archived_by uuid references auth.users(id) on delete set null;
 alter table public.applications add column if not exists archived_at timestamptz;
 alter table public.applications add column if not exists archived_by uuid references auth.users(id) on delete set null;
+create unique index if not exists applications_active_email_uidx on public.applications(lower(email)) where archived_at is null;
 alter table public.items add column if not exists archived_at timestamptz;
 alter table public.items add column if not exists archived_by uuid references auth.users(id) on delete set null;
 alter table public.customers add column if not exists archived_at timestamptz;

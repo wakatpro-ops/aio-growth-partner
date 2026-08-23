@@ -13,6 +13,8 @@ const verificationRequest = readFileSync("app/api/public/store-analysis/verifica
 const verificationConfirm = readFileSync("app/api/public/store-analysis/verification/confirm/route.ts", "utf8");
 const approvedResult = readFileSync("app/apply/result/page.tsx", "utf8");
 const handoff = readFileSync("lib/admin/applications.ts", "utf8");
+const applicantEmail = readFileSync("lib/applications/applicant-email.ts", "utf8");
+const uniqueEmailMigration = readFileSync("supabase/migrations/202608230005_unique_active_application_email.sql", "utf8");
 
 for (const sql of [migration, schema]) {
   assert.match(sql, /create table if not exists public\.public_store_analyses/u);
@@ -57,5 +59,12 @@ assert.match(approvedResult, /intake_review_status === "approved"/u);
 assert.match(approvedResult, /verifyOperatorReviewToken/u);
 assert.match(handoff, /url_first_onboarding/u);
 assert.match(handoff, /ai_target_questions/u);
+assert.match(applicantEmail, /applicant_email_registered/u);
+assert.match(applicantEmail, /auth\.admin\.listUsers/u);
+assert.match(verificationRequest, /applicantEmailAlreadyRegistered/u);
+assert.match(applicationRoute, /isDuplicateApplicantEmailError/u);
+assert.match(uniqueEmailMigration, /unique index if not exists applications_active_email_uidx/u);
+assert.match(uniqueEmailMigration, /lower\(email\)/u);
+assert.match(uniqueEmailMigration, /where archived_at is null/u);
 
 console.log("URL-first onboarding integration contract checks passed.");
