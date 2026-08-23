@@ -2,9 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { confirmInitialSetup } from "@/lib/onboarding/initial-setup";
+import { confirmInitialSetup, saveInitialSetupDraft } from "@/lib/onboarding/initial-setup";
 
 export type InitialSetupActionState = { ok: false; message: string };
+
+export async function saveInitialSetupDraftAction(storeId: string, formData: FormData) {
+  await saveInitialSetupDraft(storeId, formData);
+  revalidatePath(`/onboarding/setup-review`);
+  redirect(`/onboarding?storeId=${storeId}&setupDraft=saved`);
+}
 
 export async function confirmInitialSetupAction(
   storeId: string,

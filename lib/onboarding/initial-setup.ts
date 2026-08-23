@@ -7,7 +7,7 @@ import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import type { IndustryTypeKey, Store } from "@/types/domain";
-import { mayConfirmInitialSetup, parseInitialSetupForm } from "./initial-setup-rules";
+import { mayConfirmInitialSetup, parseInitialSetupForm, type InitialSetupInput } from "./initial-setup-rules";
 import { normalizeOperatingModel, operatingModelFeatureFlags, type OperatingLocation, type OperatingModel } from "@/lib/applications/operating-model";
 
 type JsonRecord = Record<string, unknown>;
@@ -36,6 +36,16 @@ export type InitialSetupReview = {
   aiRecommendedFeatures: string[];
   operatingModel: OperatingModel;
   additionalLocations: OperatingLocation[];
+  evidenceSources: Array<{ url: string; label: string }>;
+  preparedSummary: {
+    storeFieldCount: number;
+    menuCount: number;
+    featureCount: number;
+    externalSystemCount: number;
+    additionalLocationCount: number;
+  };
+  savedDraft: InitialSetupInput | null;
+  savedDraftStep: number;
 };
 
 function record(value: unknown): JsonRecord {
@@ -46,6 +56,30 @@ function strings(value: unknown) {
   return Array.isArray(value)
     ? Array.from(new Set(value.map(String).map((item) => item.trim()).filter(Boolean))).slice(0, 30)
     : [];
+}
+
+function safeSourceUrls(...values: unknown[]) {
+  return Array.from(new Set(values.flatMap((value) => strings(value)).flatMap((candidate) => {
+    try {
+      const url = new URL(candidate);
+      return ["http:", "https:"].includes(url.protocol) ? [url.toString()] : [];
+    } catch {
+      return [];
+    }
+  }))).slice(0, 8);
+}
+
+function sourceLabel(urlValue: string) {
+  try {
+    const url = new URL(urlValue);
+    const hostname = url.hostname.replace(/^www\./u, "");
+    if (hostname.includes("google.")) return "Googleの公開情報";
+    if (hostname.includes("tabelog.com")) return "食べログ";
+    if (hostname.includes("hotpepper.jp")) return "ホットペッパー";
+    return hostname;
+  } catch {
+    return "公開ページ";
+  }
 }
 
 const dashboardCardLabels: Record<string, string> = {
@@ -99,12 +133,18 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
   if (!snapshot) return null;
 
   const content = record(snapshot.content);
+  const savedDraftRecord = record(record(snapshot.confirmation_payload).draft);
   const extracted = record(content.extracted_profile);
   const aiDashboardPlan = record(content.ai_dashboard_plan);
   const aiRecommendedFeatures = Array.isArray(aiDashboardPlan.recommended_modules)
     ? aiDashboardPlan.recommended_modules.map((item) => String(record(item).label ?? "").trim()).filter(Boolean).slice(0, 20)
     : [];
   const services = strings(extracted.services);
+  const evidenceSourceUrls = safeSourceUrls(
+    content.reference_urls,
+    extracted.source_urls,
+    [content.website_url, content.google_maps_url, store.website_url, store.google_business_url]
+  );
   const operatingModel = normalizeOperatingModel(content.operating_model ?? store.operating_model);
   const additionalLocations = operatingModel.structure.locations.filter((location) => {
     const sameName = location.name && location.name === store.name;
@@ -145,8 +185,72 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
     industryPresets,
     aiRecommendedFeatures,
     operatingModel,
-    additionalLocations
+    additionalLocations,
+    evidenceSources: evidenceSourceUrls.map((url) => ({ url, label: sourceLabel(url) })),
+    preparedSummary: {
+      storeFieldCount: [store.name, store.address, store.phone, store.website_url, store.description].filter(Boolean).length,
+      menuCount: services.length,
+      featureCount: new Set([...aiRecommendedFeatures, ...(industryPresets[store.industry_type_key]?.recommendedFeatures ?? [])]).size,
+      externalSystemCount: Object.values(operatingModel.systems).filter((system) => system.serviceNames.length > 0).length,
+      additionalLocationCount: additionalLocations.length
+    },
+    savedDraft: Object.keys(savedDraftRecord).length ? savedDraftRecord as InitialSetupInput : null,
+    savedDraftStep: Math.min(7, Math.max(0, Number(record(snapshot.confirmation_payload).draft_step) || 0))
   };
+}
+
+export async function saveInitialSetupDraft(storeId: string, formData: FormData) {
+  const store = await getStore(storeId);
+  const access = await requireOwner(store);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("初期設定を保存する準備が完了していません。");
+  const { data: snapshot, error } = await supabase.from("onboarding_snapshots")
+    .select("id, content, confirmation_status, confirmation_payload")
+    .eq("store_id", store.id).eq("snapshot_type", "application_intake").maybeSingle();
+  if (error || !snapshot) throw new Error("AIが準備した初期設定を確認できません。");
+  if (snapshot.confirmation_status !== "pending") throw new Error("初期設定はすでに反映中または完了しています。");
+
+  const snapshotContent = record(snapshot.content);
+  const extracted = record(snapshotContent.extracted_profile);
+  const candidateCount = strings(extracted.services).length;
+  const fallback = normalizeOperatingModel(snapshotContent.operating_model ?? store.operating_model);
+  const additionalLocations = fallback.structure.locations.filter((location) => {
+    const sameName = location.name && location.name === store.name;
+    const sameAddress = location.address && location.address === store.address;
+    return !(sameName || sameAddress);
+  }).slice(0, 9);
+  fallback.structure.locations = [{
+    name: store.name,
+    address: store.address ?? "",
+    websiteUrl: store.website_url ?? "",
+    companyName: fallback.structure.companyNames[0] ?? "",
+    brandName: store.brand_name ?? fallback.structure.brandNames[0] ?? "",
+    source: "published"
+  }, ...additionalLocations];
+  const safeForm = new FormData();
+  for (const [key, value] of formData.entries()) safeForm.append(key, value);
+  safeForm.set("final_confirmation", "on");
+  const draft = parseInitialSetupForm(safeForm, String(snapshot.id), candidateCount, fallback);
+  const now = new Date().toISOString();
+  const { error: saveError } = await supabase.from("onboarding_snapshots").update({
+    confirmation_payload: {
+      ...record(snapshot.confirmation_payload),
+      draft,
+      draft_step: Math.min(7, Math.max(0, Number(formData.get("conversation_step")) || 0)),
+      draft_saved_at: now,
+      draft_saved_by: access.userId
+    },
+    updated_at: now
+  }).eq("id", snapshot.id).eq("confirmation_status", "pending");
+  if (saveError) throw new Error(`途中までの回答を保存できませんでした: ${saveError.message}`);
+  await logAuditEvent({
+    storeId: store.id,
+    actionType: "initial_setup_draft_saved",
+    targetType: "onboarding_snapshot",
+    targetId: String(snapshot.id),
+    message: "店舗オーナーが会話型初期設定を途中保存しました。",
+    metadata: { saved_by: access.userId }
+  });
 }
 
 export type ConfirmInitialSetupResult = { completed: true; alreadyCompleted: boolean; selectedMenuCount: number };
