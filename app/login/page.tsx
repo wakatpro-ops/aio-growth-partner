@@ -11,7 +11,10 @@ export default function LoginPage() {
           <p>登録済みのメールアドレスとパスワードでログインしてください。</p>
         </div>
         <LoginForm />
-        <Link href="/signup">アカウント作成へ</Link>
+        <div className="button-row">
+          <Link className="button secondary" href="/auth/forgot-password">パスワードを忘れた方</Link>
+          <Link className="button secondary" href="/signup">アカウント作成へ</Link>
+        </div>
       </div>
     </main>
   );

@@ -150,3 +150,14 @@ test("不正な承認リンクでは詳細診断を表示しない", async ({ pa
   await expect(page.getByRole("heading", { name: "詳細診断を表示できません" })).toBeVisible();
   await expect(page.getByText(/想定質問 1/u)).toHaveCount(0);
 });
+
+test("ログイン画面からパスワード再設定へ進める", async ({ page }) => {
+  await page.goto("/login");
+  const recoveryLink = page.getByRole("link", { name: "パスワードを忘れた方" });
+  await expect(recoveryLink).toBeVisible();
+  await recoveryLink.click();
+  await expect(page).toHaveURL(/\/auth\/forgot-password$/u);
+  await expect(page.getByRole("heading", { name: "パスワードを再設定" })).toBeVisible();
+  await expect(page.getByLabel("メールアドレス")).toBeVisible();
+  await expect(page.getByRole("button", { name: "パスワード再設定メールを受け取る" })).toBeVisible();
+});
