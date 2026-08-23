@@ -11,8 +11,10 @@ process.loadEnvFile(envFile);
 const baseUrl = process.env.INITIAL_SETUP_E2E_BASE_URL ?? "https://staging.aioboost.jp";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const adminKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-if (!baseUrl.includes("staging.aioboost.jp") || !supabaseUrl.includes("zlqqjifitnvorudxbepy")) {
-  throw new Error("This integration test is restricted to AIO boost staging.");
+const allowedStagingUrl = baseUrl.includes("staging.aioboost.jp") || baseUrl.includes("aio-growth-partner-staging-");
+const allowedStagingDatabase = supabaseUrl.includes("zlqqjifitnvorudxbepy");
+if (!allowedStagingUrl || !allowedStagingDatabase) {
+  throw new Error(`This integration test is restricted to AIO boost staging: ${JSON.stringify({ allowedStagingUrl, allowedStagingDatabase, supabaseConfigured: Boolean(supabaseUrl) })}`);
 }
 if (!adminKey) throw new Error("Staging Supabase admin credentials are unavailable.");
 
@@ -96,13 +98,27 @@ try {
     const ownerPage = await browser.newPage();
     await signIn(ownerPage, owner.email);
     await ownerPage.goto(`${baseUrl}/onboarding/setup-review?storeId=${storeId}`);
-    await ownerPage.getByRole("heading", { name: "違う部分だけ直して、利用を開始" }).waitFor();
-    await ownerPage.locator("#store_name").fill("確認済みサロン");
-    await ownerPage.locator("#menu_name_0").fill("確認済みハーブピーリング");
-    await ownerPage.locator('input[name="menu_enabled_1"]').uncheck();
-    await ownerPage.locator("#invoice_issuer_name").fill("確認済みサロン");
-    await ownerPage.locator("#invoice_prefix").fill("SALON");
-    await ownerPage.locator('input[name="final_confirmation"]').check();
+    await ownerPage.getByRole("heading", { name: "管理画面は、すでに準備できています" }).waitFor();
+    await ownerPage.getByRole("heading", { name: "すでにここまで準備できています" }).waitFor();
+    await ownerPage.getByRole("button", { name: "AIと一緒に仕上げる" }).click();
+    await ownerPage.getByRole("button", { name: /1法人・1ブランド・1店舗/ }).click();
+    await ownerPage.getByRole("button", { name: /AIO boostで管理する/ }).click();
+    await ownerPage.getByRole("button", { name: /AIO boostの簡易会計を使う/ }).click();
+    await ownerPage.getByRole("button", { name: "途中保存して終了" }).click();
+    await ownerPage.waitForURL((url) => url.pathname === "/onboarding" && url.searchParams.get("setupDraft") === "saved");
+    await ownerPage.getByText("いつでも続きから再開できます", { exact: false }).waitFor();
+    await ownerPage.getByRole("link", { name: "AIと一緒に初期設定を仕上げる" }).click();
+    await ownerPage.getByText("途中保存した内容から再開しています").waitFor();
+    await ownerPage.locator("#store_name_editor").fill("確認済みサロン");
+    await ownerPage.getByRole("button", { name: "この店舗情報で進む" }).click();
+    await ownerPage.getByRole("button", { name: /内容を確認・編集する/ }).click();
+    await ownerPage.locator("#menu_name_editor_0").fill("確認済みハーブピーリング");
+    await ownerPage.locator('.setup-menu-editor input[type="checkbox"]').nth(1).uncheck();
+    await ownerPage.getByRole("button", { name: "選んだメニューで進む" }).click();
+    await ownerPage.locator("#invoice_issuer_name_editor").fill("確認済みサロン");
+    await ownerPage.locator("#invoice_prefix_editor").fill("SALON");
+    await ownerPage.getByRole("button", { name: "この請求書情報で進む" }).click();
+    await ownerPage.getByText("この内容で正式データを作成します").click();
     await ownerPage.getByRole("button", { name: "この内容で利用を開始する" }).click();
     await ownerPage.waitForURL((url) => url.pathname === `/stores/${storeId}/aio-improvement` && url.searchParams.get("setup") === "completed");
     await ownerPage.getByText("初期設定を反映しました。", { exact: false }).waitFor();

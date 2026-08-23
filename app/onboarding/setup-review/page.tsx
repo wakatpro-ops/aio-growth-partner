@@ -42,11 +42,11 @@ export default async function InitialSetupReviewPage({ searchParams }: { searchP
   return (
     <AppShell>
       <PageHeader
-        eyebrow="AIが準備した初期設定"
-        title="違う部分だけ直して、利用を開始"
-        description="店舗情報、メニュー、請求書、管理画面を一度に確認できます。確定前は正式データへ登録されません。"
+        eyebrow="AIと一緒に始める初期設定"
+        title="管理画面は、すでに準備できています"
+        description="最初から入力する必要はありません。AIが公開情報から準備した内容を見ながら、分からなかったことだけを一問ずつ確認します。"
       />
-      <p className="notice">株式会社 Navi Lifeによる申込者・利用権限の承認は完了しています。この画面は、店舗データの内容を店舗オーナーが確認するためのものです。</p>
+      <p className="notice success">株式会社 Navi Lifeによる申込者・利用権限の承認は完了しています。ここからはAIO boost AIパートナーと一緒に、店舗の管理環境を仕上げます。</p>
       <InitialSetupReviewForm review={review} />
     </AppShell>
   );
