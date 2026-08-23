@@ -9,7 +9,9 @@ function listValue(value: unknown) {
 export function publicAnalysisPreview(input: { profile: unknown; diagnosis: unknown }) {
   const profile = recordValue(input.profile);
   const diagnosis = recordValue(input.diagnosis);
-  const topImprovement = recordValue(diagnosis.top_improvement);
+  const identification = recordValue(diagnosis.identification);
+  const checkedSources = Array.isArray(diagnosis.checked_sources) ? diagnosis.checked_sources : [];
+  const expectedOutcomes = Array.isArray(diagnosis.expected_outcomes) ? diagnosis.expected_outcomes : [];
   return {
     profile: {
       store_name: String(profile.store_name ?? ""),
@@ -18,12 +20,24 @@ export function publicAnalysisPreview(input: { profile: unknown; diagnosis: unkn
     },
     diagnosis: {
       business_summary: String(diagnosis.business_summary ?? ""),
-      readiness_score: Number(diagnosis.readiness_score ?? 0),
-      top_improvement: {
-        key: String(topImprovement.key ?? ""),
-        title: String(topImprovement.title ?? ""),
-        description: String(topImprovement.description ?? "")
-      }
+      identification: {
+        confidence: ["high", "medium"].includes(String(identification.confidence)) ? String(identification.confidence) : "low",
+        label: String(identification.label ?? "店舗を確認しました"),
+        reason: String(identification.reason ?? "")
+      },
+      research_status: diagnosis.research_status === "cross_checked" ? "cross_checked" : "input_only",
+      checked_sources: checkedSources.flatMap((item) => {
+        const source = recordValue(item);
+        const url = String(source.url ?? "");
+        if (!/^https?:\/\//iu.test(url)) return [];
+        return [{ url, label: String(source.label ?? "公開ページ").slice(0, 80), kind: String(source.kind ?? "other") }];
+      }).slice(0, 6),
+      expected_outcomes: expectedOutcomes.flatMap((item) => {
+        const outcome = recordValue(item);
+        const title = String(outcome.title ?? "").slice(0, 120);
+        const description = String(outcome.description ?? "").slice(0, 320);
+        return title && description ? [{ title, description }] : [];
+      }).slice(0, 5)
     }
   };
 }

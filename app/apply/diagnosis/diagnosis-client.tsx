@@ -11,8 +11,10 @@ type PreviewPayload = {
   profile: { store_name: string; industry_label: string; address: string };
   diagnosis: {
     business_summary: string;
-    readiness_score: number;
-    top_improvement: { key: string; title: string; description: string };
+    identification: { confidence: "high" | "medium" | "low"; label: string; reason: string };
+    research_status: "cross_checked" | "input_only";
+    checked_sources: Array<{ url: string; label: string; kind: string }>;
+    expected_outcomes: Array<{ title: string; description: string }>;
   };
 };
 
@@ -39,7 +41,7 @@ export function DiagnosisClient() {
     }
     try {
       const parsed = JSON.parse(stored) as PreviewPayload;
-      if (!parsed.analysis_token || !parsed.profile || !parsed.diagnosis) throw new Error("invalid preview");
+      if (!parsed.analysis_token || !parsed.profile || !parsed.diagnosis?.identification || !Array.isArray(parsed.diagnosis.expected_outcomes) || !Array.isArray(parsed.diagnosis.checked_sources)) throw new Error("invalid preview");
       setPreview(parsed);
       setStage("form");
     } catch {
@@ -147,10 +149,21 @@ export function DiagnosisClient() {
     <div className="stack url-first-intake">
       <div><p className="eyebrow">無料の簡易診断</p><h1>診断結果ができました</h1></div>
       <section className="card analysis-hero">
-        <div><h2>{preview.profile.store_name || "店舗名を確認できませんでした"}</h2>{preview.profile.address ? <p><strong>{preview.profile.address}</strong></p> : null}<p>{preview.diagnosis.business_summary}</p><p className="muted">公開情報を基にした参考診断です。検索順位や推薦を保証しません。</p></div>
-        <div className="readiness-score"><span>AIおすすめ準備度</span><strong>{preview.diagnosis.readiness_score}%</strong><small>詳しい根拠は運営会社の承認後にご案内します</small></div>
+        <div><p className="step-label">この店舗で合っていますか？</p><h2>{preview.profile.store_name}</h2>{preview.profile.address ? <p><strong>{preview.profile.address}</strong></p> : null}<p>{preview.diagnosis.business_summary}</p><p className="muted">公開情報を基に店舗を確認しました。検索順位やAIからの推薦を保証する診断ではありません。</p></div>
+        <div className={`store-identification ${preview.diagnosis.identification.confidence}`}><span aria-hidden="true">✓</span><strong>{preview.diagnosis.identification.label}</strong><small>{preview.diagnosis.identification.reason}</small></div>
       </section>
-      <section className="card first-priority-card"><p className="step-label">最初に改善すると良いこと</p><h2>{preview.diagnosis.top_improvement.title}</h2><p>{preview.diagnosis.top_improvement.description}</p></section>
+      <section className="card diagnosis-sources-card">
+        <div><p className="step-label">確認した公開情報</p><h2>{preview.diagnosis.research_status === "cross_checked" ? `${preview.diagnosis.checked_sources.length}件の情報源を照合しました` : "入力された店舗ページを確認しました"}</h2><p>{preview.diagnosis.research_status === "cross_checked" ? "店舗名・住所・提供内容などが一致する公開ページだけを表示しています。" : "他の公開情報を十分に照合できなかったため、詳細診断で追加確認します。"}</p></div>
+        <ul className="diagnosis-source-list">
+          {preview.diagnosis.checked_sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.label}<span aria-hidden="true">↗</span></a></li>)}
+        </ul>
+      </section>
+      <section className="card expected-outcomes-card">
+        <div><p className="step-label">AIO boostを導入すると</p><h2>この店舗には、こんな改善が期待できます</h2><p>公開情報から考えられる活用例です。効果を保証するものではなく、承認後の詳細診断で店舗に合わせて具体化します。</p></div>
+        <ol className="expected-outcomes-list">
+          {preview.diagnosis.expected_outcomes.map((outcome, index) => <li key={`${outcome.title}-${index}`}><span aria-hidden="true">{index + 1}</span><div><h3>{outcome.title}</h3><p>{outcome.description}</p></div></li>)}
+        </ol>
+      </section>
 
       {(stage === "form" || stage === "sending_code") ? (
         <form className="card form" onSubmit={requestVerification}>

@@ -8,7 +8,7 @@ import { APPLY_PREVIEW_STORAGE_KEY, APPLY_SOURCE_STORAGE_KEY } from "../apply-fo
 const progressSteps = [
   "公開ページを確認しています",
   "店舗情報を整理しています",
-  "AIにおすすめされる準備状況を診断しています",
+  "他の公開情報と照合しています",
   "診断結果を作成しています"
 ];
 
@@ -17,6 +17,8 @@ export function AnalyzingClient() {
   const started = useRef(false);
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
+  const [errorCode, setErrorCode] = useState("");
+  const [storeHint, setStoreHint] = useState("");
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export function AnalyzingClient() {
         return;
       }
       setError("");
+      setErrorCode("");
       setStep(0);
       const startedAt = Date.now();
       const interval = window.setInterval(() => setStep((current) => Math.min(current + 1, progressSteps.length - 1)), 900);
@@ -36,11 +39,12 @@ export function AnalyzingClient() {
         const response = await fetch("/api/public/store-analysis", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ source_url: sourceUrl })
+          body: JSON.stringify({ source_url: sourceUrl, store_hint: storeHint })
         });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.ok) {
           setError(data?.error ?? "ページを十分に解析できませんでした。別のURLをお試しください。");
+          setErrorCode(data?.code ?? "analysis_failed");
           return;
         }
         const remainingEffectTime = Math.max(0, 1_800 - (Date.now() - startedAt));
@@ -55,7 +59,7 @@ export function AnalyzingClient() {
       }
     }
     void runAnalysis();
-  }, [router, retryCount]);
+  }, [router, retryCount, storeHint]);
 
   function retry() {
     started.current = false;
@@ -73,7 +77,7 @@ export function AnalyzingClient() {
           </ol>
         </div>
       </section>
-      {error ? <section className="notice danger" role="alert"><strong>このURLでは診断結果を準備できませんでした</strong><p>{error}</p><div className="form-actions"><button className="button" type="button" onClick={retry}>同じURLでもう一度解析</button><Link className="button secondary" href="/apply">別のURLを入力</Link></div></section> : null}
+      {error ? <section className="notice danger identification-recovery" role="alert"><strong>{errorCode === "store_not_identified" ? "店舗を特定できなかったため、診断結果は表示していません" : "このURLでは診断結果を準備できませんでした"}</strong><p>{error}</p>{errorCode === "store_not_identified" ? <div className="field"><label htmlFor="store_hint">店舗名を追加して再解析</label><input id="store_hint" value={storeHint} onChange={(event) => setStoreHint(event.target.value)} placeholder="例：焼肉レストラン徳寿 本店" maxLength={140} /></div> : null}<div className="form-actions"><button className="button" type="button" onClick={retry} disabled={errorCode === "store_not_identified" && !storeHint.trim()}>{errorCode === "store_not_identified" ? "店舗名を使って再解析" : "同じURLでもう一度解析"}</button><Link className="button secondary" href="/apply">別のURLを入力</Link></div></section> : null}
     </div>
   );
 }

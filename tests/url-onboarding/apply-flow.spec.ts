@@ -11,8 +11,20 @@ const previewResponse = {
   },
   diagnosis: {
     business_summary: "高円寺の完全個室サロンとして公開情報を確認しました。",
-    readiness_score: 82,
-    top_improvement: { key: "target", title: "おすすめしたいお客様を具体化", description: "誰に合う施術かを明確にします。" }
+    identification: { confidence: "high", label: "店舗を確認できました", reason: "店舗名と所在地などの公開情報が一致しています。" },
+    research_status: "cross_checked",
+    checked_sources: [
+      { url: "https://example.com", label: "公式サイト", kind: "input" },
+      { url: "https://maps.google.com/example", label: "Google マップ", kind: "google" },
+      { url: "https://beauty.example.net/nana", label: "予約サイト", kind: "portal" }
+    ],
+    expected_outcomes: [
+      { title: "見つけてもらいたい検索テーマを整理", description: "高円寺でハーブピーリングを探す人に伝わる質問を整理できます。" },
+      { title: "店舗情報のばらつきや不足を発見", description: "複数の公開情報を比較できます。" },
+      { title: "選ばれる理由をAIに伝わる形へ整理", description: "完全個室などの魅力を整理できます。" },
+      { title: "Google・SNS投稿の準備を効率化", description: "投稿の下書きを作成できます。" },
+      { title: "改善前後の変化を継続して確認", description: "取り組みの変化を記録できます。" }
+    ]
   }
 };
 
@@ -33,11 +45,13 @@ test("簡易診断からメール確認・正式申込・運営確認待ちま�
 
   await expect(page).toHaveURL(/\/apply\/analyzing$/u);
   await expect(page.getByRole("heading", { name: "お店の公開情報を整理しています" })).toBeVisible();
-  await expect(page.getByText("AIにおすすめされる準備状況を診断しています")).toBeVisible();
+  await expect(page.getByText("他の公開情報と照合しています")).toBeVisible();
   await expect(page).toHaveURL(/\/apply\/diagnosis$/u);
-  await expect(page.getByText("AIおすすめ準備度", { exact: true })).toBeVisible();
-  await expect(page.getByText("82%")).toBeVisible();
-  await expect(page.getByText("おすすめしたいお客様を具体化")).toBeVisible();
+  await expect(page.getByText("AIおすすめ準備度", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("100%", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "この店舗には、こんな改善が期待できます" })).toBeVisible();
+  await expect(page.locator(".expected-outcomes-list > li")).toHaveCount(5);
+  await expect(page.getByRole("heading", { name: "3件の情報源を照合しました" })).toBeVisible();
   await expect(page.getByText("東京都杉並区高円寺南1-2-3")).toBeVisible();
   await expect(page.getByText(/想定質問/u)).toHaveCount(0);
   await expect(page.locator("#structure_mode")).toHaveCount(0);
@@ -97,6 +111,29 @@ test("取得失敗時に技術的な内部情報を出さず再試行できる",
   await expect(page.getByText("公開されている店舗ページのURLを入力してください。")).toBeVisible();
   await expect(page.getByText(/blocked_address|SUPABASE|stack/iu)).toHaveCount(0);
   await expect(page.getByRole("link", { name: "別のURLを入力" })).toBeVisible();
+});
+
+test("店舗を特定できないGoogle Mapsページでは診断を捏造せず店舗名で再解析できる", async ({ page }) => {
+  let requests = 0;
+  await page.route("**/api/public/store-analysis", async (route) => {
+    requests += 1;
+    const body = route.request().postDataJSON() as { store_hint?: string };
+    if (!body.store_hint) {
+      await route.fulfill({ status: 422, contentType: "application/json", body: JSON.stringify({ ok: false, code: "store_not_identified", needs_store_hint: true, error: "このURLだけでは店舗を特定できませんでした。" }) });
+      return;
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...previewResponse, profile: { ...previewResponse.profile, store_name: body.store_hint } }) });
+  });
+  await page.goto("/apply");
+  await page.locator("#source_url").fill("https://maps.app.goo.gl/example");
+  await page.getByRole("button", { name: "URLから無料で簡易診断する" }).click();
+  await expect(page.getByText("店舗を特定できなかったため、診断結果は表示していません")).toBeVisible();
+  await expect(page.getByText("AIおすすめ準備度", { exact: true })).toHaveCount(0);
+  await page.locator("#store_hint").fill("焼肉レストラン徳寿 本店");
+  await page.getByRole("button", { name: "店舗名を使って再解析" }).click();
+  await expect(page).toHaveURL(/\/apply\/diagnosis$/u);
+  await expect(page.getByRole("heading", { name: "焼肉レストラン徳寿 本店" })).toBeVisible();
+  expect(requests).toBe(2);
 });
 
 test("スマートフォン幅でも横スクロールせず主操作が見える", async ({ page }) => {

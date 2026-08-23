@@ -8,8 +8,12 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-const requestSchema = z.object({ source_url: z.string().trim().min(3).max(2_000) });
+const requestSchema = z.object({
+  source_url: z.string().trim().min(3).max(2_000),
+  store_hint: z.string().trim().max(140).optional().default("")
+});
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_REQUESTS = 8;
 
@@ -70,7 +74,7 @@ export async function POST(request: Request) {
 
   try {
     const fetched = await fetchPublicStoreSite(normalized.toString());
-    const result = await analyzeFetchedStoreSite(fetched);
+    const result = await analyzeFetchedStoreSite(fetched, parsed.data.store_hint);
     const status = fetched.status === "partial" || result.ai.status === "fallback" ? "partial" : "success";
     const fetchSummary = {
       page_count: fetched.pages.length,
@@ -81,7 +85,7 @@ export async function POST(request: Request) {
     const { error: updateError } = await supabase.from("public_store_analyses").update({
       final_url: fetched.finalUrl,
       status,
-      fetch_summary: fetchSummary,
+      fetch_summary: { ...fetchSummary, research_status: result.diagnosis.research_status, checked_sources: result.diagnosis.checked_sources },
       extracted_profile: result.profile,
       operating_model_draft: result.operatingModelDraft,
       analysis_result: result.diagnosis,
@@ -95,6 +99,20 @@ export async function POST(request: Request) {
     }).eq("id", draft.id);
     if (updateError) {
       return NextResponse.json({ ok: false, code: "save_failed", error: "診断結果を保存できませんでした。もう一度お試しください。" }, { status: 503 });
+    }
+
+    if (!result.diagnosis.identification.identified) {
+      await supabase.from("public_store_analyses").update({
+        status: "failed",
+        ai_error_code: "store_not_identified",
+        updated_at: new Date().toISOString()
+      }).eq("id", draft.id);
+      return NextResponse.json({
+        ok: false,
+        code: "store_not_identified",
+        needs_store_hint: true,
+        error: "このURLだけでは店舗を特定できませんでした。店舗名を追加して再解析するか、公式サイト・予約サイトなど店舗名が表示されたページをお試しください。"
+      }, { status: 422 });
     }
 
     const preview = publicAnalysisPreview({ profile: result.profile, diagnosis: result.diagnosis });

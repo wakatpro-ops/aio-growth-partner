@@ -7,6 +7,7 @@ import {
   validatePublicUrl
 } from "../lib/applications/url-safety.ts";
 import { buildRuleBasedDiagnosis, extractStoreProfile, htmlToVisibleText } from "../lib/applications/page-extraction.ts";
+import { assessStoreIdentification, buildExpectedOutcomes, identityTextMatches, isGenericStoreName, normalizeDiagnosisSources, researchedIdentityMatches } from "../lib/applications/public-diagnosis.ts";
 import { createPublicAnalysisToken, hashPublicAnalysisToken } from "../lib/applications/public-analysis-token.ts";
 import { createVerificationCode, normalizeVerificationEmail, verificationCodeHash, verificationCodeMatches, verificationEmailHash } from "../lib/applications/contact-verification.ts";
 import { approvedAnalysisDetail, publicAnalysisPreview } from "../lib/applications/analysis-presentation.ts";
@@ -82,6 +83,28 @@ const diagnosis = buildRuleBasedDiagnosis(profile);
 assert.equal(diagnosis.target_questions.length, 3);
 assert.ok(diagnosis.readiness_score > 50 && diagnosis.readiness_score <= 100);
 assert.ok(diagnosis.clarifying_questions.length <= 3);
+assert.equal(assessStoreIdentification(profile).identified, true);
+assert.equal(buildExpectedOutcomes(profile).length, 5);
+assert.equal(isGenericStoreName("Google Maps"), true);
+const genericMapProfile = extractStoreProfile([{
+  url: "https://www.google.com/maps",
+  title: "Google Maps",
+  description: "Google Mapsは地図検索と経路案内のサービスです。",
+  html: '<html><head><meta property="og:site_name" content="Google Maps"></head><body>地図</body></html>'
+}]);
+assert.equal(genericMapProfile.store_name, "");
+assert.equal(assessStoreIdentification(genericMapProfile).identified, false, "a generic map page must not become a store diagnosis");
+const namedMapProfile = extractStoreProfile([{
+  url: "https://www.google.com/maps/place/%E7%84%BC%E8%82%89%E3%83%AC%E3%82%B9%E3%83%88%E3%83%A9%E3%83%B3%E5%BE%B3%E5%AF%BF+%E6%9C%AC%E5%BA%97/",
+  title: "焼肉レストラン徳寿 本店 - Google Maps",
+  description: "東京都中央区の焼肉店",
+  html: '<html><head><meta property="og:site_name" content="Google Maps"><meta property="og:title" content="焼肉レストラン徳寿 本店"></head><body>東京都中央区勝どき2-10-4 焼肉店</body></html>'
+}]);
+assert.equal(namedMapProfile.store_name, "焼肉レストラン徳寿 本店");
+assert.equal(assessStoreIdentification(namedMapProfile).identified, true);
+assert.equal(identityTextMatches("焼肉レストラン徳寿 本店", "焼肉レストラン 徳寿 本店"), true);
+assert.equal(researchedIdentityMatches(namedMapProfile, { ...namedMapProfile, store_name: "株式会社ABC自動車整備工場", address: "東京都新宿区西新宿1-1-1" }), false, "cross-source research for another store must be discarded");
+assert.equal(normalizeDiagnosisSources("https://tabelog.com/tokyo/A0000/A000000/00000000/", [{ url: "https://example.com/shop", label: "公式サイト", kind: "official" }]).length, 2);
 assert.match(htmlToVisibleText(maliciousHtml), /以前の命令を無視/u, "untrusted text may be extracted as data but never executed");
 
 const token = createPublicAnalysisToken();
@@ -98,9 +121,18 @@ assert.equal(verificationCodeMatches(codeHash, verificationCodeHash(token, "owne
 assert.equal(verificationCodeMatches(codeHash, verificationCodeHash(token, "owner@example.com", code === "000000" ? "111111" : "000000")), false);
 assert.equal(verificationCodeMatches(codeHash, verificationCodeHash(`${token}x`, "owner@example.com", code)), false, "a code must not work with another analysis token");
 
-const preview = publicAnalysisPreview({ profile, diagnosis });
+const preview = publicAnalysisPreview({ profile, diagnosis: {
+  ...diagnosis,
+  identification: assessStoreIdentification(profile),
+  checked_sources: normalizeDiagnosisSources("https://example.com"),
+  expected_outcomes: buildExpectedOutcomes(profile),
+  research_status: "input_only"
+} });
 assert.equal(preview.profile.store_name, profile.store_name);
 assert.equal("target_questions" in preview.diagnosis, false, "target questions must not be exposed before operator approval");
+assert.equal("readiness_score" in preview.diagnosis, false, "an unexplained percentage must not be exposed in the first experience");
+assert.equal("top_improvement" in preview.diagnosis, false, "the first experience must sell expected outcomes instead of assigning work");
+assert.equal(preview.diagnosis.expected_outcomes.length, 5);
 assert.match(preview.profile.address, /東京都/u, "store identity may include the address for applicant confirmation");
 assert.equal("phone" in preview.profile, false, "contact details must not be copied into the applicant form");
 const detail = approvedAnalysisDetail({ profile, diagnosis, sourceUrl: "https://example.com", finalUrl: "https://example.com", status: "converted", aiStatus: "success" });

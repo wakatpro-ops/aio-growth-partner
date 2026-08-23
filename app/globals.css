@@ -2488,6 +2488,115 @@ p {
   grid-template-columns: minmax(0, 1fr) minmax(210px, 280px);
 }
 
+.store-identification {
+  align-items: center;
+  background: #eaf6ef;
+  border: 1px solid #8dbda5;
+  border-radius: 16px;
+  color: var(--accent-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 180px;
+  padding: 24px;
+  text-align: center;
+}
+
+.store-identification > span {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 24px;
+  height: 46px;
+  justify-content: center;
+  width: 46px;
+}
+
+.store-identification strong {
+  font-size: 20px;
+}
+
+.store-identification small {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.diagnosis-sources-card,
+.expected-outcomes-card {
+  display: grid;
+  gap: 22px;
+}
+
+.diagnosis-source-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.diagnosis-source-list a {
+  align-items: center;
+  background: #f5f8f6;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent-strong);
+  display: inline-flex;
+  font-weight: 800;
+  gap: 8px;
+  padding: 10px 14px;
+  text-decoration: underline;
+}
+
+.expected-outcomes-list {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.expected-outcomes-list li {
+  align-items: flex-start;
+  background: #f7faf8;
+  border: 1px solid #d7e5dc;
+  border-radius: 14px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: 18px;
+}
+
+.expected-outcomes-list li > span {
+  align-items: center;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #fff;
+  display: inline-flex;
+  font-weight: 900;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.expected-outcomes-list h3 {
+  font-size: 17px;
+  margin-bottom: 5px;
+}
+
+.expected-outcomes-list p {
+  font-size: 14px;
+}
+
+.identification-recovery .field {
+  margin-top: 16px;
+  max-width: 520px;
+}
+
 .readiness-score {
   align-items: center;
   background: #155c46;
