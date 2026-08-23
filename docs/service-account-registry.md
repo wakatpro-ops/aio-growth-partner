@@ -1,6 +1,6 @@
 # AIO boost サービス・アカウント台帳
 
-最終確認日: 2026-08-15
+最終確認日: 2026-08-23
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
@@ -29,6 +29,16 @@
 | Google Search Console | `waka.t.pro@gmail.com` | domain property `aioboost.jp` | 顧客店舗ごとのpropertyは未接続 | 2026-08-07にDNS TXTで所有権確認済み。2026-08-16に成果画面と`webmasters.readonly`の増分OAuth・日次同期コードを実装。顧客店舗は自身のpropertyへの閲覧権限同意が必要。確認文字列・OAuth tokenは記録しない |
 | Google Business Profile | 開発操作 `waka.t.pro@gmail.com` | Basic API Access再申請予定 | staging実投稿なし | 2026-08-07確認。申請に使う株式会社 Navi Lifeのプロフィール管理権限は要確認 |
 | Stripe Platform | organization `エーアイギフト` | account `AIO boost` | account `AIO boostサンドボックス` | 本番KYB・運営会社との契約主体整合は要確認 |
+
+## アプリ内運営管理者
+
+| メール | 権限 | 状態 |
+| --- | --- | --- |
+| `info@aiaigift.com` | `platform_admin` | 2026-08-23、旧誤記 `info@aiaiagift.com` から訂正し、確認済み・有効を本番DBで確認 |
+| `shige@aioboost.jp` | `platform_admin` | 2026-08-23、招待メール発行済み。本人によるメール確認・パスワード設定待ち |
+
+- 運営管理者ログイン後は店舗用 `/dashboard` ではなく運営用 `/admin` へ遷移する。
+- 管理者パスワードは台帳・Git・Issueへ保存せず、本人が招待メールから設定する。
 
 ## Google審査方針
 
