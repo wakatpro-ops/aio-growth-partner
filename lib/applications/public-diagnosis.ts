@@ -160,3 +160,24 @@ export function normalizeDiagnosisSources(
   }
   return sources.slice(0, 6);
 }
+
+export function webCitationSources(response: unknown) {
+  const responseRecord = response && typeof response === "object" ? response as Record<string, unknown> : {};
+  const output = Array.isArray(responseRecord.output) ? responseRecord.output : [];
+  return output.flatMap((item) => {
+    const itemRecord = item && typeof item === "object" ? item as Record<string, unknown> : {};
+    const content = Array.isArray(itemRecord.content) ? itemRecord.content : [];
+    return content.flatMap((part) => {
+      const partRecord = part && typeof part === "object" ? part as Record<string, unknown> : {};
+      const annotations = Array.isArray(partRecord.annotations) ? partRecord.annotations : [];
+      return annotations.flatMap((annotation) => {
+        const citation = annotation && typeof annotation === "object" ? annotation as Record<string, unknown> : {};
+        if (citation.type !== "url_citation" || typeof citation.url !== "string" || !/^https?:\/\//iu.test(citation.url)) return [];
+        const title = typeof citation.title === "string" && citation.title.trim()
+          ? citation.title.trim().slice(0, 80)
+          : "検索で確認した公開ページ";
+        return [{ url: citation.url, label: title, kind: "other" }];
+      });
+    });
+  });
+}
