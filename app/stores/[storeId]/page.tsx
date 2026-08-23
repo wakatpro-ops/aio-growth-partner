@@ -28,7 +28,7 @@ export default async function StoreDetailPage({ params }: { params: Promise<{ st
       <section className="home-section">
         <div className="section-heading">
           <div><p className="eyebrow">1. 集客</p><h2>AIから選ばれる店舗へ</h2></div>
-          <Link className="text-link" href={`/stores/${store.id}/acquisition`}>集客の全機能を見る →</Link>
+          <Link className="text-link" href={`/stores/${store.id}/settings`}>店舗情報と外部連携を見る →</Link>
         </div>
         <div className="grid cols-3">
           <Link className="hub-link primary" href={activeTask ? `/stores/${store.id}/aio-improvement/tasks/${activeTask.id}` : `/stores/${store.id}/aio-improvement`}>

@@ -7,7 +7,7 @@ type AssistantInput = { pathname: string; message: string; history: Array<{ role
 const pageGuidance: Array<[RegExp, string]> = [
   [/\/data-imports/u, "データ取り込み。CSV・Excel・PDFを売上、経費、顧客、商品・メニュー、在庫へ分類し、確認後に保存する画面"],
   [/\/aio-improvement/u, "AIO改善。AIに店舗を理解してもらいやすくするための改善項目を進める画面"],
-  [/\/acquisition/u, "集客。Google、SNS、投稿下書きなどを扱う画面"],
+  [/\/settings\/google/u, "Google連携。Googleビジネスプロフィールや投稿支援の接続を扱う画面"],
   [/\/sales/u, "売上。見積、請求、領収書、入金、売上分析を扱う画面"],
   [/\/settings/u, "設定。店舗情報、スタッフ、外部サービス連携を確認する画面"]
 ];
