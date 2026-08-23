@@ -29,7 +29,7 @@ function previewText(value: unknown) {
   return text.length > 80 ? `${text.slice(0, 80)}…` : text || "-";
 }
 
-export default async function UnifiedImportDetailPage({ params, searchParams }: { params: Promise<{ storeId: string; jobId: string }>; searchParams: Promise<{ error?: string; duplicate?: string; questions?: string; reviewed?: string; completed?: string }> }) {
+export default async function UnifiedImportDetailPage({ params, searchParams }: { params: Promise<{ storeId: string; jobId: string }>; searchParams: Promise<{ error?: string; duplicate?: string; questions?: string; reviewed?: string; completed?: string; onboarding?: string }> }) {
   const { storeId, jobId } = await params;
   const query = await searchParams;
   const store = await getStore(storeId);
@@ -41,12 +41,14 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
   const previews = rows.slice(0, 50);
   const results = rows.filter((row) => ["imported", "error"].includes(row.review_status));
   const canReview = ["questions_required", "review_required", "review_ready"].includes(job.status);
+  const onboarding = query.onboarding === "1";
 
   return (
     <AppShell>
       <PageHeader eyebrow={industry.name} title="AI解析結果を確認" description={`${job.original_filename} — ${job.total_rows.toLocaleString("ja-JP")}行`} />
       <StoreBusinessNav store={store} />
-      <Link className="back-link" href={`/stores/${store.id}/data-imports/ai`}>← AIデータ取込へ戻る</Link>
+      <Link className="back-link" href={`/stores/${store.id}/data-imports/ai${onboarding ? "?onboarding=1" : ""}`}>← AIデータ取込へ戻る</Link>
+      {onboarding ? <p className="notice"><strong>初回設定用の取り込みです。</strong> 分類内容を確認し、取り込みを確定するとメニュー・在庫などが各管理画面で利用できます。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
       {query.duplicate ? <p className="notice">同じファイルはすでに解析済みのため、既存の結果を表示しています。</p> : null}
       {query.questions ? <p className="notice">分析結果を保存しました。まだ回答が必要な項目が{query.questions}件あります。</p> : null}
@@ -63,7 +65,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
       </section>
 
       {canReview ? (
-        <form className="form" action={saveUnifiedImportReviewAction.bind(null, store.id, job.id)}>
+        <form className="form" action={saveUnifiedImportReviewAction.bind(null, store.id, job.id, onboarding)}>
           <section className="card">
             <h2>1. シートごとの取り込み先を確認</h2>
             <p>推定結果が違う場合だけ選び直してください。「取り込まない」を選ぶと、そのシートの行は本データへ反映されません。</p>
@@ -119,7 +121,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         <section className="card">
           <h2>確認した内容で取り込みを確定</h2>
           <p className="notice">確定すると、分類に従って売上・経費・顧客・商品・在庫へ反映します。経費はfreee送信前の確認待ちとして保存され、自動送信されません。</p>
-          <form action={executeUnifiedImportAction.bind(null, store.id, job.id)}><ConfirmSubmitButton message={`${job.approved_rows}行を売上・経費・顧客・商品・在庫へ振り分けて取り込みます。内容を確認しましたか？`}>確認した内容で取り込みを確定</ConfirmSubmitButton></form>
+          <form action={executeUnifiedImportAction.bind(null, store.id, job.id, onboarding)}><ConfirmSubmitButton message={`${job.approved_rows}行を売上・経費・顧客・商品・在庫へ振り分けて取り込みます。内容を確認しましたか？`}>確認した内容で取り込みを確定</ConfirmSubmitButton></form>
         </section>
       ) : null}
 
@@ -127,7 +129,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         <section className="card">
           <h2>失敗した行だけ再実行</h2>
           <p className="notice danger">{job.error_rows}件を取り込めませんでした。下の結果を確認して元データを整えた後、失敗した行だけ安全に再実行できます。</p>
-          <form action={executeUnifiedImportAction.bind(null, store.id, job.id)}><ConfirmSubmitButton message="失敗した行だけを再実行します。すでに取込済みの行は重複登録しません。">失敗した行だけ再実行</ConfirmSubmitButton></form>
+          <form action={executeUnifiedImportAction.bind(null, store.id, job.id, onboarding)}><ConfirmSubmitButton message="失敗した行だけを再実行します。すでに取込済みの行は重複登録しません。">失敗した行だけ再実行</ConfirmSubmitButton></form>
         </section>
       ) : null}
 
@@ -138,6 +140,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
           <table className="table compact"><thead><tr><th>場所</th><th>分類</th><th>結果</th></tr></thead><tbody>{results.slice(0, 200).map((row) => <tr key={row.id}><td>{row.sheet_name} {row.row_number}行</td><td>{typeLabels[row.confirmed_record_type ?? row.suggested_record_type]}</td><td>{row.review_status === "imported" ? "取込済み" : row.error_message}</td></tr>)}</tbody></table>
         </section>
       ) : null}
+      {onboarding && ["completed", "partial_failed"].includes(job.status) ? <section className="card success-card"><h2>取り込み状況を初回設定へ反映できます</h2><p>成功{job.success_rows}件、確認できなかった行{job.error_rows}件です。初回設定へ戻ると、AIが保存先ごとの件数を説明します。</p><Link className="button" href={`/onboarding/setup-review?storeId=${store.id}`}>初回設定の続きを開く</Link></section> : null}
     </AppShell>
   );
 }

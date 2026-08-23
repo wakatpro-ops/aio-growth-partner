@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { StoreAiAssistant } from "@/components/store-ai/store-ai-assistant";
 
 const navItems = [
   { href: "/dashboard", label: "ホーム" },
@@ -29,6 +30,7 @@ const publicPaths = ["/", "/apply", "/login", "/terms", "/privacy", "/legal", "/
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
   const [storeName, setStoreName] = useState<string | null>(null);
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   const showSignOut = !publicPaths.includes(pathname);
@@ -42,6 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: `/stores/${activeStoreId}/aio-improvement`, label: "AIO改善" },
     { href: `/stores/${activeStoreId}/acquisition`, label: "集客" },
     { href: `/stores/${activeStoreId}/sales-hub`, label: "売上" },
+    { href: `/stores/${activeStoreId}/data-imports/ai`, label: "データ取り込み" },
     { href: `/stores/${activeStoreId}/settings`, label: "設定" }
   ] : navItems;
   const backHref = useMemo(() => {
@@ -118,6 +121,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               })}
             </>
           ) : null}
+          {activeStoreId ? <button className="nav-ai-button" type="button" onClick={() => setAssistantOpen(true)}><span aria-hidden="true">AI</span>AIに尋ねる</button> : null}
         </nav>
         <footer className="sidebar-footer">
           {showSignOut ? (
@@ -134,6 +138,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         {backHref ? <Link className="back-link" href={backHref}>← 前の画面へ戻る</Link> : null}
         {children}
       </main>
+      {activeStoreId ? <StoreAiAssistant storeId={activeStoreId} pathname={pathname} open={assistantOpen} onClose={() => setAssistantOpen(false)} /> : null}
     </div>
   );
 }

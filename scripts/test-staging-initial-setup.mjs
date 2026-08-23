@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { chromium } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
 const envFile = process.env.INITIAL_SETUP_E2E_ENV_FILE
   ?? (existsSync(".env.staging.local") ? ".env.staging.local" : ".env.local");
@@ -97,7 +98,33 @@ try {
   try {
     const ownerPage = await browser.newPage();
     await signIn(ownerPage, owner.email);
-    await ownerPage.goto(`${baseUrl}/onboarding/setup-review?storeId=${storeId}`);
+    await ownerPage.goto(`${baseUrl}/stores/${storeId}`);
+    await ownerPage.getByRole("link", { name: "データ取り込み" }).waitFor();
+    await ownerPage.getByRole("button", { name: "AIに尋ねる" }).click();
+    await ownerPage.getByRole("dialog", { name: "AIに尋ねる" }).waitFor();
+    await ownerPage.getByRole("button", { name: "AI相談を閉じる" }).click();
+    const assistantResponse = await ownerPage.evaluate(async ({ storeId }) => {
+      const response = await fetch(`/api/stores/${storeId}/assistant`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: `/stores/${storeId}`, message: "この画面でできることを教えて", history: [] }) });
+      return { status: response.status, body: await response.json() };
+    }, { storeId });
+    assert.equal(assistantResponse.status, 200);
+    assert.equal(typeof assistantResponse.body?.answer, "string");
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["商品名", "販売価格", "在庫管理"], ["取込済みメニュー", 5000, "はい"]]), "メニュー");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([["商品名", "在庫数"], ["取込済みメニュー", 7]]), "在庫");
+    const workbookBuffer = Buffer.from(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+    await ownerPage.goto(`${baseUrl}/stores/${storeId}/data-imports/ai?onboarding=1`);
+    await ownerPage.getByText("初回設定の途中です", { exact: false }).waitFor();
+    await ownerPage.locator("#unified_file").setInputFiles({ name: `initial-${suffix}.xlsx`, mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer: workbookBuffer });
+    await ownerPage.getByRole("button", { name: "アップロードしてAI解析" }).click();
+    await ownerPage.waitForURL((url) => url.pathname.includes("/data-imports/ai/") && url.searchParams.get("onboarding") === "1");
+    await ownerPage.getByRole("button", { name: "回答と分類を保存" }).click();
+    await ownerPage.waitForURL((url) => url.searchParams.get("reviewed") === "1" && url.searchParams.get("onboarding") === "1");
+    ownerPage.once("dialog", (dialog) => dialog.accept());
+    await ownerPage.getByRole("button", { name: "確認した内容で取り込みを確定" }).click();
+    await ownerPage.waitForURL((url) => url.searchParams.get("completed") === "1" && url.searchParams.get("onboarding") === "1");
+    await ownerPage.getByRole("link", { name: "初回設定の続きを開く" }).click();
     await ownerPage.getByRole("heading", { name: "管理画面は、すでに準備できています" }).waitFor();
     await ownerPage.getByRole("heading", { name: "すでにここまで準備できています" }).waitFor();
     await ownerPage.getByRole("button", { name: "AIと一緒に仕上げる" }).click();
@@ -111,6 +138,9 @@ try {
     await ownerPage.getByText("途中保存した内容から再開しています").waitFor();
     await ownerPage.locator("#store_name_editor").fill("確認済みサロン");
     await ownerPage.getByRole("button", { name: "この店舗情報で進む" }).click();
+    await ownerPage.getByText("既存データの取り込みが完了しています", { exact: false }).waitFor();
+    await ownerPage.getByText("商品・メニュー").waitFor();
+    await ownerPage.getByRole("button", { name: /取り込み結果を使って進む/ }).click();
     await ownerPage.getByRole("button", { name: /内容を確認・編集する/ }).click();
     await ownerPage.locator("#menu_name_editor_0").fill("確認済みハーブピーリング");
     await ownerPage.locator('.setup-menu-editor input[type="checkbox"]').nth(1).uncheck();
@@ -123,33 +153,46 @@ try {
     await ownerPage.waitForURL((url) => url.pathname === `/stores/${storeId}/aio-improvement` && url.searchParams.get("setup") === "completed");
     await ownerPage.getByText("初期設定を反映しました。", { exact: false }).waitFor();
 
-    const [{ data: storedStore }, { data: storedItems }, { data: storedSnapshot }, { data: invoice }] = await Promise.all([
+    const [{ data: storedStore }, { data: storedItems }, { data: storedStocks }, { data: storedSnapshot }, { data: invoice }] = await Promise.all([
       admin.from("stores").select("name, profile_data, industry_type_key").eq("id", storeId).single(),
-      admin.from("items").select("name, onboarding_source_key, archived_at").eq("store_id", storeId).is("archived_at", null),
+      admin.from("items").select("id, name, onboarding_source_key, archived_at").eq("store_id", storeId).is("archived_at", null),
+      admin.from("inventory_stocks").select("item_id, quantity").eq("store_id", storeId),
       admin.from("onboarding_snapshots").select("confirmation_status, confirmed_by, confirmation_payload").eq("id", snapshotId).single(),
       admin.from("invoice_number_sequences").select("prefix, qualified_invoice_issuer_name").eq("store_id", storeId).single()
     ]);
     assert.equal(storedStore?.name, "確認済みサロン");
     assert.equal(storedStore?.profile_data?.onboarding_status, "completed");
-    assert.deepEqual((storedItems ?? []).map((item) => item.name), ["確認済みハーブピーリング"]);
+    assert.deepEqual((storedItems ?? []).map((item) => item.name).sort(), ["取込済みメニュー", "確認済みハーブピーリング"].sort());
+    const importedItemId = storedItems?.find((item) => item.name === "取込済みメニュー")?.id;
+    assert.equal(storedStocks?.find((stock) => stock.item_id === importedItemId)?.quantity, 7);
     assert.equal(storedSnapshot?.confirmation_status, "completed");
     assert.equal(storedSnapshot?.confirmed_by, owner.id);
     assert.equal(invoice?.prefix, "SALON");
 
     await ownerPage.goto(`${baseUrl}/onboarding/setup-review?storeId=${storeId}`);
     await ownerPage.getByRole("heading", { name: "初期設定は反映済みです" }).waitFor();
-    assert.equal((await admin.from("items").select("id", { count: "exact", head: true }).eq("store_id", storeId)).count, 1);
+    assert.equal((await admin.from("items").select("id", { count: "exact", head: true }).eq("store_id", storeId).is("archived_at", null)).count, 2);
 
     const staffPage = await browser.newPage();
     await signIn(staffPage, staff.email);
     await staffPage.goto(`${baseUrl}/onboarding/setup-review?storeId=${storeId}`);
     await staffPage.waitForURL((url) => url.pathname === "/forbidden");
     await staffPage.getByRole("heading", { name: "この画面を表示する権限がありません" }).waitFor();
+    const staffAssistant = await staffPage.evaluate(async ({ storeId }) => {
+      const response = await fetch(`/api/stores/${storeId}/assistant`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: `/stores/${storeId}`, message: "操作方法を教えて", history: [] }) });
+      return response.status;
+    }, { storeId });
+    assert.equal(staffAssistant, 200);
 
     const unaffiliatedPage = await browser.newPage();
     await signIn(unaffiliatedPage, unaffiliated.email);
     await unaffiliatedPage.goto(`${baseUrl}/onboarding/setup-review?storeId=${storeId}`);
     await unaffiliatedPage.getByRole("heading", { name: "ページが見つかりません" }).waitFor();
+    const unaffiliatedAssistant = await unaffiliatedPage.evaluate(async ({ storeId }) => {
+      const response = await fetch(`/api/stores/${storeId}/assistant`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pathname: `/stores/${storeId}`, message: "操作方法を教えて", history: [] }) });
+      return response.status;
+    }, { storeId });
+    assert.equal(unaffiliatedAssistant, 404);
   } finally {
     await browser.close();
   }
@@ -159,10 +202,17 @@ try {
     owner_confirmation: true,
     menu_edit_and_exclusion: true,
     duplicate_prevention: true,
+    onboarding_import_to_items_and_inventory: true,
+    contextual_ai_assistant: true,
     staff_forbidden: true,
     unaffiliated_hidden: true
   }));
 } finally {
+  const { data: importFiles } = await admin.from("unified_import_jobs").select("storage_bucket, storage_path").eq("store_id", storeId);
+  for (const file of importFiles ?? []) {
+    const { error: storageCleanupError } = await admin.storage.from(file.storage_bucket).remove([file.storage_path]);
+    if (storageCleanupError) throw storageCleanupError;
+  }
   const { error: organizationCleanupError } = await admin.from("organizations").delete().eq("id", organizationId);
   if (organizationCleanupError) throw organizationCleanupError;
   for (const userId of users) {

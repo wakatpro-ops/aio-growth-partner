@@ -9,6 +9,7 @@ import { getStore } from "@/lib/stores";
 import type { IndustryTypeKey, Store } from "@/types/domain";
 import { mayConfirmInitialSetup, parseInitialSetupForm, type InitialSetupInput } from "./initial-setup-rules";
 import { normalizeOperatingModel, operatingModelFeatureFlags, type OperatingLocation, type OperatingModel } from "@/lib/applications/operating-model";
+import { getUnifiedImportJob, listUnifiedImportJobs } from "@/lib/unified-import/data";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -47,6 +48,14 @@ export type InitialSetupReview = {
   savedDraft: InitialSetupInput | null;
   savedDraftStep: number;
   savedSkippedSteps: string[];
+  dataImport: {
+    jobId: string | null;
+    status: string | null;
+    totalRows: number;
+    successRows: number;
+    errorRows: number;
+    counts: Record<"sale" | "expense" | "customer" | "item" | "inventory", number>;
+  };
 };
 
 function record(value: unknown): JsonRecord {
@@ -125,11 +134,12 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
   const supabase = createSupabaseAdminClient();
   if (!supabase) return null;
 
-  const [{ data: snapshot }, { data: invoice }] = await Promise.all([
+  const [{ data: snapshot }, { data: invoice }, importJobs] = await Promise.all([
     supabase.from("onboarding_snapshots").select("*")
       .eq("store_id", store.id).eq("snapshot_type", "application_intake").maybeSingle(),
     supabase.from("invoice_number_sequences")
-      .select("prefix, registration_number, qualified_invoice_issuer_name").eq("store_id", store.id).maybeSingle()
+      .select("prefix, registration_number, qualified_invoice_issuer_name").eq("store_id", store.id).maybeSingle(),
+    listUnifiedImportJobs(store.id)
   ]);
   if (!snapshot) return null;
 
@@ -147,6 +157,13 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
     [content.website_url, content.google_maps_url, store.website_url, store.google_business_url]
   );
   const operatingModel = normalizeOperatingModel(content.operating_model ?? store.operating_model);
+  const latestImport = importJobs[0] ?? null;
+  const importDetail = latestImport ? await getUnifiedImportJob(store.id, latestImport.id) : null;
+  const importCounts = { sale: 0, expense: 0, customer: 0, item: 0, inventory: 0 };
+  for (const row of importDetail?.rows ?? []) {
+    const kind = row.confirmed_record_type ?? row.suggested_record_type;
+    if (kind in importCounts && !["ignored", "error"].includes(row.review_status)) importCounts[kind as keyof typeof importCounts] += 1;
+  }
   const additionalLocations = operatingModel.structure.locations.filter((location) => {
     const sameName = location.name && location.name === store.name;
     const sameAddress = location.address && location.address === store.address;
@@ -196,8 +213,16 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
       additionalLocationCount: additionalLocations.length
     },
     savedDraft: Object.keys(savedDraftRecord).length ? savedDraftRecord as InitialSetupInput : null,
-    savedDraftStep: Math.min(7, Math.max(0, Number(record(snapshot.confirmation_payload).draft_step) || 0)),
-    savedSkippedSteps: strings(record(snapshot.confirmation_payload).draft_skipped_steps).slice(0, 6)
+    savedDraftStep: Math.min(8, Math.max(0, Number(record(snapshot.confirmation_payload).draft_step) || 0)),
+    savedSkippedSteps: strings(record(snapshot.confirmation_payload).draft_skipped_steps).slice(0, 7),
+    dataImport: {
+      jobId: latestImport?.id ?? null,
+      status: latestImport?.status ?? null,
+      totalRows: latestImport?.total_rows ?? 0,
+      successRows: latestImport?.success_rows ?? 0,
+      errorRows: latestImport?.error_rows ?? 0,
+      counts: importCounts
+    }
   };
 }
 
@@ -238,8 +263,8 @@ export async function saveInitialSetupDraft(storeId: string, formData: FormData)
     confirmation_payload: {
       ...record(snapshot.confirmation_payload),
       draft,
-      draft_step: Math.min(7, Math.max(0, Number(formData.get("conversation_step")) || 0)),
-      draft_skipped_steps: String(formData.get("skipped_steps") ?? "").split(",").map((item) => item.trim()).filter(Boolean).slice(0, 6),
+      draft_step: Math.min(8, Math.max(0, Number(formData.get("conversation_step")) || 0)),
+      draft_skipped_steps: String(formData.get("skipped_steps") ?? "").split(",").map((item) => item.trim()).filter(Boolean).slice(0, 7),
       draft_saved_at: now,
       draft_saved_by: access.userId
     },
@@ -380,7 +405,12 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
     if (invoiceError) throw new Error(`請求書設定を反映できませんでした: ${invoiceError.message}`);
 
     if (selectedMenus.length > 0) {
-      const { data: items, error: itemError } = await supabase.from("items").upsert(selectedMenus.map((menu) => ({
+      const { data: existingItems, error: existingItemError } = await supabase.from("items").select("name")
+        .eq("store_id", store.id).is("archived_at", null);
+      if (existingItemError) throw new Error(`取込済みメニューを確認できませんでした: ${existingItemError.message}`);
+      const existingNames = new Set((existingItems ?? []).map((item) => String(item.name ?? "").trim().normalize("NFKC").toLowerCase()));
+      const newMenus = selectedMenus.filter((menu) => !existingNames.has(menu.name.trim().normalize("NFKC").toLowerCase()));
+      const { data: items, error: itemError } = newMenus.length ? await supabase.from("items").upsert(newMenus.map((menu) => ({
         organization_id: store.organization_id,
         store_id: store.id,
         industry_type_key: normalizedIndustry,
@@ -402,7 +432,7 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
           confirmed_by: access.userId
         },
         updated_at: now
-      })), { onConflict: "store_id,onboarding_source_key" }).select("id, is_stock_managed");
+      })), { onConflict: "store_id,onboarding_source_key" }).select("id, is_stock_managed") : { data: [], error: null };
       if (itemError) throw new Error(`メニュー候補を反映できませんでした: ${itemError.message}`);
       const stockItems = (items ?? []).filter((item) => item.is_stock_managed);
       if (stockItems.length > 0) {
