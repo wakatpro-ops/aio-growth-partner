@@ -24,7 +24,6 @@ const unverifiedResponse = await fetch(`${baseUrl}/api/applications`, {
     contact_name: "未確認テスト",
     email: "unverified@example.com",
     phone: "090-0000-0000",
-    store_relationship: "owner",
     store_confirmed: true,
     authority_confirmed: true,
     message: ""

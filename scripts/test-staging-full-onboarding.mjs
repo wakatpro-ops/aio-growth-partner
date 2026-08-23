@@ -174,7 +174,6 @@ try {
       contact_name: "別人",
       email: "tampered@example.com",
       phone: "090-1234-5678",
-      store_relationship: "owner",
       store_confirmed: true,
       authority_confirmed: true,
       message: "改ざん拒否確認"
@@ -186,7 +185,6 @@ try {
       contact_name: "統合テスト店舗オーナー",
       email: normalizedEmail,
       phone: "090-1234-5678",
-      store_relationship: "owner",
       store_confirmed: true,
       authority_confirmed: true,
       message: "実サイトの全工程統合テスト"
@@ -200,7 +198,6 @@ try {
       contact_name: "統合テスト店舗オーナー",
       email: normalizedEmail,
       phone: "090-1234-5678",
-      store_relationship: "owner",
       store_confirmed: true,
       authority_confirmed: true
     });

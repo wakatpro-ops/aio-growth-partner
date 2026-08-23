@@ -201,7 +201,7 @@ export default async function AdminApplicationDetailPage({
               <tr><th>メール</th><td>{displayValue(application.email)}</td></tr>
               <tr><th>電話</th><td>{displayValue(application.phone)}</td></tr>
               {application.source_analysis_id ? <tr><th>会社名</th><td>{displayValue(application.applicant_company_name)}</td></tr> : null}
-              {application.source_analysis_id ? <tr><th>店舗との関係</th><td>{applicantStoreRelationshipLabels[application.applicant_store_relationship ?? ""] ?? displayValue(application.applicant_store_relationship)}</td></tr> : null}
+              {application.source_analysis_id && application.applicant_store_relationship ? <tr><th>店舗との関係</th><td>{applicantStoreRelationshipLabels[application.applicant_store_relationship] ?? displayValue(application.applicant_store_relationship)}</td></tr> : null}
               {application.source_analysis_id ? <tr><th>管理権限への同意</th><td>{application.applicant_authority_confirmed_at ? `同意済み（${formatDateTime(application.applicant_authority_confirmed_at)}）` : "未確認"}</td></tr> : null}
               <tr><th>業態</th><td>{displayValue(enrichment.industryLabel || application.industry_type_key, "general_store")}</td></tr>
               <tr><th>店舗数</th><td>{displayValue(application.store_count)}</td></tr>

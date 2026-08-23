@@ -22,7 +22,6 @@ type ApplicationDraft = {
   contactName: string;
   email: string;
   phone: string;
-  storeRelationship: string;
 };
 
 type Stage = "loading" | "form" | "sending_code" | "code" | "verifying" | "submitting" | "submission_error" | "success";
@@ -57,8 +56,7 @@ export function DiagnosisClient() {
     const nextDraft = {
       contactName: String(formData.get("contact_name") ?? "").trim(),
       email: String(formData.get("email") ?? "").trim(),
-      phone: String(formData.get("phone") ?? "").trim(),
-      storeRelationship: String(formData.get("store_relationship") ?? "")
+      phone: String(formData.get("phone") ?? "").trim()
     };
     setDraft(nextDraft);
     setError("");
@@ -94,7 +92,6 @@ export function DiagnosisClient() {
           contact_name: currentDraft.contactName,
           email: currentDraft.email,
           phone: currentDraft.phone,
-          store_relationship: currentDraft.storeRelationship,
           store_confirmed: true,
           authority_confirmed: true
         })
@@ -167,16 +164,15 @@ export function DiagnosisClient() {
 
       {(stage === "form" || stage === "sending_code") ? (
         <form className="card form" onSubmit={requestVerification}>
-          <div><p className="eyebrow">詳細診断を申し込む</p><h2>連絡先と店舗との関係を確認します</h2><p>運営方法やシステム設定は、承認後にAIの下書きを確認するだけです。</p></div>
+          <div><p className="eyebrow">詳細診断を申し込む</p><h2>連絡先を確認します</h2><p>運営方法やシステム設定は、承認後にAIの下書きを確認するだけです。</p></div>
           <label className="consent-row store-match-confirmation"><input name="store_confirmed" type="checkbox" required /><span><strong>上に表示された店舗で合っています</strong><span className="required-mark"> 必須</span></span></label>
           <div className="grid cols-2">
             <div className="field"><label htmlFor="email">メールアドレス</label><input id="email" name="email" type="email" autoComplete="email" defaultValue={draft?.email} required /></div>
             <div className="field"><label htmlFor="contact_name">お名前</label><input id="contact_name" name="contact_name" autoComplete="name" defaultValue={draft?.contactName} required /></div>
             <div className="field"><label htmlFor="phone">連絡先電話番号</label><input id="phone" name="phone" type="tel" autoComplete="tel" defaultValue={draft?.phone} required placeholder="例: 090-1234-5678" /></div>
-            <div className="field"><label htmlFor="store_relationship">対象店舗との関係</label><select id="store_relationship" name="store_relationship" required defaultValue={draft?.storeRelationship ?? ""}><option value="" disabled>選択してください</option><option value="owner">店舗オーナー</option><option value="employee">店舗スタッフ・従業員</option><option value="operator">店舗運営会社</option><option value="authorized_agent">正規代理人</option><option value="other">その他</option></select></div>
           </div>
           <label className="consent-row"><input name="authority_confirmed" type="checkbox" required /><span>私はこの店舗について詳細診断を申し込む正当な権限があります。 <span className="required-mark">必須</span></span></label>
-          <p className="muted">確認メールは連絡先の到達確認です。株式会社 Navi Lifeが店舗との関係を別途審査します。</p>
+          <p className="muted">確認メールは連絡先の到達確認です。株式会社 Navi Lifeが申込内容を別途審査します。</p>
           <button className="button" type="submit" disabled={stage === "sending_code"}>{stage === "sending_code" ? "確認メールを送信しています..." : "確認メールを受け取る"}</button>
         </form>
       ) : null}

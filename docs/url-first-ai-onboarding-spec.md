@@ -189,7 +189,7 @@ AIが利用できない場合は、ルール抽出による結果を表示し、
 - `intake_answers`
 - `ai_target_questions`
 - `ai_dashboard_plan`
-- `applicant_company_name`, `applicant_store_relationship`, `applicant_authority_confirmed_at`
+- `applicant_company_name`, `applicant_authority_confirmed_at`
 - `intake_review_status`, `intake_reviewed_at`, `intake_reviewed_by`, `intake_review_note`
 
 公開クライアントからDBを直接操作させず、サーバー側APIだけがservice roleで作成・取得・変換する。公開トークンは推測困難な乱数とし、一覧取得APIは作らない。診断下書きは30日で期限切れとし、申込へ変換済みの内容は申込の保存方針へ従う。

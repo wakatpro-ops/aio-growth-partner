@@ -32,7 +32,6 @@ const urlFirstApplicationSchema = z.object({
   contact_name: z.string().trim().min(1).max(120),
   email: z.string().trim().email().max(240),
   phone: z.string().trim().min(8).max(80),
-  store_relationship: z.enum(["owner", "employee", "operator", "authorized_agent", "other"]),
   store_confirmed: z.literal(true),
   authority_confirmed: z.literal(true),
   message: z.string().trim().max(2_000).optional().default("")
@@ -112,7 +111,6 @@ async function createUrlFirstApplication(json: unknown) {
   const detectedCompanyName = String(profile.company_name ?? "").trim();
   const intakeAnswers = {
     applicant_company_name: detectedCompanyName,
-    applicant_store_relationship: parsed.data.store_relationship,
     applicant_store_confirmed: true,
     applicant_authority_confirmed: true,
     applicant_message: parsed.data.message,
@@ -153,7 +151,7 @@ async function createUrlFirstApplication(json: unknown) {
     message: parsed.data.message,
     status: "new",
     applicant_company_name: detectedCompanyName || null,
-    applicant_store_relationship: parsed.data.store_relationship,
+    applicant_store_relationship: null,
     applicant_authority_confirmed_at: authorityConfirmedAt,
     intake_review_status: "pending",
     operating_model: operatingModel,
