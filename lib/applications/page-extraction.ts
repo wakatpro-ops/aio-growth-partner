@@ -135,7 +135,21 @@ function metaContent(html: string, key: string) {
 }
 
 function titleStoreName(title: string) {
-  return cleanText(title.split(/\s*[|｜–—]\s*/u)[0] ?? title, 140);
+  return cleanText(title.split(/\s*(?:[|｜–—]|\s-\s)\s*/u)[0] ?? title, 140);
+}
+
+function urlStoreName(rawUrl: string) {
+  try {
+    const url = new URL(rawUrl);
+    const place = url.pathname.match(/\/maps\/place\/([^/]+)/u)?.[1];
+    return place ? cleanText(decodeURIComponent(place.replace(/\+/gu, " ")), 140) : "";
+  } catch {
+    return "";
+  }
+}
+
+function usableStoreName(value: string) {
+  return value && !/^(?:Google(?: Maps?| マップ)?|食べログ|ホットペッパー(?:ビューティー|グルメ)?|Instagram|Facebook)$/iu.test(value.trim());
 }
 
 function extractSocialUrls(html: string, baseUrl: string) {
@@ -169,7 +183,8 @@ function visibleServiceCandidates(html: string) {
   const values: string[] = [];
   for (const match of html.matchAll(/<(?:h2|h3|li)\b[^>]*>([\s\S]*?)<\/(?:h2|h3|li)>/giu)) {
     const value = cleanText(match[1], 120);
-    if (value.length >= 2 && value.length <= 80 && /メニュー|コース|施術|サービス|カット|カラー|スパ|マッサージ|ランチ|修理|車検|相談|レッスン|プラン|¥|￥|円/iu.test(value)) values.push(value);
+    const navigationOrEmpty = /ログイン|会員登録|登録状況|店舗情報|口コミ|写真|地図|お問い合わせ|コース\s*\(\s*0\s*\)|メニュー・コース/iu.test(value);
+    if (!navigationOrEmpty && value.length >= 2 && value.length <= 80 && /メニュー|コース|施術|サービス|カット|カラー|スパ|マッサージ|ランチ|修理|車検|相談|レッスン|プラン|¥|￥|円/iu.test(value)) values.push(value);
   }
   return unique(values, 10);
 }
@@ -200,9 +215,14 @@ export function extractStoreProfile(pages: PublicPageSnapshot[]): ExtractedStore
   });
   const primaryBusiness = businessRecords.find((record) => record.name || record.address || record.telephone) ?? {};
 
-  const storeName = cleanText(String(primaryBusiness.name ?? ""), 140)
-    || cleanText(metaContent(primary.html, "og:site_name"), 140)
-    || titleStoreName(primary.title);
+  const storeNameCandidates = [
+    cleanText(String(primaryBusiness.name ?? ""), 140),
+    titleStoreName(metaContent(primary.html, "og:title")),
+    urlStoreName(primary.url),
+    titleStoreName(primary.title),
+    cleanText(metaContent(primary.html, "og:site_name"), 140)
+  ];
+  const storeName = storeNameCandidates.find(usableStoreName) ?? "";
   const companyName = cleanText(String(businessRecords.find((record) => /Organization/iu.test(String(record['@type'] ?? "")))?.name ?? ""), 140);
   const address = addressFrom(primaryBusiness.address) || extractJapaneseAddress(fullVisibleText);
   const phone = cleanText(String(primaryBusiness.telephone ?? ""), 80) || extractPhone(fullVisibleText);
