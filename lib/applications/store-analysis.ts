@@ -126,7 +126,10 @@ function normalizeAiResult(value: unknown, profile: ExtractedStoreProfile, fallb
   };
   if (!researchedIdentityMatches(profile, enrichedProfile, storeHint)) {
     console.warn("[store-analysis] Discarded cross-source result because the store identity did not match.");
-    return buildFallbackResult(profile, fallback, fetched);
+    throw new Error("store_identity_mismatch");
+  }
+  if (checkedSources.length <= 1) {
+    throw new Error("store_research_insufficient");
   }
   const recomputed = buildRuleBasedDiagnosis(enrichedProfile);
   const targetQuestions = uniqueStrings(record.target_questions, recomputed.target_questions, 3);
@@ -199,6 +202,8 @@ function errorCode(error: unknown) {
   if ([apiCode, parameter, message].some((value) => value.includes("web_search"))) return "openai_web_search_unavailable";
   if (apiCode.includes("unsupported") || message.includes("unsupported parameter")) return "openai_parameter_unsupported";
   if (message.includes("json") || message.includes("parse")) return "openai_response_parse_error";
+  if (message.includes("store_identity_mismatch")) return "openai_store_identity_mismatch";
+  if (message.includes("store_research_insufficient")) return "openai_store_research_insufficient";
   return "openai_api_error";
 }
 
@@ -320,13 +325,16 @@ export async function analyzeFetchedStoreSite(fetched: PublicSiteFetchResult, st
   let lastModel: string | null = null;
   for (const model of modelCandidates()) {
     lastModel = model;
-    try {
-      const normalized = normalizeAiResult(await requestAiAnalysis(client, model, fetched, extracted, storeHint), extracted, fallback, fetched, storeHint);
-      return { ...normalized, operatingModelDraft: buildOperatingModelDraft(normalized.profile, "ai"), ai: { status: "success", model, errorCode: null } };
-    } catch (error) {
-      lastCode = errorCode(error);
-      if (["openai_auth_error", "openai_rate_limit"].includes(lastCode)) break;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const normalized = normalizeAiResult(await requestAiAnalysis(client, model, fetched, extracted, storeHint), extracted, fallback, fetched, storeHint);
+        return { ...normalized, operatingModelDraft: buildOperatingModelDraft(normalized.profile, "ai"), ai: { status: "success", model, errorCode: null } };
+      } catch (error) {
+        lastCode = errorCode(error);
+        if (["openai_auth_error", "openai_rate_limit"].includes(lastCode)) break;
+      }
     }
+    if (["openai_auth_error", "openai_rate_limit"].includes(lastCode)) break;
   }
   const normalized = buildFallbackResult(extracted, fallback, fetched);
   console.warn(`[store-analysis] AI fallback: ${lastCode}`);
