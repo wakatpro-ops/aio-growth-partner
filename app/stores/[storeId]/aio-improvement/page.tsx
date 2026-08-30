@@ -69,6 +69,32 @@ export default async function AioImprovementPage({
         </article>
       </section>
 
+      <section className="aio-specialist-overview">
+        <div className="section-heading">
+          <div><p className="eyebrow">AIO改善の専門エリア</p><h2>見つけられ方・根拠・成果をここで管理</h2></div>
+        </div>
+        <div className="grid cols-3">
+          <article className="static-card aio-question-card">
+            <span className="badge">想定される質問</span>
+            <h3>「{readiness.targetQuestions[0]}」</h3>
+            <p>店舗トップではなく、この画面で質問とおすすめされる根拠を改善します。</p>
+            <a className="text-link" href="#questions">目標質問を確認する →</a>
+          </article>
+          <Link className="hub-link" href={`/stores/${store.id}/results`}>
+            <span className="badge">実測成果</span>
+            <h3>導入前と現在を比較</h3>
+            <p>検索順位、表示回数、クリック、AIでの見つかり方を、取得できた実データで確認します。</p>
+            <strong>成果を確認する →</strong>
+          </Link>
+          <Link className="hub-link" href={`/stores/${store.id}/settings/profile`}>
+            <span className="badge">根拠となる店舗情報</span>
+            <h3>AIが参照する情報を確認</h3>
+            <p>店舗情報、提供サービス、地域、得意なお客様、公式情報と信頼材料を整えます。</p>
+            <strong>店舗情報を確認する →</strong>
+          </Link>
+        </div>
+      </section>
+
       <section className="card" id="questions">
         <div className="section-heading">
           <div><p className="eyebrow">お客様の質問から逆算</p><h2>どんな質問で見つけてもらいたいですか？</h2></div>
