@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
+import { AiRobotPortrait } from "@/components/brand/ai-robot";
 import type { StoreCommandCenter } from "@/lib/store-command-center";
 
 function Sparkline({ points, available }: { points: number[]; available: boolean }) {
@@ -64,7 +65,7 @@ export function StoreCommandCenterView({ dashboard }: { dashboard: StoreCommandC
 
         <section className="command-main-column" aria-label="AIによる店舗状況と集客下書き">
           <section className="command-panel command-ai-briefing">
-            <div className="command-ai-icon" aria-hidden="true">AI</div>
+            <AiRobotPortrait />
             <div className="command-ai-copy">
               <p className="eyebrow">今日の店舗状況</p>
               <h2>{dashboard.headline}</h2>

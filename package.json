@@ -42,7 +42,8 @@
     "test:staging:full-onboarding": "node scripts/test-staging-full-onboarding.mjs",
     "test:operating-model": "node --experimental-strip-types --test scripts/test-adaptive-operating-model.mjs",
     "check:operating-model": "node scripts/check-adaptive-operating-model.mjs",
-    "check:command-center": "node scripts/check-store-command-center.mjs"
+    "check:command-center": "node scripts/check-store-command-center.mjs",
+    "check:design-system": "node scripts/check-design-system.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

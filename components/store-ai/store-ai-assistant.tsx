@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AiRobotFace } from "@/components/brand/ai-robot";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -41,8 +42,8 @@ export function StoreAiAssistant({ storeId, pathname, open, onClose }: { storeId
   if (!open) return null;
   return <div className="store-ai-assistant-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
     <section className="store-ai-assistant" role="dialog" aria-modal="true" aria-labelledby="store-ai-assistant-title">
-      <header><div><span className="setup-ai-avatar" aria-hidden="true">AI</span><div><strong id="store-ai-assistant-title">AIに尋ねる</strong><small>操作方法・店舗運営の相談</small></div></div><button type="button" onClick={onClose} aria-label="AI相談を閉じる">×</button></header>
-      <div className="store-ai-assistant-thread" ref={threadRef}>{messages.map((message, index) => <div className={`store-ai-message ${message.role}`} key={`${message.role}-${index}`}><span>{message.role === "assistant" ? "AIO boost AI" : "あなた"}</span><p>{message.content}</p></div>)}{loading ? <div className="store-ai-message assistant"><span>AIO boost AI</span><p>考えています...</p></div> : null}</div>
+      <header><div><AiRobotFace className="assistant-header-avatar" /><div><strong id="store-ai-assistant-title">AIに尋ねる</strong><small>操作方法・店舗運営の相談</small></div></div><button type="button" onClick={onClose} aria-label="AI相談を閉じる">×</button></header>
+      <div className="store-ai-assistant-thread" ref={threadRef}>{messages.map((message, index) => <div className={`store-ai-message ${message.role}`} key={`${message.role}-${index}`}><div className="store-ai-message-author">{message.role === "assistant" ? <AiRobotFace className="message-avatar" /> : null}<span>{message.role === "assistant" ? "AIO boost AI" : "あなた"}</span></div><p>{message.content}</p></div>)}{loading ? <div className="store-ai-message assistant"><div className="store-ai-message-author"><AiRobotFace className="message-avatar" /><span>AIO boost AI</span></div><p>考えています...</p></div> : null}</div>
       {messages.length === 1 ? <div className="store-ai-suggestions">{suggestions.map((suggestion) => <button type="button" key={suggestion} onClick={() => void ask(suggestion)}>{suggestion}</button>)}</div> : null}
       <form onSubmit={(event) => { event.preventDefault(); void ask(); }}><label htmlFor="store_ai_question">質問・相談を入力</label><textarea id="store_ai_question" value={input} onChange={(event) => setInput(event.target.value)} maxLength={800} rows={3} placeholder="例：この売上データをどこから取り込めますか？" /><div><small>AIは説明と相談を行います。データ変更・削除・外部送信はしません。</small><button className="button" type="submit" disabled={loading || !input.trim()}>{loading ? "回答中..." : "AIに尋ねる"}</button></div></form>
     </section>
