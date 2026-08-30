@@ -1,6 +1,6 @@
 # AIO boost サービス・アカウント台帳
 
-最終確認日: 2026-08-23
+最終確認日: 2026-08-29
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
@@ -24,10 +24,10 @@
 | GitHub | `wakatpro-ops` | `wakatpro-ops/aio-growth-partner` / `main` | PR・作業ブランチ | 確認済み |
 | Vercel | account `wakatpro-3797` / team `wakatpro-3797's projects` | project `aio-growth-partner` / `app.aioboost.jp` | project `aio-growth-partner-staging` / `staging.aioboost.jp` | 2026-08-15にPro・activeを確認。両環境のProductionへ個別のSensitiveな`CRON_SECRET`を設定（値は記録しない） |
 | Supabase | owner `waka.t.pro@gmail.com` / `wakatpro-ops's Org` (`gprkjuklwwjleoktmpvp`) | project `aio-growth-partner` (`tykanoxkfmixdrmyqelq`) | project `aio-growth-partner-staging` (`zlqqjifitnvorudxbepy`) | 2026-08-15にOrgのPro・Spend Cap有効を確認。月額基本料＋Project別Compute。横断料金台帳を参照 |
-| Google Cloud | 開発操作 `waka.t.pro@gmail.com` | project `AIO Growth Partner` / ID `aio-growth-partner` / number `368944976045` / production OAuth client / `app.aioboost.jp` | staging OAuth client `AIO boost staging Vercel` / `staging.aioboost.jp` | 2026-08-07に外部・本番公開、最小scope、ABロゴ保存を確認。法人所有・権限構成は要確認 |
-| Meta for Developers | Chrome既存ログイン（所有メールは要確認） | app `AIO boost` / App ID `1756636388611237` / Instagram App ID `1069884112049122` / `app.aioboost.jp` | 未作成 | 2026-08-15にABロゴ、公開URL、データ削除URL、本番OAuth callback、Instagram投稿5権限、Facebookページ投稿権限を保存。未公開。技術提供者・ビジネス認証・アクセス認証・App Reviewは未完了。秘密値は記録しない |
+| Google Cloud | 開発操作 `waka.t.pro@gmail.com` | project `AIO Growth Partner` / ID `aio-growth-partner` / number `368944976045` / production OAuth client / `app.aioboost.jp` | staging OAuth client `AIO boost staging Vercel` / `staging.aioboost.jp` | 2026-08-24に外部・本番環境、Branding検証済み・表示中、`openid email profile business.manage`が非機密scope、機密・制限付きscopeなしを確認。法人所有・権限構成は要確認 |
+| Meta for Developers | Facebook本人アカウント `中堀 茂` / business email `info@aioboost.jp` / business portfolio `株式会社 Navi Life` (`1386074122966628`) | app `AIO boost` / App ID `1756636388611237` / Instagram App ID `1069884112049122` / `app.aioboost.jp` | 未作成 | 2026-08-29に中堀 茂が旧所有者 `若園 忠義`からのアプリ管理者招待を承認し、AIO boostアプリを株式会社 Navi Lifeのポートフォリオへリンク。Meta画面で所有者が株式会社 Navi Life、中堀 茂がフルアクセスと確認済み。6権限は未申請、App Review未送信、アプリ未公開。秘密値は記録しない |
 | Google Search Console | `waka.t.pro@gmail.com` | domain property `aioboost.jp` | 顧客店舗ごとのpropertyは未接続 | 2026-08-07にDNS TXTで所有権確認済み。2026-08-16に成果画面と`webmasters.readonly`の増分OAuth・日次同期コードを実装。顧客店舗は自身のpropertyへの閲覧権限同意が必要。確認文字列・OAuth tokenは記録しない |
-| Google Business Profile | 開発操作 `waka.t.pro@gmail.com` | Basic API Access再申請予定 | staging実投稿なし | 2026-08-07確認。申請に使う株式会社 Navi Lifeのプロフィール管理権限は要確認 |
+| Google Business Profile | 開発操作 `waka.t.pro@gmail.com` | Basic API Access申請済み・審査中 | staging実投稿なし | 2026-08-24確認。My Business Account Management APIは有効だがRequests per minute割り当てが`0`で、Basic API Accessは未承認。審査結果メールは未確認 |
 | Stripe Platform | organization `エーアイギフト` | account `AIO boost` | account `AIO boostサンドボックス` | 本番KYB・運営会社との契約主体整合は要確認 |
 
 ## アプリ内運営管理者
@@ -35,7 +35,7 @@
 | メール | 権限 | 状態 |
 | --- | --- | --- |
 | `info@aiaigift.com` | `platform_admin` | 2026-08-23、旧誤記 `info@aiaiagift.com` から訂正し、確認済み・有効を本番DBで確認 |
-| `shige@aioboost.jp` | `platform_admin` | 2026-08-23、招待メール発行済み。本人によるメール確認・パスワード設定待ち |
+| `shige@aioboost.jp` | `platform_admin` | 2026-08-30、Google Workspaceで転送先までの配信経路は正常と確認。追加の確認メール再送はSupabaseのメール送信レート上限超過で拒否されたため未送信。本人によるメール確認・パスワード設定待ち |
 
 - 運営管理者ログイン後は店舗用 `/dashboard` ではなく運営用 `/admin` へ遷移する。
 - 管理者パスワードは台帳・Git・Issueへ保存せず、本人が招待メールから設定する。

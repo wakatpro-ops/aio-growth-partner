@@ -90,6 +90,56 @@ select {
   overflow-wrap: anywhere;
 }
 
+.sidebar-store-switcher {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: grid;
+  gap: 7px;
+  margin: -12px 0 18px;
+  padding: 11px;
+}
+
+.sidebar-store-switcher label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.sidebar-store-switcher select {
+  background: #fff;
+  border: 1px solid #cbd7cf;
+  border-radius: 7px;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  min-height: 40px;
+  padding: 7px 9px;
+  width: 100%;
+}
+
+.sidebar-store-switcher select:disabled {
+  background: #f2f4f1;
+  color: var(--ink);
+  cursor: default;
+  opacity: 1;
+}
+
+.sidebar-store-switcher small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.sidebar-store-switcher a {
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .nav {
   display: grid;
   gap: 8px;
