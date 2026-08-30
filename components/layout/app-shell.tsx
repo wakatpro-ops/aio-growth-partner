@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { AiRobotFace } from "@/components/brand/ai-robot";
 import { StoreAiAssistant } from "@/components/store-ai/store-ai-assistant";
 
 const navItems = [
@@ -162,8 +163,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               })}
             </>
           ) : null}
-          {activeStoreId ? <button className="nav-ai-button" type="button" onClick={() => setAssistantOpen(true)}><span aria-hidden="true">AI</span>AIに尋ねる</button> : null}
         </nav>
+        {activeStoreId ? <button className="nav-ai-button" type="button" onClick={() => setAssistantOpen(true)}><AiRobotFace />AIに尋ねる</button> : null}
         <footer className="sidebar-footer">
           {showSignOut ? (
             <button className="sidebar-signout" type="button" onClick={handleSignOut} disabled={isSigningOut} aria-busy={isSigningOut}>

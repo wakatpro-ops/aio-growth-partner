@@ -12,6 +12,13 @@
   --blue: #2f6f9f;
   --yellow: #f2bd42;
   --danger: #b84a4a;
+  --ai: #258caf;
+  --ai-strong: #176b88;
+  --ai-soft: #edf8fb;
+  --warning: #b87216;
+  --radius-card: 16px;
+  --radius-control: 11px;
+  --shadow-card: 0 10px 30px rgb(31 54 44 / 6%);
 }
 
 * {
@@ -24,7 +31,7 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: Arial, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
   font-size: 15px;
 }
 
@@ -3989,5 +3996,444 @@ p {
   .diagnosis-cta .button,
   .confirmation-form .form-actions .button {
     width: 100%;
+  }
+}
+
+/* Issue #93: calm visual system and the AIO boost AI companion. */
+.shell {
+  background:
+    radial-gradient(circle at 72% 0%, rgb(37 140 175 / 5%), transparent 28rem),
+    var(--bg);
+}
+
+.shell .main {
+  max-width: 1600px;
+  padding: clamp(20px, 2.35vw, 36px);
+}
+
+.shell .topbar {
+  margin-bottom: 28px;
+}
+
+.shell .topbar h1 {
+  font-size: clamp(26px, 2.2vw, 34px);
+  letter-spacing: -.025em;
+  line-height: 1.25;
+}
+
+.shell .topbar p {
+  font-size: 15px;
+  line-height: 1.65;
+  max-width: 70ch;
+}
+
+.shell .card,
+.shell .static-card {
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: clamp(18px, 1.7vw, 24px);
+}
+
+.shell .button,
+.shell .sidebar-signout {
+  border-radius: var(--radius-control);
+  font-weight: 800;
+  transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.shell .eyebrow {
+  font-size: 12px;
+  letter-spacing: .025em;
+}
+
+.ai-robot-face {
+  background: linear-gradient(145deg, #f7fcfd, #e5f5f8);
+  border: 1px solid rgb(37 140 175 / 20%);
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 auto;
+  height: 34px;
+  overflow: hidden;
+  position: relative;
+  width: 34px;
+}
+
+.ai-robot-face img {
+  object-fit: cover;
+  object-position: 50% 0;
+  transform: scale(2.35);
+  transform-origin: 50% 10%;
+}
+
+.nav-ai-button {
+  background: linear-gradient(135deg, #f4fbfd, #f7fbf8);
+  border-color: rgb(37 140 175 / 35%);
+  border-radius: 13px;
+  color: var(--ai-strong);
+  min-height: 52px;
+}
+
+.nav-ai-button:hover,
+.nav-ai-button:focus-visible {
+  background: var(--ai-soft);
+  border-color: var(--ai);
+}
+
+.nav-ai-button .ai-robot-face {
+  background: #fff;
+  color: transparent;
+  height: 34px;
+  width: 34px;
+}
+
+.assistant-header-avatar {
+  height: 46px;
+  width: 46px;
+}
+
+.store-ai-assistant {
+  box-shadow: -14px 0 46px rgb(17 52 63 / 18%);
+}
+
+.store-ai-assistant > header {
+  background: linear-gradient(135deg, var(--ai-soft), #f5faf7);
+  padding: 16px 18px;
+}
+
+.store-ai-assistant > header strong {
+  font-size: 16px;
+}
+
+.store-ai-assistant-thread {
+  background: linear-gradient(180deg, #f7fbfc, #f8faf8);
+  gap: 16px;
+}
+
+.store-ai-message-author {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.store-ai-message.user .store-ai-message-author {
+  justify-content: flex-end;
+}
+
+.message-avatar {
+  height: 24px;
+  width: 24px;
+}
+
+.store-ai-message.assistant p {
+  border-color: rgb(37 140 175 / 22%);
+  box-shadow: 0 5px 16px rgb(37 140 175 / 5%);
+}
+
+.store-ai-message.user p {
+  background: #e5f3eb;
+  border-color: #c8e0d2;
+}
+
+.store-ai-suggestions button {
+  border-color: rgb(37 140 175 / 32%);
+  color: var(--ai-strong);
+  min-height: 40px;
+}
+
+.store-ai-assistant > form textarea {
+  border-radius: var(--radius-control);
+  min-width: 0;
+}
+
+.command-panel,
+.command-metric,
+.command-shortcuts {
+  box-shadow: var(--shadow-card);
+}
+
+.command-ai-briefing {
+  align-items: start;
+  background: linear-gradient(135deg, #f0fafc, #fff 55%, #f1f8f4);
+  border-color: rgb(37 140 175 / 20%);
+  gap: clamp(16px, 2vw, 26px);
+  grid-template-columns: clamp(120px, 10vw, 154px) minmax(0, 1fr);
+  min-height: 280px;
+  overflow: hidden;
+  padding: clamp(20px, 2vw, 28px);
+}
+
+.ai-robot-portrait {
+  align-self: end;
+  height: 178px;
+  justify-self: center;
+  overflow: hidden;
+  position: relative;
+  width: clamp(120px, 10vw, 154px);
+}
+
+.ai-robot-portrait::before {
+  background: radial-gradient(circle, rgb(37 140 175 / 16%), transparent 68%);
+  content: "";
+  inset: 5% -12% -8%;
+  position: absolute;
+}
+
+.ai-robot-portrait img {
+  display: block;
+  height: auto;
+  left: -19%;
+  max-width: none;
+  position: relative;
+  width: 138%;
+}
+
+.command-ai-copy h2 {
+  font-size: clamp(22px, 2.1vw, 30px);
+  letter-spacing: -.025em;
+}
+
+.command-recommendation {
+  border-color: rgb(37 140 175 / 20%);
+  border-radius: var(--radius-card);
+}
+
+.command-recommendation > span,
+.command-social-card span,
+.command-alert-summary a,
+.command-text-link {
+  color: var(--ai-strong);
+}
+
+.command-score-gauge {
+  background: conic-gradient(from 225deg, var(--accent) 0 var(--command-score), #e6ece8 var(--command-score) 270deg, transparent 270deg 360deg);
+}
+
+.command-sparkline {
+  color: var(--ai);
+}
+
+.command-metric:hover,
+.command-social-card:hover,
+.command-shortcuts a:hover {
+  border-color: var(--ai);
+}
+
+.command-task.warning { border-left-color: var(--warning); }
+.command-task.info { border-left-color: var(--ai); }
+
+@media (max-width: 900px) {
+  .sidebar {
+    padding: 14px 16px;
+  }
+
+  .sidebar-footer a {
+    display: none;
+  }
+
+  .sidebar-signout {
+    min-height: 42px;
+    width: auto;
+  }
+
+  .nav {
+    max-width: 100%;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-ai-button {
+    justify-content: center;
+    margin-top: 10px;
+    min-height: 44px;
+    padding: 5px 11px 5px 6px;
+    white-space: nowrap;
+    width: 100%;
+  }
+
+  .nav-ai-button .ai-robot-face {
+    height: 30px;
+    width: 30px;
+  }
+}
+
+@media (max-width: 680px) {
+  .shell .main {
+    padding: 16px;
+  }
+
+  .shell .topbar {
+    margin-bottom: 20px;
+  }
+
+  .shell .topbar h1 {
+    font-size: 25px;
+    overflow-wrap: anywhere;
+  }
+
+  .shell .topbar p {
+    font-size: 14px;
+  }
+
+  .shell .card,
+  .shell .static-card {
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  .command-ai-briefing {
+    gap: 12px;
+    grid-template-columns: 80px minmax(0, 1fr);
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .ai-robot-portrait {
+    align-self: start;
+    height: 105px;
+    width: 80px;
+  }
+
+  .command-ai-copy {
+    gap: 9px;
+    min-width: 0;
+  }
+
+  .command-ai-copy h2 {
+    font-size: 20px;
+    overflow-wrap: anywhere;
+  }
+
+  .command-ai-copy > .eyebrow {
+    margin-top: 3px;
+  }
+
+  .command-recommendation,
+  .command-ai-copy > p:not(.eyebrow),
+  .command-ai-copy > small {
+    grid-column: 1 / -1;
+  }
+
+  .command-recommendation {
+    padding: 12px;
+  }
+
+  .command-focus-strip,
+  .command-panel,
+  .command-shortcuts {
+    border-radius: 14px;
+  }
+
+  .command-focus-strip > div {
+    max-width: 100%;
+  }
+
+  .command-focus-strip strong {
+    white-space: normal;
+  }
+}
+
+@media (max-width: 480px) {
+  .sidebar {
+    padding: 12px;
+  }
+
+  .brand-name {
+    font-size: 17px;
+  }
+
+  .sidebar-store-switcher {
+    margin-bottom: 12px;
+  }
+
+  .nav a {
+    min-height: 42px;
+    padding: 10px 11px;
+  }
+
+  .store-ai-assistant {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-width: 0;
+  }
+
+  .store-ai-assistant > header {
+    padding: max(12px, env(safe-area-inset-top)) 12px 12px;
+  }
+
+  .assistant-header-avatar {
+    height: 40px;
+    width: 40px;
+  }
+
+  .store-ai-assistant-thread {
+    gap: 13px;
+    padding: 14px 12px;
+  }
+
+  .store-ai-message {
+    max-width: 92%;
+    min-width: 0;
+  }
+
+  .store-ai-message p {
+    overflow-wrap: anywhere;
+    padding: 10px 12px;
+  }
+
+  .store-ai-suggestions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0 12px 10px;
+  }
+
+  .store-ai-suggestions button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .store-ai-assistant > form {
+    padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .store-ai-assistant > form > div {
+    align-items: stretch;
+    display: grid;
+  }
+
+  .store-ai-assistant > form .button {
+    width: 100%;
+  }
+
+  .command-ai-briefing {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .ai-robot-portrait {
+    height: 94px;
+    width: 72px;
+  }
+}
+
+@media (max-width: 340px) {
+  .shell .main {
+    padding: 12px;
+  }
+
+  .command-ai-briefing {
+    grid-template-columns: 64px minmax(0, 1fr);
+    padding: 14px;
+  }
+
+  .ai-robot-portrait {
+    height: 84px;
+    width: 64px;
+  }
+
+  .command-ai-copy h2 {
+    font-size: 18px;
   }
 }
