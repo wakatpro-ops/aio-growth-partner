@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   const admin = createSupabaseAdminClient();
-  let nextPath = "/dashboard";
+  let nextPath = "/no-store";
   if (admin) {
     const { data: profile } = await admin
       .from("user_profiles")
@@ -62,17 +62,58 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString()
     }).eq("user_id", data.user.id).eq("status", "active").is("archived_at", null);
 
-    const { data: onboardingApplication } = await admin.from("applications")
-      .select("store_id, onboarding_status")
-      .eq("invited_user_id", data.user.id)
-      .not("store_id", "is", null)
-      .neq("onboarding_status", "completed")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: onboardingApplication }, { data: organizationMemberships }, { data: storeMemberships }] = await Promise.all([
+      admin.from("applications")
+        .select("store_id, onboarding_status")
+        .eq("invited_user_id", data.user.id)
+        .not("store_id", "is", null)
+        .neq("onboarding_status", "completed")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      admin.from("organization_members")
+        .select("organization_id")
+        .eq("user_id", data.user.id)
+        .eq("status", "active")
+        .is("archived_at", null),
+      admin.from("store_memberships")
+        .select("store_id, organization_id")
+        .eq("user_id", data.user.id)
+        .eq("status", "active")
+        .is("archived_at", null)
+    ]);
+
+    const candidateOrganizationIds = [...new Set([
+      ...(organizationMemberships ?? []).map((membership) => String(membership.organization_id ?? "")),
+      ...(storeMemberships ?? []).map((membership) => String(membership.organization_id ?? ""))
+    ].filter(Boolean))];
+    const directStoreIds = [...new Set((storeMemberships ?? []).map((membership) => String(membership.store_id ?? "")).filter(Boolean))];
+    const { data: activeOrganizations } = candidateOrganizationIds.length
+      ? await admin.from("organizations").select("id").in("id", candidateOrganizationIds).eq("status", "active").is("archived_at", null)
+      : { data: [] };
+    const activeOrganizationIds = (activeOrganizations ?? []).map((organization) => String(organization.id));
+    const [organizationStoresResult, directStoresResult] = await Promise.all([
+      activeOrganizationIds.length
+        ? admin.from("stores").select("id, organization_id").in("organization_id", activeOrganizationIds).eq("status", "active").is("archived_at", null)
+        : Promise.resolve({ data: [] }),
+      directStoreIds.length
+        ? admin.from("stores").select("id, organization_id").in("id", directStoreIds).eq("status", "active").is("archived_at", null)
+        : Promise.resolve({ data: [] })
+    ]);
+    const accessibleStoreIds = [...new Set([
+      ...(organizationStoresResult.data ?? []),
+      ...(directStoresResult.data ?? []).filter((store) => activeOrganizationIds.includes(String(store.organization_id)))
+    ].map((store) => String(store.id)))];
+    const lastStoreId = (request.headers.get("cookie") ?? "")
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("aio_last_store_id="))
+      ?.slice("aio_last_store_id=".length);
     nextPath = resolvePostLoginDestination({
       isPlatformAdmin,
-      onboardingStoreId: onboardingApplication?.store_id ? String(onboardingApplication.store_id) : null
+      onboardingStoreId: onboardingApplication?.store_id ? String(onboardingApplication.store_id) : null,
+      accessibleStoreIds,
+      lastStoreId: lastStoreId ?? null
     });
   }
 
