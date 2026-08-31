@@ -55,7 +55,7 @@ export async function executeImportJobAction(storeId: string, importJobId: strin
   }
   revalidatePath(`/stores/${storeId}/data-imports`);
   revalidatePath(`/stores/${storeId}/sales`);
-  revalidatePath(`/stores/${storeId}/sales/reports`);
+  revalidatePath(`/stores/${storeId}/sales-hub`);
   redirect(`/stores/${storeId}/data-imports/${importJobId}`);
 }
 

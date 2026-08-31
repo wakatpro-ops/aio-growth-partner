@@ -227,9 +227,9 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
   }
 
   const metrics: CommandCenterMetric[] = [
-    { key: "sales", label: "直近月の売上", value: currentMonth ? yen(currentMonth.amount) : "未取得", change: salesChange, changeLabel: metricChangeLabel(salesChange, "前月比"), href: `/stores/${store.id}/sales/reports`, available: Boolean(currentMonth), points: monthly.slice(-8).map((item) => item.amount) },
+    { key: "sales", label: "直近月の売上", value: currentMonth ? yen(currentMonth.amount) : "未取得", change: salesChange, changeLabel: metricChangeLabel(salesChange, "前月比"), href: `/stores/${store.id}/sales-hub#reports`, available: Boolean(currentMonth), points: monthly.slice(-8).map((item) => item.amount) },
     { key: "transactions", label: store.industry_type_key === "restaurant" ? "取引数" : "取引・会計件数", value: currentMonth ? `${currentTransactions.toLocaleString("ja-JP")}件` : "未取得", change: null, changeLabel: currentMonth?.label ?? "売上データ未取得", href: `/stores/${store.id}/sales-hub`, available: Boolean(currentMonth), points: daily.map((item) => item.count) },
-    { key: "average", label: store.industry_type_key === "restaurant" ? "平均取引額" : "平均取引額", value: currentMonth ? yen(averageTransaction) : "未取得", change: null, changeLabel: "客単価とは区別して表示", href: `/stores/${store.id}/sales/reports`, available: Boolean(currentMonth), points: daily.map((item) => item.count ? item.amount / item.count : 0) },
+    { key: "average", label: store.industry_type_key === "restaurant" ? "平均取引額" : "平均取引額", value: currentMonth ? yen(averageTransaction) : "未取得", change: null, changeLabel: "客単価とは区別して表示", href: `/stores/${store.id}/sales-hub#reports`, available: Boolean(currentMonth), points: daily.map((item) => item.count ? item.amount / item.count : 0) },
     { key: "profit", label: "利益", value: "未取得", change: null, changeLabel: "原価・経費データが必要", href: `/stores/${store.id}/data-imports/ai`, available: false, points: [] }
   ].filter((metric) => enabledAreas.sales || !["sales", "transactions", "average", "profit"].includes(metric.key));
 

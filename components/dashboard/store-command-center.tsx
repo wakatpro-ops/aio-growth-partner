@@ -60,7 +60,7 @@ export function StoreCommandCenterView({ dashboard }: { dashboard: StoreCommandC
               </Link>
             ))}
           </section>
-          {dashboard.enabledAreas.sales ? <Link className="command-text-link" href={`/stores/${store.id}/sales/reports`}>売上レポートを確認する →</Link> : null}
+          {dashboard.enabledAreas.sales ? <Link className="command-text-link" href={`/stores/${store.id}/sales-hub#reports`}>売上レポートを確認する →</Link> : null}
         </aside>
 
         <section className="command-main-column" aria-label="AIによる店舗状況と集客下書き">

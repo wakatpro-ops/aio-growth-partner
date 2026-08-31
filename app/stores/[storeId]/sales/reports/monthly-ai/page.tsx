@@ -42,7 +42,7 @@ export default async function SalesAiReportsPage({
         eyebrow={industry.name}
         title="AI月次売上レポート"
         description="取り込んだ外部売上データから、月次分析、注意点、来月の改善アクションを作成します。"
-        action={<Link className="button secondary" href={`/stores/${store.id}/sales/reports`}>売上レポート</Link>}
+        action={<Link className="button secondary" href={`/stores/${store.id}/sales-hub#reports`}>売上・レポート</Link>}
       />
       <StoreBusinessNav store={store} />
 

@@ -27,7 +27,7 @@ export default async function SalesPage({ params }: { params: Promise<{ storeId:
         eyebrow={industry.name}
         title="売上データ"
         description="CSV / Excelから取り込んだ外部売上データを表示します。"
-        action={<Link className="button" href={`/stores/${store.id}/sales/reports`}>売上レポート</Link>}
+        action={<Link className="button" href={`/stores/${store.id}/sales-hub#reports`}>売上・レポートへ</Link>}
       />
       <StoreBusinessNav store={store} />
       <p className="notice success">
