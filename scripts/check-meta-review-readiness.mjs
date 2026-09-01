@@ -16,12 +16,12 @@ for (const scope of [
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
-  "business_management",
   "instagram_basic",
   "instagram_content_publish"
 ]) {
   assert.ok(service.includes(scope), `Meta OAuth scope is missing: ${scope}`);
 }
+assert.ok(!service.includes('"business_management"'), "Unused business_management scope must not be requested");
 
 for (const value of [
   "META_APP_ID",
