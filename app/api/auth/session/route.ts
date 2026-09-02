@@ -54,7 +54,7 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString()
       })
       .eq("invited_user_id", data.user.id)
-      .in("invitation_status", ["invite_link_sent", "invite_generated"]);
+      .in("invitation_status", ["invite_link_sent", "invite_generated", "password_set"]);
 
     await admin.from("store_memberships").update({
       invitation_status: "accepted",

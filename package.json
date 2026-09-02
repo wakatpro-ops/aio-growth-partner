@@ -13,6 +13,7 @@
     "check:results": "node scripts/check-results-visibility.mjs",
     "test:authz-policy": "node --experimental-strip-types --test scripts/test-authz-policy.mjs",
     "test:post-login": "node --experimental-strip-types --test scripts/test-post-login-destination.mjs",
+    "test:invite-links": "node --experimental-strip-types --test scripts/test-invite-links.mjs",
     "check:auth-experience": "node scripts/check-auth-experience.mjs",
     "test:authz-integration": "playwright test tests/authz/results-visibility.spec.ts --workers=1",
     "check:customer-crm": "node scripts/check-customer-crm.mjs",

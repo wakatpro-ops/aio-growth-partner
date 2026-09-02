@@ -8,6 +8,7 @@ import { requirePlatformAdmin } from "@/lib/auth/server";
 import { sendApplicationInviteEmail } from "@/lib/admin/application-emails";
 import { sendIntakeReviewOutcomeEmail } from "@/lib/admin/application-emails";
 import { createOperatorReviewToken } from "@/lib/applications/operator-review-token";
+import { buildScannerSafeInviteUrl } from "@/lib/auth/invite-links";
 import { normalizeOperatingModel, operatingModelFeatureFlags } from "@/lib/applications/operating-model";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { IndustryTypeKey } from "@/types/domain";
@@ -234,16 +235,6 @@ function passwordSetupRedirectUrl(storeId: string) {
   return `${productionAppUrl}/auth/set-password?next=${encodeURIComponent(nextPath)}`;
 }
 
-function inviteLinkFromGenerateResult(result: unknown) {
-  if (!result || typeof result !== "object") return null;
-  const data = (result as { data?: unknown }).data;
-  if (!data || typeof data !== "object") return null;
-  const properties = (data as { properties?: unknown }).properties;
-  if (!properties || typeof properties !== "object") return null;
-  const actionLink = (properties as { action_link?: unknown }).action_link;
-  return typeof actionLink === "string" && actionLink.length > 0 ? actionLink : null;
-}
-
 function userIdFromGenerateResult(result: unknown) {
   if (!result || typeof result !== "object") return null;
   const data = (result as { data?: unknown }).data;
@@ -284,7 +275,7 @@ async function generatePasswordSetupLink(
   const inviteError = inviteResult.error?.message ?? "";
   if (!inviteResult.error) {
     return {
-      actionLink: inviteLinkFromGenerateResult(inviteResult),
+      actionLink: buildScannerSafeInviteUrl({ appUrl: productionAppUrl, result: inviteResult, redirectTo }),
       userId: userIdFromGenerateResult(inviteResult),
       mode: "invite",
       errorMessage: null
@@ -311,7 +302,7 @@ async function generatePasswordSetupLink(
   const existingUser = await findAuthUserByEmail(supabase, email);
 
   return {
-    actionLink: inviteLinkFromGenerateResult(recoveryResult),
+    actionLink: buildScannerSafeInviteUrl({ appUrl: productionAppUrl, result: recoveryResult, redirectTo }),
     userId: userIdFromGenerateResult(recoveryResult) ?? existingUser?.id ?? null,
     mode: "password_setup",
     errorMessage: recoveryResult.error?.message ?? null
