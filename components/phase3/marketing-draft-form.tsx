@@ -1,4 +1,5 @@
 import type { MarketingDraft } from "@/types/phase3";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 
 export function MarketingDraftForm({
   action,
@@ -60,7 +61,7 @@ export function MarketingDraftForm({
         <label htmlFor="ai_reasoning">AI判断理由</label>
         <textarea id="ai_reasoning" name="ai_reasoning" defaultValue={draft?.ai_reasoning ?? ""} />
       </div>
-      <button className="button" type="submit">保存</button>
+      <PendingSubmitButton pendingLabel="投稿下書きを保存しています...">保存</PendingSubmitButton>
     </form>
   );
 }
@@ -93,7 +94,7 @@ export function MarketingDraftGenerateForm({
           </select>
         </div>
       </div>
-      <button className="button" type="submit">AIで下書きを作成</button>
+      <PendingSubmitButton pendingLabel="AIが投稿下書きを作成しています...">AIで下書きを作成</PendingSubmitButton>
     </form>
   );
 }

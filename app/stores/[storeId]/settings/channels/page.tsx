@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
@@ -42,7 +43,7 @@ export default async function ChannelSettingsPage({
         <h2>Instagram・Facebook直接投稿</h2>
         <p>Metaへログインしたあと、実際に使うFacebookページを自分で選択します。AIO boostが勝手に最初のページを選ぶことはありません。</p>
         {meta.envReady ? <div className="form-actions"><a className="button" href={`/api/meta/oauth/start?store_id=${encodeURIComponent(store.id)}`}>Metaへ接続／再接続</a></div> : <p className="notice">Metaアプリの環境設定が完了すると接続できます。現在もSNS画像・投稿文の作成と手動投稿は利用できます。</p>}
-        {meta.candidates.length > 0 ? <form className="form" action={selectMetaPageAction.bind(null, store.id)}><label className="field">投稿先Facebookページ<select name="page_id" required defaultValue=""><option value="" disabled>選択してください</option>{meta.candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}{candidate.instagramId ? "（Instagram接続あり）" : ""}</option>)}</select></label><div className="form-actions"><button className="button" type="submit">このページを投稿先に設定</button></div></form> : null}
+        {meta.candidates.length > 0 ? <form className="form" action={selectMetaPageAction.bind(null, store.id)}><label className="field">投稿先Facebookページ<select name="page_id" required defaultValue=""><option value="" disabled>選択してください</option>{meta.candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>{candidate.name}{candidate.instagramId ? "（Instagram接続あり）" : ""}</option>)}</select></label><div className="form-actions"><PendingSubmitButton pendingLabel="投稿先を設定しています...">このページを投稿先に設定</PendingSubmitButton></div></form> : null}
         {meta.accounts.length > 0 ? <div className="table-wrap"><table className="table"><thead><tr><th>媒体</th><th>アカウント</th><th>状態</th><th>認証期限</th></tr></thead><tbody>{meta.accounts.map((account) => <tr key={String(account.id)}><td>{String(account.channel)}</td><td>{String(account.account_name ?? "-")}</td><td>{account.connection_status === "connected" ? "接続済み" : String(account.connection_status)}</td><td>{String(account.token_expires_at ?? "-")}</td></tr>)}</tbody></table></div> : null}
         {meta.oauthConnected ? <form action={disconnectMetaAction.bind(null, store.id)}><div className="form-actions"><ConfirmSubmitButton message="Meta連携を解除します。AIO boostに保存されたFacebook・Instagram用アクセストークンは削除され、直接投稿を利用できなくなります。よろしいですか？">Meta連携を解除</ConfirmSubmitButton></div></form> : null}
         <p className="muted"><a href="/data-deletion">Meta連携の解除・データ削除について</a></p>
@@ -68,7 +69,7 @@ export default async function ChannelSettingsPage({
         <label className="field">メモ
           <textarea name="memo" rows={3} placeholder="管理者、運用ルール、接続予定など" />
         </label>
-        <div className="form-actions"><button className="button" type="submit">保存</button></div>
+        <div className="form-actions"><PendingSubmitButton pendingLabel="外部連携情報を保存しています...">保存</PendingSubmitButton></div>
       </form>
 
       <section className="card">

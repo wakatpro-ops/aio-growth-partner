@@ -1,13 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function LoginForm() {
   const [message, setMessage] = useState("メールアドレスとパスワードを入力してログインしてください。");
   const [loading, setLoading] = useState(false);
 
-  async function submit(formData: FormData) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
+    const formData = new FormData(event.currentTarget);
     setLoading(true);
     setMessage("ログイン情報を確認しています。");
     const email = String(formData.get("email") ?? "");
@@ -33,6 +38,7 @@ export function LoginForm() {
       return;
     }
 
+    setMessage("利用できる店舗を確認しています。");
     const sessionResponse = await fetch("/api/auth/session", {
       body: JSON.stringify({
         access_token: session.access_token,
@@ -54,19 +60,17 @@ export function LoginForm() {
   }
 
   return (
-    <form className="card form" action={submit}>
+    <form className="card form" onSubmit={submit} aria-busy={loading}>
       <div className="field">
         <label htmlFor="email">メール</label>
-        <input id="email" name="email" type="email" required />
+        <input id="email" name="email" type="email" required disabled={loading} />
       </div>
       <div className="field">
         <label htmlFor="password">パスワード</label>
-        <input id="password" name="password" type="password" required />
+        <input id="password" name="password" type="password" required disabled={loading} />
       </div>
-      <button className="button" type="submit" disabled={loading} aria-busy={loading}>
-        {loading ? "ログインしています..." : "ログイン"}
-      </button>
-      <p>{message}</p>
+      <PendingSubmitButton busy={loading} pendingLabel="ログインしています...">ログイン</PendingSubmitButton>
+      <p aria-live="polite">{message}</p>
     </form>
   );
 }

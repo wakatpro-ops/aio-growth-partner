@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGoogleIntegrationState, googleConnectionStatusLabel } from "@/lib/phase5/google-integrations";
@@ -49,7 +50,7 @@ export default async function GoogleGmailPage({
           <textarea name="signature" rows={5} defaultValue={setting?.signature ?? `${store.name}\n${store.phone}\n${store.address}`} />
         </label>
         <div className="form-actions">
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="Gmail設定を保存しています...">保存</PendingSubmitButton>
           <Link className="button secondary" href={`/stores/${store.id}/settings/google`}>Google連携へ戻る</Link>
         </div>
       </form>

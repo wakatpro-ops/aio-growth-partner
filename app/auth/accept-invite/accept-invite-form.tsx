@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 
 type InvitePayload = {
   tokenHash: string;
@@ -74,9 +75,9 @@ export function AcceptInviteForm() {
 
   return (
     <div className="card form">
-      <button className="button" type="button" onClick={acceptInvite} disabled={!payload || loading} aria-busy={loading}>
-        {loading ? "確認しています..." : "招待を確認してパスワード設定へ進む"}
-      </button>
+      <form onSubmit={(event) => { event.preventDefault(); void acceptInvite(); }}>
+        <PendingSubmitButton busy={loading} disabled={!payload} pendingLabel="確認しています...">招待を確認してパスワード設定へ進む</PendingSubmitButton>
+      </form>
       <p role="status">{message}</p>
       <p className="muted">心当たりのない招待の場合は、この画面を閉じてください。</p>
       <Link className="button secondary" href="/login">ログイン画面へ</Link>

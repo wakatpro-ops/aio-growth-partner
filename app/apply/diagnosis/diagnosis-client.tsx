@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { APPLY_PREVIEW_STORAGE_KEY, APPLY_SOURCE_STORAGE_KEY } from "../apply-form";
 
 type PreviewPayload = {
@@ -179,7 +180,7 @@ export function DiagnosisClient() {
           </div>
           <label className="consent-row"><input name="authority_confirmed" type="checkbox" required /><span>私はこの店舗について詳細診断を申し込む正当な権限があります。 <span className="required-mark">必須</span></span></label>
           <p className="muted">確認メールは連絡先の到達確認です。株式会社 Navi Lifeが申込内容を別途審査します。</p>
-          <button className="button" type="submit" disabled={stage === "sending_code"}>{stage === "sending_code" ? "確認メールを送信しています..." : "確認メールを受け取る"}</button>
+          <PendingSubmitButton busy={stage === "sending_code"} pendingLabel="確認メールを送信しています...">確認メールを受け取る</PendingSubmitButton>
         </form>
       ) : null}
 
@@ -187,7 +188,7 @@ export function DiagnosisClient() {
         <form className="card form" onSubmit={confirmVerification}>
           <div><p className="eyebrow">メール確認</p><h2>メールに届いた6桁のコードを入力</h2><p><strong>{draft.email}</strong> へ確認コードを送りました。確認できると、そのまま正式申込が完了します。</p></div>
           <div className="field"><label htmlFor="verification_code">確認コード</label><input id="verification_code" name="code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" required placeholder="123456" disabled={stage === "submitting"} /></div>
-          <div className="form-actions"><button className="button secondary" type="button" onClick={() => setStage("form")} disabled={stage === "verifying" || stage === "submitting"}>入力内容を変更</button><button className="button" type="submit" disabled={stage === "verifying" || stage === "submitting"}>{stage === "verifying" ? "メールを確認しています..." : stage === "submitting" ? "正式申込を送信しています..." : "メールを確認して申し込む"}</button></div>
+          <div className="form-actions"><button className="button secondary" type="button" onClick={() => setStage("form")} disabled={stage === "verifying" || stage === "submitting"}>入力内容を変更</button><PendingSubmitButton busy={stage === "verifying" || stage === "submitting"} pendingLabel={stage === "submitting" ? "正式申込を送信しています..." : "メールを確認しています..."}>メールを確認して申し込む</PendingSubmitButton></div>
         </form>
       ) : null}
 

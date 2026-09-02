@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
+import type { FormEvent } from "react";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 function safeNextPath(value: string | null) {
@@ -25,7 +27,10 @@ export function SetPasswordForm() {
   );
   const [loading, setLoading] = useState(false);
 
-  async function submit(formData: FormData) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
+    const formData = new FormData(event.currentTarget);
     if (linkUnavailable) {
       setMessage("この招待リンクではパスワードを設定できません。担当者へ再発行をご依頼ください。");
       return;
@@ -101,19 +106,17 @@ export function SetPasswordForm() {
 
   return (
     <>
-      <form className="card form" action={submit}>
+      <form className="card form" onSubmit={submit} aria-busy={loading}>
         <div className="field">
           <label htmlFor="password">パスワード</label>
-          <input id="password" name="password" type="password" minLength={8} required autoComplete="new-password" />
+          <input id="password" name="password" type="password" minLength={8} required autoComplete="new-password" disabled={loading} />
         </div>
         <div className="field">
           <label htmlFor="confirm_password">パスワード確認</label>
-          <input id="confirm_password" name="confirm_password" type="password" minLength={8} required autoComplete="new-password" />
+          <input id="confirm_password" name="confirm_password" type="password" minLength={8} required autoComplete="new-password" disabled={loading} />
         </div>
-        <button className="button" type="submit" disabled={loading || linkUnavailable} aria-busy={loading}>
-          {loading ? "設定しています..." : "パスワードを設定して進む"}
-        </button>
-        <p>{message}</p>
+        <PendingSubmitButton busy={loading} disabled={linkUnavailable} pendingLabel="設定しています...">パスワードを設定して進む</PendingSubmitButton>
+        <p aria-live="polite">{message}</p>
       </form>
       <p className="muted">
         {recoveryMode ? "再設定メールの有効期限が切れている場合は、ログイン画面からもう一度お手続きください。" : "招待メールの有効期限が切れている場合は、担当者へ再発行をご依頼ください。"}

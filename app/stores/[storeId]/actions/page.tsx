@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listRecommendedActions } from "@/lib/phase4/demand-actions";
@@ -51,7 +52,7 @@ export default async function RecommendedActionsPage({
         <h3>提案を生成</h3>
         <form className="form-grid" action={generateDemandActionPlanAction.bind(null, store.id, `/stores/${store.id}/actions`)}>
           <label>対象月<input name="target_month" type="month" defaultValue={nextMonth()} required /></label>
-          <div className="form-actions"><button className="button" type="submit">次アクションを生成</button></div>
+          <div className="form-actions"><PendingSubmitButton pendingLabel="AIが次アクションを生成しています...">次アクションを生成</PendingSubmitButton></div>
         </form>
       </section>
 

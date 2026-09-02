@@ -580,6 +580,9 @@ p {
 }
 
 .button[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.86;
+  pointer-events: none;
   position: relative;
 }
 

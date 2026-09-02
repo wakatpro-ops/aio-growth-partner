@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export function ForgotPasswordForm() {
@@ -41,9 +42,7 @@ export function ForgotPasswordForm() {
         <label htmlFor="recovery_email">メールアドレス</label>
         <input id="recovery_email" name="email" type="email" autoComplete="email" required disabled={loading || sent} />
       </div>
-      <button className="button" type="submit" disabled={loading || sent} aria-busy={loading}>
-        {loading ? "送信しています..." : sent ? "再設定メールを送信しました" : "パスワード再設定メールを受け取る"}
-      </button>
+      <PendingSubmitButton busy={loading} disabled={sent} pendingLabel="送信しています...">{sent ? "再設定メールを送信しました" : "パスワード再設定メールを受け取る"}</PendingSubmitButton>
       <p aria-live="polite">{message}</p>
     </form>
   );

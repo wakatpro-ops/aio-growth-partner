@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 
 export function AiGenerator({
   endpoint,
@@ -16,7 +18,10 @@ export function AiGenerator({
   const [result, setResult] = useState<string>("生成結果がここに表示されます。");
   const [loading, setLoading] = useState(false);
 
-  async function submit(formData: FormData) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (loading) return;
+    const formData = new FormData(event.currentTarget);
     setLoading(true);
     const input = Object.fromEntries(formData.entries());
 
@@ -33,7 +38,7 @@ export function AiGenerator({
 
   return (
     <div className="grid cols-2">
-      <form className="card form" action={submit}>
+      <form className="card form" onSubmit={submit} aria-busy={loading}>
         <h3>{title}</h3>
         {fields.map((field) => (
           <div className="field" key={field.key}>
@@ -45,9 +50,7 @@ export function AiGenerator({
             )}
           </div>
         ))}
-        <button className="button" disabled={loading} type="submit">
-          {loading ? "生成中" : "生成する"}
-        </button>
+        <PendingSubmitButton busy={loading} pendingLabel="AIが生成しています...">生成する</PendingSubmitButton>
       </form>
       <section className="card">
         <h3>生成結果</h3>

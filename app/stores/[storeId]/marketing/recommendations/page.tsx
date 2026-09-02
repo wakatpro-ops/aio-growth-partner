@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listAiRecommendations } from "@/lib/phase3/marketing-data";
@@ -46,7 +47,7 @@ export default async function RecommendationsPage({
           <label htmlFor="month">対象月</label>
           <input id="month" name="month" type="month" defaultValue={thisMonth()} />
         </div>
-        <button className="button" type="submit">AI改善提案を作成</button>
+        <PendingSubmitButton pendingLabel="AIが改善提案を作成しています...">AI改善提案を作成</PendingSubmitButton>
       </form>
 
       <div className="card">

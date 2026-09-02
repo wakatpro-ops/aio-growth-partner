@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGrowthAction, growthActionChannelLabel, growthActionStatusLabel } from "@/lib/phase5/growth-actions";
@@ -58,7 +59,7 @@ export default async function GrowthActionDetailPage({
               {statuses.map((status) => <option key={status} value={status}>{growthActionStatusLabel(status)}</option>)}
             </select>
           </label>
-          <div className="form-actions"><button className="button" type="submit">ステータスを更新</button></div>
+          <div className="form-actions"><PendingSubmitButton pendingLabel="ステータスを更新しています...">ステータスを更新</PendingSubmitButton></div>
         </form>
         <form className="form-grid" action={submitGrowthActionApprovalAction.bind(null, store.id, action.id)}>
           <label>承認フロー
@@ -71,7 +72,7 @@ export default async function GrowthActionDetailPage({
           <label>承認コメント / 差し戻し理由
             <textarea name="comment" rows={3} placeholder="確認メモを残せます" />
           </label>
-          <div className="form-actions"><button className="button secondary" type="submit">承認状態を保存</button></div>
+          <div className="form-actions"><PendingSubmitButton className="button secondary" pendingLabel="承認状態を保存しています...">承認状態を保存</PendingSubmitButton></div>
         </form>
       </section>
 

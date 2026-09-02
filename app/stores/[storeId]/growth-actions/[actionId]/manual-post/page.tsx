@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGrowthAction, growthActionStatusLabel } from "@/lib/phase5/growth-actions";
@@ -210,7 +211,7 @@ export default async function GoogleBusinessManualPostPage({
           ))}
         </div>
         <div className="form-actions">
-          <button className="button" type="submit">手動投稿状態を保存</button>
+          <PendingSubmitButton pendingLabel="投稿状態を保存しています...">手動投稿状態を保存</PendingSubmitButton>
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細へ戻る</Link>
         </div>
       </form>
