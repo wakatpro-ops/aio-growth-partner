@@ -194,7 +194,7 @@ export default async function GoogleBusinessProfilePage({
         <p className="muted">接続済みGoogleアカウントでアクセスできるビジネスプロフィールの候補を取得します。投稿は行いません。</p>
         <p className="notice">候補取得には、Googleアカウントが対象ビジネスプロフィールのオーナーまたは管理者である必要があります。</p>
         <form action={syncGoogleBusinessProfileCandidatesAction.bind(null, store.id)}>
-          <button className="button" type="submit">アカウント・ロケーション候補を取得</button>
+          <PendingSubmitButton pendingLabel="Googleから店舗候補を取得しています...">アカウント・ロケーション候補を取得</PendingSubmitButton>
         </form>
         <p className="muted">最終取得: {setting?.last_synced_at ? new Date(setting.last_synced_at).toLocaleString("ja-JP") : "-"}</p>
       </section>

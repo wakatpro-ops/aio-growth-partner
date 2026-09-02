@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getGrowthAction, growthActionChannelLabel } from "@/lib/phase5/growth-actions";
@@ -147,7 +148,7 @@ export default async function SnsManualPostPage({
             <label className="field">写真の補足<input name="image_note" placeholder="例：新メニューの施術写真、店内の個室" /></label>
           </div>
           <label className="field">商品・メニュー・キャンペーン情報<textarea name="product_context" rows={3} placeholder="価格、対象のお客様、予約方法、期間など。AIが投稿文へ反映します。" /></label>
-          <div className="form-actions"><button className="button" type="submit">写真を取り込んで投稿案を作る</button></div>
+          <div className="form-actions"><PendingSubmitButton pendingLabel="写真を取り込み、AIが投稿案を作成しています...">写真を取り込んで投稿案を作る</PendingSubmitButton></div>
         </form>
       </section>
 
@@ -174,13 +175,13 @@ export default async function SnsManualPostPage({
                     <label className="check-row"><input name={`${channel}_approved`} type="checkbox" defaultChecked={caption.approval_status === "approved"} />この文章を人が確認し、公開用として承認</label>
                   </fieldset>;
                 })}
-                <div className="form-actions"><button className="button" type="submit">確認内容と承認を保存</button></div>
+                <div className="form-actions"><PendingSubmitButton pendingLabel="確認内容を保存しています...">確認内容と承認を保存</PendingSubmitButton></div>
               </form>
             </div>
             <form className="form" action={queueSnsPublishAction.bind(null, store.id, action.id, String(asset.id))}>
               <h3>承認済みの内容を投稿</h3>
               <div className="grid cols-2"><label className="field">投稿先<select name="channel" defaultValue="instagram">{SNS_CHANNELS.map((channel) => <option key={channel} value={channel}>{snsChannels.find((item) => item.value === channel)?.label}</option>)}</select></label><label className="field">投稿日時（空欄なら今すぐ）<input name="scheduled_at" type="datetime-local" /></label></div>
-              <div className="form-actions"><button className="button" type="submit" disabled={asset.approval_status !== "approved"}>投稿する／予約する</button></div>
+              <div className="form-actions"><PendingSubmitButton disabled={asset.approval_status !== "approved"} pendingLabel="SNS投稿を準備しています...">投稿する／予約する</PendingSubmitButton></div>
               {asset.approval_status !== "approved" ? <p className="muted">先に安全確認と、投稿する媒体の文章承認を保存してください。</p> : null}
             </form>
           </section>
@@ -188,7 +189,7 @@ export default async function SnsManualPostPage({
       })}
 
       <section className="card" id="publish-history"><h2>投稿履歴と再実行</h2><div className="table-wrap"><table className="table"><thead><tr><th>媒体</th><th>状態</th><th>予定／実行</th><th>公開先</th><th>エラー</th><th>操作</th></tr></thead><tbody>
-        {publishJobs.map((job) => { const response = job.response_json && typeof job.response_json === "object" ? job.response_json as { public_url?: string; reason?: string } : {}; return <tr key={job.id}><td>{job.channel}</td><td><span className="badge">{job.status === "sent" ? "公開済み" : job.status === "scheduled" ? "予約済み" : job.status === "manual_required" ? "手動投稿が必要" : job.status === "failed" ? "失敗" : job.status === "retry_wait" ? "再試行待ち" : job.status}</span></td><td>{job.sent_at ?? job.scheduled_at ?? "-"}</td><td>{response.public_url ? <a href={response.public_url} target="_blank" rel="noreferrer">公開ページを開く</a> : job.target_id ?? "-"}</td><td>{job.error_message ?? response.reason ?? "-"}</td><td>{["failed", "retry_wait", "ready"].includes(job.status) ? <form action={retrySnsPublishAction.bind(null, store.id, action.id, String(job.id))}><button className="button secondary" type="submit">再実行</button></form> : "-"}</td></tr>; })}
+        {publishJobs.map((job) => { const response = job.response_json && typeof job.response_json === "object" ? job.response_json as { public_url?: string; reason?: string } : {}; return <tr key={job.id}><td>{job.channel}</td><td><span className="badge">{job.status === "sent" ? "公開済み" : job.status === "scheduled" ? "予約済み" : job.status === "manual_required" ? "手動投稿が必要" : job.status === "failed" ? "失敗" : job.status === "retry_wait" ? "再試行待ち" : job.status}</span></td><td>{job.sent_at ?? job.scheduled_at ?? "-"}</td><td>{response.public_url ? <a href={response.public_url} target="_blank" rel="noreferrer">公開ページを開く</a> : job.target_id ?? "-"}</td><td>{job.error_message ?? response.reason ?? "-"}</td><td>{["failed", "retry_wait", "ready"].includes(job.status) ? <form action={retrySnsPublishAction.bind(null, store.id, action.id, String(job.id))}><PendingSubmitButton className="button secondary" pendingLabel="再実行しています...">再実行</PendingSubmitButton></form> : "-"}</td></tr>; })}
         {publishJobs.length === 0 ? <tr><td colSpan={6}>投稿履歴はまだありません。</td></tr> : null}
       </tbody></table></div></section>
 
@@ -266,7 +267,7 @@ export default async function SnsManualPostPage({
           ))}
         </div>
         <div className="form-actions">
-          <button className="button" type="submit">SNS投稿状態を保存</button>
+          <PendingSubmitButton pendingLabel="SNS投稿状態を保存しています...">SNS投稿状態を保存</PendingSubmitButton>
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}/edit`}>下書きを編集</Link>
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions/${action.id}`}>詳細へ戻る</Link>
         </div>

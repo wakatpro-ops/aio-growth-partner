@@ -15,6 +15,7 @@
     "test:post-login": "node --experimental-strip-types --test scripts/test-post-login-destination.mjs",
     "test:invite-links": "node --experimental-strip-types --test scripts/test-invite-links.mjs",
     "check:auth-experience": "node scripts/check-auth-experience.mjs",
+    "check:instant-feedback": "node scripts/check-instant-action-feedback.mjs",
     "test:authz-integration": "playwright test tests/authz/results-visibility.spec.ts --workers=1",
     "check:customer-crm": "node scripts/check-customer-crm.mjs",
     "check:inventory-sales": "node scripts/check-inventory-sales-sync.mjs",

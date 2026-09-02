@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getAiRecommendation } from "@/lib/phase3/marketing-data";
@@ -50,7 +51,7 @@ export default async function RecommendationDetailPage({
         description="AIが月次データから作成した改善提案です。投稿下書きへ展開できます。"
         action={
           <form action={createDraftFromRecommendationAction.bind(null, store.id, recommendation.id)}>
-            <button className="button" type="submit">投稿下書きを作成</button>
+            <PendingSubmitButton pendingLabel="投稿下書きを作成しています...">投稿下書きを作成</PendingSubmitButton>
           </form>
         }
       />

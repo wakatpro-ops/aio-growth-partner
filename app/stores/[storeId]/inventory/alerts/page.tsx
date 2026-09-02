@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listInventoryAlerts } from "@/lib/phase4/demand-actions";
@@ -45,7 +46,7 @@ export default async function InventoryAlertsPage({
         <h3>アラートを更新</h3>
         <form className="form-grid" action={generateDemandActionPlanAction.bind(null, store.id, `/stores/${store.id}/inventory/alerts`)}>
           <label>対象月<input name="target_month" type="month" defaultValue={nextMonth()} required /></label>
-          <div className="form-actions"><button className="button" type="submit">在庫アラートを生成</button></div>
+          <div className="form-actions"><PendingSubmitButton pendingLabel="AIが在庫アラートを生成しています...">在庫アラートを生成</PendingSubmitButton></div>
         </form>
       </section>
 

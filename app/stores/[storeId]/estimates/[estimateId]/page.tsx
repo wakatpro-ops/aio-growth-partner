@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { DocumentForm } from "@/components/phase2/document-form";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getDocument, listCustomers } from "@/lib/phase2/business-data";
@@ -32,7 +33,7 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
         action={isFeatureEnabled(flags, "pdf_export") ? (
           <div className="action-row">
             <form action={createOrderFromEstimateAction.bind(null, store.id, estimate.id)}>
-              <button className="button" type="submit">受注化</button>
+              <PendingSubmitButton pendingLabel="受注へ反映しています...">受注化</PendingSubmitButton>
             </form>
             <Link className="button" href={`/stores/${store.id}/estimates/${estimate.id}/pdf/download`}>PDF出力</Link>
             <Link className="button secondary" href={`/stores/${store.id}/estimates/${estimate.id}/pdf`}>印刷プレビュー</Link>

@@ -51,7 +51,7 @@ export default async function OrderDetailPage({
           <div className="button-row">
             {order.invoice_id ? <Link className="button" href={`/stores/${store.id}/invoices/${order.invoice_id}`}>請求書を見る</Link> : (
               <form action={createInvoiceFromOrderAction.bind(null, store.id, order.id)}>
-                <button className="button" type="submit">請求書を作成</button>
+                <PendingSubmitButton pendingLabel="請求書を作成しています...">請求書を作成</PendingSubmitButton>
               </form>
             )}
             <Link className="button secondary" href={`/stores/${store.id}/orders`}>一覧へ戻る</Link>
@@ -118,7 +118,7 @@ export default async function OrderDetailPage({
             <label htmlFor="notes">メモ</label>
             <input id="notes" name="notes" defaultValue={order.notes ?? ""} />
           </div>
-          <button className="button" type="submit">保存</button>
+          <PendingSubmitButton pendingLabel="受注情報を保存しています...">保存</PendingSubmitButton>
         </form>
       </section>
 

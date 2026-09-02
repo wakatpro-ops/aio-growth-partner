@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { listStoreStaff, storeStaffRoles } from "@/lib/store-staff";
 import { archiveStoreStaffAction, resendStoreStaffInviteAction, updateStoreStaffAction } from "./actions";
 
@@ -42,12 +43,12 @@ export default async function StoreStaffPage({ params, searchParams }: {
                     <select name="role_key" defaultValue={membership.role_key} aria-label={`${membership.display_name ?? membership.email}の権限`}>
                       {storeStaffRoles.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
                     </select>
-                    <button className="button secondary" type="submit">権限を保存</button>
+                    <PendingSubmitButton className="button secondary" pendingLabel="権限を保存しています...">権限を保存</PendingSubmitButton>
                   </form>
                 </td>
                 <td><span className="badge">{membership.invitation_status === "accepted" ? "利用開始済み" : membership.email_status === "failed" ? "送信失敗" : "招待送信済み"}</span></td>
                 <td><div className="button-row">
-                  <form action={resendStoreStaffInviteAction.bind(null, store.id, membership.id)}><button className="button secondary" type="submit">招待を再送</button></form>
+                  <form action={resendStoreStaffInviteAction.bind(null, store.id, membership.id)}><PendingSubmitButton className="button secondary" pendingLabel="招待を再送しています...">招待を再送</PendingSubmitButton></form>
                   <form action={archiveStoreStaffAction.bind(null, store.id, membership.id)}><ConfirmSubmitButton message={`「${membership.display_name ?? membership.email}」をこの店舗のスタッフから削除します。すぐにこの店舗へアクセスできなくなります。`}>削除</ConfirmSubmitButton></form>
                 </div></td>
               </tr>
