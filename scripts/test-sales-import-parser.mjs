@@ -1,4 +1,4 @@
-import { MAX_IMPORT_ROWS, parseImportFile } from "../lib/phase4/import-parser.ts";
+import { buildSuggestedMappings, groupNormalizedSalesRows, MAX_IMPORT_ROWS, normalizeSalesRows, parseImportFile } from "../lib/phase4/import-parser.ts";
 import { buildImportStorageFileName } from "../lib/storage-object-name.ts";
 
 const encode = (value) => new TextEncoder().encode(value).buffer;
@@ -36,6 +36,18 @@ requireCheck(valid.importType === "csv" && valid.rows.length === 1, "正常CSV�
 const japaneseStorageName = buildImportStorageFileName("売上明細_20260821185743.csv", "898cbf80c23446ce98b1fad04599770c");
 requireCheck(japaneseStorageName === "20260821185743-898cbf80c23446ce.csv", "日本語ファイル名を安全なStorageキーへ変換できませんでした。");
 requireCheck(/^[a-zA-Z0-9_-]+\.(csv|tsv|xlsx|xls|pdf|bin)$/u.test(japaneseStorageName), "Storageファイル名に利用できない文字が残っています。");
+
+const salonCsv = encode([
+  "会計日,会計ID,メニュー・店販・割引・サービス・オプション,個数,単価,金額",
+  "20260822,TX-001,施術A,1,10000,10000",
+  "20260822,TX-001,商品B,1,2000,2000",
+  "20260822,TX-002,施術C,1,8000,8000"
+].join("\n"));
+const salonParsed = await parseImportFile("売上明細.csv", salonCsv);
+const salonMappings = buildSuggestedMappings(salonParsed.headers).map((mapping, index) => ({ ...mapping, id: `mapping-${index}` }));
+const salonRows = normalizeSalesRows(salonParsed.rows, salonMappings, "store", null);
+requireCheck(salonRows.every((row) => row.errors.length === 0), "サロン売上CSVの標準列を認識できませんでした。");
+requireCheck(groupNormalizedSalesRows(salonRows).map((rows) => rows.length).join(",") === "2,1", "同じ会計IDの明細を1会計にまとめられませんでした。");
 
 const traversalStorageName = buildImportStorageFileName("../../顧客 売上?.CSV", "not-a-checksum");
 requireCheck(traversalStorageName === "sales-import-file.csv", "パストラバーサルを含むファイル名を安全に変換できませんでした。");

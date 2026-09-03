@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { applyImportedSaleInventory } from "@/lib/inventory-operations";
 import { generateDemandActionPlan } from "@/lib/phase4/demand-actions";
-import { buildSuggestedMappings, normalizeSalesRows, parseImportFile } from "@/lib/phase4/import-parser";
+import { buildSuggestedMappings, groupNormalizedSalesRows, normalizeSalesRows, parseImportFile } from "@/lib/phase4/import-parser";
 import { buildImportStorageFileName } from "@/lib/storage-object-name";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
@@ -533,7 +533,7 @@ export async function executeImportJob(storeId: string, importJobId: string, opt
   const normalizedRows = retryRows ? allRows.filter((row) => retryRows.has(row.rowNumber)) : allRows;
   if (retryRows && normalizedRows.length === 0) throw new Error("再実行するエラー行がありません。");
   const { count: existingSuccess } = await supabase.from("sales_transactions").select("id", { count: "exact", head: true }).eq("import_job_id", importJobId);
-  let successRows = options.retryErrorsOnly ? Number(existingSuccess ?? 0) : 0;
+  let successRows = options.retryErrorsOnly ? Number(detail.job.success_rows ?? existingSuccess ?? 0) : 0;
   let errorRows = 0;
   const matchByKey = new Map(detail.itemMatches.map((match) => [match.source_item_key, match]));
   const confirmedIds = detail.itemMatches.map((match) => match.confirmed_item_id).filter(Boolean) as string[];
@@ -542,22 +542,28 @@ export async function executeImportJob(storeId: string, importJobId: string, opt
     : { data: [] };
   const stockManagedIds = new Set((matchedItems ?? []).filter((item) => item.is_stock_managed).map((item) => String(item.id)));
 
-  for (const row of normalizedRows) {
-    if (row.errors.length > 0 || !row.sale_date || !row.item_name) {
-      errorRows += 1;
-      await supabase.from("import_error_rows").insert({
-        organization_id: detail.job.organization_id,
-        store_id: detail.job.store_id,
-        import_job_id: detail.job.id,
-        row_number: row.rowNumber,
-        raw_row: parsed.rows[row.rowNumber - 2] ?? {},
-        error_code: "validation_error",
-        error_message: row.errors.join(" / "),
-        suggested_fix: {}
-      });
+  for (const group of groupNormalizedSalesRows(normalizedRows)) {
+    const invalidRows = group.filter((row) => row.errors.length > 0 || !row.sale_date || !row.item_name);
+    if (invalidRows.length > 0) {
+      errorRows += group.length;
+      await supabase.from("import_error_rows").insert(group.map((row) => ({
+        organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id,
+        row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "validation_error",
+        error_message: row.errors.join(" / ") || "同じ会計IDの明細に必須項目の不足があります。", suggested_fix: {}
+      })));
       continue;
     }
-
+    const first = group[0];
+    const groupHash = createHash("sha256").update(group.map((row) => row.source_row_hash).sort().join(":"), "utf8").digest("hex");
+    const grossAmount = group.reduce((sum, row) => sum + row.gross_amount, 0);
+    const discountAmount = group.reduce((sum, row) => sum + row.discount_amount, 0);
+    const taxAmount = group.reduce((sum, row) => sum + row.tax_amount, 0);
+    const matches = group.map((row) => ({ row, match: matchByKey.get(sourceItemKey(row.item_name ?? "", row.item_code)) }));
+    if (matches.some(({ match }) => !match || match.status === "pending")) {
+      errorRows += group.length;
+      await supabase.from("import_error_rows").insert(group.map((row) => ({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "item_match_required", error_message: "商品の対応確認が必要です。", suggested_fix: {} })));
+      continue;
+    }
     const { data: transaction, error } = await supabase
       .from("sales_transactions")
       .insert({
@@ -565,78 +571,61 @@ export async function executeImportJob(storeId: string, importJobId: string, opt
         store_id: detail.job.store_id,
         data_source_id: detail.job.data_source_id,
         import_job_id: detail.job.id,
-        external_transaction_id: row.transaction_id,
-        source_row_hash: row.source_row_hash,
-        transaction_date: row.sale_date,
-        business_date: businessDate(row.sale_date),
-        customer_name: row.customer_name,
-        payment_method: row.payment_method,
-        gross_amount: row.gross_amount,
-        discount_amount: row.discount_amount,
-        tax_amount: row.tax_amount,
-        net_amount: row.gross_amount - row.tax_amount,
+        external_transaction_id: first.transaction_id,
+        source_row_hash: groupHash,
+        transaction_date: first.sale_date,
+        business_date: businessDate(first.sale_date ?? ""),
+        customer_name: group.map((row) => row.customer_name).find(Boolean) ?? null,
+        payment_method: group.map((row) => row.payment_method).find(Boolean) ?? null,
+        gross_amount: grossAmount,
+        discount_amount: discountAmount,
+        tax_amount: taxAmount,
+        net_amount: grossAmount - taxAmount,
         currency: "JPY",
-        channel: row.channel,
-        source_metadata: { memo: row.memo, raw_row: parsed.rows[row.rowNumber - 2] ?? {} }
+        channel: group.map((row) => row.channel).find(Boolean) ?? null,
+        source_metadata: { row_numbers: group.map((row) => row.rowNumber), memos: group.map((row) => row.memo).filter(Boolean) }
       })
       .select("id")
       .single();
 
     if (error || !transaction) {
-      errorRows += 1;
-      await supabase.from("import_error_rows").insert({
-        organization_id: detail.job.organization_id,
-        store_id: detail.job.store_id,
-        import_job_id: detail.job.id,
-        row_number: row.rowNumber,
-        raw_row: parsed.rows[row.rowNumber - 2] ?? {},
+      errorRows += group.length;
+      await supabase.from("import_error_rows").insert(group.map((row) => ({
+        organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id,
+        row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {},
         error_code: error?.code === "23505" ? "duplicate_row" : "insert_error",
-        error_message: error?.code === "23505" ? "重複行としてスキップしました。" : error?.message ?? "保存できませんでした。",
-        suggested_fix: {}
-      });
+        error_message: error?.code === "23505" ? "重複する会計としてスキップしました。" : error?.message ?? "保存できませんでした。", suggested_fix: {}
+      })));
       continue;
     }
-
-    const itemMatch = matchByKey.get(sourceItemKey(row.item_name, row.item_code));
-    if (!itemMatch || itemMatch.status === "pending") {
-      await supabase.from("sales_transactions").delete().eq("id", transaction.id);
-      errorRows += 1;
-      await supabase.from("import_error_rows").insert({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "item_match_required", error_message: "商品の対応確認が必要です。", suggested_fix: {} });
-      continue;
-    }
-    const { error: itemError } = await supabase.from("sales_transaction_items").insert({
-      organization_id: detail.job.organization_id,
-      store_id: detail.job.store_id,
-      sales_transaction_id: transaction.id,
-      item_id: itemMatch.confirmed_item_id,
-      item_match_status: itemMatch.status,
-      external_item_id: row.item_code,
-      item_name: row.item_name,
-      category_name: row.category_name,
-      quantity: row.quantity,
-      unit_price: row.unit_price,
-      discount_amount: row.discount_amount,
-      tax_amount: row.tax_amount,
-      total_amount: row.gross_amount,
-      source_metadata: { source_row_hash: row.source_row_hash }
-    });
+    const { error: itemError } = await supabase.from("sales_transaction_items").insert(matches.map(({ row, match }) => ({
+      organization_id: detail.job.organization_id, store_id: detail.job.store_id, sales_transaction_id: transaction.id,
+      item_id: match?.confirmed_item_id ?? null, item_match_status: match?.status ?? "unmatched",
+      external_item_id: row.item_code, item_name: row.item_name, category_name: row.category_name,
+      quantity: row.quantity, unit_price: row.unit_price, discount_amount: row.discount_amount,
+      tax_amount: row.tax_amount, total_amount: row.gross_amount, source_metadata: { source_row_hash: row.source_row_hash }
+    })));
     if (itemError) {
       await supabase.from("sales_transactions").delete().eq("id", transaction.id);
-      errorRows += 1;
-      await supabase.from("import_error_rows").insert({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "item_insert_error", error_message: itemError.message, suggested_fix: {} });
+      errorRows += group.length;
+      await supabase.from("import_error_rows").insert(group.map((row) => ({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "item_insert_error", error_message: itemError.message, suggested_fix: {} })));
       continue;
     }
-    if (itemMatch.confirmed_item_id && stockManagedIds.has(itemMatch.confirmed_item_id)) {
+    let inventoryMessage: string | null = null;
+    for (const { row, match } of matches) if (match?.confirmed_item_id && stockManagedIds.has(match.confirmed_item_id)) {
       try {
-        await applyImportedSaleInventory({ storeId, itemId: itemMatch.confirmed_item_id, transactionId: transaction.id, rowHash: row.source_row_hash, quantity: row.quantity, itemName: row.item_name });
+        await applyImportedSaleInventory({ storeId, itemId: match.confirmed_item_id, transactionId: transaction.id, rowHash: row.source_row_hash, quantity: row.quantity, itemName: row.item_name ?? "商品" });
       } catch (inventoryError) {
-        await supabase.from("sales_transactions").delete().eq("id", transaction.id);
-        errorRows += 1;
-        await supabase.from("import_error_rows").insert({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "inventory_sync_error", error_message: inventoryError instanceof Error ? inventoryError.message : "在庫へ反映できませんでした。", suggested_fix: {} });
-        continue;
+        inventoryMessage = inventoryError instanceof Error ? inventoryError.message : "在庫へ反映できませんでした。";
+        break;
       }
     }
-    successRows += 1;
+    if (inventoryMessage) {
+      errorRows += group.length;
+      await supabase.from("import_error_rows").insert(group.map((row) => ({ organization_id: detail.job.organization_id, store_id: detail.job.store_id, import_job_id: detail.job.id, row_number: row.rowNumber, raw_row: parsed.rows[row.rowNumber - 2] ?? {}, error_code: "inventory_sync_error", error_message: inventoryMessage, suggested_fix: {} })));
+      continue;
+    }
+    successRows += group.length;
   }
 
   const status = errorRows > 0 && successRows > 0 ? "partial_failed" : errorRows > 0 ? "failed" : "completed";

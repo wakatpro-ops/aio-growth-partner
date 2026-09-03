@@ -17,6 +17,8 @@ export type UnifiedImportSheetSummary = {
   rowCount: number;
   suggestedRecordType: UnifiedImportRecordType;
   confidence: number;
+  suggestedMapping?: Record<string, string>;
+  missingRequiredFields?: string[];
   macroNotice?: string | null;
 };
 
