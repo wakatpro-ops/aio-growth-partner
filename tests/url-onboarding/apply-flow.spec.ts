@@ -179,3 +179,12 @@ test("ログイン画面からパスワード再設定へ進める", async ({ pa
   await expect(page.getByLabel("メールアドレス")).toBeVisible();
   await expect(page.getByRole("button", { name: "パスワード再設定メールを受け取る" })).toBeVisible();
 });
+
+test("主要ボタンの即時表示がパスワード再設定フォームの送信を妨げない", async ({ page }) => {
+  await page.goto("/auth/forgot-password");
+  await page.getByLabel("メールアドレス").fill("owner@example.com");
+  await page.getByRole("button", { name: "パスワード再設定メールを受け取る" }).click();
+
+  await expect(page.getByText("現在、再設定メールを送信できません。時間をおいてもう一度お試しください。")).toBeVisible();
+  await expect(page.getByText("メールアドレスを入力してください。")).toHaveCount(0);
+});
