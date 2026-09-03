@@ -15,8 +15,10 @@ const acquisitionPage = readFileSync("app/stores/[storeId]/acquisition/page.tsx"
 const dashboardPage = readFileSync("app/dashboard/page.tsx", "utf8");
 const noStorePage = readFileSync("app/no-store/page.tsx", "utf8");
 const storeSummaryRoute = readFileSync("app/api/stores/[storeId]/summary/route.ts", "utf8");
-const requiredAreas = ["店舗トップ", "AIO改善", "売上・レポート", "在庫・仕入", "データ取り込み", "設定"];
+const requiredAreas = ["店舗トップ", "AIO改善", "売上・経理", "集客・販促", "設定"];
 const missingAreas = requiredAreas.filter((label) => !sidebar.includes(`label: \"${label}\"`));
+if (!sidebar.includes("label: navigationLabels.customer")) missingAreas.push("業種別の顧客");
+if (!sidebar.includes("label: navigationLabels.product")) missingAreas.push("業種別の商品・在庫");
 const duplicateHorizontalNav = /store-area-nav|store-area-link/u.test(horizontalNav);
 const obsoleteAcquisitionNav = sidebar.includes('label: "集客"');
 const duplicatedReadiness = /StoreAi(ReadinessPanel|NextActions|LearnedFeedback)/u.test(settingsPage);
@@ -31,7 +33,7 @@ if (visibleArchiveTerms.length || missingAreas.length || duplicateHorizontalNav 
   if (visibleArchiveTerms.length) console.error(`利用者向け画面に「アーカイブ」が残っています: ${visibleArchiveTerms.join(", ")}`);
   if (missingAreas.length) console.error(`主要メニューが不足しています: ${missingAreas.join(", ")}`);
   if (duplicateHorizontalNav) console.error("重複する横長の店舗主要ナビが残っています。");
-  if (obsoleteAcquisitionNav) console.error("廃止した集客ハブへのサイドバー導線が残っています。");
+  if (obsoleteAcquisitionNav) console.error("旧名称の集客導線が残っています。");
   if (duplicatedReadiness) console.error("設定ページにAIO改善の重複ブロックが残っています。");
   if (missingAcquisitionRedirect) console.error("旧集客URLから設定への互換リダイレクトがありません。");
   if (dashboardStillRendersContent) console.error("/dashboardに店舗画面と重複する表示が残っています。");

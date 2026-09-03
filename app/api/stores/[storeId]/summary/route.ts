@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { demoStores } from "@/lib/industry/demo-data";
+import { getStoreNavigationLabels } from "@/lib/store-navigation";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export async function GET(_: Request, { params }: { params: Promise<{ storeId: string }> }) {
@@ -17,6 +18,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ storeId: s
     const response = NextResponse.json({
       id: demoStore.id,
       name: demoStore.name,
+      navigationLabels: getStoreNavigationLabels(demoStore.industry_type_key),
       stores: access.isPlatformAdmin ? demoStores.map((store) => ({ id: store.id, name: store.name })) : [{ id: demoStore.id, name: demoStore.name }],
       canManageStores: access.isPlatformAdmin
     });
@@ -26,7 +28,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ storeId: s
 
   const { data, error } = await supabase
     .from("stores")
-    .select("id, name, organization_id")
+    .select("id, name, organization_id, industry_type_key")
     .eq("id", storeId)
     .eq("status", "active")
     .is("archived_at", null)
@@ -53,7 +55,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ storeId: s
   )).map((store) => ({ id: String(store.id), name: String(store.name) }));
   const canManageStores = access.isPlatformAdmin
     || access.organizationIds.some((organizationId) => access.organizationRoles[organizationId] === "org_owner");
-  const response = NextResponse.json({ id: data.id, name: data.name, stores, canManageStores });
+  const response = NextResponse.json({
+    id: data.id,
+    name: data.name,
+    stores,
+    canManageStores,
+    navigationLabels: getStoreNavigationLabels(data.industry_type_key)
+  });
   response.cookies.set("aio_last_store_id", String(data.id), {
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 90,

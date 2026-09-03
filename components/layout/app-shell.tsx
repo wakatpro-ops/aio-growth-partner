@@ -34,6 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [storeName, setStoreName] = useState<string | null>(null);
   const [storeOptions, setStoreOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [canManageStores, setCanManageStores] = useState(false);
+  const [navigationLabels, setNavigationLabels] = useState({ customer: "顧客", product: "商品・在庫" });
   const [currentAccount, setCurrentAccount] = useState<{
     displayName: string;
     email: string | null;
@@ -50,11 +51,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   const visibleNavItems = activeStoreId ? [
     { href: `/stores/${activeStoreId}`, label: "店舗トップ" },
     { href: `/stores/${activeStoreId}/aio-improvement`, label: "AIO改善" },
-    { href: `/stores/${activeStoreId}/sales-hub`, label: "売上・レポート" },
-    { href: `/stores/${activeStoreId}/inventory`, label: "在庫・仕入" },
-    { href: `/stores/${activeStoreId}/data-imports/ai`, label: "データ取り込み" },
-    { href: `/stores/${activeStoreId}/settings`, label: "設定" }
+    { href: `/stores/${activeStoreId}/sales-hub`, label: "売上・経理" },
+    { href: `/stores/${activeStoreId}/customers`, label: navigationLabels.customer },
+    { href: `/stores/${activeStoreId}/marketing`, label: "集客・販促" },
+    { href: `/stores/${activeStoreId}/inventory`, label: navigationLabels.product }
   ] : navItems;
+  const storeUtilityItems = activeStoreId ? [
+    { href: `/stores/${activeStoreId}/settings`, label: "設定" }
+  ] : [];
   const backHref = useMemo(() => {
     if (!activeStoreId || pathname === `/stores/${activeStoreId}`) return null;
     const parts = pathname.split("/").filter(Boolean);
@@ -68,6 +72,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     setStoreName(null);
     setStoreOptions([]);
     setCanManageStores(false);
+    setNavigationLabels({ customer: "顧客", product: "商品・在庫" });
     if (!activeStoreId) return;
 
     fetch(`/api/stores/${encodeURIComponent(activeStoreId)}/summary`)
@@ -83,6 +88,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             })
             : []);
           setCanManageStores(Boolean(data.canManageStores));
+          setNavigationLabels({
+            customer: typeof data.navigationLabels?.customer === "string" ? data.navigationLabels.customer : "顧客",
+            product: typeof data.navigationLabels?.product === "string" ? data.navigationLabels.product : "商品・在庫"
+          });
         }
       })
       .catch(() => {
@@ -130,12 +139,29 @@ export function AppShell({ children }: { children: ReactNode }) {
     }
   }
 
+  function activeBusinessSection() {
+    if (!activeStoreId) return "";
+    const section = pathname.slice(`/stores/${activeStoreId}`.length);
+    if (section === "") return "";
+    if (section.startsWith("/aio-improvement") || section.startsWith("/diagnosis")) return "/aio-improvement";
+    if (["/sales-hub", "/sales", "/estimates", "/invoices", "/payments", "/accounting", "/reports"].some((prefix) => section.startsWith(prefix))) return "/sales-hub";
+    if (["/customers", "/customer-segments", "/customer-messages"].some((prefix) => section.startsWith(prefix))) return "/customers";
+    if (["/marketing", "/growth-actions", "/growth-calendar", "/reviews", "/results", "/posts"].some((prefix) => section.startsWith(prefix))) return "/marketing";
+    if (["/inventory", "/items", "/orders"].some((prefix) => section.startsWith(prefix))) return "/inventory";
+    if (section.startsWith("/settings") || section.startsWith("/data-imports")) return "/settings";
+    return "";
+  }
+
+  function isStoreNavigationActive(href: string) {
+    if (!activeStoreId) return pathname === href || pathname.startsWith(`${href}/`);
+    const root = `/stores/${activeStoreId}`;
+    if (href === root) return pathname === root;
+    return href === `${root}${activeBusinessSection()}`;
+  }
+
   function handleStoreChange(nextStoreId: string) {
     if (!activeStoreId || !nextStoreId || nextStoreId === activeStoreId) return;
-    const currentPrefix = `/stores/${activeStoreId}`;
-    const currentSection = pathname.startsWith(currentPrefix) ? pathname.slice(currentPrefix.length) : "";
-    const portableSections = new Set(["/aio-improvement", "/sales-hub", "/inventory", "/data-imports/ai", "/settings"]);
-    const nextSection = portableSections.has(currentSection) ? currentSection : "";
+    const nextSection = activeBusinessSection();
     window.location.href = `/stores/${encodeURIComponent(nextStoreId)}${nextSection}`;
   }
 
@@ -171,7 +197,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         ) : null}
         <nav className="nav" aria-label="main">
           {visibleNavItems.map((item) => {
-            const active = pathname === item.href || (item.href !== `/stores/${activeStoreId}` && pathname.startsWith(`${item.href}/`));
+            const active = isStoreNavigationActive(item.href);
             return (
               <Link aria-current={active ? "page" : undefined} className={active ? "active" : undefined} key={item.href} href={item.href}>
                 {item.label}
@@ -193,6 +219,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           ) : null}
         </nav>
         {activeStoreId ? <button className="nav-ai-button" type="button" onClick={() => setAssistantOpen(true)}><AiRobotFace />AIに尋ねる</button> : null}
+        {storeUtilityItems.length > 0 ? (
+          <nav className="nav nav-utility" aria-label="settings">
+            <div className="nav-section-label">管理・設定</div>
+            {storeUtilityItems.map((item) => {
+              const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return <Link aria-current={active ? "page" : undefined} className={active ? "active" : undefined} key={item.href} href={item.href}>{item.label}</Link>;
+            })}
+          </nav>
+        ) : null}
         <footer className="sidebar-footer">
           {currentAccount ? (
             <section className="sidebar-account" aria-label="現在のログインアカウント">

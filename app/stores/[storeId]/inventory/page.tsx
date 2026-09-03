@@ -7,6 +7,7 @@ import { getIndustryConfig } from "@/config/industries";
 import { listBusinessItems, listInventoryStocks } from "@/lib/phase2/business-data";
 import { listInventoryMovements } from "@/lib/inventory-operations";
 import { getStore } from "@/lib/stores";
+import { getStoreNavigationLabels } from "@/lib/store-navigation";
 import { updateStockAction } from "../business/actions";
 
 const movementLabels: Record<string, string> = {
@@ -33,6 +34,7 @@ export default async function InventoryPage({ params, searchParams }: { params: 
   const query = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
+  const navigationLabels = getStoreNavigationLabels(store.industry_type_key);
   const [items, stocks, movements] = await Promise.all([listBusinessItems(store.id), listInventoryStocks(store.id), listInventoryMovements(store.id)]);
   const stockItems = items.filter((item) => item.is_stock_managed);
   const stockByItem = new Map(stocks.map((stock) => [stock.item_id, stock]));
@@ -42,7 +44,7 @@ export default async function InventoryPage({ params, searchParams }: { params: 
 
   return (
     <AppShell>
-      <PageHeader eyebrow={industry.name} title="在庫・仕入" description="現在庫、仕入・入荷、棚卸、廃棄、受注・売上による増減を一つの画面で管理します。" action={<Link className="button" href={`/stores/${store.id}/items/new`}>商品・材料を登録</Link>} />
+      <PageHeader eyebrow={industry.name} title={navigationLabels.product} description="商品・サービス、現在庫、仕入・入荷、棚卸、廃棄を業種に合わせて管理します。" action={<Link className="button" href={`/stores/${store.id}/items/new`}>{industry.businessLabels.item}を登録</Link>} />
       <StoreBusinessNav store={store} />
       {query.saved ? <p className="notice success">在庫変動を記録しました。一覧と履歴に反映されています。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
@@ -52,8 +54,9 @@ export default async function InventoryPage({ params, searchParams }: { params: 
         <article className="card"><p className="muted">仕入・入荷履歴</p><div className="metric">{purchaseCount}件</div><Link className="text-link" href={`/stores/${store.id}/accounting/receipts`}>仕入レシートを確認 →</Link></article>
       </section>
       <section className="card">
-        <div className="section-heading"><div><p className="eyebrow">目的から選ぶ</p><h2>在庫・仕入メニュー</h2></div></div>
+        <div className="section-heading"><div><p className="eyebrow">目的から選ぶ</p><h2>{navigationLabels.product}メニュー</h2></div></div>
         <div className="hub-grid">
+          <Link className="hub-link" href={`/stores/${store.id}/items`}><h3>{industry.businessLabels.item}を確認</h3><p>販売・提供する内容、価格、原価、在庫管理の対象を整理します。</p><strong>一覧を開く →</strong></Link>
           <Link className="hub-link primary" href="#inventory-entry"><h3>仕入・入荷を記録</h3><p>仕入先、仕入日、単価、数量を記録し、現在庫と原価へ反映します。</p><strong>入力する →</strong></Link>
           <Link className="hub-link" href={`/stores/${store.id}/accounting/receipts/new`}><h3>仕入レシートを読み取る</h3><p>レシートや伝票をOCRし、経費・freee用の確認データへ整理します。</p><strong>読み取りへ →</strong></Link>
           <Link className="hub-link" href={`/stores/${store.id}/data-imports/ai`}><h3>在庫表をまとめて取り込む</h3><p>CSV・Excel・PDFをAIが分類し、商品と在庫へ整理します。</p><strong>データ取り込みへ →</strong></Link>

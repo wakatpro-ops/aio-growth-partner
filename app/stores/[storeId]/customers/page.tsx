@@ -15,10 +15,12 @@ export default async function CustomersPage({ params, searchParams }: { params: 
   const { saved } = query;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
-  const sourceCustomers = query.segment ? await listCustomersForSegment(store.id, query.segment) : await listCustomers(store.id, 2000);
+  const allCustomers = await listCustomers(store.id, 2000);
+  const sourceCustomers = query.segment ? await listCustomersForSegment(store.id, query.segment) : allCustomers;
   const keyword = String(query.q ?? "").trim().toLowerCase();
   const customers = keyword ? sourceCustomers.filter((customer) => [customer.name, customer.company_name, customer.phone, customer.email, customer.assigned_staff_name, ...(customer.tags ?? [])].some((value) => String(value ?? "").toLowerCase().includes(keyword))) : sourceCustomers;
   const segment = query.segment ? customerSegmentDefinition(query.segment) : null;
+  const contactableCount = allCustomers.filter((customer) => !customer.do_not_contact && (customer.line_opt_in || customer.email_opt_in)).length;
 
   return (
     <AppShell>
@@ -29,6 +31,20 @@ export default async function CustomersPage({ params, searchParams }: { params: 
         action={<div className="button-row"><Link className="button" href={`/stores/${store.id}/customers/new`}>{industry.businessLabels.customer}を追加</Link><Link className="button secondary" href={`/stores/${store.id}/customers/import`}>CSV・Excelで一括取込</Link></div>}
       />
       <StoreBusinessNav store={store} />
+      <section className="grid cols-3">
+        <article className="card"><p className="muted">登録顧客</p><div className="metric">{allCustomers.length.toLocaleString("ja-JP")}件</div><p>連絡先、来店履歴、担当者、会話メモをまとめて管理します。</p></article>
+        <article className="card"><p className="muted">連絡可能</p><div className="metric">{contactableCount.toLocaleString("ja-JP")}件</div><p>配信停止を除き、メールまたはLINEの同意を確認できた顧客です。</p></article>
+        <article className="card"><p className="muted">現在の絞り込み</p><div className="metric">{customers.length.toLocaleString("ja-JP")}件</div><p>{segment ? segment.label : keyword ? "検索条件に一致" : "全顧客を表示中"}</p></article>
+      </section>
+      <section className="card">
+        <div className="section-heading"><div><p className="eyebrow">顧客業務</p><h2>目的から選ぶ</h2></div></div>
+        <div className="hub-grid">
+          <Link className="hub-link primary" href="#customer-list"><h3>顧客一覧を確認</h3><p>連絡先、最終来店日、来店回数、担当者、メモを確認します。</p><strong>一覧へ移動 →</strong></Link>
+          <Link className="hub-link" href={`/stores/${store.id}/customer-segments`}><h3>顧客を分類</h3><p>来店状況や顧客属性で分け、対象に合う案内を準備します。</p><strong>セグメントを開く →</strong></Link>
+          <Link className="hub-link" href={`/stores/${store.id}/customer-messages`}><h3>案内文を準備</h3><p>対象顧客を確認してから、メッセージ下書きと配信予定を作ります。</p><strong>下書き・配信予定へ →</strong></Link>
+          <Link className="hub-link" href={`/stores/${store.id}/customers/import`}><h3>顧客データを取り込む</h3><p>CSV・Excelの列を確認し、顧客情報へまとめて反映します。</p><strong>一括取込へ →</strong></Link>
+        </div>
+      </section>
       {saved ? <p className="notice success">保存しました。AIOは顧客傾向を、再来店案内やフォロー文の提案に使いやすくなりました。</p> : null}
       {query.archived ? <p className="notice success">顧客を削除しました。</p> : null}
       <p className="notice success">
@@ -49,7 +65,7 @@ export default async function CustomersPage({ params, searchParams }: { params: 
           <button className="button secondary" type="submit">検索</button>
         </form>
       </section>
-      <div className="card">
+      <div className="card" id="customer-list">
         <table className="table">
           <thead>
             <tr>
