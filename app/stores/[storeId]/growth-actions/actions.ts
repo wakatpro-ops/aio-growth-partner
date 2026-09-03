@@ -28,7 +28,7 @@ import {
   upsertExternalChannelAccount
 } from "@/lib/phase5/growth-actions";
 import type { GrowthActionStatus } from "@/types/phase5";
-import { approveSnsMedia, archiveSnsMedia, disconnectMeta, executeSnsPublishJob, queueSnsPublish, selectMetaPage, uploadSnsMedia } from "@/lib/phase5/sns-publishing";
+import { approveSnsMedia, archiveSnsMedia, disconnectMeta, executeSnsPublishJob, publishMetaReviewTest, queueSnsPublish, selectMetaPage, uploadSnsMedia } from "@/lib/phase5/sns-publishing";
 
 function errorRedirect(path: string, error: unknown): never {
   const message = error instanceof Error ? error.message : "処理に失敗しました。";
@@ -183,6 +183,14 @@ export async function disconnectMetaAction(storeId: string) {
   try { await disconnectMeta(storeId); revalidatePath(path); }
   catch (error) { errorRedirect(path, error); }
   redirect(`${path}?meta_disconnected=1`);
+}
+
+export async function publishMetaReviewTestAction(storeId: string, formData: FormData) {
+  await requireStoreActionWriteAccess(storeId);
+  const path = `/stores/${storeId}/settings/channels`;
+  try { await publishMetaReviewTest(storeId, formData); revalidatePath(path); }
+  catch (error) { errorRedirect(path, error); }
+  redirect(`${path}?meta_test_published=1`);
 }
 
 export async function upsertExternalChannelAccountAction(storeId: string, formData: FormData) {
