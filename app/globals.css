@@ -225,9 +225,9 @@ select {
   display: grid;
   gap: 4px;
   padding: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface-subtle, #f7faf8);
+  background: var(--surface);
   overflow-wrap: anywhere;
 }
 
@@ -239,7 +239,7 @@ select {
 }
 
 .sidebar-account > strong {
-  color: var(--text);
+  color: var(--ink);
   font-size: 14px;
   line-height: 1.4;
 }
@@ -251,7 +251,7 @@ select {
 }
 
 .sidebar-account b {
-  color: var(--primary);
+  color: var(--accent-strong);
   font-size: 12px;
 }
 
