@@ -8,6 +8,7 @@ import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
 import { getUnifiedImportJob } from "@/lib/unified-import/data";
+import { normalizeUnifiedRow, suggestUnifiedImportMapping, unifiedImportFields } from "@/lib/unified-import/parser";
 import type { UnifiedImportRecordType } from "@/types/unified-import";
 import { executeUnifiedImportAction, saveUnifiedImportReviewAction } from "../actions";
 
@@ -21,7 +22,7 @@ const typeOptions: Array<[UnifiedImportRecordType, string]> = [
   ["ignore", "取り込まない"]
 ];
 const typeLabels = Object.fromEntries(typeOptions);
-const fieldLabels: Record<string, string> = { date: "日付", item_name: "商品・メニュー名", amount: "金額", vendor_name: "支払先", name: "名前", phone: "電話番号", quantity: "数量" };
+const fieldLabels: Record<string, string> = { date: "日付", time: "時刻", transaction_id: "会計・取引ID", item_name: "商品・メニュー名", item_code: "商品コード", category_name: "カテゴリ", quantity: "数量", unit_price: "単価", tax_amount: "税額", amount: "金額", payment_method: "支払方法", customer_name: "お客様名", staff_name: "担当スタッフ", reservation_channel: "予約経路", memo: "備考", vendor_name: "支払先", subtotal_amount: "税抜金額", invoice_registration_number: "登録番号", name: "名前", company_name: "会社名", phone: "電話番号", email: "メール", birth_date: "誕生日", gender: "性別", occupation: "職業", assigned_staff_name: "担当者", line_account: "LINE", instagram_account: "Instagram", facebook_account: "Facebook", last_visit_date: "最終来店日", visit_count: "来店回数", sku: "SKU", unit: "単位", cost_price: "原価", tax_rate: "税率", is_stock_managed: "在庫管理", description: "説明", movement_type: "入出庫区分", reorder_point: "発注点", reason: "理由" };
 const statusLabels: Record<string, string> = { questions_required: "回答が必要", review_required: "分類結果の確認待ち", review_ready: "取り込み確定待ち", importing: "取込中", completed: "完了", partial_failed: "一部失敗", failed: "失敗" };
 
 function previewText(value: unknown) {
@@ -37,7 +38,28 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
   if (!detail) notFound();
   const { job, rows } = detail;
   const industry = getIndustryConfig(store.industry_type_key);
-  const questions = rows.filter((row) => row.review_status === "question");
+  const resolvedMappings = new Map(job.sheet_summaries.map((sheet) => {
+    const selectedType = String((job.answers.sheet_types as Record<string, string> | undefined)?.[sheet.name] ?? sheet.suggestedRecordType) as UnifiedImportRecordType;
+    const mapping = (job.answers.column_mappings as Record<string, Record<string, string>> | undefined)?.[sheet.name]
+      ?? sheet.suggestedMapping
+      ?? suggestUnifiedImportMapping(sheet.headers, selectedType);
+    return [sheet.name, { selectedType, mapping }] as const;
+  }));
+  const questions = rows.filter((row) => {
+    if (row.review_status !== "question") return false;
+    const sheet = resolvedMappings.get(row.sheet_name);
+    const kind = row.confirmed_record_type ?? sheet?.selectedType ?? row.suggested_record_type;
+    if (kind === "unknown") return false;
+    const mapping = sheet?.selectedType === kind ? sheet.mapping : suggestUnifiedImportMapping(Object.keys(row.raw_data), kind);
+    const normalized = normalizeUnifiedRow(row.raw_data, kind, mapping);
+    const missingRowValue = normalized.missingFields.some((field) => Boolean(mapping[field]));
+    return missingRowValue || row.confidence < 0.7;
+  });
+  const columnQuestionCount = job.sheet_summaries.reduce((count, sheet) => {
+    const resolved = resolvedMappings.get(sheet.name);
+    if (!resolved || resolved.selectedType === "unknown") return count + 1;
+    return count + unifiedImportFields(resolved.selectedType).filter((field) => field.required && !resolved.mapping[field.key]).length;
+  }, 0);
   const previews = rows.slice(0, 50);
   const results = rows.filter((row) => ["imported", "error"].includes(row.review_status));
   const canReview = ["questions_required", "review_required", "review_ready"].includes(job.status);
@@ -59,7 +81,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         <div className="grid cols-3">
           <article><p className="muted">状態</p><strong>{statusLabels[job.status] ?? job.status}</strong></article>
           <article><p className="muted">解析したシート</p><strong>{job.sheet_summaries.length}シート</strong></article>
-          <article><p className="muted">回答が必要</p><strong>{questions.length}件</strong></article>
+          <article><p className="muted">回答が必要</p><strong>{columnQuestionCount + questions.length}件</strong></article>
         </div>
         {job.macro_enabled ? <p className="notice">マクロ付きExcelです。安全のためマクロは実行せず、ファイルに保存されていたセル値だけを読み取りました。マクロ実行後に計算される値は、Excel側で保存してから再アップロードしてください。</p> : null}
       </section>
@@ -68,21 +90,30 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         <form className="form" action={saveUnifiedImportReviewAction.bind(null, store.id, job.id, onboarding)}>
           <section className="card">
             <h2>1. シートごとの取り込み先を確認</h2>
-            <p>推定結果が違う場合だけ選び直してください。「取り込まない」を選ぶと、そのシートの行は本データへ反映されません。</p>
+            <p>推定結果と列の対応を確認します。同じ列について行ごとに回答する必要はありません。「取り込まない」を選ぶと、そのシートの行は本データへ反映されません。</p>
             <div className="grid cols-2">
-              {job.sheet_summaries.map((sheet, index) => (
-                <label className="field" key={sheet.name}>{sheet.name}（{sheet.rowCount}行・推定{Math.round(sheet.confidence * 100)}%）
-                  <select name={`sheet_type_${index}`} defaultValue={String((job.answers.sheet_types as Record<string, string> | undefined)?.[sheet.name] ?? sheet.suggestedRecordType)}>
-                    {typeOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
-                  </select>
-                </label>
-              ))}
+              {job.sheet_summaries.map((sheet, index) => {
+                const selectedType = String((job.answers.sheet_types as Record<string, string> | undefined)?.[sheet.name] ?? sheet.suggestedRecordType) as UnifiedImportRecordType;
+                const savedMappings = resolvedMappings.get(sheet.name)?.mapping ?? {};
+                const fields = unifiedImportFields(selectedType);
+                return <article className="static-card" key={sheet.name}>
+                  <label className="field">{sheet.name}（{sheet.rowCount}行・推定{Math.round(sheet.confidence * 100)}%）
+                    <select name={`sheet_type_${index}`} defaultValue={selectedType}>{typeOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>
+                  </label>
+                  {(sheet.missingRequiredFields?.length ?? 0) > 0 ? <p className="notice">行ごとではなく、該当する列を一度だけ選んでください。</p> : null}
+                  {fields.length > 0 ? <details open={(sheet.missingRequiredFields?.length ?? 0) > 0}><summary>列の対応を確認・変更</summary><div className="grid cols-2">
+                    {fields.map((field) => <label className="field" key={field.key}>{fieldLabels[field.key] ?? field.key}{field.required ? <span className="required-mark"> 必須</span> : null}
+                      <select name={`sheet_mapping_${index}_${field.key}`} defaultValue={savedMappings[field.key] ?? ""}><option value="">該当列なし</option>{sheet.headers.map((header) => <option value={header} key={header}>{header}</option>)}</select>
+                    </label>)}
+                  </div></details> : null}
+                </article>;
+              })}
             </div>
           </section>
 
           <section className="card">
             <h2>2. AIO boostからの質問</h2>
-            <p>分からない行と必須項目だけを表示しています。不要な行は「取り込まない」を選べます。</p>
+            <p>列の対応を決めた後も、その行だけ値が空欄などの例外がある場合に限って表示します。不要な行は「取り込まない」を選べます。</p>
             {questions.slice(0, 200).map((row) => (
               <article className="static-card" key={row.id}>
                 <div className="section-heading"><div><strong>{row.sheet_name}・{row.row_number}行目</strong><p>{row.question}</p></div><span className="badge">推定 {typeLabels[row.suggested_record_type]} {Math.round(row.confidence * 100)}%</span></div>

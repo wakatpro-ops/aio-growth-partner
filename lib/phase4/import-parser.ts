@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseImportDateIso } from "../import-date.ts";
 import type { DataColumnMapping, NormalizedSalesPreviewRow, ParsedSalesRow, StandardSalesField } from "@/types/phase4";
 
 export const standardSalesFields: Array<{ key: StandardSalesField; label: string; required?: boolean }> = [
@@ -194,9 +195,9 @@ function normalizeColumnName(value: string) {
 export function suggestSalesField(columnName: string): { field: StandardSalesField; confidence: number } {
   const normalized = normalizeColumnName(columnName);
   const rules: Array<{ field: StandardSalesField; confidence: number; patterns: string[] }> = [
-    { field: "sale_date", confidence: 0.96, patterns: ["会計日時", "売上日", "売上日時", "取引日", "日時", "date", "datetime"] },
-    { field: "transaction_id", confidence: 0.9, patterns: ["取引id", "取引番号", "伝票番号", "transactionid", "orderid", "注文番号"] },
-    { field: "item_name", confidence: 0.94, patterns: ["商品名", "品目", "メニュー名", "item", "product", "name"] },
+    { field: "sale_date", confidence: 0.96, patterns: ["会計日時", "会計日", "売上日", "売上日時", "取引日", "日時", "date", "datetime"] },
+    { field: "transaction_id", confidence: 0.9, patterns: ["会計id", "会計番号", "取引id", "取引番号", "伝票番号", "transactionid", "orderid", "注文番号"] },
+    { field: "item_name", confidence: 0.94, patterns: ["メニュー・店販・割引・サービス・オプション", "商品名", "品目", "メニュー名", "サービス名", "メニュー", "店販", "item", "product", "name"] },
     { field: "item_code", confidence: 0.86, patterns: ["商品コード", "品番", "sku", "code"] },
     { field: "category_name", confidence: 0.86, patterns: ["カテゴリ", "カテゴリー", "部門", "category"] },
     { field: "quantity", confidence: 0.94, patterns: ["数量", "個数", "qty", "quantity"] },
@@ -246,12 +247,8 @@ function parseNumber(value: string | null | undefined, fallback = 0) {
 }
 
 function parseDate(value: string | null | undefined) {
-  const text = String(value ?? "").trim();
-  if (!text) return null;
-  const normalized = text.replace(/[年月]/gu, "/").replace(/日/gu, "").replace(/\./gu, "/");
-  const date = new Date(normalized);
-  if (Number.isNaN(date.getTime())) return null;
-  return date;
+  const iso = parseImportDateIso(value);
+  return iso ? new Date(iso) : null;
 }
 
 function valueFor(row: ParsedSalesRow, mappings: DataColumnMapping[], field: StandardSalesField) {
@@ -260,8 +257,18 @@ function valueFor(row: ParsedSalesRow, mappings: DataColumnMapping[], field: Sta
 }
 
 export function hashSalesRow(storeId: string, dataSourceId: string | null, row: ParsedSalesRow, externalId: string | null) {
-  const source = externalId && externalId.length > 0 ? externalId : JSON.stringify(row);
+  const source = externalId && externalId.length > 0 ? `${externalId}:${JSON.stringify(row)}` : JSON.stringify(row);
   return createHash("sha256").update(`${storeId}:${dataSourceId ?? "source"}:${source}`).digest("hex");
+}
+
+export function groupNormalizedSalesRows(rows: NormalizedSalesPreviewRow[]) {
+  const groups = new Map<string, NormalizedSalesPreviewRow[]>();
+  for (const row of rows) {
+    const businessDate = row.sale_date?.slice(0, 10) ?? "unknown-date";
+    const key = row.transaction_id ? `${businessDate}:${row.transaction_id}` : `row:${row.source_row_hash}`;
+    groups.set(key, [...(groups.get(key) ?? []), row]);
+  }
+  return [...groups.values()];
 }
 
 export function normalizeSalesRows(

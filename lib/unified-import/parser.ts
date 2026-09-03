@@ -23,15 +23,19 @@ const recordTypeLabels: Record<UnifiedImportRecordType, string> = {
 const fieldRules: Record<ConcreteRecordType, FieldRule[]> = {
   sale: [
     { key: "date", patterns: ["売上日", "会計日", "取引日", "販売日", "日時", "日付", "date"] },
-    { key: "transaction_id", patterns: ["取引id", "伝票番号", "注文番号", "transactionid", "orderid"] },
-    { key: "item_name", patterns: ["商品名", "メニュー名", "サービス名", "品目", "item", "product"] },
+    { key: "time", patterns: ["会計時間", "売上時間", "取引時間", "時刻", "time"] },
+    { key: "transaction_id", patterns: ["会計id", "会計番号", "取引id", "伝票番号", "注文番号", "transactionid", "orderid"] },
+    { key: "item_name", patterns: ["メニュー・店販・割引・サービス・オプション", "商品名", "メニュー名", "サービス名", "品目", "メニュー", "店販", "item", "product"] },
     { key: "item_code", patterns: ["商品コード", "品番", "sku", "itemcode"] },
+    { key: "category_name", patterns: ["カテゴリ", "カテゴリー", "ジャンル", "部門", "category"] },
     { key: "quantity", patterns: ["数量", "個数", "qty", "quantity"] },
     { key: "unit_price", patterns: ["単価", "販売価格", "unitprice"] },
     { key: "tax_amount", patterns: ["税額", "消費税", "tax"] },
     { key: "amount", patterns: ["売上金額", "売上", "合計", "税込金額", "金額", "total", "amount"] },
     { key: "payment_method", patterns: ["支払方法", "決済方法", "payment"] },
     { key: "customer_name", patterns: ["顧客名", "お客様", "customer"] },
+    { key: "staff_name", patterns: ["担当スタッフ", "スタッフ", "施術者", "staff"] },
+    { key: "reservation_channel", patterns: ["予約経路", "来店経路", "予約媒体", "channel"] },
     { key: "memo", patterns: ["備考", "メモ", "摘要", "note", "memo"] }
   ],
   expense: [
@@ -89,6 +93,11 @@ const requiredFields: Record<ConcreteRecordType, string[]> = {
   inventory: ["item_name", "quantity"]
 };
 
+export function unifiedImportFields(kind: UnifiedImportRecordType) {
+  if (kind === "unknown" || kind === "ignore") return [];
+  return fieldRules[kind].map((field) => ({ ...field, required: requiredFields[kind].includes(field.key) }));
+}
+
 function clean(value: unknown) {
   return String(value ?? "").trim();
 }
@@ -129,6 +138,10 @@ function mappingFor(headers: string[], kind: ConcreteRecordType) {
   return mapping;
 }
 
+export function suggestUnifiedImportMapping(headers: string[], kind: UnifiedImportRecordType) {
+  return kind === "unknown" || kind === "ignore" ? {} : mappingFor(headers, kind);
+}
+
 function kindScore(headers: string[], kind: ConcreteRecordType) {
   const mapping = mappingFor(headers, kind);
   let score = Object.keys(mapping).length;
@@ -165,24 +178,27 @@ function explicitRecordType(rawData: Record<string, string>) {
   return null;
 }
 
-export function normalizeUnifiedRow(rawData: Record<string, string>, kind: UnifiedImportRecordType) {
+export function normalizeUnifiedRow(rawData: Record<string, string>, kind: UnifiedImportRecordType, mappingOverride?: Record<string, string>) {
   if (kind === "unknown" || kind === "ignore") return { normalizedData: {}, missingFields: [] as string[] };
-  const mapping = mappingFor(Object.keys(rawData), kind);
+  const mapping = mappingOverride ?? mappingFor(Object.keys(rawData), kind);
   const normalizedData = Object.fromEntries(Object.entries(mapping).map(([target, source]) => [target, clean(rawData[source])]));
   const missingFields = requiredFields[kind].filter((field) => !clean(normalizedData[field]));
   return { normalizedData, missingFields };
 }
 
-function classifyRow(rawData: Record<string, string>, sheetKind: UnifiedImportRecordType, sheetConfidence: number): Omit<ParsedUnifiedImportRow, "sheetName" | "rowNumber"> {
+function classifyRow(rawData: Record<string, string>, sheetKind: UnifiedImportRecordType, sheetConfidence: number, sheetMapping?: Record<string, string>): Omit<ParsedUnifiedImportRow, "sheetName" | "rowNumber"> {
   const explicit = explicitRecordType(rawData);
   const suggestedRecordType = explicit ?? sheetKind;
   const confidence = explicit ? 0.99 : sheetConfidence;
-  const { normalizedData, missingFields } = normalizeUnifiedRow(rawData, suggestedRecordType);
-  const question = suggestedRecordType === "unknown"
-    ? "この行が売上・経費・顧客・商品・在庫のどれかを選んでください。"
-    : missingFields.length > 0
-      ? `${recordTypeLabels[suggestedRecordType]}として取り込むため、${missingFields.join("・")}を確認してください。`
-      : confidence < 0.7
+  const mapping = explicit && explicit !== sheetKind ? suggestUnifiedImportMapping(Object.keys(rawData), explicit) : sheetMapping;
+  const { normalizedData, missingFields } = normalizeUnifiedRow(rawData, suggestedRecordType, mapping);
+  const missingColumns = new Set(suggestedRecordType === "unknown" || suggestedRecordType === "ignore"
+    ? []
+    : requiredFields[suggestedRecordType].filter((field) => !mapping?.[field]));
+  const missingRowValues = missingFields.filter((field) => !missingColumns.has(field));
+  const question = suggestedRecordType !== "unknown" && missingRowValues.length > 0
+      ? `${recordTypeLabels[suggestedRecordType]}として取り込むため、${missingRowValues.join("・")}を確認してください。`
+      : suggestedRecordType !== "unknown" && confidence < 0.7
         ? `この行を${recordTypeLabels[suggestedRecordType]}として取り込んでよいか確認してください。`
         : null;
   return { rawData, suggestedRecordType, confidence, normalizedData, missingFields, question };
@@ -205,9 +221,12 @@ function parseMatrix(sheetName: string, matrixInput: unknown[][], macroEnabled: 
   const headers = matrix[headerIndex].map((header, index) => header || `column_${index + 1}`);
   const rawRows = matrix.slice(headerIndex + 1).filter((row) => row.some(Boolean));
   const classified = classifyHeaders(headers);
+  const missingRequiredFields = classified.kind === "unknown"
+    ? []
+    : requiredFields[classified.kind].filter((field) => !classified.mapping[field]);
   const rows = rawRows.map((values, index) => {
     const rawData = Object.fromEntries(headers.map((header, column) => [header, clean(values[column])]));
-    return { sheetName, rowNumber: headerIndex + index + 2, ...classifyRow(rawData, classified.kind, classified.confidence) };
+    return { sheetName, rowNumber: headerIndex + index + 2, ...classifyRow(rawData, classified.kind, classified.confidence, classified.mapping) };
   });
   const summary: UnifiedImportSheetSummary = {
     name: sheetName,
@@ -216,6 +235,8 @@ function parseMatrix(sheetName: string, matrixInput: unknown[][], macroEnabled: 
     rowCount: rows.length,
     suggestedRecordType: classified.kind,
     confidence: classified.confidence,
+    suggestedMapping: classified.mapping,
+    missingRequiredFields,
     macroNotice: macroEnabled ? "マクロは実行せず、保存済みのセル値だけを読み取りました。" : null
   };
   return { summary, rows };
@@ -233,16 +254,18 @@ export async function parseUnifiedImportFile(fileName: string, buffer: ArrayBuff
     const parsed = await parseImportFile(fileName, buffer);
     if (parsed.rows.length > MAX_UNIFIED_IMPORT_ROWS) throw new Error(`一度に解析できるのは${MAX_UNIFIED_IMPORT_ROWS.toLocaleString("ja-JP")}行までです。ファイルを分割してください。`);
     const classified = classifyHeaders(parsed.headers);
-    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "PDF", rowNumber: index + 2, ...classifyRow(rawData, classified.kind, classified.confidence) }));
-    return { fileType: "pdf", macroEnabled: false, sheets: [{ name: "PDF", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence }], rows };
+    const missingRequiredFields = classified.kind === "unknown" ? [] : requiredFields[classified.kind].filter((field) => !classified.mapping[field]);
+    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "PDF", rowNumber: index + 2, ...classifyRow(rawData, classified.kind, classified.confidence, classified.mapping) }));
+    return { fileType: "pdf", macroEnabled: false, sheets: [{ name: "PDF", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence, suggestedMapping: classified.mapping, missingRequiredFields }], rows };
   }
 
   if (lower.endsWith(".csv") || lower.endsWith(".tsv")) {
     const parsed = await parseImportFile(fileName, buffer);
     if (parsed.rows.length > MAX_UNIFIED_IMPORT_ROWS) throw new Error(`一度に解析できるのは${MAX_UNIFIED_IMPORT_ROWS.toLocaleString("ja-JP")}行までです。ファイルを分割してください。`);
     const classified = classifyHeaders(parsed.headers);
-    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "データ", rowNumber: index + 2, ...classifyRow(rawData, classified.kind, classified.confidence) }));
-    return { fileType: "csv", macroEnabled: false, sheets: [{ name: "データ", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence }], rows };
+    const missingRequiredFields = classified.kind === "unknown" ? [] : requiredFields[classified.kind].filter((field) => !classified.mapping[field]);
+    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "データ", rowNumber: index + 2, ...classifyRow(rawData, classified.kind, classified.confidence, classified.mapping) }));
+    return { fileType: "csv", macroEnabled: false, sheets: [{ name: "データ", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence, suggestedMapping: classified.mapping, missingRequiredFields }], rows };
   }
 
   let workbook: XLSX.WorkBook;
