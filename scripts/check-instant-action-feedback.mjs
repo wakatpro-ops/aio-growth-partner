@@ -15,7 +15,9 @@ const snsPost = read("app/stores/[storeId]/growth-actions/[actionId]/sns-post/pa
 assert.match(pendingButton, /const \[clicked, setClicked\]/u);
 assert.match(pendingButton, /onClick=\{lockImmediately\}/u);
 assert.match(pendingButton, /aria-busy=\{isBusy\}/u);
-assert.match(pendingButton, /disabled=\{disabled \|\| isBusy\}/u);
+assert.match(pendingButton, /disabled=\{disabled \|\| pending \|\| busy\}/u);
+assert.match(pendingButton, /aria-disabled=\{isBusy\}/u);
+assert.doesNotMatch(pendingButton, /disabled=\{disabled \|\| isBusy\}/u);
 assert.match(confirmButton, /aria-busy=\{confirmed \|\| pending\}/u);
 
 assert.match(login, /onSubmit=\{submit\}/u);

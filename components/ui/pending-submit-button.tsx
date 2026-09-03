@@ -42,7 +42,7 @@ export function PendingSubmitButton({
   }
 
   return (
-    <button className={className} type="submit" disabled={disabled || isBusy} aria-busy={isBusy} formAction={formAction} onClick={lockImmediately}>
+    <button className={className} type="submit" disabled={disabled || pending || busy} aria-disabled={isBusy} aria-busy={isBusy} formAction={formAction} onClick={lockImmediately}>
       {isBusy ? pendingLabel : children}
     </button>
   );
