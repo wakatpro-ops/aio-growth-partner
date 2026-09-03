@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
+import { ImportUploadForm } from "@/components/unified-import/import-upload-form";
 import { PageHeader } from "@/components/ui/page-header";
-import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getStore } from "@/lib/stores";
@@ -41,21 +41,7 @@ export default async function UnifiedImportPage({ params, searchParams }: { para
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
       {query.archived ? <p className="notice success">取込履歴を削除しました。元ファイルと反映済みの業務データは証跡として保持されます。</p> : null}
 
-      <form className="card form" action={uploadUnifiedImportAction.bind(null, store.id, onboarding)}>
-        <h2>ファイルをアップロードして解析</h2>
-        <p>ファイルの種類や列名が分からなくても構いません。AIO boostが内容を分類し、判断できないところだけ質問します。</p>
-        <div className="field">
-          <label htmlFor="unified_file">CSV・Excel・PDFファイル</label>
-          <input id="unified_file" name="file" type="file" accept=".csv,.tsv,.xlsx,.xls,.xlsm,.pdf,text/csv,application/pdf,application/vnd.ms-excel,application/vnd.ms-excel.sheet.macroEnabled.12,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
-        </div>
-        <ul className="compact-list">
-          <li>20MB・合計50,000行まで、Excelは複数シートに対応します。</li>
-          <li>マクロ付きExcel（XLSM）のマクロは実行せず、保存済みのセル値だけを読み取ります。</li>
-          <li>人が確認して「取り込みを確定」するまで、売上・経費などの本データには反映しません。</li>
-          <li>経費はfreeeへ送信せず、送信前の確認データとして保存します。</li>
-        </ul>
-        <PendingSubmitButton pendingLabel="ファイルを安全に解析しています...">アップロードしてAI解析</PendingSubmitButton>
-      </form>
+      <ImportUploadForm action={uploadUnifiedImportAction.bind(null, store.id, onboarding)} />
 
       <section className="card">
         <div className="section-heading"><div><h2>AIデータ取込履歴</h2><p className="muted">分析結果・質問・反映結果を後から確認できます。</p></div><Link className="button secondary" href={`/stores/${store.id}/data-imports`}>売上専用の取込履歴</Link></div>
