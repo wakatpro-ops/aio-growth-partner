@@ -21,11 +21,16 @@ export function ConfirmSubmitButton({ children, message, className = "button dan
   }, [confirmed, pending]);
 
   function confirmSubmit(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
     if (!window.confirm(message)) {
-      event.preventDefault();
       return;
     }
+    const form = event.currentTarget.form;
     setConfirmed(true);
+    // React may apply the disabled state before the browser's default submit
+    // action runs. Submit the form explicitly so confirmation never swallows
+    // the requested operation.
+    form?.requestSubmit();
   }
 
   return (
