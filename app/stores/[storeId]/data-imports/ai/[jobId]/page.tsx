@@ -5,6 +5,7 @@ import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { MappingReviewPanel } from "@/components/unified-import/mapping-review-panel";
 import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
 import { getUnifiedImportJob } from "@/lib/unified-import/data";
@@ -62,6 +63,20 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
   }, 0);
   const previews = rows.slice(0, 50);
   const results = rows.filter((row) => ["imported", "error"].includes(row.review_status));
+  const countTypes = ["sale", "expense", "customer", "item", "inventory", "ignore"] as const;
+  const rowCounts = Object.fromEntries(countTypes.map((kind) => [kind, rows.filter((row) => (row.confirmed_record_type ?? resolvedMappings.get(row.sheet_name)?.selectedType ?? row.suggested_record_type) === kind).length]));
+  const resultCounts = Object.fromEntries(countTypes.map((kind) => [kind, {
+    success: rows.filter((row) => (row.confirmed_record_type ?? row.suggested_record_type) === kind && row.review_status === "imported").length,
+    error: rows.filter((row) => (row.confirmed_record_type ?? row.suggested_record_type) === kind && row.review_status === "error").length
+  }]));
+  const seenRawRows = new Set<string>();
+  const possibleDuplicateRows = rows.reduce((count, row) => {
+    const signature = `${row.sheet_name}:${JSON.stringify(row.raw_data)}`;
+    if (seenRawRows.has(signature)) return count + 1;
+    seenRawRows.add(signature);
+    return count;
+  }, 0);
+  const reusedSheets = new Set(((job.answers.mapping_reused_sheets ?? []) as string[]));
   const canReview = ["questions_required", "review_required", "review_ready"].includes(job.status);
   const onboarding = query.onboarding === "1";
 
@@ -88,27 +103,26 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
 
       {canReview ? (
         <form className="form" action={saveUnifiedImportReviewAction.bind(null, store.id, job.id, onboarding)}>
-          <section className="card">
-            <h2>1. シートごとの取り込み先を確認</h2>
-            <p>推定結果と列の対応を確認します。同じ列について行ごとに回答する必要はありません。「取り込まない」を選ぶと、そのシートの行は本データへ反映されません。</p>
-            <div className="grid cols-2">
-              {job.sheet_summaries.map((sheet, index) => {
-                const selectedType = String((job.answers.sheet_types as Record<string, string> | undefined)?.[sheet.name] ?? sheet.suggestedRecordType) as UnifiedImportRecordType;
-                const savedMappings = resolvedMappings.get(sheet.name)?.mapping ?? {};
-                const fields = unifiedImportFields(selectedType);
-                return <article className="static-card" key={sheet.name}>
-                  <label className="field">{sheet.name}（{sheet.rowCount}行・推定{Math.round(sheet.confidence * 100)}%）
-                    <select name={`sheet_type_${index}`} defaultValue={selectedType}>{typeOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>
-                  </label>
-                  {(sheet.missingRequiredFields?.length ?? 0) > 0 ? <p className="notice">行ごとではなく、該当する列を一度だけ選んでください。</p> : null}
-                  {fields.length > 0 ? <details open={(sheet.missingRequiredFields?.length ?? 0) > 0}><summary>列の対応を確認・変更</summary><div className="grid cols-2">
-                    {fields.map((field) => <label className="field" key={field.key}>{fieldLabels[field.key] ?? field.key}{field.required ? <span className="required-mark"> 必須</span> : null}
-                      <select name={`sheet_mapping_${index}_${field.key}`} defaultValue={savedMappings[field.key] ?? ""}><option value="">該当列なし</option>{sheet.headers.map((header) => <option value={header} key={header}>{header}</option>)}</select>
-                    </label>)}
-                  </div></details> : null}
-                </article>;
+          <section>
+            <h2>1. 元の表を見ながら、整理結果を確認</h2>
+            <p>確度の高い列はAIO boostが整理済みです。必須項目が分からない場合だけ質問します。自動整理した内容も開いて変更できます。</p>
+            <MappingReviewPanel
+              fieldLabels={fieldLabels}
+              sheets={job.sheet_summaries.map((sheet) => {
+                const resolved = resolvedMappings.get(sheet.name)!;
+                return {
+                  name: sheet.name,
+                  rowCount: sheet.rowCount,
+                  confidence: sheet.confidence,
+                  headers: sheet.headers,
+                  selectedType: resolved.selectedType,
+                  mapping: resolved.mapping,
+                  fields: unifiedImportFields(resolved.selectedType).map((field) => ({ key: field.key, required: field.required })),
+                  rows: rows.filter((row) => row.sheet_name === sheet.name).slice(0, 12).map((row) => ({ id: row.id, rowNumber: row.row_number, rawData: row.raw_data })),
+                  reused: reusedSheets.has(sheet.name)
+                };
               })}
-            </div>
+            />
           </section>
 
           <section className="card">
@@ -141,11 +155,20 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
       ) : null}
 
       <section className="card">
-        <h2>解析プレビュー（先頭50行）</h2>
+        <h2>保存先ごとの整理結果</h2>
+        <p>正式データへ反映する前の予定件数です。回答が必要な行は、確定できるまで取り込みません。</p>
+        <div className="unified-import-count-grid">
+          {countTypes.map((kind) => <article className="static-card" key={kind}><span>{typeLabels[kind]}</span><strong>{rowCounts[kind].toLocaleString("ja-JP")}行</strong></article>)}
+          <article className="static-card warning-card"><span>回答が必要</span><strong>{(columnQuestionCount + questions.length).toLocaleString("ja-JP")}件</strong></article>
+          <article className="static-card"><span>同じ内容の行候補</span><strong>{possibleDuplicateRows.toLocaleString("ja-JP")}行</strong></article>
+        </div>
+        {possibleDuplicateRows > 0 ? <p className="notice">同じシート内に内容が完全一致する行が{possibleDuplicateRows}行あります。正しい複数件の場合もあるため自動削除せず、元表で確認できるようにしています。</p> : null}
+        <details><summary>行ごとの解析プレビュー（先頭50行）</summary>
         <table className="table compact">
           <thead><tr><th>場所</th><th>分類</th><th>主な内容</th><th>確認状態</th></tr></thead>
           <tbody>{previews.map((row) => <tr key={row.id}><td>{row.sheet_name} {row.row_number}行</td><td>{typeLabels[row.confirmed_record_type ?? row.suggested_record_type]}</td><td>{Object.entries(row.normalized_data).slice(0, 4).map(([key, value]) => `${fieldLabels[key] ?? key}: ${previewText(value)}`).join(" / ") || Object.values(row.raw_data).slice(0, 3).map(previewText).join(" / ")}</td><td>{row.review_status === "question" ? "回答が必要" : row.review_status === "ignored" ? "取り込まない" : row.review_status === "error" ? "失敗" : row.review_status === "imported" ? "取込済み" : "確認可能"}</td></tr>)}</tbody>
         </table>
+        </details>
       </section>
 
       {job.status === "review_ready" ? (
@@ -167,6 +190,9 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
       {results.length > 0 ? (
         <section className="card">
           <h2>取り込み結果</h2>
+          <div className="unified-import-count-grid">
+            {countTypes.filter((kind) => kind !== "ignore").map((kind) => <article className="static-card" key={kind}><span>{typeLabels[kind]}</span><strong>{resultCounts[kind].success.toLocaleString("ja-JP")}件成功</strong>{resultCounts[kind].error > 0 ? <small>{resultCounts[kind].error}件失敗</small> : null}</article>)}
+          </div>
           <div className="form-actions"><Link className="button secondary" href={`/stores/${store.id}/sales`}>売上を見る</Link><Link className="button secondary" href={`/stores/${store.id}/accounting/receipts`}>経費を見る</Link><Link className="button secondary" href={`/stores/${store.id}/customers`}>顧客を見る</Link><Link className="button secondary" href={`/stores/${store.id}/items`}>商品を見る</Link><Link className="button secondary" href={`/stores/${store.id}/inventory`}>在庫を見る</Link></div>
           <table className="table compact"><thead><tr><th>場所</th><th>分類</th><th>結果</th></tr></thead><tbody>{results.slice(0, 200).map((row) => <tr key={row.id}><td>{row.sheet_name} {row.row_number}行</td><td>{typeLabels[row.confirmed_record_type ?? row.suggested_record_type]}</td><td>{row.review_status === "imported" ? "取込済み" : row.error_message}</td></tr>)}</tbody></table>
         </section>

@@ -2568,6 +2568,84 @@ p {
   }
 }
 
+/* Guided unified import */
+.unified-import-dropzone {
+  align-items: center;
+  background: color-mix(in srgb, var(--primary) 5%, white);
+  border: 2px dashed color-mix(in srgb, var(--primary) 38%, #ccd5d0);
+  border-radius: 18px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+  min-height: 180px;
+  padding: 28px;
+  text-align: center;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.unified-import-dropzone:hover,
+.unified-import-dropzone:focus-visible,
+.unified-import-dropzone.is-dragging {
+  background: color-mix(in srgb, var(--primary) 10%, white);
+  border-color: var(--primary);
+  outline: none;
+}
+
+.unified-import-dropzone.is-dragging { transform: scale(1.01); }
+.unified-import-dropzone.has-file { border-style: solid; }
+.unified-import-dropzone-icon { color: var(--primary); font-size: 36px; line-height: 1; }
+.unified-import-dropzone span:last-of-type { color: var(--muted); }
+
+.unified-import-progress {
+  align-items: center;
+  background: color-mix(in srgb, var(--primary) 7%, white);
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, #dfe6e2);
+  border-radius: 14px;
+  display: flex;
+  gap: 14px;
+  padding: 16px;
+}
+
+.unified-import-progress p { color: var(--muted); margin: 4px 0 0; }
+.unified-import-spinner { animation: unified-import-spin 800ms linear infinite; border: 3px solid #d8e5df; border-radius: 50%; border-top-color: var(--primary); flex: 0 0 auto; height: 26px; width: 26px; }
+@keyframes unified-import-spin { to { transform: rotate(360deg); } }
+
+.unified-import-sheets { display: grid; gap: 18px; margin-top: 18px; }
+.unified-import-sheet-review { margin: 0; }
+.unified-import-sheet-review h3 { margin-bottom: 4px; }
+.unified-import-type-field { max-width: 440px; }
+.unified-import-review-layout { display: grid; gap: 18px; grid-template-columns: minmax(0, 1.7fr) minmax(300px, 0.8fr); margin-top: 18px; }
+.unified-import-pane-title { font-weight: 700; margin: 0 0 10px; }
+.unified-import-grid-scroll { border: 1px solid var(--border); border-radius: 12px; max-height: 520px; overflow: auto; }
+.unified-import-source-table { border-collapse: collapse; font-size: 13px; min-width: 100%; white-space: nowrap; }
+.unified-import-source-table th,
+.unified-import-source-table td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); max-width: 260px; overflow: hidden; padding: 9px 11px; text-overflow: ellipsis; }
+.unified-import-source-table th { background: #f4f6f5; position: sticky; top: 0; z-index: 1; }
+.unified-import-source-table .row-number { background: #f7f8f7; color: var(--muted); left: 0; position: sticky; text-align: right; z-index: 2; }
+.unified-import-source-table .is-active { background: #fff3c9; box-shadow: inset 2px 0 #e2a800, inset -2px 0 #e2a800; }
+.unified-import-assistant { background: #fafcfb; border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+.unified-import-question { border-left: 3px solid #e2a800; padding-left: 12px; }
+.unified-import-resolved { margin-top: 14px; }
+.unified-import-resolved summary { color: var(--primary); cursor: pointer; font-weight: 700; }
+.unified-import-resolved > div { display: grid; gap: 10px; margin-top: 14px; }
+.unified-import-count-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin: 16px 0; }
+.unified-import-count-grid .static-card { display: grid; gap: 4px; padding: 14px; }
+.unified-import-count-grid strong { font-size: 20px; }
+.unified-import-count-grid small { color: var(--danger); }
+
+@media (max-width: 900px) {
+  .unified-import-review-layout { grid-template-columns: 1fr; }
+  .unified-import-assistant { order: -1; }
+}
+
+@media (max-width: 620px) {
+  .unified-import-dropzone { min-height: 150px; padding: 20px 14px; }
+  .unified-import-sheet-review { padding: 16px; }
+  .unified-import-count-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Paired business-document editor: completed paper on the left, matching inputs on the right. */
 .document-editor {
   align-items: start;

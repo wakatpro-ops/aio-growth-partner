@@ -6,6 +6,9 @@ const policies = readFileSync("database/policies.sql", "utf8");
 const service = readFileSync("lib/unified-import/data.ts", "utf8");
 const parser = readFileSync("lib/unified-import/parser.ts", "utf8");
 const detail = readFileSync("app/stores/[storeId]/data-imports/ai/[jobId]/page.tsx", "utf8");
+const uploadPage = readFileSync("app/stores/[storeId]/data-imports/ai/page.tsx", "utf8");
+const uploadForm = readFileSync("components/unified-import/import-upload-form.tsx", "utf8");
+const mappingReview = readFileSync("components/unified-import/mapping-review-panel.tsx", "utf8");
 
 for (const table of ["unified_import_jobs", "unified_import_rows"]) {
   assert.match(migration, new RegExp(`create table if not exists public\\.${table}`));
@@ -27,6 +30,15 @@ assert.match(parser, /bookVBA: false/);
 assert.match(parser, /cellFormula: false/);
 assert.match(detail, /確認した内容で取り込みを確定/);
 assert.match(detail, /マクロは実行せず/);
+assert.match(detail, /保存先ごとの整理結果/);
+assert.match(detail, /同じ内容の行候補/);
+assert.match(uploadPage, /ImportUploadForm/);
+assert.match(uploadForm, /onDrop/);
+assert.match(uploadForm, /表とシートの構造を確認しています/);
+assert.match(mappingReview, /元ファイルの表/);
+assert.match(mappingReview, /自動で整理した/);
+assert.match(service, /reuseStoreMappings/);
+assert.match(service, /mapping_reused_sheets/);
 for (const route of [
   "app/stores/[storeId]/data-imports/ai/page.tsx",
   "app/stores/[storeId]/data-imports/ai/[jobId]/page.tsx",

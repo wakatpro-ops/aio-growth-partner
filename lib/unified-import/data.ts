@@ -7,7 +7,7 @@ import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import { getStore } from "@/lib/stores";
 import { buildImportStorageFileName } from "@/lib/storage-object-name";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { normalizeUnifiedRow, parseUnifiedImportFile, suggestUnifiedImportMapping, unifiedImportFields } from "@/lib/unified-import/parser";
+import { classifyUnifiedImportRow, normalizeUnifiedRow, parseUnifiedImportFile, suggestUnifiedImportMapping, unifiedImportFields } from "@/lib/unified-import/parser";
 import { groupUnifiedSaleRows } from "@/lib/unified-import/sales-groups";
 import type { Store } from "@/types/domain";
 import type { UnifiedImportJob, UnifiedImportQuestion, UnifiedImportRecordType, UnifiedImportRow } from "@/types/unified-import";
@@ -105,6 +105,58 @@ function rowReviewStatus(row: { question: string | null }) {
   return row.question ? "question" : "ready";
 }
 
+function headerSignature(headers: string[]) {
+  return headers.map((header) => header.trim().toLowerCase().normalize("NFKC")).join("\u001f");
+}
+
+async function reuseStoreMappings(supabase: SupabaseClient, storeId: string, parsed: Awaited<ReturnType<typeof parseUnifiedImportFile>>) {
+  const { data: recentJobs } = await supabase
+    .from("unified_import_jobs")
+    .select("id, sheet_summaries, answers")
+    .eq("store_id", storeId)
+    .is("archived_at", null)
+    .in("status", ["review_ready", "completed", "partial_failed"])
+    .order("updated_at", { ascending: false })
+    .limit(20);
+  const reusedSheets: string[] = [];
+  const reusedFrom: Record<string, string> = {};
+  const sheetTypes: Record<string, UnifiedImportRecordType> = {};
+  const columnMappings: Record<string, Record<string, string>> = {};
+
+  for (const sheet of parsed.sheets) {
+    const signature = headerSignature(sheet.headers);
+    let match: { jobId: string; sourceName: string; type: UnifiedImportRecordType; mapping: Record<string, string> } | null = null;
+    for (const candidate of recentJobs ?? []) {
+      const summaries = (candidate.sheet_summaries ?? []) as UnifiedImportJob["sheet_summaries"];
+      const source = summaries.find((entry) => headerSignature(entry.headers) === signature);
+      if (!source) continue;
+      const answers = (candidate.answers ?? {}) as Record<string, unknown>;
+      const types = (answers.sheet_types ?? {}) as Record<string, UnifiedImportRecordType>;
+      const mappings = (answers.column_mappings ?? {}) as Record<string, Record<string, string>>;
+      const type = types[source.name] ?? source.suggestedRecordType;
+      const mapping = mappings[source.name] ?? source.suggestedMapping ?? {};
+      if (["unknown", "ignore"].includes(type) || Object.keys(mapping).length === 0) continue;
+      match = { jobId: String(candidate.id), sourceName: source.name, type, mapping };
+      break;
+    }
+    if (!match) continue;
+    const validMapping = Object.fromEntries(Object.entries(match.mapping).filter(([, header]) => sheet.headers.includes(header)));
+    const missingRequiredFields = unifiedImportFields(match.type).filter((field) => field.required && !validMapping[field.key]).map((field) => field.key);
+    sheet.suggestedRecordType = match.type;
+    sheet.suggestedMapping = validMapping;
+    sheet.missingRequiredFields = missingRequiredFields;
+    sheetTypes[sheet.name] = match.type;
+    columnMappings[sheet.name] = validMapping;
+    reusedSheets.push(sheet.name);
+    reusedFrom[sheet.name] = match.jobId;
+    for (const row of parsed.rows.filter((entry) => entry.sheetName === sheet.name)) {
+      const classified = classifyUnifiedImportRow(row.rawData, match.type, Math.max(sheet.confidence, 0.95), validMapping);
+      Object.assign(row, classified);
+    }
+  }
+  return { reusedSheets, reusedFrom, sheetTypes, columnMappings };
+}
+
 export async function uploadUnifiedImportFile(storeId: string, formData: FormData) {
   const { store, access, supabase } = await context(storeId, true);
   const file = formData.get("file");
@@ -115,6 +167,7 @@ export async function uploadUnifiedImportFile(storeId: string, formData: FormDat
   if (duplicate?.id) return { jobId: String(duplicate.id), duplicate: true };
 
   const parsed = await parseUnifiedImportFile(file.name, buffer);
+  const reused = await reuseStoreMappings(supabase, store.id, parsed);
   const jobId = randomUUID();
   const safeName = buildImportStorageFileName(file.name, fileSha256);
   const storagePath = `organizations/${store.organization_id}/stores/${store.id}/unified-imports/${jobId}/${safeName}`;
@@ -138,6 +191,12 @@ export async function uploadUnifiedImportFile(storeId: string, formData: FormDat
     status,
     sheet_summaries: parsed.sheets,
     questions,
+    answers: {
+      sheet_types: reused.sheetTypes,
+      column_mappings: reused.columnMappings,
+      mapping_reused_sheets: reused.reusedSheets,
+      mapping_reused_from: reused.reusedFrom
+    },
     total_rows: parsed.rows.length,
     created_by: access.userId
   });
@@ -172,7 +231,7 @@ export async function uploadUnifiedImportFile(storeId: string, formData: FormDat
     throw new Error(`行データを保存できませんでした: ${error instanceof Error ? error.message : "unknown error"}`);
   }
 
-  await logAuditEvent({ storeId: store.id, actionType: "unified_import_uploaded", targetType: "unified_import", targetId: jobId, message: `${file.name}を解析し、${parsed.rows.length}行の振り分け候補を作成しました。`, metadata: { sheets: parsed.sheets.length, macro_enabled: parsed.macroEnabled, questions: questions.length } });
+  await logAuditEvent({ storeId: store.id, actionType: "unified_import_uploaded", targetType: "unified_import", targetId: jobId, message: `${file.name}を解析し、${parsed.rows.length}行の振り分け候補を作成しました。`, metadata: { sheets: parsed.sheets.length, macro_enabled: parsed.macroEnabled, questions: questions.length, reused_mapping_sheets: reused.reusedSheets.length } });
   return { jobId, duplicate: false };
 }
 
@@ -283,7 +342,7 @@ export async function saveUnifiedImportReview(storeId: string, jobId: string, fo
 
   const totalUnresolved = unresolvedSheets + unresolvedColumns + unresolved;
   const status = totalUnresolved > 0 ? "questions_required" : "review_ready";
-  const answers = { sheet_types: Object.fromEntries(sheetKinds), column_mappings: Object.fromEntries(sheetMappings), reviewed_by: access.userId, reviewed_at: new Date().toISOString() };
+  const answers = { ...detail.job.answers, sheet_types: Object.fromEntries(sheetKinds), column_mappings: Object.fromEntries(sheetMappings), reviewed_by: access.userId, reviewed_at: new Date().toISOString() };
   const questions = questionList(rowUpdates.map((row) => ({ sheetName: String(row.sheet_name), rowNumber: Number(row.row_number), suggestedRecordType: row.suggested_record_type as UnifiedImportRecordType, missingFields: row.missing_fields as string[], question: row.question as string | null })), updatedSummaries);
   const { error } = await supabase.from("unified_import_jobs").update({ status, answers, sheet_summaries: updatedSummaries, approved_rows: approved, questions, updated_at: new Date().toISOString() }).eq("id", jobId).eq("store_id", store.id);
   if (error) throw new Error(`確認状態を保存できませんでした: ${error.message}`);

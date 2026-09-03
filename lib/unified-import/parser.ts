@@ -186,7 +186,7 @@ export function normalizeUnifiedRow(rawData: Record<string, string>, kind: Unifi
   return { normalizedData, missingFields };
 }
 
-function classifyRow(rawData: Record<string, string>, sheetKind: UnifiedImportRecordType, sheetConfidence: number, sheetMapping?: Record<string, string>): Omit<ParsedUnifiedImportRow, "sheetName" | "rowNumber"> {
+export function classifyUnifiedImportRow(rawData: Record<string, string>, sheetKind: UnifiedImportRecordType, sheetConfidence: number, sheetMapping?: Record<string, string>): Omit<ParsedUnifiedImportRow, "sheetName" | "rowNumber"> {
   const explicit = explicitRecordType(rawData);
   const suggestedRecordType = explicit ?? sheetKind;
   const confidence = explicit ? 0.99 : sheetConfidence;
@@ -226,7 +226,7 @@ function parseMatrix(sheetName: string, matrixInput: unknown[][], macroEnabled: 
     : requiredFields[classified.kind].filter((field) => !classified.mapping[field]);
   const rows = rawRows.map((values, index) => {
     const rawData = Object.fromEntries(headers.map((header, column) => [header, clean(values[column])]));
-    return { sheetName, rowNumber: headerIndex + index + 2, ...classifyRow(rawData, classified.kind, classified.confidence, classified.mapping) };
+    return { sheetName, rowNumber: headerIndex + index + 2, ...classifyUnifiedImportRow(rawData, classified.kind, classified.confidence, classified.mapping) };
   });
   const summary: UnifiedImportSheetSummary = {
     name: sheetName,
@@ -255,7 +255,7 @@ export async function parseUnifiedImportFile(fileName: string, buffer: ArrayBuff
     if (parsed.rows.length > MAX_UNIFIED_IMPORT_ROWS) throw new Error(`一度に解析できるのは${MAX_UNIFIED_IMPORT_ROWS.toLocaleString("ja-JP")}行までです。ファイルを分割してください。`);
     const classified = classifyHeaders(parsed.headers);
     const missingRequiredFields = classified.kind === "unknown" ? [] : requiredFields[classified.kind].filter((field) => !classified.mapping[field]);
-    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "PDF", rowNumber: index + 2, ...classifyRow(rawData, classified.kind, classified.confidence, classified.mapping) }));
+    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "PDF", rowNumber: index + 2, ...classifyUnifiedImportRow(rawData, classified.kind, classified.confidence, classified.mapping) }));
     return { fileType: "pdf", macroEnabled: false, sheets: [{ name: "PDF", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence, suggestedMapping: classified.mapping, missingRequiredFields }], rows };
   }
 
@@ -264,7 +264,7 @@ export async function parseUnifiedImportFile(fileName: string, buffer: ArrayBuff
     if (parsed.rows.length > MAX_UNIFIED_IMPORT_ROWS) throw new Error(`一度に解析できるのは${MAX_UNIFIED_IMPORT_ROWS.toLocaleString("ja-JP")}行までです。ファイルを分割してください。`);
     const classified = classifyHeaders(parsed.headers);
     const missingRequiredFields = classified.kind === "unknown" ? [] : requiredFields[classified.kind].filter((field) => !classified.mapping[field]);
-    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "データ", rowNumber: index + 2, ...classifyRow(rawData, classified.kind, classified.confidence, classified.mapping) }));
+    const rows = parsed.rows.map((rawData, index) => ({ sheetName: "データ", rowNumber: index + 2, ...classifyUnifiedImportRow(rawData, classified.kind, classified.confidence, classified.mapping) }));
     return { fileType: "csv", macroEnabled: false, sheets: [{ name: "データ", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence, suggestedMapping: classified.mapping, missingRequiredFields }], rows };
   }
 
