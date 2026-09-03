@@ -331,6 +331,17 @@ async function metaGet(path: string, token: string, fields: string) {
   return payload;
 }
 
+async function waitForInstagramContainer(containerId: string, token: string) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const state = await metaGet(containerId, token, "status_code,status");
+    const status = String(state.status_code ?? state.status ?? "IN_PROGRESS");
+    if (status === "FINISHED") return;
+    if (["ERROR", "EXPIRED"].includes(status)) throw new Error(`Instagram画像の準備に失敗しました（${status}）。`);
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+  }
+  throw new Error("Instagram画像の準備が時間内に完了しませんでした。もう一度お試しください。");
+}
+
 export async function executeSnsPublishJob(jobId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("公開処理を開始できません。");
@@ -350,6 +361,7 @@ export async function executeSnsPublishJob(jobId: string) {
     let response: Record<string, unknown>;
     if (job.channel === "instagram") {
       const container = await metaRequest(`${account.external_account_id}/media`, token, { image_url: payload.media_url, caption: payload.caption });
+      await waitForInstagramContainer(String(container.id ?? ""), token);
       response = await metaRequest(`${account.external_account_id}/media_publish`, token, { creation_id: String(container.id ?? "") });
     } else if (job.channel === "facebook") {
       response = await metaRequest(`${account.external_account_id}/photos`, token, { url: payload.media_url, caption: payload.caption, published: "true" });
@@ -368,6 +380,67 @@ export async function executeSnsPublishJob(jobId: string) {
     await supabase.from("external_publish_jobs").update({ status: retryable ? "retry_wait" : "failed", error_message: message.slice(0, 500), next_retry_at: nextRetry, updated_at: new Date().toISOString() }).eq("id", job.id);
     throw new Error(`${message}${retryable ? " 自動再試行を予約しました。" : " 手動投稿をご利用ください。"}`);
   }
+}
+
+export async function publishMetaReviewTest(storeId: string, formData: FormData) {
+  const resolved = await context(storeId);
+  await requireEditor(resolved.organizationId, resolved.publicStoreId);
+  if (String(formData.get("review_test_confirmed") ?? "") !== "yes") throw new Error("審査用投稿であることを確認してください。");
+
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("Meta接続テストを開始できません。");
+  const caption = [
+    "AIO boost Meta App Review用の動作確認投稿です。",
+    "",
+    "Facebook・Instagram連携から、画像と文章を確認・承認して投稿する機能をテストしています。これは審査用ページでのテスト投稿です。",
+    "",
+    "#AIOboost #MetaAppReview"
+  ].join("\n");
+  const mediaUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://app.aioboost.jp"}/brand/aio-boost-robot-assistant.png`;
+  const results: Array<{ channel: SnsChannel; status: string; publicUrl?: string | null }> = [];
+
+  for (const channel of ["facebook", "instagram"] as const) {
+    const { data: account } = await supabase.from("external_channel_accounts")
+      .select("external_account_id,access_token_encrypted,connection_status,token_expires_at")
+      .eq("store_id", resolved.storeId).eq("channel", channel).eq("external_provider", "meta").maybeSingle();
+    if (!account?.external_account_id || !account.access_token_encrypted || account.connection_status !== "connected") throw new Error(`${channel}の接続を確認してください。`);
+    if (account.token_expires_at && Date.parse(account.token_expires_at) <= Date.now()) throw new Error(`${channel}の認証期限が切れています。再接続してください。`);
+
+    const idempotencyKey = crypto.createHash("sha256").update(`${resolved.storeId}:meta-review:${channel}:${new Date().toISOString().slice(0, 16)}`).digest("hex");
+    const { data: existing } = await supabase.from("external_publish_jobs").select("id,status,response_json")
+      .eq("store_id", resolved.storeId).eq("provider", "meta").eq("idempotency_key", idempotencyKey).maybeSingle();
+    let jobId = existing?.id ? String(existing.id) : "";
+    if (!jobId) {
+      const { data: created, error } = await supabase.from("external_publish_jobs").insert({
+        organization_id: resolved.organizationId,
+        store_id: resolved.storeId,
+        growth_action_id: null,
+        channel,
+        provider: "meta",
+        target_id: account.external_account_id,
+        status: "ready",
+        scheduled_at: new Date().toISOString(),
+        idempotency_key: idempotencyKey,
+        payload_json: { media_url: mediaUrl, caption, review_test: true },
+        response_json: {}
+      }).select("id").single();
+      if (error || !created?.id) throw new Error(`${channel}の審査用投稿を準備できませんでした: ${error?.message ?? "unknown"}`);
+      jobId = String(created.id);
+    }
+    const published = existing?.status === "sent"
+      ? { status: "sent", publicUrl: (existing.response_json as { public_url?: string } | null)?.public_url ?? null }
+      : await executeSnsPublishJob(jobId);
+    results.push({ channel, status: String(published.status), publicUrl: "publicUrl" in published ? published.publicUrl : null });
+  }
+
+  await logAuditEvent({
+    storeId,
+    actionType: "meta_app_review_test_published",
+    targetType: "external_publish_job",
+    message: "審査用FacebookページとInstagramへ、Meta App Review用の接続テスト投稿を公開しました。",
+    metadata: { channels: results.map((result) => result.channel), review_test: true }
+  });
+  return results;
 }
 
 export async function processDueSnsPublishJobs() {

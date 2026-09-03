@@ -11,6 +11,7 @@ const actions = read("app/stores/[storeId]/growth-actions/actions.ts");
 const privacy = read("lib/legal/content.ts");
 const deletionPage = read("app/data-deletion/page.tsx");
 const envExample = read(".env.example");
+const reviewDoc = read("docs/meta-app-review-submission.md");
 
 for (const scope of [
   "pages_show_list",
@@ -39,6 +40,12 @@ assert.ok(service.includes("meta_disconnected"), "Meta disconnect audit event is
 assert.ok(actions.includes("disconnectMetaAction"), "Meta disconnect server action is missing");
 assert.ok(settings.includes("ConfirmSubmitButton"), "Meta disconnect confirmation is missing");
 assert.ok(settings.includes("Meta連携を解除"), "Meta disconnect button is missing");
+assert.ok(settings.includes("審査用の接続テスト投稿を公開"), "Meta review test publish button is missing");
+assert.ok(actions.includes("publishMetaReviewTestAction"), "Meta review test server action is missing");
+assert.ok(service.includes("meta_app_review_test_published"), "Meta review test audit event is missing");
+assert.ok(service.includes("waitForInstagramContainer"), "Instagram media readiness polling is missing");
+assert.ok(reviewDoc.includes("business_management"), "business_management review explanation is missing");
+assert.ok(reviewDoc.includes("7件"), "Meta review permission count is stale");
 
 for (const value of [
   "Meta連携の解除とデータ削除",
