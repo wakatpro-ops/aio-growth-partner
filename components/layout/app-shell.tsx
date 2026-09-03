@@ -34,6 +34,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [storeName, setStoreName] = useState<string | null>(null);
   const [storeOptions, setStoreOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [canManageStores, setCanManageStores] = useState(false);
+  const [currentAccount, setCurrentAccount] = useState<{
+    displayName: string;
+    email: string | null;
+    roleLabel: string;
+    scopeLabel: string;
+  } | null>(null);
   const isAdminArea = pathname === "/admin" || pathname.startsWith("/admin/");
   const showSignOut = !publicPaths.includes(pathname);
   const activeStoreId = useMemo(() => {
@@ -91,6 +97,28 @@ export function AppShell({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [activeStoreId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setCurrentAccount(null);
+    if (!showSignOut) return;
+    const query = activeStoreId ? `?store_id=${encodeURIComponent(activeStoreId)}` : "";
+    fetch(`/api/auth/me${query}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (cancelled || typeof data?.displayName !== "string" || typeof data?.roleLabel !== "string") return;
+        setCurrentAccount({
+          displayName: data.displayName,
+          email: typeof data.email === "string" ? data.email : null,
+          roleLabel: data.roleLabel,
+          scopeLabel: typeof data.scopeLabel === "string" ? data.scopeLabel : ""
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setCurrentAccount(null);
+      });
+    return () => { cancelled = true; };
+  }, [activeStoreId, showSignOut]);
 
   async function handleSignOut() {
     if (isSigningOut) return;
@@ -166,6 +194,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
         {activeStoreId ? <button className="nav-ai-button" type="button" onClick={() => setAssistantOpen(true)}><AiRobotFace />AIに尋ねる</button> : null}
         <footer className="sidebar-footer">
+          {currentAccount ? (
+            <section className="sidebar-account" aria-label="現在のログインアカウント">
+              <span>ログイン中</span>
+              <strong>{currentAccount.displayName}</strong>
+              {currentAccount.email ? <small>{currentAccount.email}</small> : null}
+              <div><b>{currentAccount.roleLabel}</b><small>{currentAccount.scopeLabel}</small></div>
+            </section>
+          ) : null}
           {showSignOut ? (
             <button className="sidebar-signout" type="button" onClick={handleSignOut} disabled={isSigningOut} aria-busy={isSigningOut}>
               {isSigningOut ? "ログアウト中..." : "ログアウト"}

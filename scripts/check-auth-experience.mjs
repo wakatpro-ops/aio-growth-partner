@@ -11,6 +11,10 @@ const acceptInvitePage = readFileSync("app/auth/accept-invite/accept-invite-form
 const acceptInviteApi = readFileSync("app/api/auth/accept-invite/route.ts", "utf8");
 const sessionApi = readFileSync("app/api/auth/session/route.ts", "utf8");
 const setPasswordApi = readFileSync("app/api/auth/set-password/route.ts", "utf8");
+const storeStaff = readFileSync("lib/store-staff.ts", "utf8");
+const appShell = readFileSync("components/layout/app-shell.tsx", "utf8");
+const currentAccountApi = readFileSync("app/api/auth/me/route.ts", "utf8");
+const staffActions = readFileSync("app/stores/[storeId]/settings/staff/actions.ts", "utf8");
 
 assert.match(sendgrid, /fromName: "AIO boost"/u);
 assert.doesNotMatch(sendgrid, /fromName: envValue\("SENDGRID_FROM_NAME"\)/u);
@@ -29,5 +33,14 @@ assert.match(acceptInvitePage, /history\.replaceState/u);
 assert.match(acceptInviteApi, /verifyOtp/u);
 assert.match(sessionApi, /"password_set"/u);
 assert.match(setPasswordApi, /"accepted"/u);
+assert.match(storeStaff, /buildScannerSafeInviteUrl/u);
+assert.doesNotMatch(storeStaff, /action_link/u);
+assert.match(storeStaff, /existingProfile[\s\S]*user_profiles[\s\S]*insert\(profilePayload\)/u);
+assert.match(appShell, /現在のログインアカウント/u);
+assert.match(appShell, /roleLabel/u);
+assert.match(currentAccountApi, /access\.storeRoles\[storeId\].*access\.organizationRoles/u);
+assert.match(currentAccountApi, /店舗を確認できませんでした/u);
+assert.match(staffActions, /requireStoreStaffManagementAccess/u);
+assert.doesNotMatch(staffActions, /requireStoreActionWriteAccess/u);
 
 console.log("Authentication and application-history experience checks passed.");
