@@ -3,6 +3,7 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { emailConfig, sendEmail } from "@/lib/email/sendgrid";
 import { canManageStoreStaff, getCurrentUserAccess } from "@/lib/auth/server";
+import { buildScannerSafeInviteUrl } from "@/lib/auth/invite-links";
 import { getStore } from "@/lib/stores";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -68,13 +69,6 @@ async function findAuthUserByEmail(supabase: SupabaseAdmin, email: string) {
   return null;
 }
 
-function generatedLink(result: unknown) {
-  const data = result && typeof result === "object" ? (result as { data?: unknown }).data : null;
-  const properties = data && typeof data === "object" ? (data as { properties?: unknown }).properties : null;
-  const link = properties && typeof properties === "object" ? (properties as { action_link?: unknown }).action_link : null;
-  return typeof link === "string" ? link : null;
-}
-
 function generatedUserId(result: unknown) {
   const data = result && typeof result === "object" ? (result as { data?: unknown }).data : null;
   const user = data && typeof data === "object" ? (data as { user?: unknown }).user : null;
@@ -129,13 +123,13 @@ async function invitationDelivery(supabase: SupabaseAdmin, input: {
       }
     });
     if (result.error) throw new Error(`招待リンクを作成できませんでした: ${result.error.message}`);
-    actionUrl = generatedLink(result) ?? actionUrl;
+    actionUrl = buildScannerSafeInviteUrl({ appUrl: baseUrl, result, redirectTo }) ?? actionUrl;
     userId = generatedUserId(result);
     isPasswordSetup = true;
   } else if (!input.existingUserHasSignedIn) {
     const result = await supabase.auth.admin.generateLink({ type: "recovery", email: input.email, options: { redirectTo } });
     if (result.error) throw new Error(`初回設定リンクを作成できませんでした: ${result.error.message}`);
-    actionUrl = generatedLink(result) ?? actionUrl;
+    actionUrl = buildScannerSafeInviteUrl({ appUrl: baseUrl, result, redirectTo }) ?? actionUrl;
     userId = generatedUserId(result) ?? userId;
     isPasswordSetup = true;
   }
@@ -174,9 +168,11 @@ export async function inviteStoreStaff(storeId: string, formData: FormData) {
   if (!displayName) throw new Error("スタッフ名を入力してください。");
 
   const existingUser = await findAuthUserByEmail(supabase, email);
+  let existingProfile: { role: string | null; status: string | null; archived_at: string | null } | null = null;
   if (existingUser) {
-    const { data: existingProfile } = await supabase.from("user_profiles")
+    const { data } = await supabase.from("user_profiles")
       .select("role, status, archived_at").eq("user_id", existingUser.id).maybeSingle();
+    existingProfile = data;
     if (existingProfile?.role === "platform_admin") {
       throw new Error("このユーザーはAIO boost運営管理者のため、店舗スタッフへ追加する必要はありません。");
     }
@@ -199,12 +195,18 @@ export async function inviteStoreStaff(storeId: string, formData: FormData) {
     existingUserHasSignedIn: Boolean(existingUser?.last_sign_in_at)
   });
   const timestamp = new Date().toISOString();
-  if (!existingUser) {
-    const { error: profileError } = await supabase.from("user_profiles").insert({
-      user_id: delivery.userId, display_name: displayName, role: "user", status: "active", updated_at: timestamp
-    });
-    if (profileError) throw new Error(`スタッフプロフィールを保存できませんでした: ${profileError.message}`);
-  }
+  const profilePayload = {
+    user_id: delivery.userId,
+    display_name: displayName,
+    role: "user",
+    status: "active",
+    archived_at: null,
+    updated_at: timestamp
+  };
+  const profileResult = existingProfile
+    ? await supabase.from("user_profiles").update({ display_name: displayName, updated_at: timestamp }).eq("user_id", delivery.userId)
+    : await supabase.from("user_profiles").insert(profilePayload);
+  if (profileResult.error) throw new Error(`スタッフプロフィールを保存できませんでした: ${profileResult.error.message}`);
   const payload = {
     organization_id: store.organization_id,
     store_id: store.id,
