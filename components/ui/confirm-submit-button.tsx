@@ -21,20 +21,20 @@ export function ConfirmSubmitButton({ children, message, className = "button dan
   }, [confirmed, pending]);
 
   function confirmSubmit(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
     if (!window.confirm(message)) {
       return;
     }
     const form = event.currentTarget.form;
+    if (!form) return;
+    // Submit before applying the visual disabled state. Keeping this control
+    // out of the browser's default submit path avoids React disabling the
+    // submitter before the native form action starts.
+    form.requestSubmit();
     setConfirmed(true);
-    // React may apply the disabled state before the browser's default submit
-    // action runs. Submit the form explicitly so confirmation never swallows
-    // the requested operation.
-    form?.requestSubmit();
   }
 
   return (
-    <button className={className} type="submit" onClick={confirmSubmit} disabled={confirmed || pending} aria-busy={confirmed || pending}>
+    <button className={className} type="button" onClick={confirmSubmit} disabled={confirmed || pending} aria-busy={confirmed || pending}>
       {confirmed || pending ? "処理しています..." : children}
     </button>
   );
