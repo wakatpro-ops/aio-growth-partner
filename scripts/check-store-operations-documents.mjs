@@ -16,7 +16,7 @@ for (const label of ["既存の予約サービスを使う", "電話・LINE・�
 assert.match(operations, /AIO boost予約管理（準備中・変更してください）/u);
 assert.match(operations, /AIO boost簡易レジ（準備中・変更してください）/u);
 
-assert.match(sidebar, /label: "在庫・仕入"/u);
+assert.match(sidebar, /label: navigationLabels\.product/u);
 for (const field of ["supplier_name", "purchase_date", "unit_cost"]) {
   assert.match(inventory, new RegExp(`name="${field}"`));
   assert.match(inventoryServer, new RegExp(field));

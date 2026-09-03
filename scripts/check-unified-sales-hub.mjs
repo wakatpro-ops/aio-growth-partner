@@ -27,7 +27,7 @@ expect(legacy.includes("redirect("), "legacy sales report page must redirect");
 expect(legacy.includes("sales-hub#reports"), "legacy sales report must redirect to the report section");
 expect(legacy.includes("notFound()"), "legacy report authorization/feature behavior must be preserved");
 
-expect(shell.includes('label: "売上・レポート"'), "sidebar label must identify the unified destination");
+expect(shell.includes('label: "売上・経理"'), "sidebar label must identify the unified destination");
 expect(shell.includes("/sales-hub"), "sidebar must link to sales-hub");
 expect(!commandCenter.includes("${store.id}/sales/reports`"), "command-center KPI links must not use the legacy report root");
 expect(commandCenter.includes("sales-hub#reports"), "command-center KPI links must use the report section");

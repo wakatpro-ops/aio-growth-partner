@@ -11,7 +11,8 @@ const importPage = readFileSync("app/stores/[storeId]/data-imports/ai/page.tsx",
 const importDetail = readFileSync("app/stores/[storeId]/data-imports/ai/[jobId]/page.tsx", "utf8");
 const importActions = readFileSync("app/stores/[storeId]/data-imports/ai/actions.ts", "utf8");
 
-assert.ok(shell.indexOf('label: "データ取り込み"') < shell.indexOf('label: "設定"'), "データ取り込みは設定の直前に配置してください。");
+assert.doesNotMatch(shell, /label: "データ取り込み"/u, "データ取り込みは独立した主要メニューにしないでください。");
+assert.match(shell, /label: "設定"/u);
 assert.match(shell, /nav-ai-button[\s\S]*AIに尋ねる/u);
 assert.match(assistant, /データ変更・削除・外部送信はしません/u);
 assert.match(route, /getStoreForApi/u);

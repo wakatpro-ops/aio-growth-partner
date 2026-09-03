@@ -26,9 +26,10 @@ For every store-manager-facing screen:
 3. Show a pending state while saving, then navigate to a list or a clear next step with a success message. Never leave a successful save on an unchanged screen with no feedback.
 4. Provide a deterministic back/cancel route on create, edit, and detail screens.
 5. Use outcome labels such as `請求書を作成` or `変更を保存`; avoid vague labels such as `実行`, `開く`, or `保存` when the outcome is not already obvious.
-6. Keep the primary store navigation limited to `店舗トップ`, `AIO改善`, `集客`, `売上`, and `設定`. Place detailed features inside those hubs.
-7. Keep first login focused on one AIO improvement. Do not require billing, tax, CSV, or integration setup before the user experiences the core value.
-8. Treat `AIおすすめ準備度` as information-readiness, never as a promise that an external AI will recommend the store. Display external publication status separately.
-9. For prices, state whether they are tax-inclusive or tax-exclusive. Only show the reduced 8% rate prominently for relevant industries.
+6. Keep the primary business navigation limited to `店舗トップ`, `AIO改善`, `売上・経理`, `顧客`, `集客・販促`, and the industry-specific product/inventory hub. Keep `設定` in a separate utility area and place data import inside the relevant hubs and settings.
+7. Do not label the customer hub `顧客・予約` until store-facing booking creation, editing, authorization, and lifecycle tests are complete. Do not advertise unavailable integrations as active.
+8. Keep first login focused on one AIO improvement. Do not require billing, tax, CSV, or integration setup before the user experiences the core value.
+9. Treat `AIおすすめ準備度` as information-readiness, never as a promise that an external AI will recommend the store. Display external publication status separately.
+10. For prices, state whether they are tax-inclusive or tax-exclusive. Only show the reduced 8% rate prominently for relevant industries.
 
 See `docs/ux-product-principles.md` for the product hierarchy and review checklist.

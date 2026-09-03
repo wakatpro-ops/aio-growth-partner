@@ -59,6 +59,12 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
       ["売上データを取り込む", `/stores/${store.id}/data-imports/ai`],
       ["需要予測を見る", `/stores/${store.id}/sales/forecast`]
     ] },
+    { title: "経費・会計", body: "伝票の読み取りから内容確認、会計ソフト用データの出力までをまとめます。", links: [
+      ["経費・伝票を確認", `/stores/${store.id}/accounting/receipts`],
+      ["伝票をAIで読み取る", `/stores/${store.id}/accounting/receipts/new`],
+      ["会計データを書き出す", `/stores/${store.id}/accounting/exports`],
+      ["freee連携を確認", `/stores/${store.id}/settings/accounting/freee`]
+    ] },
     { title: "分析", body: "月次の傾向と、AIによる注意点・次の打ち手を確認します。", links: [
       ["月次レポート", `/stores/${store.id}/reports/monthly`],
       ...(salesAiReportEnabled ? [["AI月次売上レポート", `/stores/${store.id}/sales/reports/monthly-ai`]] : [])
@@ -73,9 +79,9 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
     <AppShell>
       <PageHeader
         eyebrow={industry.name}
-        title="売上・レポート"
-        description="売上状況、取引明細、見積・請求・領収、AI分析をこの画面から確認できます。"
-        action={<Link className="button" href={`/stores/${store.id}/data-imports/ai`}>売上データを取り込む</Link>}
+        title="売上・経理"
+        description="売上、見積・請求・入金、経費・伝票、会計用データを一つの入口から確認できます。"
+        action={<Link className="button" href={`/stores/${store.id}/data-imports/ai`}>売上・経費データを取り込む</Link>}
       />
       <StoreBusinessNav store={store} />
 
@@ -91,7 +97,7 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
       ) : <p className="notice">この店舗では売上レポートを利用しない設定です。見積・請求・領収など、利用中の機能は下から開けます。</p>}
 
       <section className="sales-hub-actions">
-        <div className="section-heading"><div><p className="eyebrow">売上の操作</p><h2>作成・確認する</h2></div></div>
+        <div className="section-heading"><div><p className="eyebrow">売上・経理の操作</p><h2>作成・確認する</h2></div></div>
         <div className="hub-grid">
           {groups.map((group) => (
             <article className="static-card" key={group.title}>

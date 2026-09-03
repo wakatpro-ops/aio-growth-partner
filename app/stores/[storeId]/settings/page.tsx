@@ -59,6 +59,12 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
       badge: "AI精度UP"
     },
     {
+      title: "AIデータ取り込み",
+      body: "CSV・Excel・PDFをまとめて渡し、売上・経費・顧客・商品・在庫へ整理する前に確認できます。",
+      href: `/stores/${store.id}/data-imports/ai`,
+      badge: "データ移行"
+    },
+    {
       title: "削除済みデータ",
       body: "削除した商品・顧客・書類・下書きなどを確認し、必要なものを元に戻せます。",
       href: `/stores/${store.id}/archives`,
