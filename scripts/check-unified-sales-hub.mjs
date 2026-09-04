@@ -20,6 +20,8 @@ expect(hub.includes("getSalesReport"), "sales-hub must load the sales report dat
 for (const label of ["合計売上", "取引件数", "平均取引額", "日別売上", "月別売上", "商品別売上", "支払方法別売上"]) {
   expect(hub.includes(label), `sales-hub is missing ${label}`);
 }
+expect(hub.includes("SalesTrendChart") && hub.includes("月別売上推移"), "sales-hub must visualize the monthly sales trend");
+expect(hub.includes('role="img"') && hub.includes("前月比") && hub.includes("最高売上月"), "sales trend must include accessible context");
 for (const route of ["/estimates", "/invoices", "/payments", "/sales`", "/data-imports/ai", "/sales/forecast", "/reports/monthly"]) {
   expect(hub.includes(route), `sales-hub is missing a route containing ${route}`);
 }
@@ -41,6 +43,7 @@ expect(commandCenter.includes("sales-hub#reports"), "command-center KPI links mu
 expect(dashboard.includes("sales-hub#reports"), "dashboard report link must use the report section");
 
 expect(css.includes(".sales-report-grid"), "unified sales report layout styles are missing");
+expect(css.includes(".sales-trend-chart") && css.includes("min-width: 560px"), "responsive sales trend styles are missing");
 expect(css.includes("@media (max-width: 680px)"), "mobile sales-hub styles are missing");
 
 if (failures.length) {

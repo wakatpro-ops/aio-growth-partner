@@ -4571,6 +4571,97 @@ p {
   min-width: 0;
 }
 
+.sales-trend-card {
+  display: grid;
+  gap: 18px;
+  overflow: hidden;
+  padding: clamp(18px, 2.5vw, 28px);
+}
+
+.sales-trend-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.sales-trend-heading h3 {
+  font-size: clamp(20px, 2vw, 26px);
+  margin: 2px 0 0;
+}
+
+.sales-trend-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.sales-trend-facts > span {
+  background: var(--surface-muted, #f5f8f6);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: grid;
+  gap: 2px;
+  min-width: 118px;
+  padding: 9px 12px;
+}
+
+.sales-trend-facts small,
+.sales-trend-note {
+  color: var(--muted);
+}
+
+.sales-trend-facts strong {
+  font-size: 14px;
+}
+
+.sales-trend-facts strong.positive { color: #147a55; }
+.sales-trend-facts strong.negative { color: #b14d4d; }
+.sales-trend-facts strong.neutral { color: var(--muted); }
+
+.sales-trend-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.sales-trend-chart {
+  color: #248565;
+  display: block;
+  height: auto;
+  min-width: 620px;
+  width: 100%;
+}
+
+.sales-trend-gridline {
+  stroke: #dfe8e3;
+  stroke-width: 1;
+}
+
+.sales-trend-axis-label,
+.sales-trend-month-label {
+  fill: #6d7872;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.sales-trend-area { fill: url("#sales-trend-area"); }
+.sales-trend-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 4;
+}
+.sales-trend-point-halo { fill: #fff; stroke: #bcded2; stroke-width: 4; }
+.sales-trend-point { fill: currentColor; stroke: #fff; stroke-width: 2; }
+
+.sales-trend-note {
+  font-size: 12px;
+  margin: -8px 0 0;
+}
+
 .sales-kpi-grid small,
 .sales-report-description {
   color: var(--muted);
@@ -4628,5 +4719,36 @@ p {
 
   .sales-kpi-grid .metric {
     font-size: 26px;
+  }
+
+  .sales-trend-card {
+    gap: 14px;
+    margin-inline: -2px;
+    padding: 16px 14px;
+  }
+
+  .sales-trend-heading {
+    display: grid;
+    gap: 12px;
+  }
+
+  .sales-trend-facts {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    justify-content: stretch;
+  }
+
+  .sales-trend-facts > span {
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .sales-trend-facts strong {
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .sales-trend-chart {
+    min-width: 560px;
   }
 }
