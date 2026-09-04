@@ -46,6 +46,7 @@
     "check:operating-model": "node scripts/check-adaptive-operating-model.mjs",
     "check:command-center": "node scripts/check-store-command-center.mjs",
     "check:design-system": "node scripts/check-design-system.mjs",
+    "check:visual-first": "node scripts/check-visual-first-store-pages.mjs",
     "check:sales-hub": "node scripts/check-unified-sales-hub.mjs",
     "check:menu-architecture": "node scripts/check-menu-architecture.mjs"
   },

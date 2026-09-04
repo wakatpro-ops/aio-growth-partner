@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { DonutChart, HorizontalBarChart } from "@/components/ui/data-visuals";
 import { getIndustryConfig } from "@/config/industries";
 import { customerSegmentDefinition, listCustomersForSegment } from "@/lib/customer-crm";
 import { listCustomers } from "@/lib/phase2/business-data";
@@ -21,6 +22,15 @@ export default async function CustomersPage({ params, searchParams }: { params: 
   const customers = keyword ? sourceCustomers.filter((customer) => [customer.name, customer.company_name, customer.phone, customer.email, customer.assigned_staff_name, ...(customer.tags ?? [])].some((value) => String(value ?? "").toLowerCase().includes(keyword))) : sourceCustomers;
   const segment = query.segment ? customerSegmentDefinition(query.segment) : null;
   const contactableCount = allCustomers.filter((customer) => !customer.do_not_contact && (customer.line_opt_in || customer.email_opt_in)).length;
+  const firstVisitCount = allCustomers.filter((customer) => Number(customer.visit_count ?? 0) === 1).length;
+  const repeatCount = allCustomers.filter((customer) => Number(customer.visit_count ?? 0) >= 2).length;
+  const visitHistoryMissingCount = allCustomers.filter((customer) => Number(customer.visit_count ?? 0) === 0).length;
+  const contactUnavailableCount = Math.max(0, allCustomers.length - contactableCount);
+  const staffCounts = [...allCustomers.reduce((counts, customer) => {
+    const staff = customer.assigned_staff_name?.trim() || "担当未設定";
+    counts.set(staff, (counts.get(staff) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>())].sort((a, b) => b[1] - a[1]);
 
   return (
     <AppShell>
@@ -35,6 +45,38 @@ export default async function CustomersPage({ params, searchParams }: { params: 
         <article className="card"><p className="muted">登録顧客</p><div className="metric">{allCustomers.length.toLocaleString("ja-JP")}件</div><p>連絡先、来店履歴、担当者、会話メモをまとめて管理します。</p></article>
         <article className="card"><p className="muted">連絡可能</p><div className="metric">{contactableCount.toLocaleString("ja-JP")}件</div><p>配信停止を除き、メールまたはLINEの同意を確認できた顧客です。</p></article>
         <article className="card"><p className="muted">現在の絞り込み</p><div className="metric">{customers.length.toLocaleString("ja-JP")}件</div><p>{segment ? segment.label : keyword ? "検索条件に一致" : "全顧客を表示中"}</p></article>
+      </section>
+      <section className="visual-section">
+        <div className="section-heading"><div><p className="eyebrow">顧客の傾向</p><h2>ひと目で確認</h2></div><p>登録済みの来店回数・担当者・配信同意から集計</p></div>
+        <div className="visual-grid cols-3">
+          <DonutChart
+            title="来店状況"
+            centerLabel="登録顧客"
+            centerValue={`${allCustomers.length.toLocaleString("ja-JP")}人`}
+            data={[
+              { label: "初回来店", value: firstVisitCount, displayValue: `${firstVisitCount}人` },
+              { label: "再来店", value: repeatCount, displayValue: `${repeatCount}人` },
+              { label: "履歴未登録", value: visitHistoryMissingCount, displayValue: `${visitHistoryMissingCount}人` }
+            ]}
+            emptyMessage="来店回数を登録すると、初回・再来の割合を表示できます。"
+          />
+          <DonutChart
+            title="連絡可否"
+            centerLabel="連絡可能"
+            centerValue={`${contactableCount.toLocaleString("ja-JP")}人`}
+            data={[
+              { label: "同意確認済み", value: contactableCount, displayValue: `${contactableCount}人` },
+              { label: "未確認・停止", value: contactUnavailableCount, displayValue: `${contactUnavailableCount}人` }
+            ]}
+            emptyMessage="メールまたはLINEの配信同意を登録すると表示できます。"
+          />
+          <HorizontalBarChart
+            title="担当者別の顧客数"
+            data={staffCounts.map(([label, value]) => ({ label, value, displayValue: `${value}人` }))}
+            emptyMessage="担当者を登録すると、担当別の顧客数を表示できます。"
+          />
+        </div>
+        <p className="visual-guidance">「連絡可能」は、配信停止ではなく、メールまたはLINEの配信同意を確認できた顧客です。</p>
       </section>
       <section className="card">
         <div className="section-heading"><div><p className="eyebrow">顧客業務</p><h2>目的から選ぶ</h2></div></div>

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { DonutChart, HorizontalBarChart } from "@/components/ui/data-visuals";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getSalesReport } from "@/lib/phase4/sales-import-data";
@@ -9,6 +10,10 @@ import { getStore } from "@/lib/stores";
 
 function formatCurrency(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
+}
+
+function paymentLabel(value: string) {
+  return ({ cash: "現金", credit_card: "クレジットカード", qr_payment: "QR決済", bank_transfer: "銀行振込", other: "その他", unset: "未設定", 未設定: "未設定" } as Record<string, string>)[value] ?? value;
 }
 
 function formatAxisCurrency(value: number) {
@@ -179,6 +184,21 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
             <article className="card"><p className="muted">平均取引額</p><div className="metric">{formatCurrency(report.averageTransactionAmount)}</div><small>顧客単位の客単価とは区別しています</small></article>
           </div>
           <SalesTrendChart rows={report.monthly} />
+          <div className="visual-grid cols-2">
+            <HorizontalBarChart
+              title="売上上位の商品・メニュー"
+              data={report.items.map((item) => ({ label: item.label, value: item.amount, displayValue: formatCurrency(item.amount), detail: `${(item.quantity ?? 0).toLocaleString("ja-JP")}件` }))}
+              emptyMessage="商品・メニュー別に分類できる売上データがありません。"
+            />
+            <DonutChart
+              title="支払方法の割合"
+              centerLabel="売上合計"
+              centerValue={formatCurrency(report.totalSales)}
+              data={report.paymentMethods.map((item) => ({ label: paymentLabel(item.label), value: item.amount, displayValue: formatCurrency(item.amount) }))}
+              emptyMessage="支払方法を判別できる売上データがありません。"
+            />
+          </div>
+          <p className="visual-guidance">グラフは取り込んだ実データだけを表示しています。未設定が多い場合は、次回の取り込みで支払方法の列を指定すると内訳が分かりやすくなります。</p>
         </section>
       ) : <p className="notice">この店舗では売上レポートを利用しない設定です。見積・請求・領収など、利用中の機能は下から開けます。</p>}
 

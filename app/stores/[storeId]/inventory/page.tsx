@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { ItemThumbnail, StatusBar } from "@/components/ui/data-visuals";
 import { getIndustryConfig } from "@/config/industries";
 import { listBusinessItems, listInventoryStocks } from "@/lib/phase2/business-data";
 import { listInventoryMovements } from "@/lib/inventory-operations";
@@ -29,6 +30,14 @@ function signed(value: number) {
   return `${value > 0 ? "+" : ""}${value.toLocaleString("ja-JP")}`;
 }
 
+function itemImageUrl(metadata: Record<string, unknown>) {
+  for (const key of ["image_url", "imageUrl", "thumbnail_url", "thumbnailUrl"]) {
+    const value = metadata[key];
+    if (typeof value === "string" && /^https?:\/\//u.test(value)) return value;
+  }
+  return null;
+}
+
 export default async function InventoryPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
   const { storeId } = await params;
   const query = await searchParams;
@@ -52,6 +61,30 @@ export default async function InventoryPage({ params, searchParams }: { params: 
         <article className="card"><p className="muted">在庫管理中</p><div className="metric">{stockItems.length}件</div><Link className="text-link" href={`/stores/${store.id}/items`}>商品・材料を確認 →</Link></article>
         <article className="card"><p className="muted">発注目安以下</p><div className="metric">{lowStockCount}件</div><p className="muted">数量が発注目安以下の商品です。</p></article>
         <article className="card"><p className="muted">仕入・入荷履歴</p><div className="metric">{purchaseCount}件</div><Link className="text-link" href={`/stores/${store.id}/accounting/receipts`}>仕入レシートを確認 →</Link></article>
+      </section>
+      <section className="visual-section">
+        <div className="section-heading"><div><p className="eyebrow">現在庫</p><h2>発注が必要なものから確認</h2></div><p>赤は発注目安以下、黄色は発注目安に近い在庫です。</p></div>
+        {stockItems.length ? <div className="inventory-visual-grid">
+          {stockItems.slice().sort((left, right) => {
+            const leftStock = stockByItem.get(left.id);
+            const rightStock = stockByItem.get(right.id);
+            const leftRatio = Number(leftStock?.quantity ?? 0) / Math.max(Number(leftStock?.reorder_point ?? 0), 1);
+            const rightRatio = Number(rightStock?.quantity ?? 0) / Math.max(Number(rightStock?.reorder_point ?? 0), 1);
+            return leftRatio - rightRatio;
+          }).slice(0, 8).map((item) => {
+            const stock = stockByItem.get(item.id);
+            const quantity = Number(stock?.quantity ?? 0);
+            const reserved = Number(stock?.reserved_quantity ?? 0);
+            const available = Math.max(0, quantity - reserved);
+            const reorder = Number(stock?.reorder_point ?? 0);
+            const tone = available <= reorder ? "red" : reorder > 0 && available <= reorder * 1.5 ? "amber" : "green";
+            const status = available <= reorder ? "発注目安以下" : tone === "amber" ? "残りわずか" : "在庫あり";
+            return <article className={`inventory-visual-card tone-${tone}`} key={item.id}>
+              <ItemThumbnail name={item.name} imageUrl={itemImageUrl(item.metadata)} size="small" />
+              <div className="inventory-visual-copy"><span>{status}</span><h3>{item.name}</h3><p><strong>{available.toLocaleString("ja-JP")}</strong>{item.unit} 利用可能</p><StatusBar value={available} max={Math.max(quantity, reorder * 2, 1)} tone={tone} label={`${item.name}の利用可能在庫`} /><small>実在庫 {quantity.toLocaleString("ja-JP")}／引当 {reserved.toLocaleString("ja-JP")}／発注目安 {reorder.toLocaleString("ja-JP")}</small></div>
+            </article>;
+          })}
+        </div> : <div className="visual-empty card">在庫管理する商品・材料を登録すると、残量と発注の優先順位を表示できます。</div>}
       </section>
       <section className="card">
         <div className="section-heading"><div><p className="eyebrow">目的から選ぶ</p><h2>{navigationLabels.product}メニュー</h2></div></div>
