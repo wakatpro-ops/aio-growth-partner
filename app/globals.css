@@ -4782,6 +4782,7 @@ p {
   box-shadow: 0 12px 30px rgba(28, 61, 49, 0.05);
   display: grid;
   gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
   min-width: 0;
   padding: 22px;
 }
