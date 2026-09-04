@@ -28,6 +28,8 @@ assert.match(commandCenter, /command-social-image/u);
 assert.match(css, /\.visual-grid\.cols-3/u);
 assert.match(css, /@media \(max-width: 680px\)[\s\S]*\.visual-grid\.cols-2/u);
 assert.match(css, /\.visual-card\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)/u);
+assert.match(css, /\.bar-chart-row\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/u);
+assert.match(css, /\.bar-chart-row span\s*\{[^}]*min-width:\s*0/u);
 assert.match(visuals, /role="img"/u);
 
 console.log("visual-first store page checks passed");

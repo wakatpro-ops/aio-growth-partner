@@ -4838,10 +4838,10 @@ p {
 .donut-legend span { color: var(--muted); font-size: 13px; }
 .donut-legend strong { font-size: 13px; }
 
-.bar-chart { display: grid; gap: 14px; }
-.bar-chart-row { display: grid; gap: 6px; }
-.bar-chart-row > div:first-child { display: flex; gap: 12px; justify-content: space-between; }
-.bar-chart-row span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-chart { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.bar-chart-row { display: grid; gap: 6px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.bar-chart-row > div:first-child { display: flex; gap: 12px; justify-content: space-between; min-width: 0; }
+.bar-chart-row span { flex: 1 1 auto; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar-chart-row strong { flex: none; font-size: 13px; }
 .bar-chart-row small { color: var(--muted); font-size: 11px; }
 .bar-chart-track,
