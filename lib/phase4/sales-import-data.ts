@@ -652,19 +652,14 @@ export async function executeImportJob(storeId: string, importJobId: string, opt
   }
 }
 
-export async function rebuildSalesSummaries(supabase: SupabaseClient, organizationId: string, storeId: string) {
-  const [{ data: transactions, error: transactionError }, { data: items, error: itemError }] = await Promise.all([
-    supabase.from("sales_transactions").select("*").eq("store_id", storeId),
-    supabase.from("sales_transaction_items").select("*").eq("store_id", storeId)
-  ]);
-  if (transactionError || itemError) {
-    throw new Error(`売上集計の元データを取得できませんでした: ${transactionError?.message ?? itemError?.message}`);
-  }
-  const { error: deleteError } = await supabase.from("normalized_sales_summaries").delete().eq("store_id", storeId);
-  if (deleteError) throw new Error(`以前の売上集計を更新できませんでした: ${deleteError.message}`);
-
+function buildSalesSummaryRows(
+  organizationId: string,
+  storeId: string,
+  transactions: Array<Record<string, unknown>>,
+  items: Array<Record<string, unknown>>
+) {
   const summaries = new Map<string, Record<string, unknown>>();
-  for (const transaction of transactions ?? []) {
+  for (const transaction of transactions) {
     const date = String(transaction.business_date);
     const month = date.slice(0, 7);
     const payment = String(transaction.payment_method ?? "未設定");
@@ -700,7 +695,7 @@ export async function rebuildSalesSummaries(supabase: SupabaseClient, organizati
     }
   }
 
-  for (const item of items ?? []) {
+  for (const item of items) {
     const name = String(item.item_name ?? "未設定");
     const key = `item:${name}`;
     const current = summaries.get(key) ?? {
@@ -726,7 +721,20 @@ export async function rebuildSalesSummaries(supabase: SupabaseClient, organizati
     summaries.set(key, current);
   }
 
-  const rows = Array.from(summaries.values());
+  return Array.from(summaries.values());
+}
+
+export async function rebuildSalesSummaries(supabase: SupabaseClient, organizationId: string, storeId: string) {
+  const [{ data: transactions, error: transactionError }, { data: items, error: itemError }] = await Promise.all([
+    supabase.from("sales_transactions").select("*").eq("store_id", storeId),
+    supabase.from("sales_transaction_items").select("*").eq("store_id", storeId)
+  ]);
+  if (transactionError || itemError) {
+    throw new Error(`売上集計の元データを取得できませんでした: ${transactionError?.message ?? itemError?.message}`);
+  }
+  const rows = buildSalesSummaryRows(organizationId, storeId, transactions ?? [], items ?? []);
+  const { error: deleteError } = await supabase.from("normalized_sales_summaries").delete().eq("store_id", storeId);
+  if (deleteError) throw new Error(`以前の売上集計を更新できませんでした: ${deleteError.message}`);
   if (rows.length > 0) {
     const { error: insertError } = await supabase.from("normalized_sales_summaries").insert(rows);
     if (insertError) throw new Error(`売上集計を保存できませんでした: ${insertError.message}`);
@@ -788,6 +796,19 @@ export async function getSalesReport(storeId: string): Promise<SalesReport> {
       .eq("store_id", resolved.storeId);
     if (refreshError) throw new Error(`更新した売上レポートを取得できませんでした: ${refreshError.message}`);
     summaries = refreshed ?? [];
+  }
+  if (!summaries.some((row) => row.summary_type === "monthly")) {
+    const [{ data: transactions, error: fallbackTransactionError }, { data: items, error: fallbackItemError }] = await Promise.all([
+      supabase.from("sales_transactions").select("*").eq("store_id", resolved.storeId),
+      supabase.from("sales_transaction_items").select("*").eq("store_id", resolved.storeId)
+    ]);
+    if (fallbackTransactionError || fallbackItemError) {
+      throw new Error(`売上明細からレポートを作成できませんでした: ${fallbackTransactionError?.message ?? fallbackItemError?.message}`);
+    }
+    if ((transactions ?? []).length > 0) {
+      const fallbackOrganizationId = String(transactions?.[0]?.organization_id ?? organizationId);
+      summaries = buildSalesSummaryRows(fallbackOrganizationId, resolved.storeId, transactions ?? [], items ?? []);
+    }
   }
   const monthly = summaries.filter((row) => row.summary_type === "monthly");
   const totalSales = monthly.reduce((sum, row) => sum + Number(row.gross_amount ?? 0), 0);
