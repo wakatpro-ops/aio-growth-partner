@@ -57,11 +57,6 @@ export default async function InventoryPage({ params, searchParams }: { params: 
       <StoreBusinessNav store={store} />
       {query.saved ? <p className="notice success">在庫変動を記録しました。一覧と履歴に反映されています。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
-      <section className="grid cols-3">
-        <article className="card"><p className="muted">在庫管理中</p><div className="metric">{stockItems.length}件</div><Link className="text-link" href={`/stores/${store.id}/items`}>商品・材料を確認 →</Link></article>
-        <article className="card"><p className="muted">発注目安以下</p><div className="metric">{lowStockCount}件</div><p className="muted">数量が発注目安以下の商品です。</p></article>
-        <article className="card"><p className="muted">仕入・入荷履歴</p><div className="metric">{purchaseCount}件</div><Link className="text-link" href={`/stores/${store.id}/accounting/receipts`}>仕入レシートを確認 →</Link></article>
-      </section>
       <section className="visual-section">
         <div className="section-heading"><div><p className="eyebrow">現在庫</p><h2>発注が必要なものから確認</h2></div><p>赤は発注目安以下、黄色は発注目安に近い在庫です。</p></div>
         {stockItems.length ? <div className="inventory-visual-grid">
@@ -85,6 +80,11 @@ export default async function InventoryPage({ params, searchParams }: { params: 
             </article>;
           })}
         </div> : <div className="visual-empty card">在庫管理する商品・材料を登録すると、残量と発注の優先順位を表示できます。</div>}
+      </section>
+      <section className="grid cols-3 visual-supporting-metrics">
+        <article className="card"><p className="muted">在庫管理中</p><div className="metric">{stockItems.length}件</div><Link className="text-link" href={`/stores/${store.id}/items`}>商品・材料を確認 →</Link></article>
+        <article className="card"><p className="muted">発注目安以下</p><div className="metric">{lowStockCount}件</div><p className="muted">数量が発注目安以下の商品です。</p></article>
+        <article className="card"><p className="muted">仕入・入荷履歴</p><div className="metric">{purchaseCount}件</div><Link className="text-link" href={`/stores/${store.id}/accounting/receipts`}>仕入レシートを確認 →</Link></article>
       </section>
       <section className="card">
         <div className="section-heading"><div><p className="eyebrow">目的から選ぶ</p><h2>{navigationLabels.product}メニュー</h2></div></div>

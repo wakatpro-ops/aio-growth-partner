@@ -41,11 +41,6 @@ export default async function CustomersPage({ params, searchParams }: { params: 
         action={<div className="button-row"><Link className="button" href={`/stores/${store.id}/customers/new`}>{industry.businessLabels.customer}を追加</Link><Link className="button secondary" href={`/stores/${store.id}/customers/import`}>CSV・Excelで一括取込</Link></div>}
       />
       <StoreBusinessNav store={store} />
-      <section className="grid cols-3">
-        <article className="card"><p className="muted">登録顧客</p><div className="metric">{allCustomers.length.toLocaleString("ja-JP")}件</div><p>連絡先、来店履歴、担当者、会話メモをまとめて管理します。</p></article>
-        <article className="card"><p className="muted">連絡可能</p><div className="metric">{contactableCount.toLocaleString("ja-JP")}件</div><p>配信停止を除き、メールまたはLINEの同意を確認できた顧客です。</p></article>
-        <article className="card"><p className="muted">現在の絞り込み</p><div className="metric">{customers.length.toLocaleString("ja-JP")}件</div><p>{segment ? segment.label : keyword ? "検索条件に一致" : "全顧客を表示中"}</p></article>
-      </section>
       <section className="visual-section">
         <div className="section-heading"><div><p className="eyebrow">顧客の傾向</p><h2>ひと目で確認</h2></div><p>登録済みの来店回数・担当者・配信同意から集計</p></div>
         <div className="visual-grid cols-3">
@@ -77,6 +72,11 @@ export default async function CustomersPage({ params, searchParams }: { params: 
           />
         </div>
         <p className="visual-guidance">「連絡可能」は、配信停止ではなく、メールまたはLINEの配信同意を確認できた顧客です。</p>
+      </section>
+      <section className="grid cols-3 visual-supporting-metrics">
+        <article className="card"><p className="muted">登録顧客</p><div className="metric">{allCustomers.length.toLocaleString("ja-JP")}件</div><p>連絡先、来店履歴、担当者、会話メモをまとめて管理します。</p></article>
+        <article className="card"><p className="muted">連絡可能</p><div className="metric">{contactableCount.toLocaleString("ja-JP")}件</div><p>配信停止を除き、メールまたはLINEの同意を確認できた顧客です。</p></article>
+        <article className="card"><p className="muted">現在の絞り込み</p><div className="metric">{customers.length.toLocaleString("ja-JP")}件</div><p>{segment ? segment.label : keyword ? "検索条件に一致" : "全顧客を表示中"}</p></article>
       </section>
       <section className="card">
         <div className="section-heading"><div><p className="eyebrow">顧客業務</p><h2>目的から選ぶ</h2></div></div>

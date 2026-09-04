@@ -178,12 +178,14 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
       {report ? (
         <section className="sales-overview" id="overview">
           <div className="section-heading"><div><p className="eyebrow">現在の売上</p><h2>売上概要</h2></div><Link className="text-link" href={`/stores/${store.id}/sales`}>取引明細を見る →</Link></div>
-          <div className="grid cols-3 sales-kpi-grid">
-            <article className="card"><p className="muted">合計売上</p><div className="metric">{formatCurrency(report.totalSales)}</div></article>
-            <article className="card"><p className="muted">取引件数</p><div className="metric">{report.transactionCount.toLocaleString("ja-JP")}件</div></article>
-            <article className="card"><p className="muted">平均取引額</p><div className="metric">{formatCurrency(report.averageTransactionAmount)}</div><small>顧客単位の客単価とは区別しています</small></article>
+          <div className="sales-overview-hero">
+            <SalesTrendChart rows={report.monthly} />
+            <div className="sales-kpi-stack" aria-label="売上の主要数値">
+              <article className="card"><p className="muted">合計売上</p><div className="metric">{formatCurrency(report.totalSales)}</div></article>
+              <article className="card"><p className="muted">取引件数</p><div className="metric">{report.transactionCount.toLocaleString("ja-JP")}件</div></article>
+              <article className="card"><p className="muted">平均取引額</p><div className="metric">{formatCurrency(report.averageTransactionAmount)}</div><small>顧客単位の客単価とは区別しています</small></article>
+            </div>
           </div>
-          <SalesTrendChart rows={report.monthly} />
           <div className="visual-grid cols-2">
             <HorizontalBarChart
               title="売上上位の商品・メニュー"
