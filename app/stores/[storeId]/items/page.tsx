@@ -3,10 +3,19 @@ import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
+import { ItemThumbnail } from "@/components/ui/data-visuals";
 import { getIndustryConfig } from "@/config/industries";
 import { listBusinessItems } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
 import { archiveStoreEntityAction } from "../archive-actions";
+
+function itemImageUrl(metadata: Record<string, unknown>) {
+  for (const key of ["image_url", "imageUrl", "thumbnail_url", "thumbnailUrl"]) {
+    const value = metadata[key];
+    if (typeof value === "string" && /^https?:\/\//u.test(value)) return value;
+  }
+  return null;
+}
 
 export default async function ItemsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; archived?: string }> }) {
   const { storeId } = await params;
@@ -31,7 +40,17 @@ export default async function ItemsPage({ params, searchParams }: { params: Prom
           ? `${industry.businessLabels.item}が入ったため、AIは見積作成や投稿提案に具体的なメニュー名を反映できます。`
           : `${industry.businessLabels.item}を登録すると、AIが売れ筋提案や投稿文、見積作成に反映できるようになります。`}
       </p>
+      {items.length ? <section className="visual-section">
+        <div className="section-heading"><div><p className="eyebrow">写真で確認</p><h2>{industry.businessLabels.item}一覧</h2></div><p>写真が未登録の項目は、名称の先頭文字を表示しています。</p></div>
+        <div className="item-gallery">
+          {items.slice(0, 12).map((item) => <Link className="item-gallery-card" href={`/stores/${store.id}/items/${item.id}`} key={item.id}>
+            <ItemThumbnail name={item.name} imageUrl={itemImageUrl(item.metadata)} />
+            <div><span className="badge">{industry.businessLabels[item.item_type]}</span><h3>{item.name}</h3><strong>{item.unit_price.toLocaleString("ja-JP")}円</strong><small>{item.is_stock_managed ? "在庫管理あり" : "在庫管理なし"}・{item.status === "active" ? "公開中" : "停止中"}</small></div>
+          </Link>)}
+        </div>
+      </section> : null}
       <div className="card">
+        <div className="section-heading"><div><p className="eyebrow">詳細</p><h2>登録内容を確認・編集</h2></div></div>
         <table className="table">
           <thead>
             <tr>

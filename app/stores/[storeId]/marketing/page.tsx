@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
+import { DonutChart } from "@/components/ui/data-visuals";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { listAiRecommendations, listMarketingDrafts } from "@/lib/phase3/marketing-data";
@@ -13,6 +14,9 @@ function marketingLabels(industryKey: string) {
     ? { draft: "整備投稿下書き", stock: "部品在庫", customer: "顧客・車両", focus: "整備・点検・安全性" }
     : { draft: "投稿下書き", stock: "商品在庫", customer: "顧客", focus: "商品・サービス・来店促進" };
 }
+
+const draftStatusLabels: Record<string, string> = { draft: "下書き", approved: "確認済み", published: "投稿済み" };
+const channelLabels: Record<string, string> = { instagram: "Instagram", google_business_profile: "Google", facebook: "Facebook", line: "LINE" };
 
 export default async function MarketingPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
@@ -26,6 +30,16 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
     listMarketingDrafts(store.id),
     listAiRecommendations(store.id)
   ]);
+  const statusCounts = [...drafts.reduce((counts, draft) => {
+    const label = draftStatusLabels[draft.status] ?? draft.status;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>())];
+  const channelCounts = [...drafts.reduce((counts, draft) => {
+    const label = channelLabels[draft.channel] ?? draft.channel;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>())];
 
   return (
     <AppShell>
@@ -55,6 +69,18 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
           <p>AIが勝手に公開せず、内容と出し先を確認してから実行します。</p>
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions`}>実行待ちを見る</Link>
         </article>
+      </section>
+      <section className="visual-section">
+        <div className="section-heading"><div><p className="eyebrow">投稿の準備状況</p><h2>何を確認すべきか、ひと目で把握</h2></div><p>AIが勝手に公開せず、投稿済みになるまで人が確認します。</p></div>
+        <div className="visual-grid cols-2">
+          <DonutChart title="投稿の状態" centerLabel="下書き合計" centerValue={`${drafts.length}件`} data={statusCounts.map(([label, value]) => ({ label, value, displayValue: `${value}件` }))} emptyMessage="投稿下書きを作成すると、確認状況を表示できます。" />
+          <DonutChart title="投稿先" centerLabel="媒体数" centerValue={`${channelCounts.length}種類`} data={channelCounts.map(([label, value]) => ({ label, value, displayValue: `${value}件` }))} emptyMessage="投稿下書きを作成すると、媒体ごとの内訳を表示できます。" />
+        </div>
+        {drafts.length ? <div className="marketing-preview-grid">
+          {drafts.slice(0, 4).map((draft) => <Link className="marketing-preview-card" href={`/stores/${store.id}/marketing/drafts`} key={draft.id}>
+            <span>{channelLabels[draft.channel] ?? draft.channel}</span><strong>{draft.title}</strong><p>{draft.short_body || draft.body}</p><small>{draftStatusLabels[draft.status] ?? draft.status}・内容を確認する →</small>
+          </Link>)}
+        </div> : null}
       </section>
       <section className="card">
         <div className="section-heading"><div><p className="eyebrow">集客業務</p><h2>目的から選ぶ</h2></div></div>
