@@ -4,6 +4,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { normalizeImportBusinessDate, parseImportDateIso } from "@/lib/import-date";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
+import { rebuildSalesSummaries } from "@/lib/phase4/sales-import-data";
 import { getStore } from "@/lib/stores";
 import { buildImportStorageFileName } from "@/lib/storage-object-name";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -595,7 +596,12 @@ export async function executeUnifiedImport(storeId: string, jobId: string) {
   const { store, supabase } = await context(storeId, true);
   const detail = await getUnifiedImportJob(store.id, jobId);
   if (!detail) throw new Error("AIデータ取込が見つかりません。");
-  if (detail.job.status === "completed") return { success: detail.job.success_rows, errors: detail.job.error_rows };
+  if (detail.job.status === "completed") {
+    if (detail.rows.some((row) => row.confirmed_record_type === "sale" && row.review_status === "imported")) {
+      await rebuildSalesSummaries(supabase, store.organization_id, store.id);
+    }
+    return { success: detail.job.success_rows, errors: detail.job.error_rows };
+  }
   if (!["review_ready", "partial_failed", "failed"].includes(detail.job.status)) throw new Error("不明点への回答と分析結果の確認を完了してください。");
   const processingOrder: Record<UnifiedImportRecordType, number> = { item: 0, customer: 1, sale: 2, expense: 3, inventory: 4, unknown: 5, ignore: 6 };
   const rows = detail.rows
@@ -634,6 +640,7 @@ export async function executeUnifiedImport(storeId: string, jobId: string) {
       }));
     }
   }
+  if (saleRows.length > 0) await rebuildSalesSummaries(supabase, store.organization_id, store.id);
   const status = errors === 0 ? "completed" : success > 0 ? "partial_failed" : "failed";
   await supabase.from("unified_import_jobs").update({ status, success_rows: success, error_rows: errors, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", jobId).eq("store_id", store.id);
   await logAuditEvent({ storeId: store.id, actionType: "unified_import_completed", targetType: "unified_import", targetId: jobId, message: `AI共通取込を実行しました（成功${success}件・失敗${errors}件）。`, metadata: { success, errors } });

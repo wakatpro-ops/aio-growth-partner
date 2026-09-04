@@ -652,12 +652,16 @@ export async function executeImportJob(storeId: string, importJobId: string, opt
   }
 }
 
-async function rebuildSalesSummaries(supabase: SupabaseClient, organizationId: string, storeId: string) {
-  const [{ data: transactions }, { data: items }] = await Promise.all([
+export async function rebuildSalesSummaries(supabase: SupabaseClient, organizationId: string, storeId: string) {
+  const [{ data: transactions, error: transactionError }, { data: items, error: itemError }] = await Promise.all([
     supabase.from("sales_transactions").select("*").eq("store_id", storeId),
     supabase.from("sales_transaction_items").select("*").eq("store_id", storeId)
   ]);
-  await supabase.from("normalized_sales_summaries").delete().eq("store_id", storeId);
+  if (transactionError || itemError) {
+    throw new Error(`売上集計の元データを取得できませんでした: ${transactionError?.message ?? itemError?.message}`);
+  }
+  const { error: deleteError } = await supabase.from("normalized_sales_summaries").delete().eq("store_id", storeId);
+  if (deleteError) throw new Error(`以前の売上集計を更新できませんでした: ${deleteError.message}`);
 
   const summaries = new Map<string, Record<string, unknown>>();
   for (const transaction of transactions ?? []) {
@@ -723,7 +727,10 @@ async function rebuildSalesSummaries(supabase: SupabaseClient, organizationId: s
   }
 
   const rows = Array.from(summaries.values());
-  if (rows.length > 0) await supabase.from("normalized_sales_summaries").insert(rows);
+  if (rows.length > 0) {
+    const { error: insertError } = await supabase.from("normalized_sales_summaries").insert(rows);
+    if (insertError) throw new Error(`売上集計を保存できませんでした: ${insertError.message}`);
+  }
 }
 
 export async function listSalesTransactions(storeId: string): Promise<SalesTransactionListRow[]> {
@@ -756,8 +763,32 @@ export async function getSalesReport(storeId: string): Promise<SalesReport> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return emptyReport();
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data } = await supabase.from("normalized_sales_summaries").select("*").eq("store_id", resolved.storeId);
-  const summaries = data ?? [];
+  const [{ data, error: summaryError }, { data: transactionRows, count: storedTransactionCount, error: transactionError }] = await Promise.all([
+    supabase.from("normalized_sales_summaries").select("*").eq("store_id", resolved.storeId),
+    supabase.from("sales_transactions").select("organization_id", { count: "exact" }).eq("store_id", resolved.storeId).limit(1)
+  ]);
+  if (summaryError || transactionError) {
+    throw new Error(`売上レポートを取得できませんでした: ${summaryError?.message ?? transactionError?.message}`);
+  }
+  let summaries = data ?? [];
+  const summarizedTransactionCount = summaries
+    .filter((row) => row.summary_type === "monthly")
+    .reduce((sum, row) => sum + Number(row.transaction_count ?? 0), 0);
+  const actualTransactionCount = storedTransactionCount ?? 0;
+  const organizationId = String(transactionRows?.[0]?.organization_id ?? resolved.organizationId ?? "");
+
+  // Older unified imports saved the transaction details without rebuilding this
+  // derived cache. Detect that condition on read so existing production data is
+  // repaired automatically, while the normal import path keeps it current.
+  if (organizationId && summarizedTransactionCount !== actualTransactionCount) {
+    await rebuildSalesSummaries(supabase, organizationId, resolved.storeId);
+    const { data: refreshed, error: refreshError } = await supabase
+      .from("normalized_sales_summaries")
+      .select("*")
+      .eq("store_id", resolved.storeId);
+    if (refreshError) throw new Error(`更新した売上レポートを取得できませんでした: ${refreshError.message}`);
+    summaries = refreshed ?? [];
+  }
   const monthly = summaries.filter((row) => row.summary_type === "monthly");
   const totalSales = monthly.reduce((sum, row) => sum + Number(row.gross_amount ?? 0), 0);
   const transactionCount = monthly.reduce((sum, row) => sum + Number(row.transaction_count ?? 0), 0);
