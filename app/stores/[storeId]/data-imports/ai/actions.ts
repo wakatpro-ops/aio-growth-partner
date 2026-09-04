@@ -48,6 +48,7 @@ export async function executeUnifiedImportAction(storeId: string, jobId: string,
   revalidatePath(`/stores/${storeId}/data-imports/ai`);
   revalidatePath(`/stores/${storeId}/data-imports/ai/${jobId}`);
   revalidatePath(`/stores/${storeId}/sales`);
+  revalidatePath(`/stores/${storeId}/sales-hub`);
   revalidatePath(`/stores/${storeId}/accounting/receipts`);
   revalidatePath(`/stores/${storeId}/customers`);
   revalidatePath(`/stores/${storeId}/items`);

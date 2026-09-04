@@ -6,6 +6,9 @@ const legacy = read("app/stores/[storeId]/sales/reports/page.tsx");
 const shell = read("components/layout/app-shell.tsx");
 const commandCenter = read("lib/store-command-center.ts");
 const dashboard = read("components/dashboard/store-command-center.tsx");
+const unifiedImport = read("lib/unified-import/data.ts");
+const salesData = read("lib/phase4/sales-import-data.ts");
+const unifiedActions = read("app/stores/[storeId]/data-imports/ai/actions.ts");
 const css = read("app/globals.css");
 
 const failures = [];
@@ -22,6 +25,9 @@ for (const route of ["/estimates", "/invoices", "/payments", "/sales`", "/data-i
 }
 expect(hub.includes('isFeatureEnabled(flags, "sales_reports")'), "sales report feature flag must be preserved");
 expect(hub.includes('isFeatureEnabled(flags, "sales_ai_report")'), "AI sales report feature flag must be preserved");
+expect(unifiedImport.includes("rebuildSalesSummaries"), "unified sales imports must rebuild the sales summary cache");
+expect(salesData.includes("summarizedTransactionCount !== actualTransactionCount"), "sales reports must repair stale summary data");
+expect(unifiedActions.includes('revalidatePath(`/stores/${storeId}/sales-hub`)'), "unified imports must invalidate the sales hub cache");
 
 expect(legacy.includes("redirect("), "legacy sales report page must redirect");
 expect(legacy.includes("sales-hub#reports"), "legacy sales report must redirect to the report section");
