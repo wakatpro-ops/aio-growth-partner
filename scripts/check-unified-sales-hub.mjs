@@ -27,6 +27,7 @@ expect(hub.includes('isFeatureEnabled(flags, "sales_reports")'), "sales report f
 expect(hub.includes('isFeatureEnabled(flags, "sales_ai_report")'), "AI sales report feature flag must be preserved");
 expect(unifiedImport.includes("rebuildSalesSummaries"), "unified sales imports must rebuild the sales summary cache");
 expect(salesData.includes("summarizedTransactionCount !== actualTransactionCount"), "sales reports must repair stale summary data");
+expect(salesData.includes("buildSalesSummaryRows"), "sales reports must fall back to transaction details when summaries are missing");
 expect(unifiedActions.includes('revalidatePath(`/stores/${storeId}/sales-hub`)'), "unified imports must invalidate the sales hub cache");
 
 expect(legacy.includes("redirect("), "legacy sales report page must redirect");
