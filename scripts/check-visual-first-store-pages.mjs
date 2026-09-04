@@ -16,12 +16,17 @@ for (const component of ["DonutChart", "HorizontalBarChart", "StatusBar", "ItemT
 }
 assert.match(sales, /売上上位の商品・メニュー/u);
 assert.match(sales, /支払方法の割合/u);
+assert.match(sales, /className="sales-overview-hero"/u);
+assert.ok(sales.indexOf("<SalesTrendChart") < sales.indexOf("sales-kpi-stack"));
 assert.match(inventory, /発注が必要なものから確認/u);
 assert.match(inventory, /利用可能在庫/u);
+assert.ok(inventory.indexOf('className="visual-section"') < inventory.indexOf('visual-supporting-metrics'));
 assert.match(customers, /来店状況/u);
 assert.match(customers, /連絡可否/u);
+assert.ok(customers.indexOf('className="visual-section"') < customers.indexOf('visual-supporting-metrics'));
 assert.match(items, /写真で確認/u);
 assert.match(marketing, /投稿の準備状況/u);
+assert.ok(marketing.indexOf('className="visual-section"') < marketing.indexOf('visual-supporting-metrics'));
 assert.match(commandCenter, /ScoreGauge/u);
 assert.match(commandCenter, /Sparkline/u);
 assert.match(commandCenter, /command-social-image/u);

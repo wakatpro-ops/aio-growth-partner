@@ -49,8 +49,19 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
         description={`${labels.focus}を軸に、AI提案、投稿下書き、口コミ対応、配信予定を一つの入口から確認します。`}
       />
       <StoreBusinessNav store={store} />
-
-      <section className="grid cols-3">
+      <section className="visual-section">
+        <div className="section-heading"><div><p className="eyebrow">投稿の準備状況</p><h2>何を確認すべきか、ひと目で把握</h2></div><p>AIが勝手に公開せず、投稿済みになるまで人が確認します。</p></div>
+        <div className="visual-grid cols-2">
+          <DonutChart title="投稿の状態" centerLabel="下書き合計" centerValue={`${drafts.length}件`} data={statusCounts.map(([label, value]) => ({ label, value, displayValue: `${value}件` }))} emptyMessage="投稿下書きを作成すると、確認状況を表示できます。" />
+          <DonutChart title="投稿先" centerLabel="媒体数" centerValue={`${channelCounts.length}種類`} data={channelCounts.map(([label, value]) => ({ label, value, displayValue: `${value}件` }))} emptyMessage="投稿下書きを作成すると、媒体ごとの内訳を表示できます。" />
+        </div>
+        {drafts.length ? <div className="marketing-preview-grid">
+          {drafts.slice(0, 4).map((draft) => <Link className="marketing-preview-card" href={`/stores/${store.id}/marketing/drafts`} key={draft.id}>
+            <span>{channelLabels[draft.channel] ?? draft.channel}</span><strong>{draft.title}</strong><p>{draft.short_body || draft.body}</p><small>{draftStatusLabels[draft.status] ?? draft.status}・内容を確認する →</small>
+          </Link>)}
+        </div> : null}
+      </section>
+      <section className="grid cols-3 visual-supporting-metrics">
         <article className="card">
           <p className="muted">投稿下書き</p>
           <div className="metric">{drafts.length.toLocaleString("ja-JP")}件</div>
@@ -69,18 +80,6 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
           <p>AIが勝手に公開せず、内容と出し先を確認してから実行します。</p>
           <Link className="button secondary" href={`/stores/${store.id}/growth-actions`}>実行待ちを見る</Link>
         </article>
-      </section>
-      <section className="visual-section">
-        <div className="section-heading"><div><p className="eyebrow">投稿の準備状況</p><h2>何を確認すべきか、ひと目で把握</h2></div><p>AIが勝手に公開せず、投稿済みになるまで人が確認します。</p></div>
-        <div className="visual-grid cols-2">
-          <DonutChart title="投稿の状態" centerLabel="下書き合計" centerValue={`${drafts.length}件`} data={statusCounts.map(([label, value]) => ({ label, value, displayValue: `${value}件` }))} emptyMessage="投稿下書きを作成すると、確認状況を表示できます。" />
-          <DonutChart title="投稿先" centerLabel="媒体数" centerValue={`${channelCounts.length}種類`} data={channelCounts.map(([label, value]) => ({ label, value, displayValue: `${value}件` }))} emptyMessage="投稿下書きを作成すると、媒体ごとの内訳を表示できます。" />
-        </div>
-        {drafts.length ? <div className="marketing-preview-grid">
-          {drafts.slice(0, 4).map((draft) => <Link className="marketing-preview-card" href={`/stores/${store.id}/marketing/drafts`} key={draft.id}>
-            <span>{channelLabels[draft.channel] ?? draft.channel}</span><strong>{draft.title}</strong><p>{draft.short_body || draft.body}</p><small>{draftStatusLabels[draft.status] ?? draft.status}・内容を確認する →</small>
-          </Link>)}
-        </div> : null}
       </section>
       <section className="card">
         <div className="section-heading"><div><p className="eyebrow">集客業務</p><h2>目的から選ぶ</h2></div></div>
