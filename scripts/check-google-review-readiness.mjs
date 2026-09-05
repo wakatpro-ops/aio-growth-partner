@@ -30,8 +30,8 @@ for (const value of [
 }
 
 const homePage = read("app/page.tsx");
-for (const value of ["AIO boost", "AI集客支援", "株式会社 Navi Life", 'href="/privacy"', 'href="/terms"']) {
-  if (!homePage.includes(value)) failures.push(`公開ホームにGoogleブランド審査要件が見つかりません: ${value}`);
+for (const value of ["permanentRedirect", '"https://aioboost.jp/"']) {
+  if (!homePage.includes(value)) failures.push(`公開ホームから公式ブランドサイトへの転送設定が見つかりません: ${value}`);
 }
 
 const googleSource = read("lib/phase5/google-integrations.ts");
@@ -59,6 +59,6 @@ if (failures.length) {
 }
 
 console.log("Google審査準備チェック: OK");
-console.log("- 公開ホーム・運営会社・問い合わせ先・規約情報: 確認済み");
+console.log("- 公式ブランドサイトへの転送・運営会社・問い合わせ先・規約情報: 確認済み");
 console.log("- 初回本番スコープ: business.manage + 基本プロフィールのみ");
 console.log("- Google連携解除・保存トークン削除: 実装済み");
