@@ -23,7 +23,7 @@ export default async function BookingsPage({ params, searchParams }: { params: P
   const confirmedUpcoming = upcoming.filter((booking) => booking.status === "confirmed").length;
 
   return <AppShell>
-    <PageHeader eyebrow={industry.name} title="予約" description="電話・店頭・LINE・AIO boostで受け付けた予約を、一つの台帳で管理します。" action={editable ? <div className="button-row"><Link className="button" href={`/stores/${store.id}/bookings/new`}>予約を登録</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/settings`}>予約内容・担当・設備</Link></div> : <span className="badge">閲覧のみ</span>} />
+    <PageHeader eyebrow={industry.name} title="予約" description="電話・店頭・LINE・AIO boostで受け付けた予約を、一つの台帳で管理します。" action={editable ? <div className="button-row"><Link className="button" href={`/stores/${store.id}/bookings/new`}>予約を登録</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/settings`}>予約内容・担当・設備</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/line`}>LINE予約</Link></div> : <span className="badge">閲覧のみ</span>} />
     {query.saved ? <p className="notice success">予約を保存しました。</p> : null}
     {query.deleted ? <p className="notice success">予約を削除しました。削除済みから元に戻せます。</p> : null}
     {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}

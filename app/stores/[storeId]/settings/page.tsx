@@ -35,6 +35,12 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
       badge: "予約管理"
     },
     {
+      title: "LINE予約窓口",
+      body: "店舗コードでお客様を安全に関連付け、予約希望・変更・キャンセル・前日案内をLINEから受け付けます。",
+      href: `/stores/${store.id}/bookings/line`,
+      badge: "LINE Messaging API"
+    },
+    {
       title: "店舗プロフィール",
       body: "店舗名、URL、Google情報、業態別の強みを整えると、AIの投稿・診断・提案が店舗らしくなります。",
       href: `/stores/${store.id}/settings/profile`,

@@ -52,7 +52,10 @@
     "test:booking-rules": "node --experimental-strip-types --test scripts/test-booking-rules.mjs",
     "check:booking-hub": "node scripts/check-booking-hub.mjs",
     "test:public-bookings": "playwright test tests/authz/booking-public.spec.ts --workers=1",
-    "test:authz-bookings": "playwright test tests/authz/booking-hub.spec.ts --workers=1"
+    "test:authz-bookings": "playwright test tests/authz/booking-hub.spec.ts --workers=1",
+    "test:line-booking-rules": "node --experimental-strip-types --test scripts/test-line-booking-rules.mjs",
+    "check:line-booking": "node scripts/check-line-booking.mjs",
+    "test:public-line-booking": "playwright test tests/authz/line-webhook-public.spec.ts --workers=1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

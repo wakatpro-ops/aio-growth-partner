@@ -31,7 +31,7 @@ export default async function BookingSettingsPage({ params, searchParams }: { pa
   const serviceItems = items.filter((item) => item.item_type === "service");
 
   return <AppShell>
-    <PageHeader eyebrow="予約" title="予約内容・担当・設備" description="所要時間と、同じ時間に重ねて予約できない担当者・席・部屋・設備を設定します。" action={<Link className="button secondary" href={`/stores/${store.id}/bookings`}>予約へ戻る</Link>} />
+    <PageHeader eyebrow="予約" title="予約内容・担当・設備" description="所要時間と、同じ時間に重ねて予約できない担当者・席・部屋・設備を設定します。" action={<div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/bookings`}>予約へ戻る</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/line`}>LINE予約</Link></div>} />
     {query.saved ? <p className="notice success">予約設定を保存しました。</p> : null}
     {query.deleted ? <p className="notice success">予約設定を削除しました。下の削除済み設定から元に戻せます。</p> : null}
     {query.restored ? <p className="notice success">予約設定を元に戻しました。</p> : null}
