@@ -29,6 +29,12 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
       badge: "店舗ごとの権限"
     }] : []),
     {
+      title: "予約内容・担当・設備",
+      body: "所要時間、担当スタッフ、席、部屋、設備を登録し、予約時間の重複を防ぎます。",
+      href: `/stores/${store.id}/bookings/settings`,
+      badge: "予約管理"
+    },
+    {
       title: "店舗プロフィール",
       body: "店舗名、URL、Google情報、業態別の強みを整えると、AIの投稿・診断・提案が店舗らしくなります。",
       href: `/stores/${store.id}/settings/profile`,

@@ -448,6 +448,60 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       }
     }
 
+    if (input.operatingModel.systems.reservations.authority === "aio_boost") {
+      const selectedServiceMenus = selectedMenus.filter((menu) => menu.itemType === "service");
+      if (selectedServiceMenus.length > 0) {
+        const [{ data: serviceItems, error: serviceItemError }, { data: currentBookingServices, error: bookingServiceError }] = await Promise.all([
+          supabase.from("items").select("id, name, unit_price, onboarding_source_key")
+            .eq("store_id", store.id).eq("item_type", "service").is("archived_at", null),
+          supabase.from("booking_services").select("id, name")
+            .eq("store_id", store.id).is("archived_at", null)
+        ]);
+        if (serviceItemError) throw new Error(`予約メニューに使うサービスを確認できませんでした: ${serviceItemError.message}`);
+        if (bookingServiceError) throw new Error(`予約メニューの登録状況を確認できませんでした: ${bookingServiceError.message}`);
+
+        const normalizeName = (value: string) => value.trim().normalize("NFKC").toLowerCase();
+        const existingBookingNames = new Set((currentBookingServices ?? []).map((service) => normalizeName(String(service.name ?? ""))));
+        const itemsBySourceKey = new Map((serviceItems ?? []).map((item) => [String(item.onboarding_source_key ?? ""), item]));
+        const itemsByName = new Map((serviceItems ?? []).map((item) => [normalizeName(String(item.name ?? "")), item]));
+        const bookingServicesToCreate = selectedServiceMenus.flatMap((menu, index) => {
+          const normalizedName = normalizeName(menu.name);
+          if (existingBookingNames.has(normalizedName)) return [];
+          existingBookingNames.add(normalizedName);
+          const relatedItem = itemsBySourceKey.get(menu.sourceKey) ?? itemsByName.get(normalizedName);
+          return [{
+            organization_id: store.organization_id,
+            store_id: store.id,
+            item_id: relatedItem?.id ?? null,
+            name: menu.name,
+            description: "AI初期設定から登録しました。実際の所要時間を確認してください。",
+            duration_minutes: 60,
+            price: Number(relatedItem?.unit_price ?? menu.unitPrice) || 0,
+            color: "#248565",
+            is_bookable: true,
+            sort_order: index,
+            created_by: access.userId,
+            updated_by: access.userId
+          }];
+        });
+        if (bookingServicesToCreate.length > 0) {
+          const { data: createdBookingServices, error: createBookingServiceError } = await supabase
+            .from("booking_services").insert(bookingServicesToCreate).select("id, name");
+          if (createBookingServiceError) throw new Error(`予約メニューを準備できませんでした: ${createBookingServiceError.message}`);
+          for (const service of createdBookingServices ?? []) {
+            await logAuditEvent({
+              storeId: store.id,
+              actionType: "booking_service_created_from_initial_setup",
+              targetType: "booking_service",
+              targetId: String(service.id),
+              message: `${String(service.name)}をAI初期設定から予約メニューへ登録しました。`,
+              metadata: { source_snapshot_id: snapshot.id, default_duration_minutes: 60 }
+            });
+          }
+        }
+      }
+    }
+
     for (const menu of input.menus.filter((candidate) => !candidate.enabled)) {
       await supabase.from("items").update({ archived_at: now, archived_by: access.userId, updated_at: now })
         .eq("store_id", store.id).eq("onboarding_source_key", menu.sourceKey).is("archived_at", null);

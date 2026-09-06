@@ -30,6 +30,8 @@ export async function confirmInitialSetupAction(
   revalidatePath(`/onboarding/setup-review`);
   revalidatePath(`/stores/${storeId}`);
   revalidatePath(`/stores/${storeId}/items`);
+  revalidatePath(`/stores/${storeId}/bookings`);
+  revalidatePath(`/stores/${storeId}/bookings/settings`);
   revalidatePath(`/stores/${storeId}/settings`);
   redirect(`/stores/${storeId}/aio-improvement?setup=completed`);
 }

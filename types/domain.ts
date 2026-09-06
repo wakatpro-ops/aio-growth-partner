@@ -28,6 +28,7 @@ export type ModuleKey =
   | "customer_imports"
   | "customer_segments"
   | "customer_message_planning"
+  | "booking_management"
   | "estimate_management"
   | "invoice_management"
   | "pdf_export"
