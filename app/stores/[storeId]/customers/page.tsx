@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { DonutChart, HorizontalBarChart } from "@/components/ui/data-visuals";
 import { getIndustryConfig } from "@/config/industries";
 import { customerSegmentDefinition, listCustomersForSegment } from "@/lib/customer-crm";
+import { listBookings } from "@/lib/bookings";
 import { listCustomers } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
 import { archiveStoreEntityAction } from "../archive-actions";
@@ -16,7 +17,11 @@ export default async function CustomersPage({ params, searchParams }: { params: 
   const { saved } = query;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
-  const allCustomers = await listCustomers(store.id, 2000);
+  const [allCustomers, todayBookings, upcomingBookings] = await Promise.all([
+    listCustomers(store.id, 2000),
+    listBookings(store.id, "today"),
+    listBookings(store.id, "upcoming")
+  ]);
   const sourceCustomers = query.segment ? await listCustomersForSegment(store.id, query.segment) : allCustomers;
   const keyword = String(query.q ?? "").trim().toLowerCase();
   const customers = keyword ? sourceCustomers.filter((customer) => [customer.name, customer.company_name, customer.phone, customer.email, customer.assigned_staff_name, ...(customer.tags ?? [])].some((value) => String(value ?? "").toLowerCase().includes(keyword))) : sourceCustomers;
@@ -26,6 +31,8 @@ export default async function CustomersPage({ params, searchParams }: { params: 
   const repeatCount = allCustomers.filter((customer) => Number(customer.visit_count ?? 0) >= 2).length;
   const visitHistoryMissingCount = allCustomers.filter((customer) => Number(customer.visit_count ?? 0) === 0).length;
   const contactUnavailableCount = Math.max(0, allCustomers.length - contactableCount);
+  const activeTodayBookingCount = todayBookings.filter((booking) => !["cancelled", "no_show"].includes(booking.status)).length;
+  const activeUpcomingBookingCount = upcomingBookings.filter((booking) => !["cancelled", "no_show"].includes(booking.status)).length;
   const staffCounts = [...allCustomers.reduce((counts, customer) => {
     const staff = customer.assigned_staff_name?.trim() || "担当未設定";
     counts.set(staff, (counts.get(staff) ?? 0) + 1);
@@ -81,6 +88,7 @@ export default async function CustomersPage({ params, searchParams }: { params: 
       <section className="card">
         <div className="section-heading"><div><p className="eyebrow">顧客業務</p><h2>目的から選ぶ</h2></div></div>
         <div className="hub-grid">
+          <Link className="hub-link primary" href={`/stores/${store.id}/bookings`}><h3>予約を確認</h3><p>今日{activeTodayBookingCount}件・今後{activeUpcomingBookingCount}件。キャンセルを除き、電話や店頭の予約も一つの台帳で管理します。</p><strong>予約台帳を開く →</strong></Link>
           <Link className="hub-link primary" href="#customer-list"><h3>顧客一覧を確認</h3><p>連絡先、最終来店日、来店回数、担当者、メモを確認します。</p><strong>一覧へ移動 →</strong></Link>
           <Link className="hub-link" href={`/stores/${store.id}/customer-segments`}><h3>顧客を分類</h3><p>来店状況や顧客属性で分け、対象に合う案内を準備します。</p><strong>セグメントを開く →</strong></Link>
           <Link className="hub-link" href={`/stores/${store.id}/customer-messages`}><h3>案内文を準備</h3><p>対象顧客を確認してから、メッセージ下書きと配信予定を作ります。</p><strong>下書き・配信予定へ →</strong></Link>

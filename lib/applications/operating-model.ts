@@ -163,14 +163,15 @@ export function buildOperatingModelDraft(profile: ExtractedStoreProfile, source:
 
 export function operatingModelFeatureFlags(modelValue: unknown): FeatureFlags {
   const model = normalizeOperatingModel(modelValue);
+  const reservationFlags = { booking_management: model.systems.reservations.authority === "aio_boost" };
   if (model.register.mode === "simple_register") {
-    return { simple_register: true, order_workflow: true, order_management: true, payment_management: true, product_management: true, invoice_management: true };
+    return { ...reservationFlags, simple_register: true, order_workflow: true, order_management: true, payment_management: true, product_management: true, invoice_management: true };
   }
   if (model.register.mode === "external_pos") {
-    return { simple_register: false, pos_api_integrations: true, data_imports: true, csv_import: true, excel_import: true, sales_reports: true };
+    return { ...reservationFlags, simple_register: false, pos_api_integrations: true, data_imports: true, csv_import: true, excel_import: true, sales_reports: true };
   }
   if (model.register.mode === "file_import") {
-    return { simple_register: false, data_imports: true, csv_import: true, excel_import: true, sales_reports: true };
+    return { ...reservationFlags, simple_register: false, data_imports: true, csv_import: true, excel_import: true, sales_reports: true };
   }
-  return { simple_register: false };
+  return { ...reservationFlags, simple_register: false };
 }

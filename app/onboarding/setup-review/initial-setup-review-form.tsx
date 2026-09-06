@@ -9,7 +9,7 @@ import { confirmInitialSetupAction, saveInitialSetupDraftAction, type InitialSet
 const initialState: InitialSetupActionState = { ok: false, message: "" };
 const systemLabels: Record<string, string> = { sales: "売上", reservations: "予約", customers: "顧客", inventory: "在庫", accounting: "会計" };
 const authorityLabels: Record<string, string> = { aio_boost: "AIO boostで管理", external: "既存システムを正本にする", file_import: "CSV・Excel取込で連携", not_managed: "管理しない" };
-const reservationLabels: Record<string, string> = { external: "既存の予約サービスを使う", manual: "電話・LINE・紙などで管理する", not_managed: "予約管理は使わない", undecided: "後で決める", aio_boost: "AIO boost予約管理（準備中）", file_import: "CSV・Excel取込で連携" };
+const reservationLabels: Record<string, string> = { external: "既存の予約サービスを使う", manual: "電話・LINE・紙などで管理する", not_managed: "予約管理は使わない", undecided: "後で決める", aio_boost: "AIO boostで予約を管理する", file_import: "CSV・Excel取込で連携" };
 const structureLabels: Record<string, string> = { single_store: "1法人・1ブランド・1店舗", multi_store: "同じ法人・ブランドで複数店舗", multi_brand: "同じ法人で複数ブランド・店舗", multi_company: "複数法人" };
 const registerLabels: Record<string, string> = { external_pos: "既存のPOS・レジを使う", file_import: "CSV・Excelで売上を取り込む", simple_register: "AIO boost簡易レジ（準備中）", not_needed: "レジは使わない", undecided: "後で決める" };
 
@@ -32,7 +32,7 @@ export function InitialSetupReviewForm({ review }: { review: InitialSetupReview 
   const [skipped, setSkipped] = useState<string[]>(review.savedSkippedSteps);
   const [showMenuEditor, setShowMenuEditor] = useState(false);
   const [structureMode, setStructureMode] = useState(draftOperatingModel.structure.mode);
-  const [systemAuthorities, setSystemAuthorities] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(draftOperatingModel.systems).map(([key, value]) => [key, key === "reservations" && value.authority === "aio_boost" ? "undecided" : value.authority])));
+  const [systemAuthorities, setSystemAuthorities] = useState<Record<string, string>>(() => Object.fromEntries(Object.entries(draftOperatingModel.systems).map(([key, value]) => [key, value.authority])));
   const [registerMode, setRegisterMode] = useState<InitialSetupReview["operatingModel"]["register"]["mode"]>(draftOperatingModel.register.mode === "simple_register" ? "undecided" : draftOperatingModel.register.mode);
   const [serviceMode, setServiceMode] = useState(draftOperatingModel.operations.serviceMode);
   const [resources] = useState<string[]>(draftOperatingModel.operations.reservationResources);
@@ -132,8 +132,8 @@ function StructureQuestion({ mode, candidateCount, onChoose }: { mode: InitialSe
 }
 
 function ReservationQuestion({ authority, detected, onChoose }: { authority: string; detected: string[]; onChoose: (value: string) => void }) {
-  const options = [["external", "既存の予約サービスを使う"], ["manual", "電話・LINE・紙などで管理する"], ["not_managed", "予約管理は使わない"], ["undecided", "後で決める"]];
-  return <><div className="setup-bubble ai"><p>{detected.length ? `予約先として「${detected.join("、")}」を確認しました。` : "予約情報を管理する公開システムは確認できませんでした。"} 現在の予約受付方法を教えてください。</p><small>AIO boost内の予約管理は現在準備中です。今お使いの方法は変更せず、店舗に合う案内やデータ整理に活用します。</small></div><div className="setup-choice-grid">{options.map(([value, label], index) => <button key={value} className={`setup-choice ${authority === value ? "selected" : ""}`} type="button" onClick={() => onChoose(value)}><span>{index + 1}</span>{label}</button>)}</div></>;
+  const options = [["aio_boost", "AIO boostで予約を管理する"], ["external", "既存の予約サービスを使う"], ["manual", "電話・LINE・紙などで管理する"], ["not_managed", "予約管理は使わない"], ["undecided", "後で決める"]];
+  return <><div className="setup-bubble ai"><p>{detected.length ? `予約先として「${detected.join("、")}」を確認しました。` : "予約情報を管理する公開システムは確認できませんでした。"} 現在の予約受付方法を教えてください。</p><small>AIO boostでは予約台帳と担当者・設備の重複防止を利用できます。既存サービスを選んでも外部データは書き換えず、将来の連携は読み取り専用から始めます。</small></div><div className="setup-choice-grid">{options.map(([value, label], index) => <button key={value} className={`setup-choice ${authority === value ? "selected" : ""}`} type="button" onClick={() => onChoose(value)}><span>{index + 1}</span>{label}</button>)}</div></>;
 }
 
 function RegisterQuestion({ mode, onChoose }: { mode: InitialSetupReview["operatingModel"]["register"]["mode"]; onChoose: (value: InitialSetupReview["operatingModel"]["register"]["mode"]) => void }) {
@@ -165,8 +165,7 @@ type FinalLocation = InitialSetupReview["additionalLocations"][number] & { enabl
 type FinalProps = { structureMode: string; systemAuthorities: Record<string, string>; setSystemAuthorities: (value: Record<string, string>) => void; registerMode: string; serviceMode: InitialSetupReview["operatingModel"]["operations"]["serviceMode"]; setServiceMode: (value: InitialSetupReview["operatingModel"]["operations"]["serviceMode"]) => void; sharing: Record<string, string>; setSharing: (value: Record<string, string>) => void; locations: FinalLocation[]; setLocation: (index: number, patch: Partial<FinalLocation>) => void; store: StoreDraft; dataImport: InitialSetupReview["dataImport"]; selectedMenuCount: number; featureCount: number; skippedCount: number; confirmed: boolean; setConfirmed: (value: boolean) => void };
 
 function authorityOptionsFor(key: string) {
-  return Object.entries(key === "reservations" ? reservationLabels : authorityLabels)
-    .filter(([value]) => value !== "aio_boost" || key !== "reservations");
+  return Object.entries(key === "reservations" ? reservationLabels : authorityLabels);
 }
 
 function FinalSummary(props: FinalProps) {

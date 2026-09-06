@@ -48,7 +48,11 @@
     "check:design-system": "node scripts/check-design-system.mjs",
     "check:visual-first": "node scripts/check-visual-first-store-pages.mjs",
     "check:sales-hub": "node scripts/check-unified-sales-hub.mjs",
-    "check:menu-architecture": "node scripts/check-menu-architecture.mjs"
+    "check:menu-architecture": "node scripts/check-menu-architecture.mjs",
+    "test:booking-rules": "node --experimental-strip-types --test scripts/test-booking-rules.mjs",
+    "check:booking-hub": "node scripts/check-booking-hub.mjs",
+    "test:public-bookings": "playwright test tests/authz/booking-public.spec.ts --workers=1",
+    "test:authz-bookings": "playwright test tests/authz/booking-hub.spec.ts --workers=1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
