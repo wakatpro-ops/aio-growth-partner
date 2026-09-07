@@ -21,7 +21,7 @@ export default async function LineBookingSettingsPage({ params, searchParams }: 
   const credentialsReady = Boolean(process.env.LINE_CHANNEL_ID && process.env.LINE_CHANNEL_SECRET && process.env.LINE_CHANNEL_ACCESS_TOKEN);
 
   return <AppShell>
-    <PageHeader eyebrow="顧客・予約" title="LINE予約窓口" description="お客様へ一問ずつ希望を伺い、予約台帳へ店舗確認待ちの予約として安全に取り込みます。" action={<Link className="button secondary" href={`/stores/${store.id}/bookings`}>予約へ戻る</Link>} />
+    <PageHeader eyebrow="顧客・予約" title="LINE予約窓口" description="お客様へ一問ずつ希望を伺い、予約台帳へ店舗確認待ちの予約として安全に取り込みます。" action={<div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/bookings`}>予約へ戻る</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/migration`}>既存LINE予約から移行</Link></div>} />
     {query.saved ? <p className="notice success">LINE予約設定を保存しました。</p> : null}
     {query.deleted ? <p className="notice success">LINE予約窓口を削除済みに移しました。予約データと同意履歴は保持されています。</p> : null}
     {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
