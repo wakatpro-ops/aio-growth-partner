@@ -61,7 +61,11 @@
     "test:public-line-booking": "playwright test tests/authz/line-webhook-public.spec.ts --workers=1",
     "test:external-booking-catalog": "node --experimental-strip-types scripts/test-external-booking-catalog.mjs",
     "check:external-booking-connectors": "node scripts/check-external-booking-connectors.mjs",
-    "test:public-external-booking": "playwright test tests/authz/external-booking-integrations-public.spec.ts --workers=1"
+    "test:public-external-booking": "playwright test tests/authz/external-booking-integrations-public.spec.ts --workers=1",
+    "test:store-email-rules": "node --experimental-strip-types --test scripts/test-store-email-rules.mjs",
+    "check:store-ai-inbox": "node scripts/check-store-ai-inbox.mjs",
+    "test:public-store-ai-inbox": "playwright test tests/authz/store-ai-inbox-public.spec.ts --workers=1",
+    "test:authz-store-ai-inbox": "playwright test tests/authz/store-ai-inbox.spec.ts --workers=1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

@@ -36,6 +36,7 @@
 - 2026-09-07: Issue #135のLINE予約第2段階をPR #139で本番反映。Vercel ProductionへLINEの秘密情報を保存して再デプロイし、Webhook利用・再送を有効化。LINE DevelopersのWebhook検証と本番公開エンドポイント統合テスト3件が成功。実ユーザーによる友だち追加・店舗リンク・予約往復確認は最終受入テストとして残す。
 - 2026-09-07: Issue #141として、既存LINE予約からの店舗別移行フローを実装。現状確認、CSV・Excel一括解析、将来予約の店舗確認待ち取込、旧受付を止めないテスト、切替依頼、運営管理者による完了・復旧確認を記録する。新しい有料サービスは追加せず、既存Vercel Pro・Supabase Proを再利用する。元ファイルと秘密情報は保存しない。
 - 2026-09-07: Issue #136として、外部予約8媒体の公式情報を再調査。STORES 予約はビジネスプラン以上・利用申請・店舗別API情報が必要な公式読取API、RESERVAはスイートプラン以上の個別契約API。minimo、ホットペッパービューティー、楽天ビューティ、EPARK、OZmall、エキテンは一般公開の予約APIを確認できず、提携・個別許諾待ちとした。既存Vercel Pro・Supabase Proを再利用し、媒体別の課金契約は未実施。AIO boost側には店舗別の接続準備・申請状況・削除／復元・運営管理者の読取接続確認を追加し、秘密情報は申請準備画面に保存しない。
+- 2026-09-07: Issue #144として、店舗の通常メールを一つの店舗固有AI受信箱へ転送し、予約・問い合わせ・クレーム・請求・仕入などへ安全に分類する機能を実装開始。Vercel ProとSupabase Proは既存契約を再利用する。SendGridの契約・課金状態はUNKNOWNのままで、`in.aioboost.jp` のMXとInbound Parseは未設定。既存の露出懸念があるSendGridキーは再利用せず、AIO boost専用キーとWebhook認証を確認するまで実メール受信を開始しない。
 - 2026-09-03: Google Workspaceで `meta-review@aioboost.jp` を `info@aiaigift.com` の予備メールアドレス（エイリアス）として追加済み。追加ライセンスなし。16:44にSupabaseのパスワード再設定メールを再送したが、`email_address_invalid`（HTTP 400）で拒否された。`aioboost.jp` の公開MXはGoogleを指しておりDNS上は有効。Supabase側のメールアドレス検証を解消するか、審査用アカウントを別の実在メールへ変更する必要がある。パスワードや再設定URLは記録しない。
 
 ## アプリ内運営管理者

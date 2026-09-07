@@ -1,0 +1,31 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const read = (path) => readFileSync(path, "utf8");
+const migration = read("supabase/migrations/202609070004_store_ai_email_inbox.sql");
+const route = read("app/api/inbound/store-email/route.ts");
+const service = read("lib/store-email/inboxes.ts");
+const inbound = read("lib/store-email/inbound.ts");
+const page = read("app/stores/[storeId]/ai-inbox/page.tsx");
+const actions = read("app/stores/[storeId]/ai-inbox/actions.ts");
+const authz = read("supabase/tests/store_ai_email_inbox_authz.sql");
+const shell = read("components/layout/app-shell.tsx");
+
+assert.match(migration, /create table if not exists public\.store_ai_inboxes/u);
+assert.match(migration, /create table if not exists public\.store_ai_email_messages/u);
+assert.match(migration, /store_ai_inboxes_store_active_uidx/u);
+assert.match(migration, /store_ai_email_messages_sensitive_minimization_check/u);
+assert.match(migration, /revoke all on public\.store_ai_inboxes from public, anon, authenticated/u);
+assert.match(migration, /apply_store_ai_email_booking/u);
+assert.match(route, /INBOUND_EMAIL_WEBHOOK_SECRET/u);
+assert.match(route, /timingSafeEqual/u);
+assert.match(route, /maxBodyBytes/u);
+assert.match(inbound, /classified\.sensitive \? "機密性の高いメール"/u);
+assert.doesNotMatch(migration, /raw_body|raw_html|attachment_data|password|access_token/iu);
+for (const lifecycle of ["archiveStoreAiInbox", "restoreStoreAiInbox", "archiveStoreEmailMessage", "restoreStoreEmailMessage", "rotateStoreAiInbox"]) assert.match(service, new RegExp(lifecycle, "u"));
+for (const action of ["applyReservationAction", "confirmEmailRecordAction", "ignoreEmailMessageAction"]) assert.match(actions, new RegExp(action, "u"));
+assert.match(page, /パスワード再設定、認証コード、カード情報/u);
+assert.match(page, /勝手に返信・決済・設定変更はしません/u);
+assert.match(shell, /AI受信箱/u);
+for (const denial of ["Owner direct read", "Unaffiliated direct read", "Other organization direct insert", "Cross-organization store mismatch", "Sensitive body retention"]) assert.match(authz, new RegExp(denial, "u"));
+console.log("Store AI inbox contract checks passed.");

@@ -57,6 +57,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: `/stores/${activeStoreId}/inventory`, label: navigationLabels.product }
   ] : navItems;
   const storeUtilityItems = activeStoreId ? [
+    { href: `/stores/${activeStoreId}/ai-inbox`, label: "AI受信箱" },
     { href: `/stores/${activeStoreId}/settings`, label: "設定" }
   ] : [];
   const backHref = useMemo(() => {

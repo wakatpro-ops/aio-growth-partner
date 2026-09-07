@@ -29,6 +29,12 @@ export default async function StoreSettingsHomePage({ params }: { params: Promis
       badge: "店舗ごとの権限"
     }] : []),
     {
+      title: "AI受信箱",
+      body: "普段の店舗メールを転送し、予約・問い合わせ・クレーム・請求・仕入へ整理してから確認できます。",
+      href: `/stores/${store.id}/ai-inbox`,
+      badge: "1つのメールで開始"
+    },
+    {
       title: "予約内容・担当・設備",
       body: "所要時間、担当スタッフ、席、部屋、設備を登録し、予約時間の重複を防ぎます。",
       href: `/stores/${store.id}/bookings/settings`,

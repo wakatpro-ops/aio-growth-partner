@@ -83,6 +83,7 @@ OPENAI_MODEL=
 SENDGRID_API_KEY=
 SENDGRID_FROM_EMAIL=info@aioboost.jp
 SENDGRID_FROM_NAME=AIO boost
+INBOUND_EMAIL_WEBHOOK_SECRET=店舗AI受信Webhook専用の十分に長いランダム値
 ADMIN_NOTIFICATION_EMAIL=info@aioboost.jp
 APP_BASE_URL=https://app.aioboost.jp
 ```
