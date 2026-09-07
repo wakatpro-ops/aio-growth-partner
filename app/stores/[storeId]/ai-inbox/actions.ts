@@ -6,12 +6,15 @@ import {
   applyStoreEmailReservation,
   archiveStoreAiInbox,
   archiveStoreEmailMessage,
+  archiveStoreEmailTemplate,
   confirmStoreEmailRecord,
   ignoreStoreEmailMessage,
   restoreStoreAiInbox,
   restoreStoreEmailMessage,
+  restoreStoreEmailTemplate,
   rotateStoreAiInbox,
   setStoreAiInboxStatus,
+  setStoreEmailTemplateStatus,
   updateStoreAiInboxSettings
 } from "@/lib/store-email/inboxes";
 
@@ -94,4 +97,25 @@ export async function restoreEmailMessageAction(storeId: string, messageId: stri
   catch (error) { redirect(`/stores/${storeId}/ai-inbox?view=deleted&error=${message(error)}`); }
   refresh(storeId);
   redirect(`/stores/${storeId}/ai-inbox?view=deleted&restored=message`);
+}
+
+export async function setEmailTemplateStatusAction(storeId: string, templateId: string, status: "active" | "paused") {
+  try { await setStoreEmailTemplateStatus(storeId, templateId, status); }
+  catch (error) { redirect(`/stores/${storeId}/ai-inbox?error=${message(error)}#learned-email-rules`); }
+  refresh(storeId);
+  redirect(`/stores/${storeId}/ai-inbox?template_status=${status}#learned-email-rules`);
+}
+
+export async function archiveEmailTemplateAction(storeId: string, templateId: string) {
+  try { await archiveStoreEmailTemplate(storeId, templateId); }
+  catch (error) { redirect(`/stores/${storeId}/ai-inbox?error=${message(error)}#learned-email-rules`); }
+  refresh(storeId);
+  redirect(`/stores/${storeId}/ai-inbox?template_deleted=1#learned-email-rules`);
+}
+
+export async function restoreEmailTemplateAction(storeId: string, templateId: string) {
+  try { await restoreStoreEmailTemplate(storeId, templateId); }
+  catch (error) { redirect(`/stores/${storeId}/ai-inbox?rules=deleted&error=${message(error)}#learned-email-rules`); }
+  refresh(storeId);
+  redirect(`/stores/${storeId}/ai-inbox?rules=deleted&template_restored=1#learned-email-rules`);
 }

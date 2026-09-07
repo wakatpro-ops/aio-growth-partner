@@ -46,6 +46,7 @@ async function browserSession(browser: Browser, name: PersonaName): Promise<Brow
 
 async function insertMessage(category: "inquiry" | "reservation", suffix: string) {
   const extracted = category === "reservation" ? {
+    reservation_id: `FIXTURE-${runId}-${suffix}`,
     customer_name: `予約 ${suffix}`,
     starts_at: "2026-09-20T01:00:00.000Z",
     ends_at: "2026-09-20T02:00:00.000Z",
@@ -64,6 +65,9 @@ async function insertMessage(category: "inquiry" | "reservation", suffix: string
     classification_confidence: category === "reservation" ? 0.99 : 0.8,
     processing_status: category === "reservation" ? "ready_to_apply" : "review_required",
     known_template: category === "reservation",
+    booking_event_type: category === "reservation" ? "created" : null,
+    booking_provider: category === "reservation" ? "email_example_com" : null,
+    template_fingerprint: category === "reservation" ? "a".repeat(64) : null,
     extracted_data: extracted
   }).select("id").single();
   if (result.error || !result.data) throw new Error(`メールfixture作成失敗: ${result.error?.message}`);
@@ -123,14 +127,18 @@ test("URL: 未所属・別組織・停止アカウントは拒否し、割当店
   }
 });
 
-test("DB REST/RPC: 認証済みでも直接読書きと予約反映RPCを拒否する", async () => {
+test("DB REST/RPC: 認証済みでもメール・学習ルールの直接読書きと予約反映RPCを拒否する", async () => {
   for (const name of ["owner", "staff", "viewer", "outsider", "otherOwner", "suspended"] as PersonaName[]) {
     const client = jwtClient(personas[name].token);
     const read = await client.from("store_ai_email_messages").select("id");
     expect(read.error, `${name} direct read`).not.toBeNull();
     const write = await client.from("store_ai_email_messages").insert({ inbox_id: inboxId, organization_id: orgA, store_id: storeA, message_fingerprint: `bypass-${name}`, summary: "bypass", category: "unknown" });
     expect(write.error, `${name} direct write`).not.toBeNull();
-    const rpc = await client.rpc("apply_store_ai_email_booking", { p_message_id: randomUUID(), p_actor_user_id: personas[name].id, p_automatic: false });
+    const templateRead = await client.from("store_ai_email_templates").select("id");
+    expect(templateRead.error, `${name} direct template read`).not.toBeNull();
+    const templateWrite = await client.from("store_ai_email_templates").insert({ organization_id: orgA, store_id: storeA, sender_email: "attacker@example.com", sender_domain: "example.com", provider_key: "email_example_com", event_type: "created", template_fingerprint: "b".repeat(64) });
+    expect(templateWrite.error, `${name} direct template write`).not.toBeNull();
+    const rpc = await client.rpc("apply_store_ai_email_event", { p_message_id: randomUUID(), p_actor_user_id: personas[name].id, p_automatic: false, p_learn_template: true });
     expect(rpc.error, `${name} direct RPC`).not.toBeNull();
   }
 });
@@ -149,6 +157,176 @@ test("Webhook: 誤った秘密は拒否し、正しい秘密で店舗だけに�
   const minimized = await admin.from("store_ai_email_messages").select("subject,summary,extracted_data,sender_email,sensitive,processing_status").eq("provider_event_id", `<${runId}-secret@example.jp>`).single();
   expect(minimized.data).toMatchObject({ subject: "機密性の高いメール", extracted_data: {}, sender_email: null, sensitive: true, processing_status: "rejected" });
   expect(String(minimized.data?.summary)).not.toContain("123456");
+});
+
+test("初回だけ承認して学習し、同じ店舗・送信元・形式・新規通知の2回目だけを自動処理する", async ({ browser, request }) => {
+  const sender = `予約通知 <booking-${runId}@beauty.recruit.co.jp>`;
+  const firstEventId = `<${runId}-learn-first@example.jp>`;
+  const firstReservationId = `HPB-${runId}-101`;
+  const first = await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: sender,
+      subject: `ホットペッパービューティー 予約受付 ${firstReservationId}`,
+      text: `予約番号：${firstReservationId}\nお名前：初回 花子\n予約日時：2026年9月25日 14:00\nメニュー：アロマ60分\n電話番号：09011112222`,
+      headers: `Message-ID: ${firstEventId}`
+    }
+  });
+  expect(first.status()).toBe(202);
+  const firstMessage = await admin.from("store_ai_email_messages")
+    .select("id,processing_status,matched_template_id,booking_event_type,booking_provider,template_fingerprint")
+    .eq("provider_event_id", firstEventId)
+    .single();
+  expect(firstMessage.error).toBeNull();
+  expect(firstMessage.data).toMatchObject({ processing_status: "ready_to_apply", matched_template_id: null, booking_event_type: "created", booking_provider: "hotpepper_beauty" });
+  expect(String(firstMessage.data?.template_fingerprint)).toHaveLength(64);
+
+  const ownerContext = await browserSession(browser, "owner");
+  const page = await ownerContext.newPage();
+  await page.goto(`${baseUrl}/stores/${storeA}/ai-inbox#message-${firstMessage.data!.id}`);
+  const firstCard = page.locator(`#message-${firstMessage.data!.id}`);
+  await firstCard.locator('input[name="learn_template"]').check();
+  await firstCard.getByRole("button", { name: "内容を確認して予約へ反映" }).click();
+  await expect(page).toHaveURL(/\/bookings\//u);
+  await ownerContext.close();
+
+  const learned = await admin.from("store_ai_email_templates")
+    .select("id,status,event_type,sender_email,template_fingerprint,match_count,auto_processed_count")
+    .eq("store_id", storeA)
+    .eq("sender_email", `booking-${runId}@beauty.recruit.co.jp`)
+    .single();
+  expect(learned.error).toBeNull();
+  expect(learned.data).toMatchObject({ status: "active", event_type: "created", match_count: 1, auto_processed_count: 0 });
+
+  const secondEventId = `<${runId}-learn-second@example.jp>`;
+  const secondReservationId = `HPB-${runId}-102`;
+  const second = await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: sender,
+      subject: `ホットペッパービューティー 予約受付 ${secondReservationId}`,
+      text: `予約番号：${secondReservationId}\nお名前：二回目 太郎\n予約日時：2026年9月25日 16:00\nメニュー：整体90分\n電話番号：09033334444`,
+      headers: `Message-ID: ${secondEventId}`
+    }
+  });
+  expect(second.status()).toBe(202);
+  const automaticallyApplied = await admin.from("store_ai_email_messages")
+    .select("processing_status,requires_human_confirmation,matched_template_id,applied_target_id")
+    .eq("provider_event_id", secondEventId)
+    .single();
+  expect(automaticallyApplied.data).toMatchObject({ processing_status: "applied", requires_human_confirmation: false, matched_template_id: learned.data!.id });
+  const autoBooking = await admin.from("bookings").select("external_booking_id,customer_name,external_provider").eq("id", automaticallyApplied.data!.applied_target_id).single();
+  expect(autoBooking.data).toMatchObject({ external_booking_id: secondReservationId, customer_name: "二回目 太郎", external_provider: "email_hotpepper_beauty" });
+
+  const firstChangeEventId = `<${runId}-change-first@example.jp>`;
+  await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: sender,
+      subject: `ホットペッパービューティー 予約変更 ${firstReservationId}`,
+      text: `予約番号：${firstReservationId}\nお名前：初回 花子\n予約日時：2026年9月26日 13:00\nメニュー：アロマ60分\n電話番号：09011112222`,
+      headers: `Message-ID: ${firstChangeEventId}`
+    }
+  });
+  const firstChange = await admin.from("store_ai_email_messages").select("id,processing_status,matched_template_id,booking_event_type").eq("provider_event_id", firstChangeEventId).single();
+  expect(firstChange.data).toMatchObject({ processing_status: "ready_to_apply", matched_template_id: null, booking_event_type: "changed" });
+  const changeContext = await browserSession(browser, "owner");
+  const changePage = await changeContext.newPage();
+  await changePage.goto(`${baseUrl}/stores/${storeA}/ai-inbox#message-${firstChange.data!.id}`);
+  const changeCard = changePage.locator(`#message-${firstChange.data!.id}`);
+  await changeCard.locator('input[name="learn_template"]').check();
+  await changeCard.getByRole("button", { name: "予約変更を反映" }).click();
+  await expect(changePage).toHaveURL(/\/bookings\//u);
+  await changeContext.close();
+  const changedBooking = await admin.from("bookings").select("starts_at").eq("external_booking_id", firstReservationId).eq("store_id", storeA).single();
+  expect(changedBooking.data?.starts_at).toBe("2026-09-26T04:00:00+00:00");
+
+  const secondChangeEventId = `<${runId}-change-second@example.jp>`;
+  await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: sender,
+      subject: `ホットペッパービューティー 予約変更 ${firstReservationId}`,
+      text: `予約番号：${firstReservationId}\nお名前：初回 花子\n予約日時：2026年9月26日 15:00\nメニュー：アロマ60分\n電話番号：09011112222`,
+      headers: `Message-ID: ${secondChangeEventId}`
+    }
+  });
+  const autoChange = await admin.from("store_ai_email_messages").select("processing_status,matched_template_id").eq("provider_event_id", secondChangeEventId).single();
+  expect(autoChange.data?.processing_status).toBe("applied");
+  expect(autoChange.data?.matched_template_id).not.toBeNull();
+  const autoChangedBooking = await admin.from("bookings").select("starts_at").eq("external_booking_id", firstReservationId).eq("store_id", storeA).single();
+  expect(autoChangedBooking.data?.starts_at).toBe("2026-09-26T06:00:00+00:00");
+
+  const firstCancelEventId = `<${runId}-cancel-first@example.jp>`;
+  await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: sender,
+      subject: `ホットペッパービューティー 予約キャンセル ${firstReservationId}`,
+      text: `予約番号：${firstReservationId}\n予約キャンセルを受け付けました。`,
+      headers: `Message-ID: ${firstCancelEventId}`
+    }
+  });
+  const firstCancel = await admin.from("store_ai_email_messages").select("id,processing_status,matched_template_id,booking_event_type").eq("provider_event_id", firstCancelEventId).single();
+  expect(firstCancel.data).toMatchObject({ processing_status: "ready_to_apply", matched_template_id: null, booking_event_type: "cancelled" });
+  const cancelContext = await browserSession(browser, "owner");
+  const cancelPage = await cancelContext.newPage();
+  await cancelPage.goto(`${baseUrl}/stores/${storeA}/ai-inbox#message-${firstCancel.data!.id}`);
+  const cancelCard = cancelPage.locator(`#message-${firstCancel.data!.id}`);
+  await cancelCard.locator('input[name="learn_template"]').check();
+  await cancelCard.getByRole("button", { name: "予約キャンセルを反映" }).click();
+  await expect(cancelPage).toHaveURL(/\/bookings\//u);
+  await cancelContext.close();
+  expect((await admin.from("bookings").select("status").eq("external_booking_id", firstReservationId).eq("store_id", storeA).single()).data?.status).toBe("cancelled");
+
+  const secondCancelEventId = `<${runId}-cancel-second@example.jp>`;
+  await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: sender,
+      subject: `ホットペッパービューティー 予約キャンセル ${secondReservationId}`,
+      text: `予約番号：${secondReservationId}\n予約キャンセルを受け付けました。`,
+      headers: `Message-ID: ${secondCancelEventId}`
+    }
+  });
+  expect((await admin.from("store_ai_email_messages").select("processing_status").eq("provider_event_id", secondCancelEventId).single()).data?.processing_status).toBe("applied");
+  expect((await admin.from("bookings").select("status").eq("external_booking_id", secondReservationId).eq("store_id", storeA).single()).data?.status).toBe("cancelled");
+
+  const duplicateEventId = `<${runId}-duplicate-created@example.jp>`;
+  await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: sender,
+      subject: `ホットペッパービューティー 予約受付 ${secondReservationId}`,
+      text: `予約番号：${secondReservationId}\nお名前：二回目 太郎\n予約日時：2026年9月27日 11:00\nメニュー：整体90分\n電話番号：09033334444`,
+      headers: `Message-ID: ${duplicateEventId}`
+    }
+  });
+  const duplicate = await admin.from("store_ai_email_messages").select("processing_status,requires_human_confirmation,matched_template_id").eq("provider_event_id", duplicateEventId).single();
+  expect(duplicate.data?.matched_template_id).toBe(learned.data!.id);
+  expect(duplicate.data).toMatchObject({ processing_status: "review_required", requires_human_confirmation: true });
+
+  const otherSenderEventId = `<${runId}-other-sender@example.jp>`;
+  const otherSender = await request.post(`${baseUrl}/api/inbound/store-email`, {
+    headers: { "x-aio-inbound-secret": webhookSecret },
+    multipart: {
+      to: inboxAddress,
+      from: `別送信元 <other-${runId}@beauty.recruit.co.jp>`,
+      subject: `ホットペッパービューティー 予約受付 HPB-${runId}-103`,
+      text: `予約番号：HPB-${runId}-103\nお名前：別 送信元\n予約日時：2026年9月25日 18:00\nメニュー：施術`,
+      headers: `Message-ID: ${otherSenderEventId}`
+    }
+  });
+  expect(otherSender.status()).toBe(202);
+  const notApplied = await admin.from("store_ai_email_messages").select("processing_status,matched_template_id").eq("provider_event_id", otherSenderEventId).single();
+  expect(notApplied.data).toMatchObject({ processing_status: "ready_to_apply", matched_template_id: null });
 });
 
 test("Server Action: 閲覧のみ・未所属は分類確認できず、スタッフは担当店舗だけ確認できる", async ({ browser }) => {
@@ -178,16 +356,76 @@ test("Server Action: 閲覧のみ・未所属は分類確認できず、スタ�
 });
 
 test("Server Action: スタッフは受信箱の自動反映設定を変更できない", async ({ browser }) => {
+  await admin.from("store_ai_inboxes").update({ auto_apply_reservations: false }).eq("id", inboxId);
   const context = await browserSession(browser, "owner");
   const page = await context.newPage();
   await page.goto(`${baseUrl}/stores/${storeA}/ai-inbox`);
   await page.getByText("自動反映と受信アドレスの安全設定").click();
   const switched = await context.request.post(`${baseUrl}/api/auth/session`, { data: { access_token: personas.staff.token, expires_in: 3600 } });
   expect(switched.status()).toBe(200);
-  await page.locator('textarea[name="trusted_senders"]').fill("attacker@example.com");
+  await page.locator('input[name="auto_apply_reservations"]').check();
   await page.getByRole("button", { name: "安全設定を保存" }).click();
   await expect(page.getByText(/設定を変更できるのは店舗オーナー/u)).toBeVisible();
   const inbox = await admin.from("store_ai_inboxes").select("trusted_senders,auto_apply_reservations").eq("id", inboxId).single();
-  expect(inbox.data).toMatchObject({ trusted_senders: [], auto_apply_reservations: false });
+  expect(inbox.data?.auto_apply_reservations).toBe(false);
+  expect(inbox.data?.trusted_senders).not.toContain("attacker@example.com");
   await context.close();
+});
+
+test("Server Action: スタッフは予約確認できても自動処理ルールを学習させられない", async ({ browser }) => {
+  const messageId = await insertMessage("reservation", "staff-cannot-learn");
+  const context = await browserSession(browser, "owner");
+  const page = await context.newPage();
+  await page.goto(`${baseUrl}/stores/${storeA}/ai-inbox#message-${messageId}`);
+  const card = page.locator(`#message-${messageId}`);
+  await card.locator('input[name="learn_template"]').check();
+  const switched = await context.request.post(`${baseUrl}/api/auth/session`, { data: { access_token: personas.staff.token, expires_in: 3600 } });
+  expect(switched.status()).toBe(200);
+  await card.getByRole("button", { name: "内容を確認して予約へ反映" }).click();
+  await expect(page.getByText(/設定を変更できるのは店舗オーナー/u)).toBeVisible();
+  const unchanged = await admin.from("store_ai_email_messages").select("processing_status,applied_target_id").eq("id", messageId).single();
+  expect(unchanged.data).toMatchObject({ processing_status: "ready_to_apply", applied_target_id: null });
+  const learned = await admin.from("store_ai_email_templates").select("id").eq("approved_message_id", messageId);
+  expect(learned.data).toHaveLength(0);
+  await context.close();
+});
+
+test("学習ルールは店舗オーナーだけが停止・削除・復元できる", async ({ browser }) => {
+  const template = await admin.from("store_ai_email_templates").insert({
+    organization_id: orgA,
+    store_id: storeA,
+    sender_email: `lifecycle-${runId}@example.com`,
+    sender_domain: "example.com",
+    provider_key: "email_example_com",
+    event_type: "created",
+    template_fingerprint: "c".repeat(64),
+    created_by: personas.owner.id,
+    updated_by: personas.owner.id
+  }).select("id").single();
+  expect(template.error).toBeNull();
+
+  const staffContext = await browserSession(browser, "staff");
+  const staffPage = await staffContext.newPage();
+  await staffPage.goto(`${baseUrl}/stores/${storeA}/ai-inbox`);
+  await expect(staffPage.getByRole("heading", { name: "学習済みの予約メール形式" })).toHaveCount(0);
+  await staffContext.close();
+
+  const ownerContext = await browserSession(browser, "owner");
+  const page = await ownerContext.newPage();
+  await page.goto(`${baseUrl}/stores/${storeA}/ai-inbox#learned-email-rules`);
+  const rule = page.locator(".ai-inbox-template-card").filter({ hasText: `lifecycle-${runId}@example.com` });
+  await rule.getByRole("button", { name: "自動処理を一時停止" }).click();
+  await expect(page).toHaveURL(/template_status=paused/u);
+  expect((await admin.from("store_ai_email_templates").select("status").eq("id", template.data!.id).single()).data?.status).toBe("paused");
+
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.locator(".ai-inbox-template-card").filter({ hasText: `lifecycle-${runId}@example.com` }).getByRole("button", { name: "ルールを削除" }).click();
+  await expect(page).toHaveURL(/template_deleted=1/u);
+  expect((await admin.from("store_ai_email_templates").select("archived_at").eq("id", template.data!.id).single()).data?.archived_at).not.toBeNull();
+
+  await page.goto(`${baseUrl}/stores/${storeA}/ai-inbox?rules=deleted#learned-email-rules`);
+  await page.locator(".ai-inbox-template-card").filter({ hasText: `lifecycle-${runId}@example.com` }).getByRole("button", { name: "停止状態で元に戻す" }).click();
+  await expect(page).toHaveURL(/template_restored=1/u);
+  expect((await admin.from("store_ai_email_templates").select("status,archived_at").eq("id", template.data!.id).single()).data).toMatchObject({ status: "paused", archived_at: null });
+  await ownerContext.close();
 });

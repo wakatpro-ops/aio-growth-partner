@@ -5560,7 +5560,17 @@ p {
 .ai-inbox-confidence { background: #e4ebe6; border-radius: 999px; height: 6px; overflow: hidden; }
 .ai-inbox-confidence span { background: linear-gradient(90deg, #258caf, #287a5f); display: block; height: 100%; }
 .ai-inbox-review-form { background: #f7faf8; border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.ai-inbox-event-badges { margin: -2px 0 0; }
+.ai-inbox-learn-check { background: #e9f7f0; border: 1px solid #bcdacb; border-radius: 12px; color: var(--accent-strong); font-weight: 800; padding: 12px 14px; }
 .ai-inbox-secondary-actions { border-top: 1px solid var(--border); padding-top: 12px; }
+.ai-inbox-template-list { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ai-inbox-template-card { box-shadow: none; display: grid; gap: 11px; padding: 16px; }
+.ai-inbox-template-card h3,
+.ai-inbox-template-card p { margin: 0; overflow-wrap: anywhere; }
+.ai-inbox-template-metrics { display: grid; gap: 8px; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 2px 0 0; }
+.ai-inbox-template-metrics div { background: #f5f8f5; border-radius: 10px; padding: 9px 10px; }
+.ai-inbox-template-metrics dt { color: var(--muted); font-size: 11px; }
+.ai-inbox-template-metrics dd { font-size: 13px; font-weight: 800; margin: 3px 0 0; overflow-wrap: anywhere; }
 
 @media (max-width: 760px) {
   .ai-inbox-address-card { align-items: stretch; display: grid; }
@@ -5573,4 +5583,6 @@ p {
   .ai-inbox-message-head time { white-space: normal; }
   .ai-inbox-secondary-actions { align-items: stretch; display: grid; }
   .ai-inbox-secondary-actions .button { width: 100%; }
+  .ai-inbox-template-list { grid-template-columns: 1fr; }
+  .ai-inbox-template-metrics { grid-template-columns: 1fr; }
 }

@@ -61,12 +61,32 @@ export async function processInboundStoreEmail(input: InboundStoreEmailInput) {
   const fingerprint = storeEmailFingerprint({ inboxId: inbox.id, providerEventId, senderEmail: sender.email, subject, body });
   const classified = await classifyInboundStoreEmail({ subject, body, senderEmail: sender.email });
   const completeReservation = classified.category === "reservation"
-    && Boolean(classified.extractedData.customer_name)
-    && Boolean(classified.extractedData.starts_at)
-    && Boolean(classified.extractedData.ends_at);
+    && Boolean(classified.extractedData.reservation_id)
+    && (classified.bookingEventType === "cancelled" || (
+      Boolean(classified.extractedData.customer_name)
+      && Boolean(classified.extractedData.starts_at)
+      && Boolean(classified.extractedData.ends_at)
+    ));
   const processingStatus = classified.sensitive ? "rejected" : completeReservation ? "ready_to_apply" : "review_required";
   const senderDomain = sender.email?.split("@")[1] ?? null;
   const now = new Date().toISOString();
+  let matchedTemplateId: string | null = null;
+  if (sender.email && classified.bookingProvider && classified.bookingEventType && classified.templateFingerprint) {
+    const { data: matchedTemplate, error: templateError } = await supabase
+      .from("store_ai_email_templates")
+      .select("id")
+      .eq("organization_id", inbox.organization_id)
+      .eq("store_id", inbox.store_id)
+      .eq("sender_email", sender.email.toLowerCase())
+      .eq("provider_key", classified.bookingProvider)
+      .eq("event_type", classified.bookingEventType)
+      .eq("template_fingerprint", classified.templateFingerprint)
+      .eq("status", "active")
+      .is("archived_at", null)
+      .maybeSingle();
+    if (templateError) throw new Error(templateError.message);
+    matchedTemplateId = matchedTemplate?.id ? String(matchedTemplate.id) : null;
+  }
   const { data: inserted, error } = await supabase.from("store_ai_email_messages").insert({
     inbox_id: inbox.id,
     organization_id: inbox.organization_id,
@@ -85,6 +105,10 @@ export async function processInboundStoreEmail(input: InboundStoreEmailInput) {
     requires_human_confirmation: !classified.sensitive,
     sensitive: classified.sensitive,
     known_template: classified.knownTemplate,
+    booking_event_type: classified.bookingEventType,
+    booking_provider: classified.bookingProvider,
+    template_fingerprint: classified.templateFingerprint,
+    matched_template_id: matchedTemplateId,
     extracted_data: classified.sensitive ? {} : classified.extractedData,
     received_at: now
   }).select("id").single();
@@ -99,15 +123,34 @@ export async function processInboundStoreEmail(input: InboundStoreEmailInput) {
     target_type: "store_ai_email_message",
     target_id: inserted.id,
     message: "AI受信箱でメールを受信し、安全確認と分類を行いました。",
-    metadata: { category: classified.category, confidence: classified.confidence, sensitive: classified.sensitive }
+    metadata: {
+      category: classified.category,
+      confidence: classified.confidence,
+      sensitive: classified.sensitive,
+      booking_event_type: classified.bookingEventType,
+      matched_template: Boolean(matchedTemplateId)
+    }
   });
 
-  const trusted = Boolean(sender.email && inbox.trusted_senders.includes(sender.email.toLowerCase()));
-  const shouldAutoApply = inbox.auto_apply_reservations && trusted && classified.knownTemplate && classified.confidence >= 0.98 && completeReservation;
+  const shouldAutoApply = inbox.auto_apply_reservations
+    && Boolean(matchedTemplateId)
+    && classified.knownTemplate
+    && classified.confidence >= 0.98
+    && completeReservation;
   if (shouldAutoApply) {
-    const { error: applyError } = await supabase.rpc("apply_store_ai_email_booking", { p_message_id: inserted.id, p_actor_user_id: null, p_automatic: true });
+    const { error: applyError } = await supabase.rpc("apply_store_ai_email_event", {
+      p_message_id: inserted.id,
+      p_actor_user_id: null,
+      p_automatic: true,
+      p_learn_template: false
+    });
     if (applyError) {
-      await supabase.from("store_ai_email_messages").update({ processing_status: "error", classification_reason: `${classified.reason} 自動反映は失敗したため確認が必要です。`, updated_at: new Date().toISOString() }).eq("id", inserted.id);
+      await supabase.from("store_ai_email_messages").update({
+        processing_status: "review_required",
+        requires_human_confirmation: true,
+        classification_reason: `${classified.reason} 学習済みの形式ですが、重複・日時衝突・対象予約不明などを確認してください。`,
+        updated_at: new Date().toISOString()
+      }).eq("id", inserted.id);
     }
   }
   return { accepted: true, duplicate: false, messageId: String(inserted.id) };
