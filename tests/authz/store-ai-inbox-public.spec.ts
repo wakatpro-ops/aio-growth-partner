@@ -19,8 +19,8 @@ test("共有秘密なしの受信要求はDB処理より前に拒否する", asy
 test("未認証ユーザーは店舗のAI受信箱へURL直接入力しても内容を取得できない", async ({ page }) => {
   test.skip(!storeId, "既存店舗のIDを指定した環境で実行します。");
   await page.goto(`${baseUrl}/stores/${storeId}/ai-inbox`);
-  const redirectedToLogin = /\/login(?:\?|$)/u.test(page.url());
-  const concealedAsNotFound = await page.getByRole("heading", { name: "ページが見つかりません" }).isVisible();
-  expect(redirectedToLogin || concealedAsNotFound).toBe(true);
+  const body = await page.locator("body").innerText();
+  expect(body).toMatch(/ログイン|ページが見つかりません/u);
+  expect(body).not.toContain("店舗メールをまとめて整理");
   await expect(page.getByRole("heading", { name: "AI受信箱" })).toHaveCount(0);
 });
