@@ -55,6 +55,9 @@
     "test:authz-bookings": "playwright test tests/authz/booking-hub.spec.ts --workers=1",
     "test:line-booking-rules": "node --experimental-strip-types --test scripts/test-line-booking-rules.mjs",
     "check:line-booking": "node scripts/check-line-booking.mjs",
+    "check:line-booking-migration": "node scripts/check-line-booking-migration.mjs",
+    "test:line-booking-migration-import": "node --experimental-strip-types --test scripts/test-line-migration-import.mjs",
+    "test:public-line-migration": "playwright test tests/authz/line-migration-public.spec.ts --workers=1",
     "test:public-line-booking": "playwright test tests/authz/line-webhook-public.spec.ts --workers=1"
   },
   "dependencies": {
