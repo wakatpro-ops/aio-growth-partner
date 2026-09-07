@@ -5389,3 +5389,101 @@ p {
 @media (max-width: 390px) {
   .inventory-visual-grid { grid-template-columns: 1fr; }
 }
+
+.external-booking-summary {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.external-booking-summary article {
+  background: linear-gradient(145deg, #edf7f3, #fff);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: grid;
+  gap: 4px;
+  padding: 18px;
+}
+
+.external-booking-summary strong { color: #17694f; font-size: 30px; }
+.external-booking-summary span { font-weight: 800; }
+.external-booking-summary small { color: var(--muted); }
+
+.external-booking-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 22px;
+}
+
+.external-booking-card {
+  align-content: start;
+  display: grid;
+  gap: 16px;
+}
+
+.external-booking-card-heading {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.external-booking-card-heading h2,
+.external-booking-progress h3 { margin: 0; }
+
+.external-booking-capabilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.external-booking-capabilities span {
+  background: #f2f7f4;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: #315d4d;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.external-booking-card details {
+  background: #f8faf8;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.external-booking-card summary { cursor: pointer; font-weight: 800; }
+.external-booking-card ul { margin-bottom: 0; padding-left: 20px; }
+
+.external-booking-start,
+.external-booking-progress {
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+}
+
+.external-booking-form { gap: 12px; }
+
+.external-booking-verification {
+  background: #edf7f3;
+  border: 1px solid #b9d8cc;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+@media (max-width: 900px) {
+  .external-booking-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 680px) {
+  .external-booking-summary { grid-template-columns: 1fr; }
+  .external-booking-summary article { padding: 14px; }
+  .external-booking-card-heading { align-items: stretch; display: grid; }
+  .external-booking-card .button-row { align-items: stretch; display: grid; }
+  .external-booking-card .button-row .button { width: 100%; }
+}

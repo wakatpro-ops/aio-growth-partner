@@ -58,7 +58,10 @@
     "check:line-booking-migration": "node scripts/check-line-booking-migration.mjs",
     "test:line-booking-migration-import": "node --experimental-strip-types --test scripts/test-line-migration-import.mjs",
     "test:public-line-migration": "playwright test tests/authz/line-migration-public.spec.ts --workers=1",
-    "test:public-line-booking": "playwright test tests/authz/line-webhook-public.spec.ts --workers=1"
+    "test:public-line-booking": "playwright test tests/authz/line-webhook-public.spec.ts --workers=1",
+    "test:external-booking-catalog": "node --experimental-strip-types scripts/test-external-booking-catalog.mjs",
+    "check:external-booking-connectors": "node scripts/check-external-booking-connectors.mjs",
+    "test:public-external-booking": "playwright test tests/authz/external-booking-integrations-public.spec.ts --workers=1"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
