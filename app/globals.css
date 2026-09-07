@@ -5424,7 +5424,7 @@ p {
 }
 
 .external-booking-card-heading {
-  align-items: start;
+  align-items: flex-start;
   display: flex;
   gap: 12px;
   justify-content: space-between;
@@ -5486,4 +5486,91 @@ p {
   .external-booking-card-heading { align-items: stretch; display: grid; }
   .external-booking-card .button-row { align-items: stretch; display: grid; }
   .external-booking-card .button-row .button { width: 100%; }
+}
+
+.ai-inbox-address-card {
+  align-items: center;
+  background: linear-gradient(145deg, #e9f7f0, #fff);
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+.ai-inbox-address-card > div:first-child { min-width: 0; }
+.ai-inbox-address-card h2 { color: var(--accent-strong); font-size: clamp(17px, 2vw, 26px); margin: 5px 0 8px; overflow-wrap: anywhere; }
+.ai-inbox-address-card p:last-child { margin-bottom: 0; }
+
+.ai-inbox-steps {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 16px 0;
+}
+
+.ai-inbox-steps article {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  display: grid;
+  gap: 5px;
+  padding: 14px 16px;
+}
+
+.ai-inbox-steps strong { color: var(--accent-strong); }
+.ai-inbox-steps span { color: var(--muted); font-size: 12px; line-height: 1.55; }
+
+.ai-inbox-settings { margin-top: 16px; }
+.ai-inbox-settings > summary { align-items: center; cursor: pointer; display: flex; gap: 12px; justify-content: space-between; }
+.ai-inbox-settings > summary span { color: var(--muted); font-size: 12px; }
+.ai-inbox-settings[open] > summary { border-bottom: 1px solid var(--border); margin-bottom: 18px; padding-bottom: 14px; }
+.ai-inbox-admin-actions { border-top: 1px solid var(--border); margin-top: 18px; padding-top: 16px; }
+
+.ai-inbox-metrics { margin: 18px 0; }
+.metric.metric-small { font-size: clamp(18px, 2vw, 25px); }
+
+.ai-inbox-ledger { display: grid; gap: 18px; }
+.ai-inbox-category-tabs { display: flex; flex-wrap: wrap; gap: 7px; }
+.ai-inbox-category-tabs a {
+  background: #f5f8f5;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 11px;
+}
+.ai-inbox-category-tabs a.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.ai-inbox-message-list { display: grid; gap: 14px; }
+.ai-inbox-message { border-left: 5px solid #7f9a8e; box-shadow: none; display: grid; gap: 11px; }
+.ai-inbox-message.category-reservation { border-left-color: #258caf; }
+.ai-inbox-message.category-inquiry { border-left-color: #287a5f; }
+.ai-inbox-message.category-complaint { border-left-color: #c94f4f; }
+.ai-inbox-message.category-invoice_receipt,
+.ai-inbox-message.category-purchasing { border-left-color: #b87216; }
+.ai-inbox-message.category-sensitive { background: #fff8f6; border-left-color: #b84a4a; }
+.ai-inbox-message h3,
+.ai-inbox-message h4,
+.ai-inbox-message p { margin: 0; }
+
+.ai-inbox-message-head { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
+.ai-inbox-message-head > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.ai-inbox-message-head time { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+.ai-inbox-confidence { background: #e4ebe6; border-radius: 999px; height: 6px; overflow: hidden; }
+.ai-inbox-confidence span { background: linear-gradient(90deg, #258caf, #287a5f); display: block; height: 100%; }
+.ai-inbox-review-form { background: #f7faf8; border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.ai-inbox-secondary-actions { border-top: 1px solid var(--border); padding-top: 12px; }
+
+@media (max-width: 760px) {
+  .ai-inbox-address-card { align-items: stretch; display: grid; }
+  .ai-inbox-address-card .button-row { align-items: stretch; display: grid; }
+  .ai-inbox-address-card .button { width: 100%; }
+  .ai-inbox-steps { grid-template-columns: 1fr; }
+  .ai-inbox-steps article { min-height: 0; }
+  .ai-inbox-settings > summary { align-items: start; display: grid; }
+  .ai-inbox-message-head { align-items: start; display: grid; }
+  .ai-inbox-message-head time { white-space: normal; }
+  .ai-inbox-secondary-actions { align-items: stretch; display: grid; }
+  .ai-inbox-secondary-actions .button { width: 100%; }
 }
