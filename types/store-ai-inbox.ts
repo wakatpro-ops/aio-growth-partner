@@ -19,6 +19,28 @@ export type StoreEmailProcessingStatus =
   | "rejected"
   | "error";
 
+export type BookingEmailEventType = "created" | "changed" | "cancelled";
+
+export type StoreAiEmailTemplate = {
+  id: string;
+  organization_id: string;
+  store_id: string;
+  sender_email: string;
+  sender_domain: string;
+  provider_key: string;
+  event_type: BookingEmailEventType;
+  template_fingerprint: string;
+  status: "active" | "paused";
+  approved_message_id: string | null;
+  match_count: number;
+  auto_processed_count: number;
+  last_matched_at: string | null;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  archived_by: string | null;
+};
+
 export type StoreAiInbox = {
   id: string;
   organization_id: string;
@@ -52,6 +74,10 @@ export type StoreAiEmailMessage = {
   requires_human_confirmation: boolean;
   sensitive: boolean;
   known_template: boolean;
+  booking_event_type: BookingEmailEventType | null;
+  booking_provider: string | null;
+  template_fingerprint: string | null;
+  matched_template_id: string | null;
   extracted_data: Record<string, unknown>;
   applied_target_type: string | null;
   applied_target_id: string | null;

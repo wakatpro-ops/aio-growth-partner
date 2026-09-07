@@ -1,4 +1,4 @@
--- Authorization, tenant boundary and sensitive-data minimization checks for Issue #144. Always rolled back.
+-- Authorization, tenant boundary, template learning, and sensitive-data minimization checks for Issues #144/#148. Always rolled back.
 begin;
 
 insert into auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at) values
@@ -26,11 +26,23 @@ do $$ declare denied boolean := false; begin
   begin perform id from public.store_ai_inboxes; exception when insufficient_privilege then denied := true; end;
   if not denied then raise exception 'Owner direct read was not denied'; end if;
 end $$;
+do $$ declare denied boolean := false; begin
+  begin perform id from public.store_ai_email_templates; exception when insufficient_privilege then denied := true; end;
+  if not denied then raise exception 'Owner direct template read was not denied'; end if;
+end $$;
+do $$ declare denied boolean := false; begin
+  begin perform public.apply_store_ai_email_event('00000000-0000-4000-8000-000000000000', '91000000-0000-4000-8000-000000000001', false, true); exception when insufficient_privilege then denied := true; end;
+  if not denied then raise exception 'Owner direct learning RPC was not denied'; end if;
+end $$;
 
 select set_config('request.jwt.claims','{"sub":"93000000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 do $$ declare denied boolean := false; begin
   begin perform id from public.store_ai_email_messages; exception when insufficient_privilege then denied := true; end;
   if not denied then raise exception 'Unaffiliated direct read was not denied'; end if;
+end $$;
+do $$ declare denied boolean := false; begin
+  begin perform id from public.store_ai_email_templates; exception when insufficient_privilege then denied := true; end;
+  if not denied then raise exception 'Unaffiliated direct template read was not denied'; end if;
 end $$;
 
 select set_config('request.jwt.claims','{"sub":"92000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
@@ -42,11 +54,13 @@ end $$;
 reset role;
 set local role service_role;
 do $$
-declare cross_org_denied boolean := false; sensitive_denied boolean := false;
+declare cross_org_denied boolean := false; cross_org_template_denied boolean := false; sensitive_denied boolean := false;
 begin
   begin insert into public.store_ai_email_messages (inbox_id,organization_id,store_id,message_fingerprint,summary,category) values ((select id from public.store_ai_inboxes where store_id='9c000000-0000-4000-8000-000000000001'),'9b000000-0000-4000-8000-000000000002','9c000000-0000-4000-8000-000000000001','cross-org','cross','unknown'); exception when foreign_key_violation then cross_org_denied := true; end;
+  begin insert into public.store_ai_email_templates (organization_id,store_id,sender_email,sender_domain,provider_key,event_type,template_fingerprint) values ('9b000000-0000-4000-8000-000000000002','9c000000-0000-4000-8000-000000000001','booking@example.invalid','example.invalid','email_example_invalid','created',repeat('a',64)); exception when foreign_key_violation then cross_org_template_denied := true; end;
   begin insert into public.store_ai_email_messages (inbox_id,organization_id,store_id,message_fingerprint,subject,summary,category,processing_status,sensitive,extracted_data) values ((select id from public.store_ai_inboxes where store_id='9c000000-0000-4000-8000-000000000001'),'9a000000-0000-4000-8000-000000000001','9c000000-0000-4000-8000-000000000001','secret-retention','パスワード再設定 123456','秘密本文','sensitive','rejected',true,'{"otp":"123456"}'); exception when check_violation then sensitive_denied := true; end;
   if not cross_org_denied then raise exception 'Cross-organization store mismatch was not denied'; end if;
+  if not cross_org_template_denied then raise exception 'Cross-organization template mismatch was not denied'; end if;
   if not sensitive_denied then raise exception 'Sensitive body retention was not denied'; end if;
 end $$;
 

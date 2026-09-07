@@ -5,7 +5,7 @@ import { canEditStore, getCurrentUserAccess } from "@/lib/auth/server";
 import { parseJapanDateTimeLocal } from "@/lib/bookings/rules";
 import { getStore } from "@/lib/stores";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import type { StoreAiEmailMessage, StoreAiInbox, StoreEmailCategory } from "@/types/store-ai-inbox";
+import type { BookingEmailEventType, StoreAiEmailMessage, StoreAiEmailTemplate, StoreAiInbox, StoreEmailCategory } from "@/types/store-ai-inbox";
 
 type SupabaseAdmin = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
 
@@ -90,27 +90,29 @@ export async function listStoreEmailMessages(storeId: string, options: { archive
   return (data ?? []) as StoreAiEmailMessage[];
 }
 
+export async function listStoreEmailTemplates(storeId: string, archived = false): Promise<StoreAiEmailTemplate[]> {
+  const { store, supabase } = await context(storeId, "read");
+  let query = supabase.from("store_ai_email_templates").select("*")
+    .eq("store_id", store.id)
+    .eq("organization_id", store.organization_id)
+    .order("updated_at", { ascending: false });
+  query = archived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
+  const { data, error } = await query;
+  if (error?.code === "42P01") return [];
+  if (error) throw new Error(`学習済みメール形式を取得できませんでした: ${error.message}`);
+  return (data ?? []) as StoreAiEmailTemplate[];
+}
+
 export async function updateStoreAiInboxSettings(storeId: string, formData: FormData) {
   const { store, access, supabase } = await context(storeId, "manage");
-  const trustedSenders = [...new Set(formText(formData.get("trusted_senders"), 10_000)
-    .split(/[\s,、;]+/u)
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean))];
-  if (trustedSenders.length > 100 || trustedSenders.some((value) => !isEmail(value))) {
-    throw new Error("自動反映を許可する送信元は、メールアドレスを100件以内で入力してください。");
-  }
   const autoApply = formData.get("auto_apply_reservations") === "on";
-  if (autoApply && trustedSenders.length === 0) {
-    throw new Error("予約の自動反映を使う場合は、信頼する予約通知の送信元メールアドレスを1件以上登録してください。");
-  }
   const { data, error } = await supabase.from("store_ai_inboxes").update({
     auto_apply_reservations: autoApply,
-    trusted_senders: trustedSenders,
     updated_at: new Date().toISOString(),
     updated_by: access.userId
   }).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null).select("id").maybeSingle();
   if (error || !data) throw new Error(`AI受信箱の設定を保存できませんでした: ${error?.message ?? "受信箱が見つかりません"}`);
-  await audit(supabase, { organizationId: store.organization_id, storeId: store.id, actorUserId: access.userId, actionType: "store_ai_inbox_settings_updated", targetType: "store_ai_inbox", targetId: String(data.id), message: "AI受信箱の安全設定を更新しました。", metadata: { auto_apply_reservations: autoApply, trusted_sender_count: trustedSenders.length } });
+  await audit(supabase, { organizationId: store.organization_id, storeId: store.id, actorUserId: access.userId, actionType: "store_ai_inbox_settings_updated", targetType: "store_ai_inbox", targetId: String(data.id), message: "AI受信箱の自動処理設定を更新しました。", metadata: { auto_apply_reservations: autoApply } });
 }
 
 export async function setStoreAiInboxStatus(storeId: string, status: "active" | "paused") {
@@ -182,35 +184,106 @@ export async function confirmStoreEmailRecord(storeId: string, messageId: string
 }
 
 export async function applyStoreEmailReservation(storeId: string, messageId: string, formData: FormData) {
-  const { store, access, supabase, message } = await scopedMessage(storeId, messageId);
+  const learnTemplate = formData.get("learn_template") === "on";
+  const { store, access, supabase, message } = await scopedMessage(storeId, messageId, learnTemplate ? "manage" : "edit");
   if (message.sensitive) throw new Error("自動処理対象外のメールは予約へ反映できません。");
+  const eventType = (message.booking_event_type ?? "created") as BookingEmailEventType;
+  const reservationId = formText(formData.get("reservation_id"), 100);
   const customerName = formText(formData.get("customer_name"), 200);
   const customerEmail = formText(formData.get("customer_email"), 320).toLowerCase();
   const customerPhone = formText(formData.get("customer_phone"), 50);
   const serviceName = formText(formData.get("service_name"), 200);
   const startsAt = formText(formData.get("starts_at"), 40);
   const endsAt = formText(formData.get("ends_at"), 40);
-  if (!customerName) throw new Error("お客様名を入力してください。");
+  if (!reservationId) throw new Error("予約番号を入力してください。");
+  if (eventType !== "cancelled" && !customerName) throw new Error("お客様名を入力してください。");
   if (customerEmail && !isEmail(customerEmail)) throw new Error("メールアドレスを確認してください。");
   const parseInputDate = (value: string) => new Date(/[zZ]|[+-]\d{2}:?\d{2}$/u.test(value) ? value : parseJapanDateTimeLocal(value));
-  const startDate = parseInputDate(startsAt);
-  const endDate = parseInputDate(endsAt);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate) throw new Error("予約の開始・終了日時を確認してください。");
+  const startDate = eventType === "cancelled" ? null : parseInputDate(startsAt);
+  const endDate = eventType === "cancelled" ? null : parseInputDate(endsAt);
+  if (eventType !== "cancelled" && (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || endDate <= startDate)) throw new Error("予約の開始・終了日時を確認してください。");
   const extractedData = {
     ...message.extracted_data,
-    customer_name: customerName,
+    reservation_id: reservationId,
+    customer_name: customerName || null,
     customer_email: customerEmail || null,
     customer_phone: customerPhone || null,
     service_name: serviceName || null,
-    starts_at: startDate.toISOString(),
-    ends_at: endDate.toISOString()
+    ...(startDate && endDate ? { starts_at: startDate.toISOString(), ends_at: endDate.toISOString() } : {})
   };
   const { error: updateError } = await supabase.from("store_ai_email_messages").update({ category: "reservation", extracted_data: extractedData, updated_at: new Date().toISOString() })
     .eq("id", message.id).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null);
   if (updateError) throw new Error(`予約内容を保存できませんでした: ${updateError.message}`);
-  const { data: bookingId, error } = await supabase.rpc("apply_store_ai_email_booking", { p_message_id: message.id, p_actor_user_id: access.userId, p_automatic: false });
+  const { data: bookingId, error } = await supabase.rpc("apply_store_ai_email_event", {
+    p_message_id: message.id,
+    p_actor_user_id: access.userId,
+    p_automatic: false,
+    p_learn_template: learnTemplate
+  });
   if (error || !bookingId) throw new Error(`予約へ反映できませんでした: ${error?.message ?? "不明なエラー"}`);
   return String(bookingId);
+}
+
+async function scopedTemplate(storeId: string, templateId: string) {
+  const result = await context(storeId, "manage");
+  const { data, error } = await result.supabase.from("store_ai_email_templates").select("*")
+    .eq("id", templateId)
+    .eq("store_id", result.store.id)
+    .eq("organization_id", result.store.organization_id)
+    .maybeSingle();
+  if (error || !data) throw new Error("対象の学習済みメール形式を確認できませんでした。");
+  return { ...result, template: data as StoreAiEmailTemplate };
+}
+
+export async function setStoreEmailTemplateStatus(storeId: string, templateId: string, status: "active" | "paused") {
+  const { store, access, supabase, template } = await scopedTemplate(storeId, templateId);
+  if (template.archived_at) throw new Error("削除済みの形式は、先に元へ戻してください。");
+  const { error } = await supabase.from("store_ai_email_templates").update({
+    status,
+    updated_at: new Date().toISOString(),
+    updated_by: access.userId
+  }).eq("id", template.id).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null);
+  if (error) throw new Error(`自動処理ルールの状態を変更できませんでした: ${error.message}`);
+  await audit(supabase, {
+    organizationId: store.organization_id,
+    storeId: store.id,
+    actorUserId: access.userId,
+    actionType: `store_ai_email_template_${status}`,
+    targetType: "store_ai_email_template",
+    targetId: template.id,
+    message: status === "active" ? "学習済みメール形式の自動処理を再開しました。" : "学習済みメール形式の自動処理を一時停止しました。"
+  });
+}
+
+export async function archiveStoreEmailTemplate(storeId: string, templateId: string) {
+  const { store, access, supabase, template } = await scopedTemplate(storeId, templateId);
+  if (template.archived_at) return;
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("store_ai_email_templates").update({
+    status: "paused",
+    archived_at: now,
+    archived_by: access.userId,
+    updated_at: now,
+    updated_by: access.userId
+  }).eq("id", template.id).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null);
+  if (error) throw new Error(`自動処理ルールを削除済みに移せませんでした: ${error.message}`);
+  await audit(supabase, { organizationId: store.organization_id, storeId: store.id, actorUserId: access.userId, actionType: "store_ai_email_template_archived", targetType: "store_ai_email_template", targetId: template.id, message: "学習済みメール形式を削除済みに移しました。受信履歴とルールの履歴は保持します。" });
+}
+
+export async function restoreStoreEmailTemplate(storeId: string, templateId: string) {
+  const { store, access, supabase, template } = await scopedTemplate(storeId, templateId);
+  if (!template.archived_at) return;
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("store_ai_email_templates").update({
+    status: "paused",
+    archived_at: null,
+    archived_by: null,
+    updated_at: now,
+    updated_by: access.userId
+  }).eq("id", template.id).eq("store_id", store.id).eq("organization_id", store.organization_id).not("archived_at", "is", null);
+  if (error?.code === "23505") throw new Error("同じメール形式のルールがすでにあります。現在のルールを確認してください。");
+  if (error) throw new Error(`自動処理ルールを元に戻せませんでした: ${error.message}`);
+  await audit(supabase, { organizationId: store.organization_id, storeId: store.id, actorUserId: access.userId, actionType: "store_ai_email_template_restored", targetType: "store_ai_email_template", targetId: template.id, message: "学習済みメール形式を停止状態で元に戻しました。内容を確認してから再開できます。" });
 }
 
 export async function ignoreStoreEmailMessage(storeId: string, messageId: string) {

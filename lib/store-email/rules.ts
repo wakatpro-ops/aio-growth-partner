@@ -1,4 +1,5 @@
-import type { StoreEmailCategory } from "@/types/store-ai-inbox";
+import { createHash } from "node:crypto";
+import type { BookingEmailEventType, StoreEmailCategory } from "@/types/store-ai-inbox";
 
 export type StoreEmailRuleInput = {
   subject: string;
@@ -13,6 +14,9 @@ export type StoreEmailRuleResult = {
   reason: string;
   sensitive: boolean;
   knownTemplate: boolean;
+  bookingEventType: BookingEmailEventType | null;
+  bookingProvider: string | null;
+  templateFingerprint: string | null;
   summary: string;
   extractedData: Record<string, string | number | boolean | null>;
 };
@@ -39,6 +43,54 @@ const sensitivePatterns = [
 
 function normalized(value: string) {
   return value.replace(/\u0000/gu, "").replace(/\s+/gu, " ").trim();
+}
+
+const templateLabels = [
+  "予約番号", "予約ID", "受付番号", "お名前", "氏名", "予約者名", "お客様名",
+  "予約日時", "来店日時", "ご来店日時", "日時", "予約日", "メニュー", "コース",
+  "予約内容", "サービス", "電話", "電話番号", "TEL", "メール", "メールアドレス",
+  "E-mail", "Email", "所要時間", "利用時間"
+];
+
+function bookingEventType(text: string): BookingEmailEventType {
+  if (/キャンセル|取消|取り消し|cancel(?:led|ation)?/iu.test(text)) return "cancelled";
+  if (/予約(?:内容|日時)?変更|変更受付|日時変更|reschedul|modif(?:y|ied)|booking update/iu.test(text)) return "changed";
+  return "created";
+}
+
+function bookingProvider(senderEmail: string | null | undefined, text: string) {
+  const email = String(senderEmail ?? "").toLowerCase();
+  if (/hotpepper|beauty\.recruit/u.test(email) || /ホットペッパービューティ/iu.test(text)) return "hotpepper_beauty";
+  if (/reserve\.stores|stores\.jp/u.test(email) || /STORES\s*予約/iu.test(text)) return "stores_reservation";
+  if (/reserva/u.test(email) || /RESERVA/iu.test(text)) return "reserva";
+  if (/epark/u.test(email) || /EPARK/iu.test(text)) return "epark";
+  if (/rakuten/u.test(email) || /楽天ビューティ/iu.test(text)) return "rakuten_beauty";
+  if (/ozmall/u.test(email) || /OZmall/iu.test(text)) return "ozmall";
+  if (/minimo/u.test(email) || /minimo/iu.test(text)) return "minimo";
+  const domain = email.includes("@") ? email.split("@")[1] : "unknown";
+  return `email_${domain.replace(/[^a-z0-9]+/gu, "_").replace(/^_+|_+$/gu, "").slice(0, 50) || "unknown"}`;
+}
+
+function subjectShape(value: string) {
+  return normalized(value)
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/giu, "{url}")
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/giu, "{email}")
+    .replace(/\d{4}[年\/-]\d{1,2}[月\/-]\d{1,2}日?/gu, "{date}")
+    .replace(/\d{1,2}[:時]\d{0,2}/gu, "{time}")
+    .replace(/[A-Z0-9][A-Z0-9_-]{3,}/giu, "{id}")
+    .replace(/\d+/gu, "{n}");
+}
+
+function bookingTemplateFingerprint(input: StoreEmailRuleInput, provider: string, eventType: BookingEmailEventType) {
+  const labels = input.body.split(/\r?\n/gu).map((line) => {
+    const colon = line.match(/^\s*([^:：]{1,40})\s*[:：]/u)?.[1];
+    if (!colon) return null;
+    const compact = normalized(colon).toLowerCase();
+    return templateLabels.some((label) => compact.includes(label.toLowerCase())) ? compact : null;
+  }).filter((value): value is string => Boolean(value));
+  const structure = JSON.stringify({ provider, eventType, subject: subjectShape(input.subject), labels });
+  return createHash("sha256").update(structure).digest("hex");
 }
 
 function safePreview(value: string) {
@@ -123,6 +175,9 @@ export function classifyStoreEmailByRules(input: StoreEmailRuleInput): StoreEmai
       reason: "認証情報・決済情報・重要な本人確認情報の可能性があるため自動処理から除外しました。",
       sensitive: true,
       knownTemplate: false,
+      bookingEventType: null,
+      bookingProvider: null,
+      templateFingerprint: null,
       summary: "機密性の高い可能性があるメールです。件名・本文・添付は保存していません。元の受信箱で確認してください。",
       extractedData: {}
     };
@@ -133,18 +188,24 @@ export function classifyStoreEmailByRules(input: StoreEmailRuleInput): StoreEmai
   const extractedData: Record<string, string | number | boolean | null> = category === "reservation"
     ? bookingExtraction(`${input.subject}\n${input.body}`, input.now ?? new Date())
     : {};
-  const bookingLabels = category === "reservation"
-    && Boolean(extractedData.customer_name)
-    && Boolean(extractedData.starts_at)
-    && /予約(?:番号|日時|内容)|来店日時|お名前|予約者名/iu.test(combined);
-  const completeReservation = category === "reservation" && Boolean(extractedData.customer_name) && Boolean(extractedData.starts_at);
-  const confidence = bookingLabels && completeReservation ? 0.99 : matched?.confidence ?? 0.45;
+  const eventType = category === "reservation" ? bookingEventType(combined) : null;
+  const provider = category === "reservation" ? bookingProvider(input.senderEmail, combined) : null;
+  const hasReservationId = Boolean(extractedData.reservation_id);
+  const completeCreatedOrChanged = Boolean(extractedData.customer_name) && Boolean(extractedData.starts_at) && Boolean(extractedData.ends_at);
+  const safeEventFields = eventType === "cancelled" ? hasReservationId : hasReservationId && completeCreatedOrChanged;
+  const bookingLabels = category === "reservation" && safeEventFields
+    && /予約(?:番号|ID|日時|内容)|受付番号|来店日時|お名前|予約者名/iu.test(combined);
+  const confidence = bookingLabels ? 0.99 : matched?.confidence ?? 0.45;
+  const fingerprint = bookingLabels && provider && eventType ? bookingTemplateFingerprint(input, provider, eventType) : null;
   return {
     category,
     confidence,
     reason: matched?.reason ?? "分類を確定できる十分な手掛かりがありません。",
     sensitive: false,
     knownTemplate: Boolean(bookingLabels),
+    bookingEventType: eventType,
+    bookingProvider: provider,
+    templateFingerprint: fingerprint,
     summary: safePreview(body || subject) || "本文を確認できませんでした。",
     extractedData
   };
