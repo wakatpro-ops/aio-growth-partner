@@ -23,7 +23,7 @@ export default async function BookingsPage({ params, searchParams }: { params: P
   const confirmedUpcoming = upcoming.filter((booking) => booking.status === "confirmed").length;
 
   return <AppShell>
-    <PageHeader eyebrow={industry.name} title="予約" description="電話・店頭・LINE・AIO boostで受け付けた予約を、一つの台帳で管理します。" action={editable ? <div className="button-row"><Link className="button" href={`/stores/${store.id}/bookings/new`}>予約を登録</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/settings`}>予約内容・担当・設備</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/line`}>LINE予約</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/migration`}>既存LINE予約から移行</Link></div> : <span className="badge">閲覧のみ</span>} />
+    <PageHeader eyebrow={industry.name} title="予約" description="電話・店頭・LINE・AIO boostで受け付けた予約を、一つの台帳で管理します。" action={editable ? <div className="button-row"><Link className="button" href={`/stores/${store.id}/bookings/new`}>予約を登録</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/settings`}>予約内容・担当・設備</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/line`}>LINE予約</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/migration`}>既存LINE予約から移行</Link><Link className="button secondary" href={`/stores/${store.id}/bookings/integrations`}>外部予約サービス</Link></div> : <span className="badge">閲覧のみ</span>} />
     {query.saved ? <p className="notice success">予約を保存しました。</p> : null}
     {query.deleted ? <p className="notice success">予約を削除しました。削除済みから元に戻せます。</p> : null}
     {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
@@ -39,6 +39,6 @@ export default async function BookingsPage({ params, searchParams }: { params: P
       </nav>
       <BookingList storeId={store.id} bookings={bookings} deleted={view === "deleted"} />
     </section>
-    <p className="notice">外部予約サイトとの自動同期はまだ行いません。まずAIO boost内で予約台帳を安全に使い、外部連携は読み取り専用から段階的に開放します。</p>
+    <p className="notice">外部予約サイトは、公式API・提供会社の許諾・店舗ごとの接続テストを確認した媒体だけ読み取り専用で開放します。外部への書き戻しは行いません。</p>
   </AppShell>;
 }

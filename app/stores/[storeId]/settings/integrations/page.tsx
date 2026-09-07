@@ -27,6 +27,12 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
       <p className="notice success">外部連携情報を整えると、AIOが請求・入金・会計・集客導線をひとつの店舗データとして扱いやすくなります。</p>
       <section className="grid cols-3">
         <article className="card">
+          <h3>予約サービス連携</h3>
+          <p>STORES 予約、RESERVA、minimoなど8媒体のAPI・提携条件と、この店舗の申請状況を確認します。</p>
+          <p><span className="badge">読み取り専用から開始</span></p>
+          <Link className="button secondary" href={`/stores/${store.id}/bookings/integrations`}>予約サービスを確認</Link>
+        </article>
+        <article className="card">
           <h3>Stripe決済連携</h3>
           <p>店舗自身のStripeアカウント接続、請求書ごとの決済URL、入金状況、外部決済履歴を管理します。</p>
           <p><span className="badge">{labelFor(integrationStatusLabels, stripe?.status)}</span></p>
