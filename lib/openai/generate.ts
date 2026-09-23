@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
+import { getChatModelOptions } from "@/lib/openai/models";
 import { buildPrompt, getPromptTemplate } from "@/lib/openai/templates";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AiLogRecord, AiTemplateKey, Store } from "@/types/domain";
@@ -245,6 +246,7 @@ export async function generateWithAi(params: {
       const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const response = await client.chat.completions.create({
         model,
+        ...getChatModelOptions(model),
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: template.systemPrompt },

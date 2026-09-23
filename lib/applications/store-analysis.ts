@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
+import { getOpenAiModelCandidates, getResponsesModelOptions } from "@/lib/openai/models";
 import { publicIndustryOptions } from "@/lib/applications/options";
 import { buildRuleBasedDiagnosis, extractStoreProfile } from "@/lib/applications/page-extraction";
 import { buildOperatingModelDraft, type OperatingModel } from "@/lib/applications/operating-model";
@@ -187,8 +188,7 @@ function buildFallbackResult(profile: ExtractedStoreProfile, fallback: ReturnTyp
 }
 
 function modelCandidates() {
-  const configured = process.env.OPENAI_MODEL?.trim();
-  return Array.from(new Set([configured || "gpt-4.1-mini", "gpt-4.1-mini"].filter(Boolean)));
+  return getOpenAiModelCandidates(["gpt-4.1-mini"]);
 }
 
 function errorCode(error: unknown) {
@@ -264,6 +264,7 @@ async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicS
   }));
   const response = await client.responses.create({
     model,
+    ...getResponsesModelOptions(model),
     temperature: 0.2,
     max_output_tokens: 4_000,
     store: false,

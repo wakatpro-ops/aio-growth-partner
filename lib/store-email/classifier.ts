@@ -1,6 +1,7 @@
 import "server-only";
 
 import OpenAI from "openai";
+import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { classifyStoreEmailByRules, type StoreEmailRuleInput, type StoreEmailRuleResult } from "@/lib/store-email/rules";
 import type { StoreEmailCategory } from "@/types/store-ai-inbox";
 
@@ -19,8 +20,10 @@ export async function classifyInboundStoreEmail(input: StoreEmailRuleInput): Pro
   if (rules.sensitive || rules.confidence >= 0.9 || !process.env.OPENAI_API_KEY) return rules;
 
   try {
+    const model = getOpenAiModel();
     const response = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+      model,
+      ...getChatModelOptions(model),
       temperature: 0,
       response_format: { type: "json_object" },
       messages: [

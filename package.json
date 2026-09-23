@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "check:secrets": "node scripts/check-client-secrets.mjs",
+    "test:openai-models": "node --experimental-strip-types --test tests/unit/openai-models.test.mjs",
+    "test:openai-live": "node --experimental-strip-types scripts/smoke-openai-model.mjs",
     "check:archives": "node scripts/check-archive-coverage.mjs",
     "check:aio-loop": "node scripts/check-aio-closed-loop.mjs",
     "check:results": "node scripts/check-results-visibility.mjs",
