@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import OpenAI from "openai";
+import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { getStore } from "@/lib/stores";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -69,7 +70,7 @@ async function pdfText(buffer: Buffer) {
 }
 
 async function analyzeReceipt(fileBuffer: Buffer, mimeType: string, storeName: string): Promise<ReceiptAnalysis> {
-  const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+  const model = getOpenAiModel();
   let extractedPdf: { text: string; pageCount: number } | null = null;
   if (mimeType === "application/pdf") {
     try { extractedPdf = await pdfText(fileBuffer); } catch {
@@ -90,7 +91,7 @@ async function analyzeReceipt(fileBuffer: Buffer, mimeType: string, storeName: s
     ? [{ type: "text", text: `${instructions}\n\nPDF抽出本文（全${extractedPdf.pageCount}ページ）:\n${extractedPdf.text || "文字を抽出できませんでした"}` }]
     : [{ type: "text", text: instructions }, { type: "image_url", image_url: { url: `data:${mimeType};base64,${fileBuffer.toString("base64")}` } }];
   const response = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
-    model, response_format: { type: "json_object" }, messages: [
+    model, ...getChatModelOptions(model), response_format: { type: "json_object" }, messages: [
       { role: "system", content: "あなたは日本の店舗会計の入力補助です。複数ページ・複数税率を保ったJSONだけを返してください。" },
       { role: "user", content }
     ]

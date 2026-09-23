@@ -1,5 +1,6 @@
 import "server-only";
 import { getIndustryConfig } from "@/config/industries";
+import { getOpenAiModel } from "@/lib/openai/models";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { AiTemplateKey, IndustryTypeKey, Store } from "@/types/domain";
 
@@ -12,9 +13,8 @@ export type PromptTemplate = {
   userPromptTemplate: string;
 };
 
-const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
-
 export function getFallbackPromptTemplate(industryTypeKey: IndustryTypeKey, templateKey: AiTemplateKey): PromptTemplate {
+  const model = getOpenAiModel();
   const industry = getIndustryConfig(industryTypeKey);
   const baseContext = `業態: ${industry.name}\n店舗の文言: ${industry.profileLabel}`;
 
@@ -212,7 +212,7 @@ export async function getPromptTemplate(industryTypeKey: IndustryTypeKey, templa
     id: String(data.id),
     industryTypeKey,
     templateKey,
-    model: String(data.model ?? model),
+    model: String(data.model ?? getOpenAiModel()),
     systemPrompt: String(data.system_prompt),
     userPromptTemplate: String(data.user_prompt_template)
   };

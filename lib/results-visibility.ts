@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getOpenAiSearchModel, getResponsesModelOptions } from "@/lib/openai/models";
 import { canEditStore, getCurrentUserAccess } from "@/lib/auth/server";
 import { getStoredGoogleAccessToken, GOOGLE_SEARCH_CONSOLE_SCOPE } from "@/lib/phase5/google-integrations";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
@@ -358,12 +359,13 @@ function mentionPosition(answer: string, storeName: string) {
 async function runAiVisibilityObservationContext({ supabase, organizationId, storeId, storeName, question, userId }: { supabase: SupabaseClient; organizationId: string; storeId: string; storeName: string; question: AiVisibilityQuestion; userId: string | null }) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OpenAI APIキーが未設定のため、AI定点観測を実行できません。");
-  const model = process.env.OPENAI_SEARCH_MODEL || "gpt-5.4";
+  const model = getOpenAiSearchModel();
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({
       model,
+      ...getResponsesModelOptions(model),
       tools: [{ type: "web_search" }],
       input: `次の質問に、日本国内の一般消費者へ案内する立場で、現在のウェブ情報を検索して日本語で回答してください。候補が複数ある場合は、根拠を確認できる引用付きの番号リストにしてください。店舗名を推測で補わず、確認できた情報だけを使ってください。\n\n質問: ${question.question}`
     }),

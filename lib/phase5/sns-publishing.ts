@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import OpenAI from "openai";
+import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import { constrainCaption, detectImageType, SNS_CHANNELS, type SnsChannel } from "@/lib/phase5/sns-rules";
@@ -171,8 +172,9 @@ async function analyzeAndCaption(buffer: Buffer, mimeType: string, store: { name
     "画像を分析し、写っている事実だけを使って日本語のSNS投稿案を作成してください。個人情報、顔、著作物、医療・誇大表現の懸念を指摘してください。",
     "JSON形式: analysis={summary,objects,scene,alt_text,safety_flags}, captions={instagram,facebook,x,line}。各媒体はbody,short_body,hashtags配列,cta。断定できない内容は書かないでください。"
   ].join("\n");
+  const model = getOpenAiModel();
   const response = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
-    model: process.env.OPENAI_MODEL || "gpt-4.1-mini", response_format: { type: "json_object" }, messages: [
+    model, ...getChatModelOptions(model), response_format: { type: "json_object" }, messages: [
       { role: "system", content: "あなたは店舗SNSの安全な編集者です。公開は行わず、人が承認する下書きだけをJSONで作ります。" },
       { role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: `data:${mimeType};base64,${buffer.toString("base64")}` } }] }
     ]

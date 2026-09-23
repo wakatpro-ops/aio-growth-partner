@@ -1,5 +1,6 @@
 import "server-only";
 import OpenAI from "openai";
+import { getChatModelOptions, getOpenAiModelCandidates } from "@/lib/openai/models";
 
 export type PublicApplicationAnalysisInput = {
   storeName: string;
@@ -88,8 +89,7 @@ function normalizeAnalysis(value: unknown, input: PublicApplicationAnalysisInput
 }
 
 function getModelCandidates() {
-  const configured = process.env.OPENAI_MODEL?.trim();
-  return Array.from(new Set([configured || "gpt-4.1-mini", "gpt-4o-mini"].filter(Boolean)));
+  return getOpenAiModelCandidates(["gpt-4o-mini"]);
 }
 
 function classifyOpenAIError(error: unknown): { code: AnalysisErrorCode; message: string } {
@@ -126,9 +126,9 @@ async function requestAnalysis(client: OpenAI, input: PublicApplicationAnalysisI
 
   const response = await client.chat.completions.create({
     model,
+    ...getChatModelOptions(model, 900),
     response_format: { type: "json_object" },
     temperature: 0.35,
-    max_tokens: 900,
     messages: [
       {
         role: "system",
