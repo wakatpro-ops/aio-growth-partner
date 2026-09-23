@@ -29,4 +29,4 @@
 - Local validation passed: 14 model-selector/request tests, URL onboarding, email rules (8), SNS rules, receipt review, full TypeScript, ESLint, Next production build, and client-secret check.
 - Pre-existing `check:results` static check fails on old store-top text `実測成果`; both the checked page and assertion are unchanged by this migration. This is not an API/model failure.
 - Live isolated deployment `dpl_2UKMuJu3xkUVoWg1LSfznYoNDx4v`: all 5 synthetic API checks passed with response model `gpt-6-luna` (Chat JSON, image JSON, exact URL-intake preview-tool + strict JSON, web search none/medium). Initial malformed image test fixture was corrected before the successful run.
-- Staging DB: 32/32 templates migrated; template/report column defaults verified. Production release pending below.
+- Staging DB: 32/32 templates migrated; template/report column defaults verified. Production release evidence is recorded in issue #150.
