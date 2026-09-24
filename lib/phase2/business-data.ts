@@ -451,7 +451,8 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data: currentItem } = await supabase.from("items").select("metadata").eq("store_id", resolved.storeId).eq("id", itemId).maybeSingle();
+  const { data: currentItem, error: readError } = await supabase.from("items").select("metadata").eq("store_id", resolved.storeId).eq("id", itemId).is("archived_at",null).maybeSingle();
+  if(readError||!currentItem) throw new Error("商品が見つからないか、取得できませんでした。開き直してください。");
 
   const { error } = await supabase
     .from("items")
@@ -470,7 +471,7 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
       updated_at: new Date().toISOString()
     })
     .eq("store_id", resolved.storeId)
-    .eq("id", itemId);
+    .eq("id", itemId).is("archived_at",null);
   if(error) throw new Error("商品を更新できませんでした。");
 }
 
