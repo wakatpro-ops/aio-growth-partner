@@ -29,6 +29,7 @@ export type BusinessItem = {
   tax_rate: number;
   is_stock_managed: boolean;
   status: "active" | "inactive";
+  availability?: "available" | "sold_out" | "paused";
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;

@@ -1,4 +1,7 @@
 import "server-only";
+import { menuContext } from "@/lib/menu-workbench";
+import { menuPhotoMetadata } from "@/lib/menu-photo";
+import { validateMenuItem } from "@/lib/menu-workbench-rules";
 import { canEditStore } from "@/lib/auth/server";
 import { setStoreEntityArchived } from "@/lib/archive-management";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -284,7 +287,7 @@ export async function listBusinessItems(storeId: string, limit = 80): Promise<Bu
   const resolved = await resolveStoreForRead(supabase, storeId);
   const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false }).limit(limit);
   if (error || !data) {
-    return [];
+    throw new Error("商品データを取得できませんでした。");
   }
 
   return data as BusinessItem[];
@@ -319,7 +322,7 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
     .is("item.archived_at", null)
     .order("updated_at", { ascending: false });
   if (error || !data) {
-    return demoStocks.filter((stock) => stock.store_id === storeId || storeId.startsWith("demo"));
+    throw new Error("在庫データを取得できませんでした。");
   }
 
   return data as InventoryStock[];
@@ -398,6 +401,8 @@ export async function getDocument(storeId: string, documentId: string, kind: Doc
 }
 
 export async function createItemFromForm(storeId: string, formData: FormData) {
+  await menuContext(storeId, "manager");
+  validateMenuItem(formData);
   const store = await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
@@ -419,32 +424,37 @@ export async function createItemFromForm(storeId: string, formData: FormData) {
       unit_price: unitPrice,
       cost_price: asNumber(formData.get("cost_price")),
       tax_rate: taxRate,
-      metadata: { tax_inclusion: String(formData.get("tax_inclusion") ?? "inclusive") },
+      metadata: await menuPhotoMetadata(storeId,formData),
       is_stock_managed: formData.get("is_stock_managed") === "on",
       status: String(formData.get("status") ?? "active")
     })
     .select("id, is_stock_managed")
     .single();
 
-  if (!error && data?.is_stock_managed) {
-    await supabase.from("inventory_stocks").insert({
+  if (error) throw new Error("商品を保存できませんでした。入力内容を確認してください。");
+  if (data?.is_stock_managed) {
+    const { error: stockError } = await supabase.from("inventory_stocks").insert({
       organization_id: resolved.organizationId,
       store_id: resolved.storeId,
       item_id: data.id,
       quantity: asNumber(formData.get("quantity")),
       reorder_point: asNumber(formData.get("reorder_point"))
     });
+    if(stockError) throw new Error("商品は保存されましたが、初期在庫を登録できませんでした。在庫画面で確認してください。");
   }
 }
 
 export async function updateItemFromForm(storeId: string, itemId: string, formData: FormData) {
+  await menuContext(storeId, "manager");
+  validateMenuItem(formData);
   await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data: currentItem } = await supabase.from("items").select("metadata").eq("store_id", resolved.storeId).eq("id", itemId).maybeSingle();
+  const { data: currentItem, error: readError } = await supabase.from("items").select("metadata").eq("store_id", resolved.storeId).eq("id", itemId).is("archived_at",null).maybeSingle();
+  if(readError||!currentItem) throw new Error("商品が見つからないか、取得できませんでした。開き直してください。");
 
-  await supabase
+  const { error } = await supabase
     .from("items")
     .update({
       item_type: String(formData.get("item_type") ?? "product"),
@@ -455,20 +465,23 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
       unit_price: asNumber(formData.get("unit_price")),
       cost_price: asNumber(formData.get("cost_price")),
       tax_rate: asNumber(formData.get("tax_rate"), 10),
-      metadata: { ...((currentItem?.metadata as Record<string, unknown> | null) ?? {}), tax_inclusion: String(formData.get("tax_inclusion") ?? "inclusive") },
+      metadata: await menuPhotoMetadata(storeId,formData,(currentItem?.metadata as Record<string, unknown> | null)??{}),
       is_stock_managed: formData.get("is_stock_managed") === "on",
       status: String(formData.get("status") ?? "active"),
       updated_at: new Date().toISOString()
     })
     .eq("store_id", resolved.storeId)
-    .eq("id", itemId);
+    .eq("id", itemId).is("archived_at",null);
+  if(error) throw new Error("商品を更新できませんでした。");
 }
 
 export async function deleteItem(storeId: string, itemId: string) {
+  await menuContext(storeId, "manager");
   await setStoreEntityArchived(storeId, "item", itemId, true);
 }
 
 export async function updateStockFromForm(storeId: string, formData: FormData) {
+  await menuContext(storeId,"manager");
   const store = await requireStoreEditor(storeId);
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;

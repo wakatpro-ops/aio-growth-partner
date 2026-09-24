@@ -31,7 +31,9 @@ for (const label of ["予約を確認", "顧客一覧を確認", "顧客を分�
 for (const route of ["growth-actions", "growth-calendar", "reviews", "results", "settings/channels"]) assert.match(marketing, new RegExp(route.replaceAll("/", "\\/"), "u"));
 assert.doesNotMatch(marketing, /設計中/u);
 assert.match(inventory, /getStoreNavigationLabels/u);
-assert.match(inventory, /商品・サービス、現在庫、仕入・入荷/u);
+assert.match(inventory, /menuTabs\(store.industry_type_key\)/u);
+assert.match(inventory, /届いた商品を登録/u);
+assert.ok(inventory.includes('if(tab==="analysis") await menuContext(storeId,"manager")'));
 assert.match(settings, /AIデータ取り込み/u);
 
 for (const deferred of ["外部予約サイトとの同期", "銀行・カードの直接同期", "簡易レジ", "Google・Meta・LINE", "全画面固定AIチャット"]) {

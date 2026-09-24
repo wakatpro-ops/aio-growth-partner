@@ -1,4 +1,5 @@
 import "server-only";
+import { menuPermissions } from "@/lib/menu-workbench-rules";
 
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
@@ -66,6 +67,7 @@ export async function setStoreEntityArchived(storeId: string, entity: StoreArchi
   const access = await getCurrentUserAccess();
   if (!access) throw new Error("ログインが必要です。");
   const store = await getStore(storeId);
+  if (entity === "item" && !menuPermissions(access,store.organization_id,store.id).manager) throw new Error("商品の削除・復元は店長権限が必要です。");
   const role = access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer";
   if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) {
     throw new Error("削除・復元する権限がありません。");

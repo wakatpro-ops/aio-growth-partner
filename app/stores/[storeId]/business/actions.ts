@@ -44,10 +44,10 @@ export async function updateStockAction(storeId: string, formData: FormData) {
     await createInventoryMovementFromForm(storeId, formData);
   } catch (error) {
     const message = encodeURIComponent(error instanceof Error ? error.message : "在庫を更新できませんでした。");
-    redirect(`/stores/${storeId}/inventory?error=${message}`);
+    redirect(`/stores/${storeId}/inventory/adjust?error=${message}`);
   }
   revalidatePath(`/stores/${storeId}/inventory`);
-  redirect(`/stores/${storeId}/inventory?saved=movement`);
+  redirect(`/stores/${storeId}/inventory?tab=stock&saved=movement`);
 }
 
 export async function createCustomerAction(storeId: string, formData: FormData) {
