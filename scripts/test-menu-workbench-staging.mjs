@@ -44,6 +44,7 @@ try {
   const signIn=async role=>{await context.clearCookies();await context.addCookies([{name:'aio_auth_access_token',value:tokens[role],url:base,httpOnly:true,sameSite:'Lax'}]);};
   await signIn('owner');
   await page.goto(`${base}/stores/${store}/items/${item}`);
+  await page.locator('input[name=item_photo]').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z8L8AAAAASUVORK5CYII=','base64')});
   await page.locator('input[name=unit_price]').fill('1200');
   page.once('dialog',dialog=>dialog.accept());
   const actionRequest=page.waitForRequest(request=>request.method()==='POST'&&request.url().includes(`/items/${item}`));
@@ -52,6 +53,9 @@ try {
   const replayBody=captured.postDataBuffer(),replayHeaders=captured.headers();
   await page.getByText('保存しました。',{exact:true}).waitFor();
   assert.equal(Number(check(await db.from('items').select('unit_price').eq('id',item).single()).unit_price),1200);
+  const photo=check(await db.from('items').select('metadata').eq('id',item).single()).metadata.image_url;
+  assert(photo?.startsWith(`${url}/storage/v1/object/public/menu-images/${store}/`));
+  assert.equal((await fetch(photo)).status,200,'uploaded photo must be readable');
   for(const [width,height]of [[1440,1000],[390,844]]) {
     await page.setViewportSize({width,height});
     for(const tab of ['menu','stock','analysis']) {
@@ -96,6 +100,8 @@ try {
   console.log(JSON.stringify({passed:true,checks:['desktop/mobile 3 tabs no overflow','staff price/analysis/purchase denied','staff availability persisted','receipt UI + DB verified','authenticated no-membership denied'],screenshots:evidence}));
 } finally {
   await browser?.close();server?.kill('SIGTERM');
+  const photos=check(await db.storage.from('menu-images').list(store));
+  if(photos.length)check(await db.storage.from('menu-images').remove(photos.map(photo=>`${store}/${photo.name}`)));
   // These IDs were generated above solely for this run. Do not delete existing records.
   for(const table of ['audit_logs','stock_documents','inventory_movements','inventory_stocks','items','store_memberships']) check(await db.from(table).delete().eq('store_id',store));
   check(await db.from('stores').delete().eq('id',store));
