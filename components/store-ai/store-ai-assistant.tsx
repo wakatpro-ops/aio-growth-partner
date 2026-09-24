@@ -13,6 +13,7 @@ export function StoreAiAssistant({ storeId, pathname, open, onClose }: { storeId
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const threadRef = useRef<HTMLDivElement>(null);
+  useEffect(()=>{const prefill=(event:Event)=>{const detail=(event as CustomEvent).detail;if(typeof detail==="string")setInput(detail.slice(0,800));};window.addEventListener("aio:ask",prefill);return()=>window.removeEventListener("aio:ask",prefill);},[]);
 
   useEffect(() => {
     if (open) window.setTimeout(() => threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight }), 20);

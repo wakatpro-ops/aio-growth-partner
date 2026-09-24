@@ -1,202 +1,50 @@
 import Link from "next/link";
 import { AppShell } from "@/components/layout/app-shell";
-import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
-import { ItemThumbnail, StatusBar } from "@/components/ui/data-visuals";
-import { getIndustryConfig } from "@/config/industries";
-import { listBusinessItems, listInventoryStocks } from "@/lib/phase2/business-data";
+import { ItemThumbnail,HorizontalBarChart } from "@/components/ui/data-visuals";
+import { MenuCards } from "@/components/menu/menu-cards";
+import { AskAboutMenu } from "@/components/menu/ask-about-menu";
+import { listBusinessItems,listInventoryStocks } from "@/lib/phase2/business-data";
 import { listInventoryMovements } from "@/lib/inventory-operations";
-import { getStore } from "@/lib/stores";
+import { menuContext,menuSales,stockDocuments } from "@/lib/menu-workbench";
+import { menuTabs,itemPhoto } from "@/lib/menu-workbench-rules";
 import { getStoreNavigationLabels } from "@/lib/store-navigation";
-import { updateStockAction } from "../business/actions";
+import { uploadDeliveryAction } from "./actions";
 
-const movementLabels: Record<string, string> = {
-  receipt: "仕入・入荷",
-  stocktake: "棚卸",
-  waste: "廃棄",
-  return_in: "返品受入",
-  transfer_in: "店舗間移動（入庫）",
-  transfer_out: "店舗間移動（出庫）",
-  adjustment: "増減調整",
-  order_reserve: "受注引当",
-  order_release: "引当解除",
-  order_fulfill: "受注完了",
-  order_return: "受注取消・復元",
-  sale: "売上取込"
-};
-
-function signed(value: number) {
-  return `${value > 0 ? "+" : ""}${value.toLocaleString("ja-JP")}`;
-}
-
-function itemImageUrl(metadata: Record<string, unknown>) {
-  for (const key of ["image_url", "imageUrl", "thumbnail_url", "thumbnailUrl"]) {
-    const value = metadata[key];
-    if (typeof value === "string" && /^https?:\/\//u.test(value)) return value;
-  }
-  return null;
-}
-
-export default async function InventoryPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
-  const { storeId } = await params;
-  const query = await searchParams;
-  const store = await getStore(storeId);
-  const industry = getIndustryConfig(store.industry_type_key);
-  const navigationLabels = getStoreNavigationLabels(store.industry_type_key);
-  const [items, stocks, movements] = await Promise.all([listBusinessItems(store.id), listInventoryStocks(store.id), listInventoryMovements(store.id)]);
-  const stockItems = items.filter((item) => item.is_stock_managed);
-  const stockByItem = new Map(stocks.map((stock) => [stock.item_id, stock]));
-  const lowStockCount = stockItems.filter((item) => Number(stockByItem.get(item.id)?.quantity ?? 0) <= Number(stockByItem.get(item.id)?.reorder_point ?? 0)).length;
-  const purchaseCount = movements.filter((movement) => movement.movement_type === "receipt").length;
-  const today = new Date().toISOString().slice(0, 10);
-
-  return (
-    <AppShell>
-      <PageHeader eyebrow={industry.name} title={navigationLabels.product} description="商品・サービス、現在庫、仕入・入荷、棚卸、廃棄を業種に合わせて管理します。" action={<Link className="button" href={`/stores/${store.id}/items/new`}>{industry.businessLabels.item}を登録</Link>} />
-      <StoreBusinessNav store={store} />
-      {query.saved ? <p className="notice success">在庫変動を記録しました。一覧と履歴に反映されています。</p> : null}
-      {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
-      <section className="visual-section">
-        <div className="section-heading"><div><p className="eyebrow">現在庫</p><h2>発注が必要なものから確認</h2></div><p>赤は発注目安以下、黄色は発注目安に近い在庫です。</p></div>
-        {stockItems.length ? <div className="inventory-visual-grid">
-          {stockItems.slice().sort((left, right) => {
-            const leftStock = stockByItem.get(left.id);
-            const rightStock = stockByItem.get(right.id);
-            const leftRatio = Number(leftStock?.quantity ?? 0) / Math.max(Number(leftStock?.reorder_point ?? 0), 1);
-            const rightRatio = Number(rightStock?.quantity ?? 0) / Math.max(Number(rightStock?.reorder_point ?? 0), 1);
-            return leftRatio - rightRatio;
-          }).slice(0, 8).map((item) => {
-            const stock = stockByItem.get(item.id);
-            const quantity = Number(stock?.quantity ?? 0);
-            const reserved = Number(stock?.reserved_quantity ?? 0);
-            const available = Math.max(0, quantity - reserved);
-            const reorder = Number(stock?.reorder_point ?? 0);
-            const tone = available <= reorder ? "red" : reorder > 0 && available <= reorder * 1.5 ? "amber" : "green";
-            const status = available <= reorder ? "発注目安以下" : tone === "amber" ? "残りわずか" : "在庫あり";
-            return <article className={`inventory-visual-card tone-${tone}`} key={item.id}>
-              <ItemThumbnail name={item.name} imageUrl={itemImageUrl(item.metadata)} size="small" />
-              <div className="inventory-visual-copy"><span>{status}</span><h3>{item.name}</h3><p><strong>{available.toLocaleString("ja-JP")}</strong>{item.unit} 利用可能</p><StatusBar value={available} max={Math.max(quantity, reorder * 2, 1)} tone={tone} label={`${item.name}の利用可能在庫`} /><small>実在庫 {quantity.toLocaleString("ja-JP")}／引当 {reserved.toLocaleString("ja-JP")}／発注目安 {reorder.toLocaleString("ja-JP")}</small></div>
-            </article>;
-          })}
-        </div> : <div className="visual-empty card">在庫管理する商品・材料を登録すると、残量と発注の優先順位を表示できます。</div>}
-      </section>
-      <section className="grid cols-3 visual-supporting-metrics">
-        <article className="card"><p className="muted">在庫管理中</p><div className="metric">{stockItems.length}件</div><Link className="text-link" href={`/stores/${store.id}/items`}>商品・材料を確認 →</Link></article>
-        <article className="card"><p className="muted">発注目安以下</p><div className="metric">{lowStockCount}件</div><p className="muted">数量が発注目安以下の商品です。</p></article>
-        <article className="card"><p className="muted">仕入・入荷履歴</p><div className="metric">{purchaseCount}件</div><Link className="text-link" href={`/stores/${store.id}/accounting/receipts`}>仕入レシートを確認 →</Link></article>
-      </section>
-      <section className="card">
-        <div className="section-heading"><div><p className="eyebrow">目的から選ぶ</p><h2>{navigationLabels.product}メニュー</h2></div></div>
-        <div className="hub-grid">
-          <Link className="hub-link" href={`/stores/${store.id}/items`}><h3>{industry.businessLabels.item}を確認</h3><p>販売・提供する内容、価格、原価、在庫管理の対象を整理します。</p><strong>一覧を開く →</strong></Link>
-          <Link className="hub-link primary" href="#inventory-entry"><h3>仕入・入荷を記録</h3><p>仕入先、仕入日、単価、数量を記録し、現在庫と原価へ反映します。</p><strong>入力する →</strong></Link>
-          <Link className="hub-link" href={`/stores/${store.id}/accounting/receipts/new`}><h3>仕入レシートを読み取る</h3><p>レシートや伝票をOCRし、経費・freee用の確認データへ整理します。</p><strong>読み取りへ →</strong></Link>
-          <Link className="hub-link" href={`/stores/${store.id}/data-imports/ai`}><h3>在庫表をまとめて取り込む</h3><p>CSV・Excel・PDFをAIが分類し、商品と在庫へ整理します。</p><strong>データ取り込みへ →</strong></Link>
-        </div>
-      </section>
-      <div className="grid cols-2">
-        <section className="card">
-          <h3>在庫一覧</h3>
-          <table className="table compact">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>数量</th>
-                <th>発注目安</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stockItems.map((item) => {
-                const stock = stockByItem.get(item.id);
-                const quantity = Number(stock?.quantity ?? 0);
-                const reserved = Number(stock?.reserved_quantity ?? 0);
-                return <tr key={item.id}>
-                  <td>{item.name}</td>
-                  <td>{quantity.toLocaleString("ja-JP")} {item.unit}<br /><span className="muted">引当 {reserved.toLocaleString("ja-JP")}／利用可能 {(quantity - reserved).toLocaleString("ja-JP")}</span></td>
-                  <td>{Number(stock?.reorder_point ?? 0).toLocaleString("ja-JP")}</td>
-                </tr>
-              })}
-              {stockItems.length === 0 ? <tr><td colSpan={3}>在庫管理する商品・メニューがありません。先に商品・サービスから登録してください。</td></tr> : null}
-            </tbody>
-          </table>
-        </section>
-        <form className="card form" id="inventory-entry" action={updateStockAction.bind(null, store.id)}>
-          <h3>仕入・在庫変動を記録</h3>
-          <div className="field">
-            <label htmlFor="item_id">対象</label>
-            <select id="item_id" name="item_id" required>
-              {stockItems.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="movement_type">理由</label>
-            <select id="movement_type" name="movement_type" defaultValue="receipt">
-              <option value="receipt">仕入・入荷</option>
-              <option value="stocktake">棚卸後の数量に合わせる</option>
-              <option value="waste">廃棄</option>
-              <option value="return_in">返品受入</option>
-              <option value="transfer_in">店舗間移動（入庫）</option>
-              <option value="transfer_out">店舗間移動（出庫）</option>
-              <option value="adjustment">増減調整（負数可）</option>
-            </select>
-          </div>
-          <div className="grid cols-2">
-            <div className="field">
-              <label htmlFor="purchase_date">仕入日</label>
-              <input id="purchase_date" name="purchase_date" type="date" defaultValue={today} />
-            </div>
-            <div className="field">
-              <label htmlFor="supplier_name">仕入先</label>
-              <input id="supplier_name" name="supplier_name" placeholder="例：〇〇食品／△△商事" />
-            </div>
-            <div className="field">
-              <label htmlFor="unit_cost">仕入単価（税区分は会計側で確認）</label>
-              <input id="unit_cost" name="unit_cost" type="number" min="0" step="1" placeholder="0" />
-            </div>
-          </div>
-          <div className="field">
-            <label htmlFor="quantity">数量</label>
-            <input id="quantity" name="quantity" type="number" step="0.01" defaultValue="1" required />
-            <span className="muted">棚卸は棚卸後の実数、増減調整だけは負数も入力できます。</span>
-          </div>
-          <div className="field">
-            <label htmlFor="reorder_point">発注目安</label>
-            <input id="reorder_point" name="reorder_point" type="number" step="0.01" defaultValue="0" />
-          </div>
-          <div className="field">
-            <label htmlFor="reason">変更理由 <span className="required-mark">必須</span></label>
-            <textarea id="reason" name="reason" placeholder="例：通常仕入／破損のため廃棄／棚卸差異の調整" required />
-          </div>
-          <div className="form-actions">
-            <PendingSubmitButton pendingLabel="仕入・在庫変動を記録しています..." disabled={stockItems.length === 0}>仕入・在庫変動を記録</PendingSubmitButton>
-            <a className="button secondary" href={`/stores/${store.id}/sales-hub`}>売上へ戻る</a>
-          </div>
-        </form>
-      </div>
-
-      <section className="card">
-        <div className="section-heading"><div><p className="eyebrow">操作証跡</p><h2>在庫変動履歴</h2></div><span className="badge">{movements.length}件</span></div>
-        <div className="table-wrap">
-          <table>
-            <thead><tr><th>日時</th><th>担当</th><th>対象</th><th>理由</th><th>実在庫</th><th>引当</th><th>変更後</th></tr></thead>
-            <tbody>
-              {movements.map((movement) => <tr key={movement.id}>
-                <td>{new Date(movement.occurred_at).toLocaleString("ja-JP")}</td>
-                <td>{movement.actor_name ?? "システム"}</td>
-                <td>{movement.item?.name ?? movement.item_id}</td>
-                <td><span className="badge">{movementLabels[movement.movement_type] ?? movement.movement_type}</span><br /><span className="muted">{movement.reason ?? "理由未記録"}</span></td>
-                <td>{signed(Number(movement.quantity_delta ?? 0))}</td>
-                <td>{signed(Number(movement.reserved_delta ?? 0))}</td>
-                <td>{Number(movement.balance_after ?? 0).toLocaleString("ja-JP")}（引当 {Number(movement.reserved_after ?? 0).toLocaleString("ja-JP")}）</td>
-              </tr>)}
-              {movements.length === 0 ? <tr><td colSpan={7}>在庫変動はまだありません。上のフォームから最初の入荷または棚卸を記録してください。</td></tr> : null}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </AppShell>
-  );
+export default async function InventoryPage({params,searchParams}:{params:Promise<{storeId:string}>;searchParams:Promise<{tab?:string;days?:string;saved?:string;error?:string}>}) {
+  const {storeId}=await params, query=await searchParams;
+  const {store,permissions}=await menuContext(storeId);
+  const tab=query.tab==="stock"?"stock":query.tab==="analysis"?"analysis":"menu";
+  if(tab==="analysis") await menuContext(storeId,"manager");
+  const items=await listBusinessItems(storeId,1000), labels=menuTabs(store.industry_type_key);
+  const base=`/stores/${storeId}/inventory`;
+  const stocks=tab==="stock"?await listInventoryStocks(storeId):[];
+  const documents=tab==="stock"?await stockDocuments(storeId):[];
+  const movements=tab==="stock"?await listInventoryMovements(storeId):[];
+  const days=[30,90,365].includes(Number(query.days))?Number(query.days):30;
+  const sales=tab==="analysis"?await menuSales(storeId,days):null;
+  const totals=new Map<string,{quantity:number;amount:number}>();
+  for(const row of sales?.rows??[]) {if(!row.item_id)continue;const value=totals.get(row.item_id)??{quantity:0,amount:0};value.quantity+=Number(row.quantity);value.amount+=Number(row.total_amount);totals.set(row.item_id,value);}
+  const ranked=items.map(item=>({...item,sales:totals.get(item.id)})).filter(item=>item.sales).sort((a,b)=>b.sales!.quantity-a.sales!.quantity);
+  const margins=items.filter(item=>item.cost_price>0&&item.unit_price>0).map(item=>({item,margin:(item.metadata.tax_inclusion==="exclusive"?item.unit_price:item.unit_price/(1+item.tax_rate/100))-item.cost_price})).sort((a,b)=>b.margin-a.margin);
+  return <AppShell><PageHeader title={getStoreNavigationLabels(store.industry_type_key).product} description="写真で選んで、必要な操作だけ。" action={permissions.manager?<Link className="button" href={`/stores/${storeId}/items/new`}>＋ 商品・メニューを追加</Link>:undefined}/>
+    <nav className="menu-tabs" aria-label="商品と在庫の切り替え">{["menu","stock",...(permissions.manager?["analysis"]:[])].map((key,index)=><Link key={key} className={tab===key?"button":"button secondary"} aria-current={tab===key?"page":undefined} href={`${base}?tab=${key}`}>{labels[index]}</Link>)}</nav>
+    {query.saved?<p className="notice success" role="status">{query.saved==="status"?"販売状態を保存しました。いつでも戻せます。":"保存しました。"}</p>:null}{query.error?<p className="notice danger" role="alert">{query.error}</p>:null}
+    {tab==="menu"?<><MenuCards storeId={storeId} items={items.map(({cost_price,...item})=>{void cost_price;return item;})} manager={permissions.manager} operate={permissions.operate}/>{permissions.manager?<p><Link className="button secondary" href={`/stores/${storeId}/data-imports/ai`}>既存の商品データを取り込む</Link> <Link className="button secondary" href={`/stores/${storeId}/archives`}>削除済みのデータ</Link></p>:null}</>:null}
+    {tab==="stock"?<>
+      {permissions.operate?<section className="card"><div className="menu-quick-actions"><Link className="button" href={`${base}/documents/new`}>📦 届いた商品を登録</Link><Link className="button secondary" href="#stock-list">残量を確認</Link><Link className="button secondary" href={`${base}/documents/new?kind=waste`}>廃棄を記録</Link>{permissions.manager?<Link className="button secondary" href={`${base}/documents/new?kind=purchase`}>仕入書を作る（未送信）</Link>:null}</div>
+        <details><summary>伝票の写真から入荷を準備する</summary><form action={uploadDeliveryAction.bind(null,storeId)} className="form"><label className="field">納品書・伝票の写真<input type="file" name="receipt_file" accept="image/jpeg,image/png,image/webp,application/pdf" required/></label><p>JPG・PNG・WebP・PDF、4MBまで。AIで読み取った後、数量と単位を確認します。会計へ自動計上はしません。</p><PendingSubmitButton pendingLabel="伝票を読み取り中...">写真を読み取る</PendingSubmitButton></form></details>
+      </section>:null}
+      <section id="stock-list"><div className="section-heading"><h2>残量を確認</h2>{permissions.manager?<Link className="button secondary" href={`${base}/adjust`}>棚卸・発注目安などを調整</Link>:null}</div><div className="menu-card-grid">{items.filter(item=>item.is_stock_managed).map(item=>{const stock=stocks.find(stock=>stock.item_id===item.id);const available=stock?Number(stock.quantity)-Number(stock.reserved_quantity??0):null;const low=stock&&Number(stock.reorder_point)>0&&available!<=Number(stock.reorder_point);return <article className="card menu-stock-card" key={item.id}><ItemThumbnail name={item.name} imageUrl={itemPhoto(item.metadata)}/><h3>{item.name}</h3><strong className="menu-stock-number">{available===null?"未登録":`${available.toLocaleString("ja-JP")} ${item.unit}`}</strong><span className={low?"badge menu-state-sold_out":"badge"}>{!stock?"残量を確認してください":low?"発注目安以下":Number(stock.reorder_point)>0?"在庫あり":"発注目安は未設定"}</span>{stock?<small>現在庫 {stock.quantity} / 確保済み {stock.reserved_quantity??0} {item.unit}</small>:null}</article>;})}</div>{!items.some(item=>item.is_stock_managed)?<p className="notice">在庫管理する商品を登録すると、ここに表示されます。</p>:null}</section>
+      <section className="card"><h2>入荷・仕入の確認と履歴</h2><p>直近100件。削除済み下書きもここから戻せます。</p><div className="menu-document-lines">{documents.map(doc=><Link key={doc.id} href={`${base}/documents/${doc.id}`}><strong>{doc.kind==="purchase"?"仕入書（未送信）":doc.kind==="receipt"?"入荷":"廃棄"}</strong><span>{doc.document_date} {doc.vendor}</span><span>{doc.archived_at?"削除済み":doc.status==="draft"?"確認待ち":doc.status==="reversed"?"取消済み":"確定済み"}</span></Link>)}</div>{!documents.length?<p>まだ記録がありません。</p>:null}</section>
+      <details className="card"><summary>在庫の変動履歴（直近100件）</summary><div className="menu-document-lines">{movements.map(movement=><div key={movement.id}><strong>{movement.item?.name??"商品"}</strong><span>{Number(movement.quantity_delta)>0?"+":""}{movement.quantity_delta} {movement.item?.unit}</span><small>{new Date(movement.occurred_at).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"})} · {movement.actor_name??"記録者不明"} · {movement.reason}</small></div>)}</div></details>
+    </>:null}
+    {sales?<><section className="card"><div className="section-heading"><h2>売れ方を確認</h2><div className="button-row">{[30,90,365].map(value=><Link className={days===value?"button":"button secondary"} key={value} href={`${base}?tab=analysis&days=${value}`}>{value}日</Link>)}</div></div><p>{sales.start}〜{sales.until} · 取り込み済み明細 {sales.rows.length}件</p><p className="muted">商品に紐付いていない明細は {sales.rows.filter(row=>!row.item_id).length}件。未取り込み期間の売上は含まれません。</p></section>
+      <div className="menu-analysis-grid"><HorizontalBarChart title="よく売れている（数量）" data={ranked.map(item=>({label:item.name,value:Math.max(0,item.sales!.quantity),displayValue:`${item.sales!.quantity} ${item.unit}`}))} emptyMessage="商品に紐付いた売上明細がまだありません。"/>
+        <section className="card"><h3>1つ売れたときの参考利益</h3><p>現在の販売単価（税抜換算）−登録原価。実際の期間利益やレシピ原価ではありません。登録原価を税抜として計算しています。</p><div className="menu-document-lines">{margins.slice(0,6).map(({item,margin})=><div key={item.id}><strong>{item.name}</strong><span>{Math.round(margin).toLocaleString("ja-JP")}円 / {item.unit}</span></div>)}</div><p>{items.length-margins.length}件は価格・原価不足のため計算していません。</p></section>
+        <section className="card"><h3>この期間に販売記録がない</h3><p>未取り込みや商品未紐付けの可能性もあります。「売れていない」とは断定しません。</p><div className="menu-document-lines">{items.filter(item=>!totals.has(item.id)).slice(0,10).map(item=><Link href={`/stores/${storeId}/items/${item.id}`} key={item.id}>{item.name} → 内容を確認</Link>)}</div></section></div>
+      <p className="notice">価格や発注をAIが勝手に変更することはありません。<AskAboutMenu/></p>
+    </>:null}
+  </AppShell>;
 }

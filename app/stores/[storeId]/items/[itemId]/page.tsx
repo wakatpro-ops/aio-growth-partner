@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { menuContext } from "@/lib/menu-workbench";
 import { AppShell } from "@/components/layout/app-shell";
 import { ItemForm } from "@/components/phase2/item-form";
 import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
@@ -10,6 +11,7 @@ import { deleteItemAction, updateItemAction } from "../../business/actions";
 
 export default async function ItemDetailPage({ params }: { params: Promise<{ storeId: string; itemId: string }> }) {
   const { storeId, itemId } = await params;
+  await menuContext(storeId,"manager");
   const store = await getStore(storeId);
   const item = await getBusinessItem(store.id, itemId);
   if (!item) notFound();

@@ -1,3 +1,4 @@
+"use client";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { BusinessItem } from "@/types/phase2";
 import type { IndustryTypeKey } from "@/types/domain";
@@ -16,7 +17,12 @@ export function ItemForm({
   const showReducedTaxRate = industryTypeKey === "restaurant" || industryTypeKey === "retail";
   const taxInclusion = item?.metadata?.tax_inclusion === "exclusive" ? "exclusive" : "inclusive";
   return (
-    <form className="card form" action={action}>
+    <form className="card form" action={action} onSubmit={event=>{
+      const values=new FormData(event.currentTarget);
+      if(item && (Number(values.get("unit_price"))!==item.unit_price || String(values.get("tax_inclusion"))!==taxInclusion || Number(values.get("tax_rate"))!==item.tax_rate) && !window.confirm(`販売価格を変更します。現在 ${item.unit_price}円（${taxInclusion==="exclusive"?"税抜":"税込"}）→ ${values.get("unit_price")}円（${values.get("tax_inclusion")==="exclusive"?"税抜":"税込"}）。AIO boost内のみで、外部POSには反映されません。`)) event.preventDefault();
+    }}>
+      <label className="field">写真（任意・後から追加できます）<input type="file" name="item_photo" accept="image/jpeg,image/png,image/webp"/><small>JPG・PNG・WebP、3MBまで。公開してよい商品写真を選んでください。</small></label>
+      {item?.metadata.image_url?<label className="check-row"><input type="checkbox" name="remove_photo"/>登録済みの写真を外す</label>:null}
       <div className="grid cols-2">
         <div className="field">
           <label htmlFor="name">名称</label>
@@ -43,7 +49,7 @@ export function ItemForm({
           <input id="unit_price" name="unit_price" type="number" min="0" step="1" defaultValue={item?.unit_price ?? 0} />
         </div>
         <div className="field">
-          <label htmlFor="cost_price">原価</label>
+          <label htmlFor="cost_price">原価（税抜・1単位あたり）</label>
           <input id="cost_price" name="cost_price" type="number" min="0" step="1" defaultValue={item?.cost_price ?? 0} />
         </div>
         <div className="field">

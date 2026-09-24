@@ -1,6 +1,6 @@
 import "server-only";
+import { menuContext } from "@/lib/menu-workbench";
 
-import { randomUUID } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { getStore } from "@/lib/stores";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -107,10 +107,12 @@ export async function listInventoryMovements(storeId: string, limit = 100): Prom
 }
 
 export async function createInventoryMovementFromForm(storeId: string, formData: FormData) {
+  await menuContext(storeId, "manager");
   const { store, access, supabase } = await context(storeId, true);
   const itemId = text(formData.get("item_id"), 36);
   const movementType = String(formData.get("movement_type") ?? "adjustment");
-  const inputQuantity = number(formData.get("quantity"));
+  const inputQuantity = Number(formData.get("quantity"));
+  if(!String(formData.get("quantity")??"").trim()||!Number.isFinite(inputQuantity)) throw new Error("数量を数値で入力してください。");
   const enteredReason = text(formData.get("reason"), 1000);
   const supplierName = text(formData.get("supplier_name"), 300);
   const purchaseDate = text(formData.get("purchase_date"), 20);
@@ -125,45 +127,19 @@ export async function createInventoryMovementFromForm(storeId: string, formData:
   if (!itemId) throw new Error("対象の商品・メニューを選択してください。");
   if (!manualMovementTypes.has(movementType)) throw new Error("在庫変動の理由を選び直してください。");
   if (!enteredReason) throw new Error("在庫を変更する理由を入力してください。");
-  if (movementType !== "stocktake" && inputQuantity <= 0) throw new Error("数量は0より大きい値を入力してください。");
+  if (!["stocktake","adjustment"].includes(movementType) && inputQuantity <= 0) throw new Error("数量は0より大きい値を入力してください。");
   if (movementType === "stocktake" && inputQuantity < 0) throw new Error("棚卸後の数量は0以上で入力してください。");
 
   const { data: item } = await supabase.from("items").select("id, name, is_stock_managed").eq("store_id", store.id).eq("id", itemId).is("archived_at", null).maybeSingle();
   if (!item?.id || !item.is_stock_managed) throw new Error("選択した対象は在庫管理されていません。");
   const { data: stock } = await supabase.from("inventory_stocks").select("quantity").eq("item_id", itemId).maybeSingle();
-  let delta = inputQuantity;
-  if (["waste", "transfer_out"].includes(movementType)) delta = -Math.abs(inputQuantity);
-  if (movementType === "stocktake") delta = inputQuantity - Number(stock?.quantity ?? 0);
-  if (movementType === "adjustment") delta = inputQuantity;
-
-  const movementId = await applyMovement(supabase, {
-    storeId: store.id,
-    itemId,
-    movementType,
-    quantityDelta: delta,
-    reason,
-    referenceType: "manual",
-    movementKey: `manual:${randomUUID()}`,
-    actorUserId: access.userId
+  const key=String(formData.get("movement_key")??"");
+  if(!/^[0-9a-f-]{36}$/i.test(key)) throw new Error("画面を開き直してください。");
+  const {error}=await supabase.rpc("manual_inventory_change",{
+    p_actor:access.userId,p_store:store.id,p_item:itemId,p_type:movementType,p_quantity:inputQuantity,
+    p_expected:Number(stock?.quantity??0),p_reason:reason,p_key:key,p_reorder:Math.max(0,reorderPoint),p_cost:unitCost
   });
-  await supabase.from("inventory_stocks").update({ reorder_point: Math.max(0, reorderPoint), updated_at: new Date().toISOString() }).eq("item_id", itemId);
-  if (movementType === "receipt" && unitCost > 0) {
-    await supabase.from("items").update({ cost_price: unitCost, updated_at: new Date().toISOString() }).eq("store_id", store.id).eq("id", itemId);
-  }
-  await recordAudit(supabase, {
-    organizationId: store.organization_id,
-    storeId: store.id,
-    actorUserId: access.userId,
-    actionType: "inventory_movement_created",
-    targetType: "inventory_movement",
-    targetId: movementId,
-    message: `${item.name}の在庫変動を記録しました。`,
-    metadata: {
-      movement_type: movementType,
-      quantity_delta: delta,
-      ...(movementType === "receipt" ? { supplier_name: supplierName, purchase_date: purchaseDate, unit_cost: unitCost, purchase_total: unitCost * inputQuantity } : {})
-    }
-  });
+  if(error) throw new Error(error.message);
 }
 
 export async function listOrderItems(storeId: string, orderId: string): Promise<BusinessOrderItem[]> {

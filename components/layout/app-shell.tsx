@@ -31,6 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  useEffect(()=>{const open=()=>setAssistantOpen(true);window.addEventListener("aio:ask",open);return()=>window.removeEventListener("aio:ask",open);},[]);
   const [storeName, setStoreName] = useState<string | null>(null);
   const [storeOptions, setStoreOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [canManageStores, setCanManageStores] = useState(false);

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { menuContext } from "@/lib/menu-workbench";
 import { ItemForm } from "@/components/phase2/item-form";
 import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
@@ -7,6 +8,7 @@ import { createItemAction } from "../../business/actions";
 
 export default async function NewItemPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
+  await menuContext(storeId,"manager");
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
 
