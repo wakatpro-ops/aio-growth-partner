@@ -6,7 +6,7 @@ import { canEditStore } from "@/lib/auth/server";
 import { setStoreEntityArchived } from "@/lib/archive-management";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
-import { demoCustomers, demoEstimates, demoInvoices, demoItems, demoStocks } from "@/lib/phase2/demo-data";
+import { demoEstimates, demoInvoices, demoItems, demoStocks } from "@/lib/phase2/demo-data";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import type { BusinessDocument, BusinessItem, Customer, InventoryStock } from "@/types/phase2";
 import type { Store } from "@/types/domain";
@@ -331,13 +331,13 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
 export async function listCustomers(storeId: string, limit = 80): Promise<Customer[]> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
-    return demoCustomers.filter((customer) => customer.store_id === storeId || storeId.startsWith("demo"));
+    throw new Error("顧客データに接続できません。");
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
   const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false }).limit(limit);
   if (error || !data) {
-    return [];
+    throw new Error("顧客一覧を取得できませんでした。");
   }
 
   return data as Customer[];
@@ -346,14 +346,13 @@ export async function listCustomers(storeId: string, limit = 80): Promise<Custom
 export async function getCustomer(storeId: string, customerId: string): Promise<Customer | null> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
-    return demoCustomers.find((customer) => customer.id === customerId && (customer.store_id === storeId || storeId.startsWith("demo"))) ?? null;
+    throw new Error("顧客データに接続できません。");
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).eq("id", customerId).is("archived_at", null).single();
-  if (error || !data) {
-    return null;
-  }
+  const { data, error } = await supabase.from("customers").select("*").eq("store_id", resolved.storeId).eq("id", customerId).is("archived_at", null).maybeSingle();
+  if (error) throw new Error("顧客情報を取得できませんでした。再読み込みしてください。");
+  if (!data) return null;
 
   return data as Customer;
 }

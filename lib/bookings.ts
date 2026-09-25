@@ -168,9 +168,38 @@ export async function listBookings(storeId: string, view: BookingListView = "tod
   if (view === "upcoming") query = query.gte("starts_at", today.endsAt);
   if (view === "past") query = query.lt("starts_at", today.startsAt);
   const { data, error } = await query;
-  if (error?.code === "42P01") return [];
   if (error) throw new Error(`予約を取得できませんでした: ${error.message}`);
   return attachAllocations(supabase, (data ?? []) as unknown as StoreBooking[]);
+}
+
+export async function listCalendarBookings(storeId: string, startsAt: string, endsAt: string, customerId?: string) {
+  const { store, supabase } = await readContext(storeId);
+  const rows: StoreBooking[] = [];
+  for (let from = 0; ; from += 100) {
+    let query = supabase.from("bookings").select("*, service:booking_services(id,name,duration_minutes,color)")
+      .eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null)
+      .lt("starts_at", endsAt).gt("ends_at", startsAt).order("starts_at").order("id").range(from, from + 99);
+    if (customerId) query = query.eq("customer_id", customerId);
+    const { data, error } = await query;
+    if (error) throw new Error("予約を取得できませんでした。再読み込みしてください。");
+    rows.push(...await attachAllocations(supabase, (data ?? []) as unknown as StoreBooking[]));
+    if ((data?.length ?? 0) < 100) break;
+    if (from >= 9900) throw new Error("予約件数が多いため期間を短くして再度お試しください。");
+  }
+  return rows;
+}
+
+export async function bookingWorkbenchCounts(storeId: string) {
+  const { store, supabase } = await readContext(storeId);
+  const day = japanDayRange(new Date());
+  const base = () => supabase.from("bookings").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("organization_id", store.organization_id);
+  const results = await Promise.all([
+    base(), base().is("archived_at", null),
+    base().is("archived_at", null).lt("starts_at", day.endsAt).gt("ends_at", day.startsAt).not("status", "in", "(cancelled,no_show)"),
+    base().is("archived_at", null).gte("starts_at", day.endsAt).eq("status", "confirmed")
+  ]);
+  if (results.some(result => result.error || result.count === null)) throw new Error("予約件数を取得できませんでした。");
+  return { total: results[0].count!, active: results[1].count!, today: results[2].count!, upcoming: results[3].count! };
 }
 
 export async function getBooking(storeId: string, bookingId: string, includeArchived = false): Promise<StoreBooking | null> {

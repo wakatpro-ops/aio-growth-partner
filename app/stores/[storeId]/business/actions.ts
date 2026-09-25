@@ -54,21 +54,21 @@ export async function createCustomerAction(storeId: string, formData: FormData) 
   await requireStoreActionWriteAccess(storeId);
   await createCustomerFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}/customers`);
-  redirect(`/stores/${storeId}/customers?saved=customer`);
+  redirect(`/stores/${storeId}/customers?tab=customers&saved=customer`);
 }
 
 export async function updateCustomerAction(storeId: string, customerId: string, formData: FormData) {
   await requireStoreActionWriteAccess(storeId);
   await updateCustomerFromForm(storeId, customerId, formData);
   revalidatePath(`/stores/${storeId}/customers`);
-  redirect(`/stores/${storeId}/customers?saved=customer-updated`);
+  redirect(`/stores/${storeId}/customers?tab=customers&saved=customer-updated`);
 }
 
 export async function deleteCustomerAction(storeId: string, customerId: string) {
   await requireStoreActionWriteAccess(storeId);
   await deleteCustomer(storeId, customerId);
   revalidatePath(`/stores/${storeId}/customers`);
-  redirect(`/stores/${storeId}/customers`);
+  redirect(`/stores/${storeId}/customers?tab=customers`);
 }
 
 export async function createEstimateAction(storeId: string, formData: FormData) {

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { bookingResourceTypeLabels, bookingSourceLabels, bookingStatusLabels } from "@/lib/bookings/constants";
 import type { StoreBooking } from "@/types/bookings";
+import { japanDay } from "@/lib/customer-workbench-rules";
 
 const dateTime = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" });
 const time = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" });
@@ -13,7 +14,7 @@ export function BookingList({ storeId, bookings, deleted = false }: { storeId: s
     {bookings.map((booking) => {
       const resources = (booking.allocations ?? []).map((allocation) => allocation.resource).filter(Boolean);
       return <Link className={`booking-row status-${booking.status}`} href={`/stores/${storeId}/bookings/${booking.id}${deleted ? "?deleted=1" : ""}`} key={booking.id}>
-        <div className="booking-row-time"><strong>{dateTime.format(new Date(booking.starts_at))}</strong><span>〜 {time.format(new Date(booking.ends_at))}</span></div>
+        <div className="booking-row-time"><strong>{dateTime.format(new Date(booking.starts_at))}</strong><span>〜 {(japanDay(booking.starts_at) === japanDay(booking.ends_at) ? time : dateTime).format(new Date(booking.ends_at))}</span></div>
         <div className="booking-row-main"><strong>{booking.customer_name}</strong><span>{booking.service?.name ?? booking.service_name ?? "内容未設定"}</span><small>{resources.length ? resources.map((resource) => `${resource?.name}（${resource ? bookingResourceTypeLabels[resource.resource_type] : ""}）`).join("・") : "担当・設備未設定"}</small></div>
         <div className="booking-row-meta"><span className={`badge booking-status-${booking.status}`}>{deleted ? "削除済み" : bookingStatusLabels[booking.status]}</span><small>{bookingSourceLabels[booking.source]}</small></div>
       </Link>;
