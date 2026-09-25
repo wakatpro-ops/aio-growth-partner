@@ -166,7 +166,7 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
     ] },
     { title: "売上の基本情報", body: "書類・売上データで使う商品・サービスと顧客を管理します。", links: [
       [industry.businessLabels.item, `/stores/${store.id}/items`],
-      [industry.businessLabels.customer, `/stores/${store.id}/customers`]
+      [industry.businessLabels.customer, `/stores/${store.id}/customers?tab=customers`]
     ] }
   ];
 
