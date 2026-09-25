@@ -16,6 +16,7 @@ const check=r=>{if(r.error)throw new Error(r.error.message);return r.data;};
 const org=randomUUID(),store=randomUUID(),otherOrg=randomUUID(),otherStore=randomUUID(),customer=randomUUID();
 const users=[],tokens={};let server,browser,page;
 const evidence='/private/tmp/aio-customer-workbench-ui';
+const viewports=process.env.CUSTOMER_TEST_QUICK==='1'?[[1440,1000]]:[[1440,1000],[390,844],[320,740]];
 await mkdir(evidence,{recursive:true});
 try{
  for(const role of ['owner','viewer','none','suspended']){
@@ -33,7 +34,7 @@ try{
  const signIn=async role=>{await context.clearCookies();await context.addCookies([{name:'aio_auth_access_token',value:tokens[role],url:base,httpOnly:true,sameSite:'Lax'}]);};
  const go=async path=>{await page.goto(`${base}/stores/${store}/${path}`);await page.getByRole('navigation',{name:'予約・顧客・分析の切り替え'}).waitFor();await page.locator('select').first().getByRole('option',{name:'予約UI検証専用サロン',exact:true}).waitFor({state:'attached'});};
  await signIn('owner');
- for(const [width,height]of [[1440,1000],[390,844],[320,740]]){
+ for(const [width,height]of viewports){
   await page.setViewportSize({width,height});
   for(const tab of ['bookings','customers','analysis']){
    await go(`customers?tab=${tab}`);await page.getByTestId('data-preview').waitFor();
@@ -68,9 +69,10 @@ try{
   // state with a bounded poll rather than waiting indefinitely for stream EOF.
   await responseDone;
   for(let n=0;n<30;n++){if(check(await db.from('bookings').select('service_name').eq('id',booking).single()).service_name==='変更後の施術')break;await new Promise(r=>setTimeout(r,500));}
- await page.getByText('予約の変更を保存しました。',{exact:true}).waitFor();
+  await page.getByText('予約の変更を保存しました。',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'予約の変更を保存',exact:true}).waitFor({state:'visible'});
  assert.equal(check(await db.from('bookings').select('service_name').eq('id',booking).single()).service_name,'変更後の施術');
- for(const [width,height]of [[1440,1000],[390,844],[320,740]]){
+ for(const [width,height]of viewports){
   await page.setViewportSize({width,height});
   for(const tab of ['bookings','customers','analysis']){
    await go(`customers?tab=${tab}`);assert.equal(await page.getByTestId('data-preview').count(),0);
@@ -99,7 +101,7 @@ try{
   if(role!=='viewer'){await page.goto(`${base}/stores/${store}/customers`);assert.equal(await page.getByRole('navigation',{name:'予約・顧客・分析の切り替え'}).count(),0);}
  }
  await signIn('owner');await page.goto(`${base}/stores/${otherStore}/customers`);assert.equal(await page.getByRole('navigation',{name:'予約・顧客・分析の切り替え'}).count(),0);
- console.log(JSON.stringify({passed:true,checks:['empty/real 3 tabs 1440/390/320 no overflow','sample creates no records','skip/reopen','booking UI create/edit/archive/restore + DB','customer history/edit collapse','filtered zero/period zero/archive-only not demo','viewer/none/suspended action replay denied','other organization denied'],evidence}));
+ console.log(JSON.stringify({passed:true,viewports,checks:['empty/real 3 tabs no overflow','sample creates no records','skip/reopen','booking UI create/edit/archive/restore + DB + pending clears','customer history/edit collapse','filtered zero/period zero/archive-only not demo','viewer/none/suspended action replay denied','other organization denied'],evidence}));
 }catch(error){if(page)await page.screenshot({path:`${evidence}/failure.png`,fullPage:true}).catch(()=>{});throw error;
 }finally{
  await browser?.close();server?.kill('SIGTERM');
