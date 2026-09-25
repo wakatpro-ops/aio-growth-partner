@@ -28,7 +28,7 @@ export default async function CustomerImportPage({ params, searchParams }: { par
         eyebrow="集客・顧客"
         title="顧客データを一括取り込み"
         description="CSV・Excelの内容と列対応を確認してから顧客マスターへ取り込みます。"
-        action={<Link className="button secondary" href={`/stores/${store.id}/customers`}>顧客一覧へ戻る</Link>}
+        action={<Link className="button secondary" href={`/stores/${store.id}/customers?tab=customers`}>顧客一覧へ戻る</Link>}
       />
       <StoreBusinessNav store={store} />
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}

@@ -8,6 +8,9 @@ import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { calculateMetricChange, getResultsVisibilityWorkspace } from "@/lib/results-visibility";
 import { getStore } from "@/lib/stores";
+import { registeredDataCount } from "@/lib/customer-workbench";
+import { DataPreview } from "@/components/ui/data-preview";
+import { canEditStore } from "@/lib/auth/server";
 import type { SearchVisibilitySnapshot } from "@/types/results-visibility";
 import {
   addAiVisibilityQuestionAction,
@@ -78,6 +81,8 @@ export default async function ResultsVisibilityPage({
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const workspace = await getResultsVisibilityWorkspace(store.id);
+  const noMeasurements = workspace.storageReady && !query.error && !workspace.searchConsolePropertyError && await registeredDataCount(store.id, "search_visibility_snapshots") === 0;
+  const editable = noMeasurements ? await canEditStore(store.id, store.organization_id) : false;
   const baselineSnapshots = workspace.comparisons.map((comparison) => comparison.baseline);
   const previousSnapshots = workspace.comparisons.map((comparison) => comparison.previous);
   const currentSnapshots = workspace.comparisons.map((comparison) => comparison.current);
@@ -111,6 +116,7 @@ export default async function ResultsVisibilityPage({
           action={<div className="button-row print-actions"><Link className="button secondary" href={`/stores/${store.id}/results/export`}>CSVを出力</Link><ReportPrintButton /></div>}
         />
         <div className="print-actions"><StoreBusinessNav store={store} /></div>
+        {noMeasurements ? <DataPreview title="実測データがそろうと、前後の変化を比較できます" description="計測条件とキーワードを設定し、Search Consoleから取得するか実測値を記録します。未計測を0位や成果なしとは扱いません。" manualHref={editable ? "#measurement-settings" : undefined}/> : null}
         {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
         {query.settingsSaved ? <p className="notice success">計測条件を保存しました。次は検索キーワードを登録してください。</p> : null}
         {query.keywordAdded ? <p className="notice success">検索キーワードを追加しました。</p> : null}

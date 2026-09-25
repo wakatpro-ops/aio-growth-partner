@@ -11,6 +11,8 @@ import { menuContext,menuSales,stockDocuments } from "@/lib/menu-workbench";
 import { menuTabs,itemPhoto } from "@/lib/menu-workbench-rules";
 import { getStoreNavigationLabels } from "@/lib/store-navigation";
 import { uploadDeliveryAction } from "./actions";
+import { DataPreview } from "@/components/ui/data-preview";
+import { registeredDataCount } from "@/lib/customer-workbench";
 
 export default async function InventoryPage({params,searchParams}:{params:Promise<{storeId:string}>;searchParams:Promise<{tab?:string;days?:string;saved?:string;error?:string}>}) {
   const {storeId}=await params, query=await searchParams;
@@ -18,6 +20,7 @@ export default async function InventoryPage({params,searchParams}:{params:Promis
   const tab=query.tab==="stock"?"stock":query.tab==="analysis"?"analysis":"menu";
   if(tab==="analysis") await menuContext(storeId,"manager");
   const items=await listBusinessItems(storeId,1000), labels=menuTabs(store.industry_type_key);
+  const unregistered = items.length === 0 ? await registeredDataCount(storeId, "items") === 0 : false;
   const base=`/stores/${storeId}/inventory`;
   const stocks=tab==="stock"?await listInventoryStocks(storeId):[];
   const documents=tab==="stock"?await stockDocuments(storeId):[];
@@ -31,6 +34,7 @@ export default async function InventoryPage({params,searchParams}:{params:Promis
   return <AppShell><PageHeader title={getStoreNavigationLabels(store.industry_type_key).product} description="写真で選んで、必要な操作だけ。" action={permissions.manager?<Link className="button" href={`/stores/${storeId}/items/new`}>＋ 商品・メニューを追加</Link>:undefined}/>
     <nav className="menu-tabs" aria-label="商品と在庫の切り替え">{["menu","stock",...(permissions.manager?["analysis"]:[])].map((key,index)=><Link key={key} className={tab===key?"button":"button secondary"} aria-current={tab===key?"page":undefined} href={`${base}?tab=${key}`}>{labels[index]}</Link>)}</nav>
     {query.saved?<p className="notice success" role="status">{query.saved==="status"?"販売状態を保存しました。いつでも戻せます。":"保存しました。"}</p>:null}{query.error?<p className="notice danger" role="alert">{query.error}</p>:null}
+    {unregistered && !query.error ? <DataPreview kind="cards" title={tab === "stock" ? "商品と残量がそろうと、在庫をひと目で確認できます" : "商品情報を取り込むと、写真で選べる一覧になります"} description="商品・メニューの一覧を取り込み、確認して保存してください。写真・価格・在庫など、登録できた情報から表示します。" importHref={permissions.manager ? `/stores/${storeId}/data-imports/ai` : undefined} manualHref={permissions.manager ? `/stores/${storeId}/items/new` : undefined}/> : null}
     {tab==="menu"?<><MenuCards storeId={storeId} items={items.map(({cost_price,...item})=>{void cost_price;return item;})} manager={permissions.manager} operate={permissions.operate}/>{permissions.manager?<p><Link className="button secondary" href={`/stores/${storeId}/data-imports/ai`}>既存の商品データを取り込む</Link> <Link className="button secondary" href={`/stores/${storeId}/archives`}>削除済みのデータ</Link></p>:null}</>:null}
     {tab==="stock"?<>
       {permissions.operate?<section className="card"><div className="menu-quick-actions"><Link className="button" href={`${base}/documents/new`}>📦 届いた商品を登録</Link><Link className="button secondary" href="#stock-list">残量を確認</Link><Link className="button secondary" href={`${base}/documents/new?kind=waste`}>廃棄を記録</Link>{permissions.manager?<Link className="button secondary" href={`${base}/documents/new?kind=purchase`}>仕入書を作る（未送信）</Link>:null}</div>

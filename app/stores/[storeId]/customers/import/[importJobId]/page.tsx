@@ -38,7 +38,7 @@ export default async function CustomerImportPreviewPage({ params, searchParams }
           </section>
           <div className="button-row">
             <Link className="button" href={`/stores/${store.id}/customer-segments`}>顧客セグメントを確認</Link>
-            <Link className="button secondary" href={`/stores/${store.id}/customers`}>顧客一覧を見る</Link>
+            <Link className="button secondary" href={`/stores/${store.id}/customers?tab=customers`}>顧客一覧を見る</Link>
           </div>
           {job.errors.length > 0 ? (
             <section className="card"><h2>取り込めなかった行</h2><table className="table compact"><thead><tr><th>CSV行</th><th>理由</th></tr></thead><tbody>{job.errors.map((error, index) => <tr key={`${error.row}-${index}`}><td>{error.row}</td><td>{error.message}</td></tr>)}</tbody></table></section>

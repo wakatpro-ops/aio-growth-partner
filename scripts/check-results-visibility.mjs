@@ -10,7 +10,7 @@ const actions = readFileSync("app/stores/[storeId]/results/actions.ts", "utf8");
 const cron = readFileSync("app/api/cron/search-visibility/route.ts", "utf8");
 const exportRoute = readFileSync("app/stores/[storeId]/results/export/route.ts", "utf8");
 const googleIntegration = readFileSync("lib/phase5/google-integrations.ts", "utf8");
-const storeTop = readFileSync("app/stores/[storeId]/page.tsx", "utf8");
+const improvementHub = readFileSync("app/stores/[storeId]/aio-improvement/page.tsx", "utf8");
 
 for (const table of ["search_visibility_settings", "search_visibility_keywords", "search_visibility_snapshots"]) {
   if (!migration.includes(`create table if not exists public.${table}`)) throw new Error(`${table} is missing`);
@@ -61,7 +61,7 @@ for (const label of ["前期間比", "名称を変更", "今すぐ観測", "引�
 
 if (!cron.includes("CRON_SECRET") || !actions.includes("syncSearchConsoleAction")) throw new Error("Manual or scheduled sync is missing");
 if (!exportRoute.includes("getStoreForApi") || !exportRoute.includes("status: storeAccess.status")) throw new Error("Results export API does not return explicit authorization errors");
-if (!storeTop.includes("/results") || !storeTop.includes("実測成果")) throw new Error("Store top result entry is missing");
+if (!improvementHub.includes("/results") || !improvementHub.includes("実測成果")) throw new Error("AIO improvement result entry is missing");
 if (page.includes("現在8位") || page.includes("必ず上位")) throw new Error("Unsafe fixed ranking claim found");
 
 console.log("Results visibility coverage checks passed.");

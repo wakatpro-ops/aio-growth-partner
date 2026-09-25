@@ -5613,3 +5613,38 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
 @media(max-width:900px) { .menu-analysis-grid { grid-template-columns:1fr; } }
 @media(max-width:600px) { .menu-card-grid,.menu-toolbar { grid-template-columns:1fr; } .menu-tabs .button { flex:1 1 28%; padding:10px 8px; font-size:14px; } .menu-quick-actions .button { width:100%; } .menu-photo-card > .item-thumbnail { height:180px; } .menu-line { padding:12px; } #stock-list .section-heading { align-items:stretch; flex-direction:column; gap:12px; margin-top:24px; } }
 @media print { .menu-document .button,.menu-tabs,aside,nav,header { display:none!important; } .menu-document { box-shadow:none; max-width:none; } }
+
+/* Shared empty-data preview: all sample artwork stays separate from real records. */
+.data-preview { position:relative; isolation:isolate; overflow:hidden; border:1px solid #ccddd8; border-radius:20px; min-width:0; margin:16px 0; background:#f4f9f8; }
+.data-preview-art { position:absolute; inset:20px; display:flex; align-items:flex-end; gap:14px; filter:blur(2px); opacity:.42; z-index:-1; }
+.data-preview-art span { flex:1; height:var(--sample-height); min-width:0; background:linear-gradient(#95cabc,#d1e8e1); border-radius:12px 12px 0 0; }
+.data-preview-art span small,.data-preview-art span i { display:block; padding:8px; color:#255e50; text-align:center; font-style:normal; }.data-preview-art svg { position:absolute; inset:0; width:100%; height:100%; }
+.data-preview-art.calendar,.data-preview-art.cards { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); align-items:stretch; }
+.data-preview-art.cards { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.data-preview-art.calendar span,.data-preview-art.cards span { height:auto; border-radius:12px; }
+.data-preview-cloud { padding:36px 28px; background:radial-gradient(ellipse at center,rgba(255,255,255,.97) 20%,rgba(255,255,255,.82) 55%,rgba(255,255,255,.24) 100%); text-align:center; overflow-wrap:anywhere; }
+.data-preview-cloud h2 { font-size:22px; margin:16px 0 10px; }
+.data-preview-cloud p { max-width:640px; margin:10px auto; }
+.data-preview-cloud .button-row { justify-content:center; margin-top:18px; }
+.data-preview-later { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:16px; }
+.workbench-tabs { display:flex; gap:8px; margin:12px 0 20px; border-bottom:1px solid #ccdcd3; }
+.workbench-tabs a { flex:1; text-align:center; padding:14px 8px; border-bottom:3px solid transparent; color:#445e55; font-weight:700; text-decoration:none; }
+.workbench-tabs a[aria-current=page] { border-color:#257a64; color:#175d4e; background:#edf6f2; border-radius:12px 12px 0 0; }
+.workbench-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:16px; }
+.workbench-kpis > div { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; border:1px solid #dce6e1; border-radius:14px; background:white; padding:14px 18px; }
+.workbench-kpis strong { font-size:26px; margin-left:auto; }.workbench-kpis small { color:#52685e; flex-basis:100%; }
+.workbench-actions { margin:16px 0; }.workbench-actions details { padding:8px; }.workbench-actions details .button-row { margin-top:16px; }
+.workbench-date,.workbench-date form,.workbench-search { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:16px 0; }
+.workbench-date label { display:flex; align-items:center; gap:8px; }.workbench-date input { max-width:180px; }
+.workbench-search input:not([type=hidden]) { flex:1 1 190px; min-width:0; }.workbench-search { background:#fff; border-radius:12px; padding:16px; }
+.customer-calendar { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); border:1px solid #dae6df; border-radius:12px; overflow:hidden; margin-top:16px; }.customer-calendar.single { grid-template-columns:1fr; }
+.customer-calendar-day { padding:10px; min-width:0; border-right:1px solid #e3eae6; background:#f9fcfa; }.customer-calendar-day:last-child { border:0; }.customer-calendar-day h3 { font-size:14px; margin:0 0 12px; }
+.calendar-booking { display:flex; flex-direction:column; gap:6px; color:#193e33; text-decoration:none; background:#e2f2eb; border-left:3px solid #257a64; border-radius:8px; padding:10px; margin:8px 0; overflow-wrap:anywhere; font-size:13px; }
+.calendar-booking.status-pending { background:#fff2d5; border-color:#ad7416; }.calendar-booking.status-cancelled,.calendar-booking.status-no_show { background:#f1f1f1; border-color:#85938d; }
+.calendar-booking .badge { align-self:start; font-size:11px; }.customer-calendar-mobile { display:none; }
+.customer-card-list { display:grid; gap:12px; }.customer-summary-card { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; gap:18px; align-items:center; padding:20px; overflow-wrap:anywhere; }
+.customer-summary-card h2 { font-size:19px; margin:0; }.customer-summary-card p { margin:8px 0; }.customer-summary-card dl { margin:0; font-size:14px; }.customer-summary-card dl > div { display:flex; justify-content:space-between; gap:12px; padding:5px 0; }.customer-summary-card dd { margin:0; }.customer-note-body { white-space:pre-wrap; overflow-wrap:anywhere; }
+@media(max-width:1100px) { .customer-summary-card { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }.customer-summary-card > .button-row { grid-column:1/-1; }.customer-calendar-day { padding:6px; }.calendar-booking { padding:7px; } }
+@media(max-width:760px) { .customer-calendar { display:none; }.customer-calendar-mobile { display:block; }.workbench-kpis > div { padding:12px; }.workbench-kpis strong { font-size:22px; }.workbench-tabs a { font-size:14px; }.workbench-bookings { padding:14px; }.customer-summary-card { grid-template-columns:1fr; gap:12px; }.workbench-date label { flex-wrap:wrap; }.workbench-date form { flex-basis:100%; order:-1; }.data-preview-cloud { padding:26px 16px; }.data-preview-cloud h2 { font-size:19px; }.data-preview-cloud .button { width:100%; }.data-preview-art { gap:8px; }.workbench-kpis small { font-size:11px; } }
+@media print { .data-preview,.data-preview-later { display:none!important; } }
+@media(max-width:760px) { .booking-form-section .section-heading { flex-direction:column; align-items:stretch; gap:8px; }.booking-form-section .section-heading > * { width:100%; min-width:0; } }

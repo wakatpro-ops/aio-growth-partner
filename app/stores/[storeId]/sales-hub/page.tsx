@@ -7,6 +7,9 @@ import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getSalesReport } from "@/lib/phase4/sales-import-data";
 import { getStore } from "@/lib/stores";
+import { registeredDataCount } from "@/lib/customer-workbench";
+import { DataPreview } from "@/components/ui/data-preview";
+import { canEditStore } from "@/lib/auth/server";
 
 function formatCurrency(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
@@ -138,6 +141,8 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
   const salesReportsEnabled = isFeatureEnabled(flags, "sales_reports");
   const salesAiReportEnabled = isFeatureEnabled(flags, "sales_ai_report");
   const report = salesReportsEnabled ? await getSalesReport(store.id) : null;
+  const unregistered = report && report.transactionCount === 0 ? await registeredDataCount(store.id, "sales_transactions") === 0 : false;
+  const editable = unregistered ? await canEditStore(store.id, store.organization_id) : false;
   const groups = [
     { title: "書類・入金", body: "見積から請求、領収・入金確認までをまとめて進めます。", links: [
       [industry.businessLabels.estimate, `/stores/${store.id}/estimates`],
@@ -161,7 +166,7 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
     ] },
     { title: "売上の基本情報", body: "書類・売上データで使う商品・サービスと顧客を管理します。", links: [
       [industry.businessLabels.item, `/stores/${store.id}/items`],
-      [industry.businessLabels.customer, `/stores/${store.id}/customers`]
+      [industry.businessLabels.customer, `/stores/${store.id}/customers?tab=customers`]
     ] }
   ];
 
@@ -179,7 +184,7 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
         <section className="sales-overview" id="overview">
           <div className="section-heading"><div><p className="eyebrow">現在の売上</p><h2>売上概要</h2></div><Link className="text-link" href={`/stores/${store.id}/sales`}>取引明細を見る →</Link></div>
           <div className="sales-overview-hero">
-            <SalesTrendChart rows={report.monthly} />
+            {unregistered ? <DataPreview title="売上を取り込むと、お店の変化が見えてきます" description="売上のCSV・Excelを取り込むと、月別の推移やよく売れている商品を確認できます。" importHref={editable ? `/stores/${store.id}/data-imports` : undefined}/> : <SalesTrendChart rows={report.monthly} />}
             <div className="sales-kpi-stack" aria-label="売上の主要数値">
               <article className="card"><p className="muted">合計売上</p><div className="metric">{formatCurrency(report.totalSales)}</div></article>
               <article className="card"><p className="muted">取引件数</p><div className="metric">{report.transactionCount.toLocaleString("ja-JP")}件</div></article>

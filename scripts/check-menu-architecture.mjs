@@ -27,7 +27,7 @@ assert.match(summary, /getStoreNavigationLabels/u);
 for (const label of ["メニュー・仕入", "メニュー・店販", "部品・在庫", "施術・備品", "商品・在庫"]) assert.match(labels, new RegExp(label, "u"));
 
 for (const route of ["accounting/receipts", "accounting/exports", "settings/accounting/freee"]) assert.match(sales, new RegExp(route.replaceAll("/", "\\/"), "u"));
-for (const label of ["予約を確認", "顧客一覧を確認", "顧客を分類", "案内文を準備", "顧客データを取り込む"]) assert.match(customers, new RegExp(label, "u"));
+for (const label of ["予約・顧客・分析の切り替え", "予約を登録", "詳しい分類", "案内文の下書きを作る", "CSV・Excelで一括取込"]) assert.match(customers, new RegExp(label, "u"));
 for (const route of ["growth-actions", "growth-calendar", "reviews", "results", "settings/channels"]) assert.match(marketing, new RegExp(route.replaceAll("/", "\\/"), "u"));
 assert.doesNotMatch(marketing, /設計中/u);
 assert.match(inventory, /getStoreNavigationLabels/u);
