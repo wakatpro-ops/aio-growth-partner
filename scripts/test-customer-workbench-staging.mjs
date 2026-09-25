@@ -29,7 +29,7 @@ try{
  check(await db.from('organization_members').insert([{organization_id:org,user_id:users[0],role_key:'org_owner',status:'active'},{organization_id:org,user_id:users[1],role_key:'viewer',status:'active'},{organization_id:org,user_id:users[3],role_key:'org_owner',status:'active'}]));
  if(base.startsWith('http://localhost'))server=spawn(process.execPath,['node_modules/next/dist/bin/next','dev','--port','3187'],{env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:url,NEXT_PUBLIC_SUPABASE_ANON_KEY:anon,SUPABASE_SERVICE_ROLE_KEY:secret,OPENAI_API_KEY:''},stdio:'ignore'});
  for(let n=0;n<120;n++){try{await fetch(`${base}/login`);break;}catch{await new Promise(r=>setTimeout(r,500));}}
- browser=await chromium.launch({headless:true});const context=await browser.newContext();page=await context.newPage();page.setDefaultTimeout(30000);
+ browser=await chromium.launch({headless:true});const context=await browser.newContext();page=await context.newPage();page.setDefaultTimeout(30000);page.setDefaultNavigationTimeout(45000);
  const signIn=async role=>{await context.clearCookies();await context.addCookies([{name:'aio_auth_access_token',value:tokens[role],url:base,httpOnly:true,sameSite:'Lax'}]);};
  const go=async path=>{await page.goto(`${base}/stores/${store}/${path}`);await page.getByRole('navigation',{name:'予約・顧客・分析の切り替え'}).waitFor();await page.locator('select').first().getByRole('option',{name:'予約UI検証専用サロン',exact:true}).waitFor({state:'attached'});};
  await signIn('owner');
@@ -64,7 +64,10 @@ try{
   const responseDone=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().includes(`/bookings/${booking}`));
  await page.getByRole('button',{name:'予約の変更を保存',exact:true}).click();
   const captured=await request,replayBody=captured.postDataBuffer(),headers=captured.headers();
-  await (await responseDone).finished();
+  // Vercel may keep the RSC stream open after the action succeeds. Verify persisted
+  // state with a bounded poll rather than waiting indefinitely for stream EOF.
+  await responseDone;
+  for(let n=0;n<30;n++){if(check(await db.from('bookings').select('service_name').eq('id',booking).single()).service_name==='変更後の施術')break;await new Promise(r=>setTimeout(r,500));}
  await page.getByText('予約の変更を保存しました。',{exact:true}).waitFor();
  assert.equal(check(await db.from('bookings').select('service_name').eq('id',booking).single()).service_name,'変更後の施術');
  for(const [width,height]of [[1440,1000],[390,844],[320,740]]){
