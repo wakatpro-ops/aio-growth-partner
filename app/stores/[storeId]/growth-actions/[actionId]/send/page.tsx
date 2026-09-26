@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { googleBusinessApiApproved } from "@/lib/phase5/google-business-policy";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
@@ -65,8 +66,7 @@ export default async function GrowthActionSendPage({
   const gmailAllowed = state.connection?.scopes.includes("https://www.googleapis.com/auth/gmail.compose") ?? false;
   const calendarAllowed = state.connection?.scopes.includes("https://www.googleapis.com/auth/calendar.events") ?? false;
   const selectedLocation = state.locations.find((item) => item.is_selected) ?? null;
-  const gbpMetadata = state.businessProfile?.metadata ?? {};
-  const gbpApiAllowed = process.env.GOOGLE_BUSINESS_PROFILE_API_STATUS === "approved" || state.businessProfile?.status === "approved" || gbpMetadata.api_status === "approved" || gbpMetadata.api_application_result === "approved";
+  const gbpApiAllowed = googleBusinessApiApproved(state.businessProfile);
 
   return (
     <AppShell>
