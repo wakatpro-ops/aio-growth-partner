@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { authAccessTokenCookie } from "@/lib/auth/server";
 import { resolvePostLoginDestination } from "@/lib/auth/post-login";
+import { selectLoginStores } from "@/lib/auth/login-session-policy";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { hasSupabaseBrowserEnv } from "@/lib/supabase/env";
 
@@ -45,22 +46,8 @@ export async function POST(request: Request) {
       && profile.status === "active"
       && !profile.archived_at;
 
-    await admin
-      .from("applications")
-      .update({
-        invitation_status: "password_set",
-        account_status: "issued",
-        onboarding_status: "started",
-        updated_at: new Date().toISOString()
-      })
-      .eq("invited_user_id", data.user.id)
-      .in("invitation_status", ["invite_link_sent", "invite_generated", "password_set"]);
-
-    await admin.from("store_memberships").update({
-      invitation_status: "accepted",
-      accepted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    }).eq("user_id", data.user.id).eq("status", "active").is("archived_at", null);
+    // Operators do not need store/application scans to open the admin console.
+    if (isPlatformAdmin) return sessionResponse(accessToken, expiresIn, "/admin");
 
     const [{ data: onboardingApplication }, { data: organizationMemberships }, { data: storeMemberships }] = await Promise.all([
       admin.from("applications")
@@ -80,7 +67,21 @@ export async function POST(request: Request) {
         .select("store_id, organization_id")
         .eq("user_id", data.user.id)
         .eq("status", "active")
-        .is("archived_at", null)
+        .is("archived_at", null),
+      admin.from("applications")
+        .update({
+          invitation_status: "password_set",
+          account_status: "issued",
+          updated_at: new Date().toISOString()
+        })
+        .eq("invited_user_id", data.user.id)
+        // Repeated login must not reset completed onboarding or rewrite every row.
+        .in("invitation_status", ["invite_link_sent", "invite_generated"]),
+      admin.from("store_memberships").update({
+        invitation_status: "accepted",
+        accepted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }).eq("user_id", data.user.id).eq("status", "active").is("archived_at", null).neq("invitation_status", "accepted")
     ]);
 
     const candidateOrganizationIds = [...new Set([
@@ -92,18 +93,21 @@ export async function POST(request: Request) {
       ? await admin.from("organizations").select("id").in("id", candidateOrganizationIds).eq("status", "active").is("archived_at", null)
       : { data: [] };
     const activeOrganizationIds = (activeOrganizations ?? []).map((organization) => String(organization.id));
+    const organizationIds = (organizationMemberships ?? [])
+      .map((membership) => String(membership.organization_id))
+      .filter((id) => activeOrganizationIds.includes(id));
     const [organizationStoresResult, directStoresResult] = await Promise.all([
-      activeOrganizationIds.length
-        ? admin.from("stores").select("id, organization_id").in("organization_id", activeOrganizationIds).eq("status", "active").is("archived_at", null)
+      organizationIds.length
+        ? admin.from("stores").select("id, organization_id").in("organization_id", organizationIds).eq("status", "active").is("archived_at", null)
         : Promise.resolve({ data: [] }),
       directStoreIds.length
         ? admin.from("stores").select("id, organization_id").in("id", directStoreIds).eq("status", "active").is("archived_at", null)
         : Promise.resolve({ data: [] })
     ]);
-    const accessibleStoreIds = [...new Set([
-      ...(organizationStoresResult.data ?? []),
-      ...(directStoresResult.data ?? []).filter((store) => activeOrganizationIds.includes(String(store.organization_id)))
-    ].map((store) => String(store.id)))];
+    const accessibleStoreIds = selectLoginStores({
+      organizationIds, directStoreIds, activeOrganizationIds,
+      stores: [...(organizationStoresResult.data ?? []), ...(directStoresResult.data ?? [])]
+    });
     const lastStoreId = (request.headers.get("cookie") ?? "")
       .split(";")
       .map((part) => part.trim())
@@ -117,6 +121,10 @@ export async function POST(request: Request) {
     });
   }
 
+  return sessionResponse(accessToken, expiresIn, nextPath);
+}
+
+function sessionResponse(accessToken: string, expiresIn: number, nextPath: string) {
   const response = NextResponse.json({ ok: true, next_path: nextPath });
   response.cookies.set(authAccessTokenCookie, accessToken, {
     httpOnly: true,
