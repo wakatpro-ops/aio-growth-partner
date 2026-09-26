@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { googleBusinessApiApproved } from "@/lib/phase5/google-business-policy";
 import { AiGenerator } from "@/components/ai/ai-generator";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
@@ -40,8 +41,7 @@ export default async function ReviewsPage({
   const industry = getIndustryConfig(store.industry_type_key);
   const state = await getGoogleIntegrationState(store.id);
   const selectedLocation = state.locations.find((item) => item.is_selected) ?? null;
-  const gbpMetadata = state.businessProfile?.metadata ?? {};
-  const gbpApiAllowed = process.env.GOOGLE_BUSINESS_PROFILE_API_STATUS === "approved" || state.businessProfile?.status === "approved" || gbpMetadata.api_status === "approved" || gbpMetadata.api_application_result === "approved";
+  const gbpApiAllowed = googleBusinessApiApproved(state.businessProfile);
 
   return (
     <AppShell>

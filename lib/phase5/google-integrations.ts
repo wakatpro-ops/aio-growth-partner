@@ -1,5 +1,6 @@
 import "server-only";
 import crypto from "node:crypto";
+import { fetchGoogleBusinessPages, googleBusinessApiApproved } from "@/lib/phase5/google-business-policy";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { buildGooglePreparationPayload, googlePublishTargets, type GooglePublishTarget } from "@/lib/phase5/google-adapters";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
@@ -86,7 +87,7 @@ function hasScope(connection: GoogleOAuthConnection, scope: string) {
 
 function requireScope(connection: GoogleOAuthConnection, scope: string, label: string) {
   if (!hasScope(connection, scope)) {
-    throw new Error(`${label}の権限が未承認です。Google審査で必要な権限が承認された後に再接続してください。`);
+    throw new Error(`${label}へのアクセスに同意されていません。対象店舗の管理権限があるGoogleアカウントで再接続し、必要な権限に同意してください。`);
   }
 }
 
@@ -726,26 +727,27 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
   const resolved = await ensureGooglePersistence(supabase, store);
   const connection = await latestConnectedGoogleAccount(supabase, resolved.storeId);
   if (!connection) throw new Error("Googleアカウントが接続されていません。Google連携画面から接続してください。");
+  requireScope(connection, BUSINESS_MANAGE_SCOPE, "Googleビジネスプロフィール");
   const accessToken = await getUsableGoogleAccessToken(supabase, connection, resolved);
-
-  const rawAccounts: unknown[] = [];
-  let accountsPageToken: string | null = null;
-  for (let page = 0; page < 10; page += 1) {
-    const accountsUrl = new URL("https://mybusinessaccountmanagement.googleapis.com/v1/accounts");
-    accountsUrl.searchParams.set("pageSize", "20");
-    if (accountsPageToken) accountsUrl.searchParams.set("pageToken", accountsPageToken);
-    const accountsResponse = await fetch(accountsUrl.toString(), { headers: { authorization: `Bearer ${accessToken}` } });
-    const accountsResult = await accountsResponse.json() as Record<string, unknown>;
-    if (!accountsResponse.ok) {
-      const details = googleBusinessProfileApiErrorDetails(accountsResult, "Googleビジネスプロフィールのアカウント一覧を取得できませんでした。");
+  const describeSyncError = (result: Record<string, unknown>) => googleBusinessProfileApiErrorDetails(result, "Google店舗候補を取得できませんでした。").message;
+  const readCompletePages = async (url: string, collection: string, limit: number) => {
+    try {
+      return await fetchGoogleBusinessPages(url, collection, accessToken, limit, describeSyncError);
+    } catch (error) {
+      const details = {
+        code: "gbp_candidate_sync_failed",
+        message: "Google店舗候補を最後まで取得できませんでした。保存済みの店舗選択は保持しています。",
+        guidance: "接続権限とAPIの利用状況を確認し、再取得してください。"
+      };
       await recordGoogleBusinessProfileSyncFailure(supabase, resolved, details);
-      await logIntegration(supabase, resolved, "gbp_accounts_sync_failed", "error", details.message, { response: accountsResult, error_code: details.code, guidance: details.guidance });
-      throw new Error(details.message);
+      await logIntegration(supabase, resolved, "gbp_candidates_failed", "warning", details.message, details);
+      throw error;
     }
-    if (Array.isArray(accountsResult.accounts)) rawAccounts.push(...accountsResult.accounts);
-    accountsPageToken = typeof accountsResult.nextPageToken === "string" ? accountsResult.nextPageToken : null;
-    if (!accountsPageToken) break;
-  }
+  };
+  const rawAccounts = await readCompletePages(
+    "https://mybusinessaccountmanagement.googleapis.com/v1/accounts?pageSize=20",
+    "accounts", 10
+  );
 
   if (rawAccounts.length === 0) {
     const details = {
@@ -762,22 +764,12 @@ export async function syncGoogleBusinessProfileCandidates(storeId: string) {
   const locations: GoogleBusinessLocationCandidate[] = [];
 
   for (const account of accounts) {
-    let locationPageToken: string | null = null;
-    for (let page = 0; page < 20; page += 1) {
+    {
       const url = new URL(`https://mybusinessbusinessinformation.googleapis.com/v1/${account.name}/locations`);
       url.searchParams.set("pageSize", "100");
       url.searchParams.set("readMask", "name,title,storeCode,storefrontAddress,metadata");
-      if (locationPageToken) url.searchParams.set("pageToken", locationPageToken);
-      const response = await fetch(url.toString(), { headers: { authorization: `Bearer ${accessToken}` } });
-      const result = await response.json() as Record<string, unknown>;
-      if (!response.ok) {
-        const details = googleBusinessProfileApiErrorDetails(result, `${account.name} のロケーション一覧を取得できませんでした。`);
-        await logIntegration(supabase, resolved, "gbp_locations_sync_warning", "warning", details.message, { account: account.name, response: result, error_code: details.code, guidance: details.guidance });
-        break;
-      }
-      if (Array.isArray(result.locations)) locations.push(...result.locations.map((item) => locationCandidate(account.name, asRecord(item))).filter((item) => item.name));
-      locationPageToken = typeof result.nextPageToken === "string" ? result.nextPageToken : null;
-      if (!locationPageToken) break;
+      const results = await readCompletePages(url.toString(), "locations", 20);
+      locations.push(...results.map((item) => locationCandidate(account.name, item)));
     }
   }
 
@@ -884,7 +876,7 @@ async function recordGoogleBusinessProfileSyncFailure(
   await supabase.from("google_business_profiles").upsert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,
-    status: currentMetadata.api_status === "approved" ? "needs_attention" : "manual_mode",
+    status: googleBusinessApiApproved({ metadata: currentMetadata }) ? "needs_attention" : "manual_mode",
     metadata: {
       ...currentMetadata,
       last_sync_status: "error",
@@ -941,10 +933,7 @@ async function selectedGoogleBusinessLocation(
 }
 
 function ensureGoogleBusinessApiApproved(profile: GoogleBusinessProfileSetting) {
-  const metadata = asRecord(profile.metadata);
-  const approved = process.env.GOOGLE_BUSINESS_PROFILE_API_STATUS === "approved" ||
-    profile.status === "approved" || metadata.api_status === "approved" || metadata.api_application_result === "approved";
-  if (!approved) {
+  if (!googleBusinessApiApproved(profile)) {
     throw new Error("Google Business Profile APIの利用承認待ちです。承認前は手動投稿支援をご利用ください。");
   }
 }
@@ -1419,7 +1408,7 @@ function friendlyGoogleApiError(message: string) {
 function googleBusinessProfileApiErrorDetails(result: Record<string, unknown>, fallback: string) {
   const error = asRecord(result.error);
   const rawMessage = typeof error.message === "string" ? error.message : fallback;
-  const message = rawMessage.toLowerCase();
+  const message = `${rawMessage} ${error.code ?? ""} ${error.status ?? ""}`.toLowerCase();
   if (message.includes("insufficient") || message.includes("insufficient authentication scopes") || message.includes("scope")) {
     return {
       code: "gbp_scope_missing",
@@ -1437,7 +1426,9 @@ function googleBusinessProfileApiErrorDetails(result: Record<string, unknown>, f
   if (message.includes("quota") || message.includes("429") || message.includes("resource_exhausted")) {
     return {
       code: "gbp_quota_or_basic_access",
-      message: "Googleビジネスプロフィールの候補取得に必要な利用枠が付与されていない可能性があります。投稿文はコピーしてGoogle管理画面から反映できます。",
+      message: googleBusinessApiApproved()
+        ? "Google APIの利用上限に達した可能性があります。時間をおいて再試行してください。続く場合は運営管理者が利用枠を確認します。"
+        : "Googleビジネスプロフィールの利用枠を確認してください。投稿文はコピーしてGoogle管理画面から反映できます。",
       guidance: "Google側でビジネスプロフィール連携の利用枠が付与されているか確認してください。"
     };
   }

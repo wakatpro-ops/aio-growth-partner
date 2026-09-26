@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { googleBusinessApiApproved } from "@/lib/phase5/google-business-policy";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
@@ -83,8 +84,9 @@ export default async function GoogleBusinessProfilePage({
   const accountsList = candidateAccounts(setting?.metadata);
   const locationsList = state.locations;
   const capability = setting?.metadata?.posting_capabilities as Record<string, unknown> | undefined;
-  const apiStatus = textValue(setting?.metadata?.api_status) || textValue(setting?.status) || "manual_mode";
-  const applicationResult = textValue(setting?.metadata?.api_application_result) || (apiStatus === "approved" ? "approved" : "rejected");
+  const apiApproved = googleBusinessApiApproved(setting);
+  const apiStatus = apiApproved ? "approved" : textValue(setting?.metadata?.api_status) || textValue(setting?.status) || "manual_mode";
+  const applicationResult = apiApproved ? "approved" : textValue(setting?.metadata?.api_application_result) || "pending";
   const rejectionReason = textValue(setting?.metadata?.rejection_reason) || "Google側の利用条件や権限設定により、現在は投稿文をコピーして反映する運用です。";
   const lastSyncStatus = textValue(setting?.metadata?.last_sync_status);
   const lastSyncErrorMessage = textValue(setting?.metadata?.last_sync_error_message);
@@ -100,10 +102,12 @@ export default async function GoogleBusinessProfilePage({
       {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
 
       <section className="card">
-        <h2>審査中もGoogleビジネスプロフィールは利用できます</h2>
-        <p className="notice success">店舗情報の編集や投稿など、Google管理画面で行う通常の操作は審査中も利用できます。</p>
-        <p>AIO boostで承認待ちなのは、プロフィール候補の自動取得や投稿の自動反映です。承認までは、AIO boostで下書きを作成・確認してから、Google管理画面へコピーして投稿できます。</p>
+        <h2>{apiApproved ? "Google APIの利用審査は承認済みです" : "審査中もGoogleビジネスプロフィールは利用できます"}</h2>
+        <p className="notice success">{apiApproved ? "Google接続 → 店舗候補を取得 → この店舗を選択、の順で連携できます。" : "Google管理画面での通常の操作は審査中も利用できます。"}</p>
+        <p>{apiApproved ? "店舗の管理権限があるGoogleアカウントを接続してください。口コミの取得と、内容を承認した投稿・返信の反映を利用できます。審査承認だけで店舗が自動接続されたり、投稿されたりすることはありません。" : "承認までは下書きを確認してGoogle管理画面へコピーして投稿できます。"}</p>
         <div className="form-actions">
+          <Link className="button secondary" href={`/stores/${store.id}/settings/google`}>Google接続を確認</Link>
+          {apiApproved ? <Link className="button secondary" href={`/stores/${store.id}/reviews`}>口コミを取得・返信</Link> : null}
           <Link className="button" href={`/stores/${store.id}/growth-actions`}>Google投稿下書きを作る</Link>
           <Link className="button secondary" href="https://business.google.com/" target="_blank">Google管理画面を開く</Link>
         </div>
@@ -114,7 +118,7 @@ export default async function GoogleBusinessProfilePage({
         <p>AIO boostの連携方式: <span className="badge">{googleConnectionStatusLabel(setting?.status)}</span></p>
         <p>投稿支援の状態: <span className="badge">{applicationResultLabel(applicationResult)}</span></p>
         <p>連携状態: <span className="badge">{gbpApiStatusLabel(apiStatus)}</span></p>
-        <p>補足: {rejectionReason}</p>
+        {!apiApproved ? <p>補足: {rejectionReason}</p> : <p>店舗連携: {state.locations.some((item) => item.is_selected) ? "店舗選択済み" : "店舗の選択が必要です"}</p>}
       </section>
 
       <section className="card">
@@ -175,12 +179,12 @@ export default async function GoogleBusinessProfilePage({
           <article>
             <p className="muted">確認</p>
             <strong>投稿前チェック</strong>
-            <p>画像、CTA、URL、投稿種別、対象店舗を確認してから手動投稿します。</p>
+            <p>内容と対象店舗を確認・承認してから反映します。API未対応の形式はGoogle管理画面から投稿します。</p>
           </article>
           <article>
             <p className="muted">記録</p>
-            <strong>手動投稿済みログ</strong>
-            <p>投稿待ち、承認待ち、手動投稿済みの状態を残します。</p>
+            <strong>投稿の実行記録</strong>
+            <p>承認待ち、投稿結果、手動で反映した記録を確認できます。</p>
           </article>
         </div>
         <div className="form-actions">
@@ -194,7 +198,7 @@ export default async function GoogleBusinessProfilePage({
         <p className="muted">接続済みGoogleアカウントでアクセスできるビジネスプロフィールの候補を取得します。投稿は行いません。</p>
         <p className="notice">候補取得には、Googleアカウントが対象ビジネスプロフィールのオーナーまたは管理者である必要があります。</p>
         <form action={syncGoogleBusinessProfileCandidatesAction.bind(null, store.id)}>
-          <PendingSubmitButton pendingLabel="Googleから店舗候補を取得しています...">アカウント・ロケーション候補を取得</PendingSubmitButton>
+          <PendingSubmitButton disabled={state.connection?.status !== "connected"} pendingLabel="Googleから店舗候補を取得しています...">アカウント・ロケーション候補を取得</PendingSubmitButton>
         </form>
         <p className="muted">最終取得: {setting?.last_synced_at ? new Date(setting.last_synced_at).toLocaleString("ja-JP") : "-"}</p>
       </section>
@@ -253,7 +257,7 @@ export default async function GoogleBusinessProfilePage({
             <strong>API作成不可</strong>
           </article>
         </div>
-        <p className="notice">API承認前は、対象ロケーション、本文、CTA、画像、Google側ポリシーを確認しながら手動投稿支援モードで運用します。API承認後に同じ下書き・履歴を使って自動連携へ移行できます。</p>
+        <p className="notice">{apiApproved ? "現在のAPI投稿は通常投稿（STANDARD）の本文に対応しています。イベント・特典・画像・CTA付き投稿はGoogle管理画面から反映してください。公開には内容の承認と店舗選択が必要です。" : "承認前はGoogle管理画面から手動で投稿できます。"}</p>
       </section>
 
       <section className="card">
