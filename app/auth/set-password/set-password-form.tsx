@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { initialSetupStoreIdFromInvite } from "@/lib/auth/post-login";
 
 function safeNextPath(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//")) return "/dashboard";
@@ -80,7 +81,8 @@ export function SetPasswordForm() {
         const sessionResponse = await fetch("/api/auth/session", {
           body: JSON.stringify({
             access_token: accessToken,
-            expires_in: session?.expires_in ?? 3600
+            expires_in: session?.expires_in ?? 3600,
+            initial_setup_store_id: initialSetupStoreIdFromInvite(next, recoveryMode)
           }),
           headers: { "content-type": "application/json" },
           method: "POST"

@@ -37,11 +37,15 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
   let nextPath = "/no-store";
   if (admin) {
-    const { data: profile } = await admin
+    const { data: profile, error: profileError } = await admin
       .from("user_profiles")
       .select("role, status, archived_at")
       .eq("user_id", data.user.id)
       .maybeSingle();
+    if (profileError) return NextResponse.json({ ok: false, error: "アカウントを確認できませんでした。もう一度お試しください。" }, { status: 503 });
+    if (!profile || profile.status !== "active" || profile.archived_at) {
+      return NextResponse.json({ ok: false, error: "このアカウントは現在利用できません。管理者にお問い合わせください。" }, { status: 403 });
+    }
     const isPlatformAdmin = profile?.role === "platform_admin"
       && profile.status === "active"
       && !profile.archived_at;
@@ -49,17 +53,9 @@ export async function POST(request: Request) {
     // Operators do not need store/application scans to open the admin console.
     if (isPlatformAdmin) return sessionResponse(accessToken, expiresIn, "/admin");
 
-    const [{ data: onboardingApplication }, { data: organizationMemberships }, { data: storeMemberships }] = await Promise.all([
-      admin.from("applications")
-        .select("store_id, onboarding_status")
-        .eq("invited_user_id", data.user.id)
-        .not("store_id", "is", null)
-        .neq("onboarding_status", "completed")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+    const [{ data: organizationMemberships, error: organizationMembershipError }, { data: storeMemberships, error: storeMembershipError }] = await Promise.all([
       admin.from("organization_members")
-        .select("organization_id")
+        .select("organization_id, role_key")
         .eq("user_id", data.user.id)
         .eq("status", "active")
         .is("archived_at", null),
@@ -83,15 +79,19 @@ export async function POST(request: Request) {
         updated_at: new Date().toISOString()
       }).eq("user_id", data.user.id).eq("status", "active").is("archived_at", null).neq("invitation_status", "accepted")
     ]);
+    if (organizationMembershipError || storeMembershipError) {
+      return NextResponse.json({ ok: false, error: "担当店舗を確認できませんでした。もう一度お試しください。" }, { status: 503 });
+    }
 
     const candidateOrganizationIds = [...new Set([
       ...(organizationMemberships ?? []).map((membership) => String(membership.organization_id ?? "")),
       ...(storeMemberships ?? []).map((membership) => String(membership.organization_id ?? ""))
     ].filter(Boolean))];
     const directStoreIds = [...new Set((storeMemberships ?? []).map((membership) => String(membership.store_id ?? "")).filter(Boolean))];
-    const { data: activeOrganizations } = candidateOrganizationIds.length
+    const { data: activeOrganizations, error: organizationError } = candidateOrganizationIds.length
       ? await admin.from("organizations").select("id").in("id", candidateOrganizationIds).eq("status", "active").is("archived_at", null)
-      : { data: [] };
+      : { data: [], error: null };
+    if (organizationError) return NextResponse.json({ ok: false, error: "担当店舗を確認できませんでした。もう一度お試しください。" }, { status: 503 });
     const activeOrganizationIds = (activeOrganizations ?? []).map((organization) => String(organization.id));
     const organizationIds = (organizationMemberships ?? [])
       .map((membership) => String(membership.organization_id))
@@ -99,15 +99,33 @@ export async function POST(request: Request) {
     const [organizationStoresResult, directStoresResult] = await Promise.all([
       organizationIds.length
         ? admin.from("stores").select("id, organization_id").in("organization_id", organizationIds).eq("status", "active").is("archived_at", null)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
       directStoreIds.length
         ? admin.from("stores").select("id, organization_id").in("id", directStoreIds).eq("status", "active").is("archived_at", null)
-        : Promise.resolve({ data: [] })
+        : Promise.resolve({ data: [], error: null })
     ]);
+    if (organizationStoresResult.error || directStoresResult.error) {
+      return NextResponse.json({ ok: false, error: "担当店舗を確認できませんでした。もう一度お試しください。" }, { status: 503 });
+    }
     const accessibleStoreIds = selectLoginStores({
       organizationIds, directStoreIds, activeOrganizationIds,
       stores: [...(organizationStoresResult.data ?? []), ...(directStoresResult.data ?? [])]
     });
+    // Pending setup is not evidence of a first login. Only the invitation's
+    // explicit setup request may choose this destination, after authorization.
+    let initialSetupStoreId: string | null = null;
+    const requestedSetupStoreId = typeof body.initial_setup_store_id === "string" ? body.initial_setup_store_id : "";
+    const requestedStore = (organizationStoresResult.data ?? []).find((store) => store.id === requestedSetupStoreId);
+    if (requestedStore && accessibleStoreIds.includes(requestedSetupStoreId)
+      && organizationMemberships?.some((membership) => membership.organization_id === requestedStore.organization_id && membership.role_key === "org_owner")) {
+      const [{ data: application }, { data: snapshot }] = await Promise.all([
+        admin.from("applications").select("id").eq("invited_user_id", data.user.id)
+          .eq("store_id", requestedSetupStoreId).neq("onboarding_status", "completed").limit(1).maybeSingle(),
+        admin.from("onboarding_snapshots").select("id").eq("store_id", requestedSetupStoreId)
+          .eq("snapshot_type", "application_intake").eq("confirmation_status", "pending").limit(1).maybeSingle()
+      ]);
+      if (application && snapshot) initialSetupStoreId = requestedSetupStoreId;
+    }
     const lastStoreId = (request.headers.get("cookie") ?? "")
       .split(";")
       .map((part) => part.trim())
@@ -115,7 +133,7 @@ export async function POST(request: Request) {
       ?.slice("aio_last_store_id=".length);
     nextPath = resolvePostLoginDestination({
       isPlatformAdmin,
-      onboardingStoreId: onboardingApplication?.store_id ? String(onboardingApplication.store_id) : null,
+      initialSetupStoreId,
       accessibleStoreIds,
       lastStoreId: lastStoreId ?? null
     });

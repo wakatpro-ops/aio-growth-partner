@@ -4,6 +4,14 @@
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
+## 2026-09-27 ログイン遷移修正の確認
+
+- Issue #160。既存Vercel Pro・Supabase Proを再利用し、新規契約・プラン変更・権限拡張は行わない。
+- Vercel: account `wakatpro-3797`、team `wakatpro-3797s-projects`、production `aio-growth-partner` (`prj_b7InveOcjuUuMhxEWllhRtU7eT3M`)、staging `aio-growth-partner-staging` (`prj_Vy1rsYrHeROD4XO85jAMshs3tr4P`)をCLIで再確認。
+- Supabase: production `tykanoxkfmixdrmyqelq`、staging `zlqqjifitnvorudxbepy` が既存organization `gprkjuklwwjleoktmpvp`でACTIVE_HEALTHYであることを再確認。秘密値は出力・保存しない。
+- staging `dpl_9xJ5Rh8dBL5CmzK3Hm3Q3EFPEp9N` はReady、`staging.aioboost.jp`へ反映済み。合成アカウントで役割別遷移21テスト群とログイン操作5件が成功。検証データは後片付け済み。本番の店舗・利用者データは変更しない。
+- 詳細・実行手順は [login-entry-routing.md](login-entry-routing.md)。本番デプロイの確定結果はIssue/PRに記録する。
+
 ## 運営主体
 
 | 項目 | 確認内容 | 状態 |
