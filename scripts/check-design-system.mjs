@@ -13,8 +13,8 @@ const face = "public/brand/aio-boost-robot-face.png";
 const checks = [
   ["透過ロボット画像をWeb用に配置", fs.existsSync(portrait) && fs.existsSync(face)],
   ["ロボット画像を軽量化", fs.statSync(portrait).size < 250_000 && fs.statSync(face).size < 100_000],
-  ["大きなロボットは店舗トップだけ", files.dashboard.includes("AiRobotPortrait") && !files.shell.includes("AiRobotPortrait") && !files.assistant.includes("AiRobotPortrait")],
-  ["サイドバーは顔アイコン", files.shell.includes("<AiRobotFace />")],
+  ["ロボットは常設AI会話内へ集約", !files.dashboard.includes("AiRobotPortrait") && !files.shell.includes("AiRobotPortrait") && files.assistant.includes("<AiRobotPortrait />")],
+  ["サイドバーの重複AIボタンを除去", !files.shell.includes("nav-ai-button")],
   ["AIチャットは顔アイコン", files.assistant.includes("assistant-header-avatar") && files.assistant.includes("message-avatar")],
   ["用途別の色を定義", ["--ai:", "--ai-soft:", "--warning:", "--danger:"].every((token) => files.css.includes(token))],
   ["カードと操作の共通半径", files.css.includes("--radius-card") && files.css.includes("--radius-control")],

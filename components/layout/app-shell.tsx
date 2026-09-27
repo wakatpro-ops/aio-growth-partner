@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AiRobotFace } from "@/components/brand/ai-robot";
-import { StoreAiAssistant } from "@/components/store-ai/store-ai-assistant";
 
 const navItems = [
   { href: "/stores", label: "店舗を選ぶ" },
@@ -30,8 +28,6 @@ const publicPaths = ["/", "/apply", "/login", "/terms", "/privacy", "/legal", "/
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [assistantOpen, setAssistantOpen] = useState(false);
-  useEffect(()=>{const open=()=>setAssistantOpen(true);window.addEventListener("aio:ask",open);return()=>window.removeEventListener("aio:ask",open);},[]);
   const [storeName, setStoreName] = useState<string | null>(null);
   const [storeOptions, setStoreOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [canManageStores, setCanManageStores] = useState(false);
@@ -55,6 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: `/stores/${activeStoreId}/sales-hub`, label: "売上・経理" },
     { href: `/stores/${activeStoreId}/customers`, label: `${navigationLabels.customer}・予約` },
     { href: `/stores/${activeStoreId}/marketing`, label: "集客・販促" },
+    { href: `/stores/${activeStoreId}/reviews`, label: "Google口コミ" },
     { href: `/stores/${activeStoreId}/inventory`, label: navigationLabels.product }
   ] : navItems;
   const storeUtilityItems = activeStoreId ? [
@@ -148,7 +145,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (section.startsWith("/aio-improvement") || section.startsWith("/diagnosis")) return "/aio-improvement";
     if (["/sales-hub", "/sales", "/estimates", "/invoices", "/payments", "/accounting", "/reports"].some((prefix) => section.startsWith(prefix))) return "/sales-hub";
     if (["/customers", "/customer-segments", "/customer-messages", "/bookings"].some((prefix) => section.startsWith(prefix))) return "/customers";
-    if (["/marketing", "/growth-actions", "/growth-calendar", "/reviews", "/results", "/posts"].some((prefix) => section.startsWith(prefix))) return "/marketing";
+    if (section === "/reviews" || section.startsWith("/reviews/")) return "/reviews";
+    if (["/marketing", "/growth-actions", "/growth-calendar", "/results", "/posts"].some((prefix) => section.startsWith(prefix))) return "/marketing";
     if (["/inventory", "/items", "/orders"].some((prefix) => section.startsWith(prefix))) return "/inventory";
     if (section.startsWith("/settings") || section.startsWith("/data-imports")) return "/settings";
     return "";
@@ -168,7 +166,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell${activeStoreId ? " store-workspace" : ""}`}>
       <aside className="sidebar">
         <Link className="brand" href={activeStoreId ? `/stores/${activeStoreId}` : "/"}>
           {storeName ? (
@@ -220,7 +218,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             </>
           ) : null}
         </nav>
-        {activeStoreId ? <button className="nav-ai-button" type="button" onClick={() => setAssistantOpen(true)}><AiRobotFace />AIに尋ねる</button> : null}
         {storeUtilityItems.length > 0 ? (
           <nav className="nav nav-utility" aria-label="settings">
             <div className="nav-section-label">管理・設定</div>
@@ -253,7 +250,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         {backHref ? <Link className="back-link" href={backHref}>← 前の画面へ戻る</Link> : null}
         {children}
       </main>
-      {activeStoreId ? <StoreAiAssistant storeId={activeStoreId} pathname={pathname} open={assistantOpen} onClose={() => setAssistantOpen(false)} /> : null}
     </div>
   );
 }

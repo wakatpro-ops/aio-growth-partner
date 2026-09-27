@@ -1,6 +1,5 @@
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { AiRobotPortrait } from "@/components/brand/ai-robot";
 import type { StoreCommandCenter } from "@/lib/store-command-center";
 
 function Sparkline({ points, available }: { points: number[]; available: boolean }) {
@@ -37,12 +36,26 @@ export function StoreCommandCenterView({ dashboard }: { dashboard: StoreCommandC
   const { store } = dashboard;
   return (
     <div className="store-command-center">
-      <section className="command-focus-strip" aria-label="この業種で確認する主なトピックス">
-        <span>{dashboard.industryName}で確認すること</span>
-        <div>{dashboard.focusLabels.map((label) => <strong key={label}>{label}</strong>)}</div>
-      </section>
-
       <div className="command-layout">
+        <section className="command-task-column" aria-label="今日やることと注意事項">
+          <section className="command-panel">
+            <div className="section-heading"><div><p className="eyebrow">優先順</p><h2>今日やること</h2></div><span className="badge">{dashboard.tasks.length}件</span></div>
+            <div className="command-task-list">
+              {dashboard.tasks.map((task) => (
+                <article className={`command-task ${task.tone}`} key={task.key}>
+                  <span>{task.category}</span>
+                  <h3>{task.title}</h3>
+                  <p>{task.detail}</p>
+                  <Link className="button" href={task.href}>{task.actionLabel}</Link>
+                </article>
+              ))}
+            </div>
+          </section>
+          <section className="command-panel command-alert-summary">
+            {dashboard.enabledAreas.inventory ? <div><span>在庫アラート</span><strong>{dashboard.inventoryLowCount ? `${dashboard.inventoryLowCount}件` : "なし"}</strong><Link href={`/stores/${store.id}/inventory`}>在庫を見る →</Link></div> : null}
+            <div><span>口コミ未返信</span><strong>{dashboard.unansweredReviewCount ? `${dashboard.unansweredReviewCount}件` : "なし"}</strong><Link href={`/stores/${store.id}/reviews`}>口コミを見る →</Link></div>
+          </section>
+        </section>
         <aside className="command-kpi-column">
           <section className="command-panel command-score-panel">
             <ScoreGauge score={dashboard.coverageScore} />
@@ -65,7 +78,6 @@ export function StoreCommandCenterView({ dashboard }: { dashboard: StoreCommandC
 
         <section className="command-main-column" aria-label="AIによる店舗状況と集客下書き">
           <section className="command-panel command-ai-briefing">
-            <AiRobotPortrait />
             <div className="command-ai-copy">
               <p className="eyebrow">今日の店舗状況</p>
               <h2>{dashboard.headline}</h2>
@@ -92,38 +104,7 @@ export function StoreCommandCenterView({ dashboard }: { dashboard: StoreCommandC
           </section>
         </section>
 
-        <aside className="command-task-column">
-          <section className="command-panel">
-            <div className="section-heading"><div><p className="eyebrow">優先順</p><h2>今日やること</h2></div><span className="badge">{dashboard.tasks.length}件</span></div>
-            <div className="command-task-list">
-              {dashboard.tasks.map((task) => (
-                <article className={`command-task ${task.tone}`} key={task.key}>
-                  <span>{task.category}</span>
-                  <h3>{task.title}</h3>
-                  <p>{task.detail}</p>
-                  <Link className="button" href={task.href}>{task.actionLabel}</Link>
-                </article>
-              ))}
-            </div>
-          </section>
-          <section className="command-panel command-alert-summary">
-            {dashboard.enabledAreas.inventory ? <div><span>在庫アラート</span><strong>{dashboard.inventoryLowCount ? `${dashboard.inventoryLowCount}件` : "なし"}</strong><Link href={`/stores/${store.id}/inventory`}>在庫を見る →</Link></div> : null}
-            <div><span>口コミ未返信</span><strong>{dashboard.unansweredReviewCount ? `${dashboard.unansweredReviewCount}件` : "なし"}</strong><Link href={`/stores/${store.id}/reviews`}>口コミを見る →</Link></div>
-          </section>
-        </aside>
       </div>
-
-      <section className="command-shortcuts">
-        <p className="eyebrow">よく使う機能</p>
-        <div>
-          {dashboard.enabledAreas.sales ? <Link href={`/stores/${store.id}/sales-hub`}><strong>売上・レポート</strong><span>売上と書類を確認</span></Link> : null}
-          {dashboard.enabledAreas.inventory ? <Link href={`/stores/${store.id}/inventory`}><strong>{dashboard.industryName === "飲食店" ? "食材・仕入" : "在庫・仕入"}</strong><span>在庫と発注を確認</span></Link> : null}
-          {dashboard.enabledAreas.customers ? <Link href={`/stores/${store.id}/customers`}><strong>顧客</strong><span>顧客情報を確認</span></Link> : null}
-          <Link href={`/stores/${store.id}/reviews`}><strong>Google口コミ</strong><span>返信状況を確認</span></Link>
-          <Link href={`/stores/${store.id}/items`}><strong>メニュー・商品</strong><span>提供内容を編集</span></Link>
-          <Link href={`/stores/${store.id}/settings`}><strong>設定・連携</strong><span>外部サービスを確認</span></Link>
-        </div>
-      </section>
     </div>
   );
 }

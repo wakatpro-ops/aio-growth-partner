@@ -4,6 +4,13 @@
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
+## 2026-09-27 店舗トップ・常設AI会話の環境確認
+
+- Issue #162。既存のVercel・Supabase・OpenAIを再利用。新規サービス・権限・DBスキーマ変更なし。
+- Vercel CLIで `wakatpro-3797` / `wakatpro-3797s-projects` と staging `aio-growth-partner-staging` (`prj_Vy1rsYrHeROD4XO85jAMshs3tr4P`) を再確認。
+- 検証は staging Supabase `zlqqjifitnvorudxbepy` の一時的な合成店舗・アカウントのみ。実店舗の売上・顧客・予約・メール・公開口コミは変更しない。
+- PC常設AI会話は従来の店舗別認可APIを利用。会話はブラウザメモリのみ、店舗移動で破棄し、永続化や新たなデータ取得は行わない。
+
 ## 2026-09-27 ログイン遷移修正の確認
 
 - Issue #160。既存Vercel Pro・Supabase Proを再利用し、新規契約・プラン変更・権限拡張は行わない。

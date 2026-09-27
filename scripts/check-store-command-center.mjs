@@ -10,6 +10,8 @@ const files = {
 
 const checks = [
   ["店舗トップが経営司令塔を使う", files.page.includes("StoreCommandCenterView")],
+  ["重複ヘッダー・業種帯・ショートカットなし", !files.page.includes("PageHeader") && !files.component.includes("command-focus-strip") && !files.component.includes("command-shortcuts")],
+  ["今日やることを先頭へ", files.component.indexOf('className="command-task-column"') < files.component.indexOf('className="command-kpi-column"')],
   ["店舗トップからAIO準備度パネルを除外", !files.page.includes("StoreAiReadinessPanel") && !files.page.includes("getAioImprovementWorkspace")],
   ["売上は実データから取得", files.data.includes("getSalesReport") && files.data.includes("normalized") === false],
   ["在庫・口コミ・SNSを店舗別に集約", files.data.includes("listInventoryStocks") && files.data.includes("getGoogleIntegrationState") && files.data.includes("listGrowthActions")],
