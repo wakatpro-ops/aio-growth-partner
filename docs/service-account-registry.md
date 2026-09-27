@@ -4,6 +4,15 @@
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
+## 2026-09-27 店舗AIの実データ文脈対応（Issue #164 / PR #165）
+
+- 既存GitHub `wakatpro-ops/aio-growth-partner` は公開リポジトリ・ADMIN権限と再確認。秘密値を差分に含めない。
+- 既存stagingへ `dpl_GzAL3g14C2Jwms93wqS1yrzJnMSZ` を配備しReady。文脈取得・権限・画面17件成功。合成データは後片付け済み。実店舗データ・DB構造・既存環境変数は変更していない。
+- stagingには `OPENAI_API_KEY` がなく、本番の `OPENAI_API_KEY` と `OPENAI_MODEL` はSensitiveで値を取得できない設定。秘密値を復元・コピーしたという記録を残してはならない。保護は変更していない。
+- 追加の利用者承認後、既存本番プロジェクト内の隔離Preview `dpl_ARQoRipMo4pgufwoKzV57pUZzTT4` で22件成功。モデルは実応答で `gpt-6-luna` と確認。DBのみstagingに限定し、AIキーはSensitiveのまま既存Vercel内で使用。キーの書き出し・保護解除・新規契約はしていない。
+- 公式Vercel CLIの通常認証を使用し、Cookieは検証プロセスのメモリのみ。本番ドメインは検証中変更せず、合成レコード・アカウントは後片付け済み。初回実AI試験で見つけた予約件数混同も修正し再試験済み。
+- 隔離Previewの本番昇格は行わない。承認に従い、検証済みコードをPR #165でマージして通常のProduction設定で配備する。最終配備結果はPR・Issueへ記録。詳細は `docs/store-ai-context.md`。
+
 ## 2026-09-27 店舗トップ・常設AI会話の環境確認
 
 - Issue #162。既存のVercel・Supabase・OpenAIを再利用。新規サービス・権限・DBスキーマ変更なし。

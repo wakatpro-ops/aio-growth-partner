@@ -5670,11 +5670,18 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
 .store-ai-workspace .assistant-header-avatar { width:36px; height:36px; }
 .store-ai-workspace > header > .store-ai-mobile-toggle { display:none; }
 .store-ai-conversation { display:flex; flex-direction:column; min-height:0; min-width:0; }
+.store-ai-page-context { padding:14px; margin-bottom:20px; border:1px solid #d2e4df; border-radius:14px; background:#fff; overflow-wrap:anywhere; }
+.store-ai-context-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.store-ai-context-heading button { padding:6px 8px; font-size:12px; border:1px solid #d2e4df; border-radius:8px; background:#fff; color:#36594f; white-space:nowrap; cursor:pointer; }
+.store-ai-page-context p { margin:10px 0; font-size:14px; line-height:1.7; }
+.store-ai-page-context small, .store-ai-message-source { display:block; font-size:11px; color:#63756f; }
+.store-ai-context-links { display:flex; flex-wrap:wrap; gap:8px 14px; margin-top:10px; font-size:12px; }
+.store-ai-context-links a { color:#156c54; text-decoration:underline; }
 .store-ai-workspace .store-ai-assistant-thread { flex:1; min-height:0; overscroll-behavior:contain; padding:18px; }
-.store-ai-welcome { display:grid; justify-items:center; gap:10px; text-align:center; padding:10px 0 20px; }
-.store-ai-welcome .ai-robot-portrait { width:140px; height:166px; }
-.store-ai-welcome > strong { font-size:17px; letter-spacing:-.02em; }
-.store-ai-welcome > p { font-size:13px; color:var(--muted); line-height:1.8; margin:0; }
+.store-ai-welcome { display:grid; grid-template-columns:120px minmax(0,1fr); align-content:center; align-items:center; gap:4px 10px; padding:0 0 12px; }
+.store-ai-welcome .ai-robot-portrait { width:120px; height:142px; grid-row:1 / 3; }
+.store-ai-welcome > strong { align-self:end; font-size:15px; letter-spacing:-.02em; }
+.store-ai-welcome > p { align-self:start; font-size:12px; color:var(--muted); line-height:1.7; margin:0; }
 .store-ai-messages { display:flex; flex-direction:column; gap:16px; min-width:0; }
 .store-ai-workspace .store-ai-message { max-width:96%; min-width:0; overflow-wrap:anywhere; font-size:14px; }
 .store-ai-workspace .store-ai-suggestions { flex-shrink:0; padding:12px 16px; background:#f8fbfa; }
@@ -5733,7 +5740,7 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
   .store-ai-workspace.is-expanded { height:min(720px,85dvh); }
   .store-ai-workspace .store-ai-suggestions { flex-wrap:nowrap; overflow-x:auto; }
   .store-ai-workspace .store-ai-suggestions button { flex:0 0 auto; }
-  .store-ai-welcome { padding:0 0 12px; }
+  .store-ai-welcome { grid-template-columns:80px minmax(0,1fr); padding:0 0 12px; }
   .store-ai-welcome .ai-robot-portrait { width:80px; height:96px; }
   .store-ai-conversation > form textarea { min-height:60px; max-height:100px; }
 }

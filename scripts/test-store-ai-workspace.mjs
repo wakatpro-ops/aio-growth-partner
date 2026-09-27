@@ -118,6 +118,7 @@ try {
   const requests=[];
   let failNext=false, release;
   await page.route("**/api/stores/*/assistant",async route=>{
+    if(route.request().method()!=="POST")return route.continue();
     const payload=route.request().postDataJSON(); requests.push(payload);
     if(failNext) {failNext=false;await route.fulfill({status:503,json:{error:"test"}});return;}
     if(["二重送信テスト","作業を続ける相談"].includes(payload.message)) await new Promise(resolve=>{release=resolve;});
