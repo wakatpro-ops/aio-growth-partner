@@ -20,5 +20,8 @@ const pages: Record<AiArea, { label: string; guidance: string; suggestions: stri
 
 export function pageKnowledge(page: AiPage) {
   const entry = pages[page.area];
+  if (/\/bookings\/(line|migration|integrations|settings)(?:\/|$)/u.test(page.pathname)) return { ...pages.settings, label: "予約の設定・連携", guidance: `${pages.settings.guidance} 予約内容・担当や設備・LINE予約・既存予約の移行・外部サービス連携を設定する領域。メール転送による予約の集約はAI受信箱。API利用可否は媒体の契約・審査による。既存の外部サービスを自動で停止・移行完了しない。`, suggestions: ["予約メールで連携するには？", "既存LINE予約から移行するには？", "連携前に確認することは？"] };
+  if (page.area === "inventory" && page.tab === "analysis") return { ...entry, label: "商品の売れ方・参考利益", suggestions: ["この期間によく売れている商品は？", "参考利益と実際の利益の違いは？", "商品に紐付いていない売上は？"] };
+  if (/\/inventory\/documents(?:\/|$)/u.test(page.pathname)) return { ...entry, label: "入荷・廃棄・仕入の確認", guidance: `${entry.guidance} 伝票の明細・未保存の入力は会話では未取得。商品と単位・数量を確認してから在庫に反映する。` };
   return { ...entry, label: page.area === "customers" && page.tab === "analysis" ? "顧客の分析・フォロー" : entry.label };
 }

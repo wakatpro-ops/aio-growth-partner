@@ -14,6 +14,7 @@ import { bookingPeriod, contextGreeting, resolveAiPage, salesFacts, type AiConte
 import { contextVersion, pageKnowledge } from "./knowledge";
 import type { Store } from "@/types/domain";
 import type { BusinessItem, InventoryStock } from "@/types/phase2";
+import type { AioGoal, AioImprovementTask } from "@/types/aio-improvement";
 
 type Db = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
 async function section(key: string, label: string, read: () => Promise<Omit<AiSection, "key" | "label">>): Promise<AiSection> {
@@ -105,10 +106,11 @@ async function reviews(db: Db, store: Store): Promise<AiSection> {
   });
 }
 
-async function aio(store: Store): Promise<AiSection> {
+async function aio(db: Db, store: Store, page: AiPage): Promise<AiSection> {
   return section("aio", "AIO改善", async () => {
-    const readiness = await getStoreAiReadiness(store, true);
-    return { state: "ready", summary: `AIおすすめ準備度は${readiness.score}%です。${readiness.nextBestActions[0] ? `次は「${readiness.nextBestActions[0].label}」を確認しましょう。` : "整えた情報の外部への反映を確認しましょう。"}`, data: { score: readiness.score, stage: readiness.stage, items: readiness.items.map(({ label, complete, benefit }) => ({ label, complete, benefit })), next: readiness.nextBestActions.map(({ label, href }) => ({ label, href })), definition: "情報の整い具合。検索順位・外部AI推薦率ではない。" } };
+    const [readiness, goals, tasks] = await Promise.all([getStoreAiReadiness(store, true), rows<Pick<AioGoal, "target_questions">>(db, store, "aio_goals", "id,target_questions"), rows<Pick<AioImprovementTask, "id" | "title" | "status" | "publication_status" | "due_date">>(db, store, "aio_improvement_tasks", "id,title,status,publication_status,due_date", true)]);
+    const selected = tasks.filter(task => !page.recordId || task.id === page.recordId);
+    return { state: "ready", summary: `AIおすすめ準備度は${readiness.score}%です。${readiness.nextBestActions[0] ? `次は「${readiness.nextBestActions[0].label}」を確認しましょう。` : "整えた情報の外部への反映を確認しましょう。"}`, truncated: selected.length > 30, data: { score: readiness.score, stage: readiness.stage, items: readiness.items.map(({ label, complete, benefit }) => ({ label, complete, benefit })), next: readiness.nextBestActions.map(({ label, href }) => ({ label, href })), targetQuestions: (goals[0]?.target_questions ?? readiness.targetQuestions).slice(0, 5).map(q => q.slice(0, 200)), taskCount: selected.length, tasks: selected.slice(0, 30).map(task => ({ ...task, title: task.title.slice(0, 160) })), definition: "情報の整い具合。検索順位・外部AI推薦率ではない。" } };
   });
 }
 
@@ -128,7 +130,7 @@ export async function loadStoreAiContext(store: Store, pathname: string, search 
   const canEdit = mayEditStore(access, store.id, store.organization_id);
   const db = createSupabaseAdminClient();
   const readers: Partial<Record<typeof page.area, () => Promise<AiSection>>> = {
-    bookings: () => reservations(store, page), customers: () => customers(store, page), sales: () => sales(db!, store), inventory: () => inventory(db!, store, page, manager), reviews: () => reviews(db!, store), aio: () => aio(store), marketing: () => marketing(db!, store)
+    bookings: () => reservations(store, page), customers: () => customers(store, page), sales: () => sales(db!, store), inventory: () => inventory(db!, store, page, manager), reviews: () => reviews(db!, store), aio: () => aio(db!, store, page), marketing: () => marketing(db!, store)
   };
   const areas = page.area === "home" ? ["sales", "bookings", "inventory", "reviews", "marketing"] as const : [page.area];
   const sections = await Promise.all(areas.map(area => readers[area]).filter((reader): reader is () => Promise<AiSection> => Boolean(reader)).map(reader => reader()));

@@ -16,7 +16,7 @@ export function resolveAiPage(storeId: string, pathname: string, search = "", no
   let area: AiArea = "help";
   if (!suffix || suffix === "/") area = "home";
   else if (/^\/customers(?:\/|$)/u.test(suffix)) area = query.tab === "analysis" || query.tab === "customers" || query.q || query.segment || query.group || query.recency || parts.length > 1 ? "customers" : "bookings";
-  else if (/^\/bookings\/(integrations|settings|services|resources|line)(?:\/|$)/u.test(suffix)) area = "settings";
+  else if (/^\/bookings\/(integrations|settings|services|resources|line|migration)(?:\/|$)/u.test(suffix)) area = "settings";
   else if (/^\/bookings(?:\/|$)/u.test(suffix)) area = "bookings";
   else if (/^\/customer-(segments|messages)/u.test(suffix)) area = "customers";
   else if (/^\/(sales|sales-hub)(?:\/|$)/u.test(suffix)) area = "sales";

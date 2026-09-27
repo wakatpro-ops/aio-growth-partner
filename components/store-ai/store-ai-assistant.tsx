@@ -37,7 +37,7 @@ export function StoreAiAssistant({ storeId, pathname, search = "" }: { storeId: 
     const query = new URLSearchParams({ pathname, search });
     void fetch(`/api/stores/${encodeURIComponent(storeId)}/assistant?${query}`, { cache: "no-store", signal: controller.signal })
       .then(async response => { if (!response.ok) throw new Error("context_failed"); return response.json() as Promise<AiContextCard>; })
-      .then(data => { if (!disposed && !controller.signal.aborted) { setContext(data); lastRead.current = Date.now(); } })
+      .then(data => { if (!disposed && !controller.signal.aborted) { setContext(current => current && Date.parse(current.observedAt) > Date.parse(data.observedAt) ? current : data); lastRead.current = Date.now(); } })
       .catch(() => { if (!disposed) setContextError(true); })
       .finally(() => { window.clearTimeout(timeout); if (!disposed) setContextBusy(false); });
     return () => { disposed = true; controller.abort(); window.clearTimeout(timeout); };
@@ -106,7 +106,7 @@ export function StoreAiAssistant({ storeId, pathname, search = "" }: { storeId: 
       if (!response.ok || typeof data?.answer !== "string") throw new Error("assistant_request_failed");
       if (inFlight.current === controller) {
         setMessages((current) => [...current, { role: "assistant", content: data.answer, pageLabel: data.context?.pageLabel ?? pageLabel, observedAt: data.context?.observedAt }]);
-        if (data.context && activePage.current === currentPage) { setContext(data.context); setContextError(false); lastRead.current = Date.now(); }
+        if (data.context && activePage.current === currentPage) { setContext(current => current && Date.parse(current.observedAt) > Date.parse(data.context.observedAt) ? current : data.context); setContextError(false); lastRead.current = Date.now(); }
       }
     } catch {
       if (inFlight.current !== controller) return;
