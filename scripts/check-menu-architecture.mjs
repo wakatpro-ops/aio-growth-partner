@@ -12,7 +12,7 @@ const inventory = read("app/stores/[storeId]/inventory/page.tsx");
 const settings = read("app/stores/[storeId]/settings/page.tsx");
 const roadmap = read("docs/menu-architecture-roadmap.md");
 
-for (const label of ["店舗トップ", "AIO改善", "売上・経理", "集客・販促"]) {
+for (const label of ["店舗トップ", "AIO改善", "売上・経理", "集客・販促", "Google口コミ"]) {
   assert.match(shell, new RegExp(`label: "${label}"`, "u"));
 }
 assert.match(shell, /`\$\{navigationLabels\.customer\}・予約`/u);

@@ -13,7 +13,9 @@ const importActions = readFileSync("app/stores/[storeId]/data-imports/ai/actions
 
 assert.doesNotMatch(shell, /label: "データ取り込み"/u, "データ取り込みは独立した主要メニューにしないでください。");
 assert.match(shell, /label: "設定"/u);
-assert.match(shell, /nav-ai-button[\s\S]*AIに尋ねる/u);
+assert.doesNotMatch(shell, /nav-ai-button/u);
+assert.match(readFileSync("app/layout.tsx", "utf8"), /<StoreAiWorkspace/u);
+assert.match(assistant, /store-ai-workspace/u);
 assert.match(assistant, /データ変更・削除・外部送信はしません/u);
 assert.match(route, /getStoreForApi/u);
 assert.doesNotMatch(route, /OPENAI_API_KEY|SUPABASE_SERVICE_ROLE_KEY/u);

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthHashHandler } from "@/components/auth/auth-hash-handler";
+import { StoreAiWorkspace } from "@/components/store-ai/store-ai-workspace";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <AuthHashHandler />
         {children}
+        <StoreAiWorkspace />
       </body>
     </html>
   );
