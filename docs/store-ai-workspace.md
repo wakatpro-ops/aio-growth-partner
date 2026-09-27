@@ -28,3 +28,13 @@
 - 320 / 390 / 768 / 1024 / 1280 / 1366 / 1920pxで横はみ出しや入力・ボタンの隠れを確認。
 - 同店舗遷移・別店舗切替・未認証・他法人・閲覧者の認可境界、失敗時の再送、二重送信を検証。
 - ステージング検証後にPR作成、CI、マージ、本番Ready確認。実店舗データを書き換えない。
+
+## 検証記録（2026-09-27 / PR #163）
+
+- 実装コミット `ee47829`。staging配信 `dpl_37bHjfdCB4BHZCcSgLNf7VCMZYff` はReady。
+- `scripts/test-store-ai-workspace.mjs`: 最終staging 39項目PASS。8画面×3幅、追加4幅、短い画面、二重送信、履歴・入力保持、最新ページ文脈、再送、文脈ボタン、フォーカス非干渉、別店舗初期化、公開ページ非表示、staff/viewer他法人拒否、未認証拒否。
+- 検証用の2法人・3店舗・3ユーザーは各実行の終了時に削除確認済み。スクリーンショットとJSON結果はローカル `test-results/store-ai-staging/`（Git対象外）。
+- lint・Nextビルド・ログイン先と認可の単体テスト18件PASS。
+- command-center / design-system / menu-architecture / onboarding-assistant / sales-hub / secrets / ux / visual-first / instant-feedback / auth-experience の静的チェックPASS。
+- 既存の `check:store-operations-documents` は「予約管理が準備中」という古い表示を期待して失敗。対象スクリプトと運営設定ページは今回未変更でmainと同一。今回のレイアウト不具合ではないため予約仕様を戻す変更はしない。
+- 本番のログインセッションが失効していたため、認証後の本番目視確認は本人の再ログイン待ち。公開ログイン画面・デプロイ状態は別途確認する。
