@@ -3,14 +3,14 @@ import { getCurrentUserAccess } from "@/lib/auth/server";
 import { mayReadStore, mayEditStore } from "@/lib/auth/access-policy";
 import { menuPermissions } from "@/lib/menu-workbench-rules";
 import { menuSales } from "@/lib/menu-workbench";
-import { bookingWorkbenchCounts, getBooking, listBookings, listCalendarBookings, type BookingListView } from "@/lib/bookings";
+import { getBooking, listBookings, listCalendarBookings, type BookingListView } from "@/lib/bookings";
 import { bookingStatusLabels, bookingSourceLabels } from "@/lib/bookings/constants";
 import { readCustomerWorkbench } from "@/lib/customer-workbench";
 import { customerMatchesSegment } from "@/lib/customer-crm";
 import { japanDay, recencyGroup, visitGroup } from "@/lib/customer-workbench-rules";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStoreAiReadiness } from "./readiness";
-import { bookingPeriod, contextGreeting, resolveAiPage, salesFacts, type AiContext, type AiPage, type AiSection } from "./context-rules";
+import { bookingFacts, bookingPeriod, contextGreeting, resolveAiPage, salesFacts, type AiContext, type AiPage, type AiSection } from "./context-rules";
 import { contextVersion, pageKnowledge } from "./knowledge";
 import type { Store } from "@/types/domain";
 import type { BusinessItem, InventoryStock } from "@/types/phase2";
@@ -39,17 +39,15 @@ async function rows<T>(db: Db, store: Store, table: string, fields: string, acti
 async function reservations(store: Store, page: AiPage): Promise<AiSection> {
   return section("bookings", "予約", async () => {
     const range = bookingPeriod(page);
-    const [counts, bookings] = await Promise.all([
-      bookingWorkbenchCounts(store.id),
-      page.recordId ? getBooking(store.id, page.recordId).then(row => row ? [row] : [])
+    const records = await (page.recordId ? getBooking(store.id, page.recordId).then(row => row ? [row] : [])
         : page.view === "day" || page.view === "week" ? listCalendarBookings(store.id, range.start, range.end)
-          : listBookings(store.id, page.view as BookingListView)
-    ]);
-    const active = bookings.filter(row => !["cancelled", "no_show"].includes(row.status));
+          : listBookings(store.id, page.view as BookingListView));
+    // One unambiguous period aggregate: never mix in all-time/archive badge counts.
+    const { bookings, ...counts } = bookingFacts(records, page.view === "deleted");
     const label = page.recordId ? "選択した予約" : page.view === "week" ? `${page.days[0]}〜${page.days.at(-1)}` : page.view === "day" ? page.day : ({ upcoming: "明日以降", past: "昨日以前", deleted: "削除済み" }[page.view]);
     const limited = !page.recordId && !["day", "week"].includes(page.view) && bookings.length === 300;
-    return { state: bookings.length ? "ready" : "empty", summary: `${label}の${limited ? "取得分" : "予約"}は${bookings.length}件${bookings.length ? `（キャンセル・無断キャンセルを除く${active.length}件）` : ""}です。`, truncated: limited || bookings.length > 60,
-      data: { period: label, filters: { view: page.view, date: page.day }, todayJst: japanDay(), counts, displayedCount: bookings.length, activeCount: active.length, pendingCount: bookings.filter(row => row.status === "pending").length, detailLimit: 60,
+    return { state: bookings.length ? "ready" : "empty", summary: `${label}の${limited ? "取得分" : "予約"}は${counts.totalCount}件${bookings.length ? `（キャンセル・無断キャンセルを除く${counts.excludingCancelledAndNoShowCount}件）` : ""}です。`, truncated: limited || bookings.length > 60,
+      data: { displayedPeriod: { label, ...counts, scope: page.view === "deleted" ? "削除済み一覧の取得分のみ" : "表示期間・条件の削除されていない予約のみ。全期間や削除済み件数は含まない。" }, filters: { view: page.view, date: page.day }, todayJst: japanDay(), detailLimit: 60,
         bookings: bookings.slice(0, 60).map(row => ({ id: row.id, customer: row.customer_name.slice(0, 120), service: (row.service_name || row.service?.name || "未登録").slice(0, 160), startsAt: row.starts_at, endsAt: row.ends_at, status: bookingStatusLabels[row.status], source: bookingSourceLabels[row.source], resources: row.allocations?.map(a => a.resource?.name).filter(Boolean), updatedAt: row.updated_at })) } };
   });
 }
@@ -60,7 +58,7 @@ async function customers(store: Store, page: AiPage): Promise<AiSection> {
     const keyword = (query.q ?? "").trim().toLowerCase();
     const filtered = workspace.customers.filter(c => (!page.recordId || c.id === page.recordId) && (!query.segment || customerMatchesSegment(c, query.segment)) && (!query.group || visitGroup(c.visit_count) === query.group) && (!query.recency || recencyGroup(c.last_visit_date) === query.recency) && (!keyword || [c.name, c.company_name, c.phone, c.email, c.assigned_staff_name, ...(c.tags ?? [])].some(v => String(v ?? "").toLowerCase().includes(keyword))));
     return { state: filtered.length ? "ready" : "empty", summary: `登録中のお客様は${workspace.customers.length}件、表示条件に合うお客様は${filtered.length}件です。`, truncated: filtered.length > 50,
-      data: { totalIncludingArchived: workspace.total, active: workspace.customers.length, matched: filtered.length, filters: { segment: query.segment, group: query.group, recency: query.recency, keywordApplied: Boolean(keyword) },
+      data: { active: workspace.customers.length, matched: filtered.length, filters: { segment: query.segment, group: query.group, recency: query.recency, keywordApplied: Boolean(keyword) },
         firstVisit: filtered.filter(c => visitGroup(c.visit_count) === "first").length, repeatVisit: filtered.filter(c => visitGroup(c.visit_count) === "repeat").length, lastVisit90DaysOrMore: filtered.filter(c => recencyGroup(c.last_visit_date) === "long").length,
         customers: filtered.slice(0, 50).map(c => ({ name: c.name.slice(0, 120), visits: c.visit_count, lastVisit: c.last_visit_date, staff: c.assigned_staff_name?.slice(0, 100) })) } };
   });

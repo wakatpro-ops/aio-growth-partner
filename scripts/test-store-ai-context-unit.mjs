@@ -12,7 +12,7 @@ function source(path) {
   new Function("require","module","exports",js)(specifier => source(resolve(dirname(path), `${specifier}.ts`)), loaded, loaded.exports);
   return loaded.exports;
 }
-const { resolveAiPage, bookingPeriod, salesFacts, contextGreeting, publicContext } = source("lib/store-ai/context-rules.ts");
+const { resolveAiPage, bookingPeriod, bookingFacts, salesFacts, contextGreeting, publicContext } = source("lib/store-ai/context-rules.ts");
 const { buildAssistantMessages } = source("lib/store-ai/prompt.ts");
 const id = "00000000-0000-4000-8000-000000000001", base = `/stores/${id}`;
 test("画面・タブ・期間と店舗境界を正規化", () => {
@@ -26,6 +26,14 @@ test("顧客の絞り込みと分析タブ、無効な日付", () => {
   assert.equal(resolveAiPage(id,`${base}/customers`,"q=太郎").area,"customers");
   assert.equal(resolveAiPage(id,`${base}/customers`,"tab=analysis").tab,"analysis");
   assert.equal(resolveAiPage(id,`${base}/customers`,"date=2026-02-30",new Date("2026-09-27T16:00:00Z")).day,"2026-09-28");
+});
+test("予約の表示件数は削除済みを含めずキャンセル除外と区別", () => {
+  const rows=[{status:"confirmed"},{status:"pending"},{status:"cancelled"},{status:"confirmed",archived_at:"2026-09-01"}];
+  const facts=bookingFacts(rows);assert.equal(facts.totalCount,3);assert.equal(facts.excludingCancelledAndNoShowCount,2);assert.equal(facts.pendingCount,1);
+  assert.equal(facts.bookings.length,3);assert.equal(bookingFacts(rows.filter(row=>row.archived_at),true).totalCount,1);
+  assert.equal(bookingFacts([]).totalCount,0);
+  assert(!readFileSync("lib/store-ai/context.ts","utf8").includes("bookingWorkbenchCounts"));
+  assert(!readFileSync("lib/store-ai/context.ts","utf8").includes("totalIncludingArchived"));
 });
 test("売上を文字列数値も含め正しく月別集計、異常値を黙殺しない", () => {
   const facts=salesFacts([{business_date:"2026-08-01",gross_amount:"1200"},{business_date:"2026-08-02",gross_amount:800},{business_date:"2026-09-01",gross_amount:3000}]);

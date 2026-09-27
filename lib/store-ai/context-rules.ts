@@ -38,6 +38,13 @@ export function bookingPeriod(page: AiPage) {
   return { start: `${page.days[0]}T00:00:00+09:00`, end: `${shiftDay(page.days.at(-1)!, 1)}T00:00:00+09:00` };
 }
 
+export function bookingFacts<T extends { status: string; archived_at?: string | null }>(rows: T[], includeArchived = false) {
+  const bookings = rows.filter(row => includeArchived || !row.archived_at);
+  return { bookings, totalCount: bookings.length,
+    excludingCancelledAndNoShowCount: bookings.filter(row => !["cancelled", "no_show"].includes(row.status)).length,
+    pendingCount: bookings.filter(row => row.status === "pending").length };
+}
+
 export function salesFacts(rows: Array<{ business_date: string; gross_amount: number | string }>) {
   const months = new Map<string, { month: string; amount: number; count: number }>();
   for (const row of rows) {

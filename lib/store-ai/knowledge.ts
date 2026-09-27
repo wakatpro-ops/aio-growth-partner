@@ -1,6 +1,6 @@
 import type { AiArea, AiPage } from "./context-rules";
 
-export const contextVersion = "2026-09-27.1";
+export const contextVersion = "2026-09-27.2";
 // Versioned, code-reviewed product knowledge. Store/email text cannot override it.
 const pages: Record<AiArea, { label: string; guidance: string; suggestions: string[] }> = {
   home: { label: "店舗トップ", guidance: "今日やること、売上、在庫、口コミ、SNS下書きを横断して確認する。運営データ確認度は接続・登録範囲であり経営成績ではない。", suggestions: ["今日、先に確認することは？", "今の売上を教えて", "確認できていない情報は？"] },
