@@ -37,8 +37,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ sto
   catch { return NextResponse.json({ error: "対象店舗の画面を指定してください。" }, { status: 400, headers }); }
   try {
     const context = await loadStoreAiContext(access.store, parsed.data.pathname, parsed.data.search);
-    const answer = await generateStoreAssistantAnswer(context, parsed.data);
-    return NextResponse.json({ answer, context: publicContext(context) }, { headers });
+    const { answer, model } = await generateStoreAssistantAnswer(context, parsed.data);
+    return NextResponse.json({ answer, model, context: publicContext(context) }, { headers });
   } catch {
     return NextResponse.json({ error: "AIの回答を取得できませんでした。時間をおいてもう一度送信してください。" }, { status: 503, headers });
   }

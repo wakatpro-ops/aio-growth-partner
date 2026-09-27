@@ -3,12 +3,16 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { chromium, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 
+process.chdir(fileURLToPath(new URL("..", import.meta.url)));
+
 const local=process.argv.includes("--local"), live=process.argv.includes("--live");
-assert(!(local&&live),"Live AI verification uses the deployed staging credential, never exports it");
-const base=local?"http://127.0.0.1:3194":"https://staging.aioboost.jp", ref="zlqqjifitnvorudxbepy";
+if(local&&live)assert(process.env.OPENAI_API_KEY,"Use an authorized ephemeral env-run; never persist credentials");
+const base=local?"http://127.0.0.1:3194":process.env.AI_CONTEXT_TEST_URL??"https://staging.aioboost.jp", ref="zlqqjifitnvorudxbepy";
+assert(base==="http://127.0.0.1:3194"||base==="https://staging.aioboost.jp"||/^https:\/\/aio-growth-partner-[a-z0-9]+-wakatpro-3797s-projects\.vercel\.app$/.test(base),"Only staging or isolated validation preview");
 const keys=JSON.parse(execFileSync("/opt/homebrew/bin/supabase",["projects","api-keys","--project-ref",ref,"--reveal","--output","json"],{encoding:"utf8",stdio:["ignore","pipe","pipe"]}));
 const secret=keys.find(k=>k.name==="aio_staging_vercel"&&k.type==="secret")?.api_key, anon=keys.find(k=>k.type==="publishable")?.api_key;
 assert(secret&&anon);
@@ -51,7 +55,8 @@ try {
   checked(await db.from("inventory_stocks").insert({store_id:store,organization_id:org,item_id:item,quantity:2,reorder_point:5}));
   checked(await db.from("sales_transactions").insert([{business_date:"2026-08-01",gross_amount:10000},{business_date:"2026-09-01",gross_amount:25000}].map(row=>({...row,organization_id:org,store_id:store,transaction_date:`${row.business_date}T12:00:00+09:00`,source_row_hash:randomUUID()}))));
   if(local) {
-    server=spawn(process.execPath,["node_modules/next/dist/bin/next","dev","--hostname","127.0.0.1","--port","3194"],{env:{...process.env,NEXT_PUBLIC_SUPABASE_URL:`https://${ref}.supabase.co`,NEXT_PUBLIC_SUPABASE_ANON_KEY:anon,SUPABASE_SERVICE_ROLE_KEY:secret,OPENAI_API_KEY:""},stdio:"ignore"});
+    // Deliberately do not pass through production DB, mail, social or payment credentials.
+    server=spawn(process.execPath,["node_modules/next/dist/bin/next","dev","--hostname","127.0.0.1","--port","3194"],{env:{PATH:process.env.PATH,HOME:process.env.HOME,TMPDIR:process.env.TMPDIR,NEXT_PUBLIC_SUPABASE_URL:`https://${ref}.supabase.co`,NEXT_PUBLIC_SUPABASE_ANON_KEY:anon,SUPABASE_SERVICE_ROLE_KEY:secret,APP_BASE_URL:base,NEXT_PUBLIC_APP_URL:base,OPENAI_API_KEY:live?process.env.OPENAI_API_KEY:"",OPENAI_MODEL:process.env.OPENAI_MODEL??"gpt-6-luna"},stdio:"ignore"});
     let ready=false;for(let i=0;i<60;i++){try{if((await fetch(`${base}/login`)).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,1000));}assert(ready);
   }
   const week=await request("owner");assert.equal(week.status,200);assert.match(week.body.greeting,/予約は3件/);assert.match(week.body.greeting,/除く2件/);assert.match(week.headers.get("cache-control"),/no-store/);
@@ -68,9 +73,10 @@ try {
   }
   const forged=await fetch(`${base}/api/stores/${store}/assistant?${new URLSearchParams({pathname:`/stores/${foreign}/customers`})}`,{headers:headers("owner")});assert.equal(forged.status,400);pass("forged page/store combination rejected");
   const anonymous=await fetch(`${base}/api/stores/${store}/assistant?${new URLSearchParams({pathname:`/stores/${store}/customers`})}`);assert.equal(anonymous.status,401);pass("anonymous read rejected");
-  if(local){const unavailable=await fetch(`${base}/api/stores/${store}/assistant`,{method:"POST",headers:headers("owner"),body:JSON.stringify({pathname:`/stores/${store}/customers`,message:"予約は？"})});assert.equal(unavailable.status,503);pass("missing AI key is an explicit failure, not fake success");}
+  if(local&&!live){const unavailable=await fetch(`${base}/api/stores/${store}/assistant`,{method:"POST",headers:headers("owner"),body:JSON.stringify({pathname:`/stores/${store}/customers`,message:"予約は？"})});assert.equal(unavailable.status,503);pass("missing AI key is an explicit failure, not fake success");}
   if(live) {
     const first=await ask("表示中の週について、全予約件数、キャンセル等を除く件数、確認待ちのお客様と開始時刻を教えて。");
+    assert.match(first.model,/^gpt-6-luna/);
     assert.match(first.answer,/3件/);assert.match(first.answer,/2件/);assert.match(first.answer,/太郎/);assert.match(first.answer,/13[：:]00|13時|午後1時/);
     pass("LIVE GPT: correct weekly counts, pending customer and JST time");results.push({answer:first.answer});
     const follow=await ask("その確認待ちの方の施術内容は？",[{role:"user",content:"確認待ちは誰？",pageLabel:"予約"},{role:"assistant",content:first.answer.slice(0,1200),pageLabel:"予約"}]);assert.match(follow.answer,/アロマ/);pass("LIVE GPT: follows conversation with grounded service");results.push({answer:follow.answer});
@@ -80,8 +86,8 @@ try {
   browser=await chromium.launch({headless:true});const ctx=await browser.newContext({viewport:{width:1366,height:900}});
   await ctx.addCookies([{name:"aio_auth_access_token",value:users.owner.token,url:base,httpOnly:true,sameSite:"Lax"}]);const page=await ctx.newPage();page.setDefaultTimeout(30000);
   await page.goto(`${base}/stores/${store}/customers?tab=bookings&view=week&date=2026-09-30`);
-  await expect(page.locator(".store-ai-page-context")).toContainText("予約は3件");await page.locator("#store_ai_question").fill("入力中の相談");
-  await page.locator('.workbench-tabs a[href$="tab=customers"]').click();await expect(page.locator(".store-ai-page-context")).toContainText("登録中のお客様は2件");await expect(page.locator("#store_ai_question")).toHaveValue("入力中の相談");pass("tab navigation starts current greeting and preserves draft");
+  await expect(page.locator(".store-ai-page-context")).toContainText("予約は3件",{timeout:30000});await page.locator("#store_ai_question").fill("入力中の相談");
+  await page.locator('.workbench-tabs a[href$="tab=customers"]').click();await expect(page.locator(".store-ai-page-context")).toContainText("登録中のお客様は2件",{timeout:30000});await expect(page.locator("#store_ai_question")).toHaveValue("入力中の相談");pass("tab navigation starts current greeting and preserves draft");
   for(const width of [1366,390,320]) {
     await page.setViewportSize({width,height:900});if(width===390)await page.locator(".store-ai-mobile-toggle").click();
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await expect(page.locator("#store_ai_question")).toBeVisible();

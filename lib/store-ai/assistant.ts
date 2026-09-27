@@ -19,5 +19,5 @@ export async function generateStoreAssistantAnswer(context: AiContext, input: As
   });
   const answer = response.choices[0]?.message?.content?.trim();
   if (!answer || response.choices[0]?.finish_reason === "length") { console.warn("store_ai_reply_failed", { reason: answer ? "output_limit" : "empty_reply" }); throw new Error("assistant_unavailable"); }
-  return answer;
+  return { answer, model: response.model };
 }

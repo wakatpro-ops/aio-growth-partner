@@ -4,6 +4,13 @@
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
+## 2026-09-27 店舗AIの実データ文脈対応（Issue #164 / PR #165）
+
+- 既存GitHub `wakatpro-ops/aio-growth-partner` は公開リポジトリ・ADMIN権限と再確認。秘密値を差分に含めない。
+- 既存stagingへ `dpl_GzAL3g14C2Jwms93wqS1yrzJnMSZ` を配備しReady。文脈取得・権限・画面17件成功。合成データは後片付け済み。実店舗データ・DB構造・既存環境変数は変更していない。
+- stagingには `OPENAI_API_KEY` がなく、本番の `OPENAI_API_KEY` と `OPENAI_MODEL` はSensitiveで値を取得できない設定。秘密値を復元・コピーしたという記録を残してはならない。保護は変更していない。
+- 実AI品質確認用の隔離Previewは自動安全審査で止まり未作成。追加承認待ち。PRはdraft・main未マージ、本番反映未実施。詳細は `docs/store-ai-context.md`。
+
 ## 2026-09-27 店舗トップ・常設AI会話の環境確認
 
 - Issue #162。既存のVercel・Supabase・OpenAIを再利用。新規サービス・権限・DBスキーマ変更なし。
