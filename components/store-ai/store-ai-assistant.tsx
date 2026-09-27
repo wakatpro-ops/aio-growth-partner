@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import type { AiContextCard } from "@/lib/store-ai/context-rules";
 import { AiRobotFace, AiRobotPortrait } from "@/components/brand/ai-robot";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 
-type Message = { role: "user" | "assistant"; content: string };
-const suggestions = ["この画面でできることを教えて", "次に何をすればいい？", "データ取り込みについて教えて"];
+type Message = { role: "user" | "assistant"; content: string; pageLabel?: string; observedAt?: string };
+const clock = (value: string) => new Date(value).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" });
 
-export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathname: string }) {
+export function StoreAiAssistant({ storeId, pathname, search = "" }: { storeId: string; pathname: string; search?: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -18,6 +20,34 @@ export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathn
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const shouldFocus = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
+  const [context, setContext] = useState<AiContextCard | null>(null);
+  const [contextError, setContextError] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const [contextBusy, setContextBusy] = useState(true);
+  const currentPage = `${pathname}?${search}`;
+  const activePage = useRef(currentPage);
+  activePage.current = currentPage;
+  const lastRead = useRef(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let disposed = false;
+    setContext(null); setContextError(false); setContextBusy(true);
+    const timeout = window.setTimeout(() => controller.abort(), 25_000);
+    const query = new URLSearchParams({ pathname, search });
+    void fetch(`/api/stores/${encodeURIComponent(storeId)}/assistant?${query}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => { if (!response.ok) throw new Error("context_failed"); return response.json() as Promise<AiContextCard>; })
+      .then(data => { if (!disposed && !controller.signal.aborted) { setContext(data); lastRead.current = Date.now(); } })
+      .catch(() => { if (!disposed) setContextError(true); })
+      .finally(() => { window.clearTimeout(timeout); if (!disposed) setContextBusy(false); });
+    return () => { disposed = true; controller.abort(); window.clearTimeout(timeout); };
+  }, [storeId, pathname, search, refresh]);
+
+  useEffect(() => {
+    const reread = () => { if (!document.hidden && Date.now() - lastRead.current > 30_000) setRefresh(value => value + 1); };
+    window.addEventListener("focus", reread); document.addEventListener("visibilitychange", reread);
+    return () => { window.removeEventListener("focus", reread); document.removeEventListener("visibilitychange", reread); };
+  }, []);
 
   useEffect(() => {
     const prefill = (event: Event) => {
@@ -47,6 +77,11 @@ export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathn
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight });
   }, [expanded, messages, loading, error]);
 
+  useEffect(() => {
+    // Navigation starts with the current page's greeting, not an old reply.
+    threadRef.current?.scrollTo({ top: 0 });
+  }, [pathname, search]);
+
   async function ask(question = input) {
     const nextQuestion = question.trim();
     // Synchronous lock also covers rapid clicks before React renders busy state.
@@ -57,18 +92,22 @@ export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathn
     setError(null);
     setLoading(true);
     setExpanded(true);
-    setMessages((current) => [...current, { role: "user", content: nextQuestion }]);
+    const pageLabel = context?.pageLabel;
+    setMessages((current) => [...current, { role: "user", content: nextQuestion, pageLabel }]);
     const timeout = window.setTimeout(() => controller.abort(), 90_000);
     try {
       const response = await fetch(`/api/stores/${encodeURIComponent(storeId)}/assistant`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ pathname, message: nextQuestion, history: messages.slice(-8).map((message) => ({ ...message, content: message.content.slice(0, 1200) })) })
+        body: JSON.stringify({ pathname, search, message: nextQuestion, history: messages.slice(-24).map(({ role, content, pageLabel }) => ({ role, pageLabel, content: content.slice(0, 1200) })) })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok || typeof data?.answer !== "string") throw new Error("assistant_request_failed");
-      if (inFlight.current === controller) setMessages((current) => [...current, { role: "assistant", content: data.answer }]);
+      if (inFlight.current === controller) {
+        setMessages((current) => [...current, { role: "assistant", content: data.answer, pageLabel: data.context?.pageLabel ?? pageLabel, observedAt: data.context?.observedAt }]);
+        if (data.context && activePage.current === currentPage) { setContext(data.context); setContextError(false); lastRead.current = Date.now(); }
+      }
     } catch {
       if (inFlight.current !== controller) return;
       setError("回答を取得できませんでした。質問は入力欄に戻しました。もう一度送信できます。");
@@ -94,15 +133,20 @@ export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathn
           <div className="store-ai-welcome">
             <AiRobotPortrait />
             <strong>お店のこと、一緒に考えます。</strong>
-            <p>操作で迷ったときも、次にやることも。<br />ここからいつでも相談できます。</p>
+            <p>保存済みの情報と、画面の使い方をもとに答えます。</p>
           </div>
+          <section className="store-ai-page-context" aria-label="この画面からのひとこと" aria-busy={contextBusy}>
+            <div className="store-ai-context-heading"><strong>{context?.pageLabel ?? "画面の情報"}</strong><button type="button" disabled={contextBusy} onClick={() => setRefresh(value => value + 1)} aria-label="画面の情報を再確認">↻ 再確認</button></div>
+            <p aria-live="polite">{contextBusy ? "この画面の情報を確認しています…" : contextError ? "画面の情報を取得できませんでした。再確認するか、操作方法をご相談ください。" : context?.greeting}</p>
+            {context ? <><small>{context.sections.length ? `${clock(context.observedAt)} 時点の保存済みデータ` : "画面の操作ガイド"}</small>{context.links.length ? <div className="store-ai-context-links">{context.links.map(link => <Link key={link.href} href={link.href}>{link.label} →</Link>)}</div> : null}</> : null}
+          </section>
           <div className="store-ai-messages" role="log" aria-label="AIとの会話" aria-live="polite" aria-relevant="additions text">
-            {messages.map((message, index) => <div className={`store-ai-message ${message.role}`} key={`${message.role}-${index}`}><div className="store-ai-message-author">{message.role === "assistant" ? <AiRobotFace className="message-avatar" /> : null}<span>{message.role === "assistant" ? "AIO boost AI" : "あなた"}</span></div><p>{message.content}</p></div>)}
+            {messages.map((message, index) => <div className={`store-ai-message ${message.role}`} key={`${message.role}-${index}`}><div className="store-ai-message-author">{message.role === "assistant" ? <AiRobotFace className="message-avatar" /> : null}<span>{message.role === "assistant" ? "AIO boost AI" : "あなた"}</span></div>{message.pageLabel ? <small className="store-ai-message-source">{message.pageLabel}{message.observedAt ? ` / ${clock(message.observedAt)} 確認` : ""}</small> : null}<p>{message.content}</p></div>)}
             {loading ? <div className="store-ai-message assistant"><div className="store-ai-message-author"><AiRobotFace className="message-avatar" /><span>AIO boost AI</span></div><p>考えています…</p></div> : null}
           </div>
           {error ? <p className="store-ai-error" role="alert">{error}</p> : null}
         </div>
-        {messages.length === 0 ? <div className="store-ai-suggestions">{suggestions.map((suggestion) => <button type="button" disabled={loading} key={suggestion} onClick={() => void ask(suggestion)}>{suggestion}</button>)}</div> : null}
+        {context?.suggestions.length ? <div className="store-ai-suggestions">{context.suggestions.map((suggestion) => <button type="button" disabled={loading || contextBusy} key={suggestion} onClick={() => void ask(suggestion)}>{suggestion}</button>)}</div> : null}
         <form onSubmit={(event) => { event.preventDefault(); void ask(); }} aria-busy={loading}>
           <label htmlFor="store_ai_question">質問・相談を入力</label>
           <textarea ref={inputRef} id="store_ai_question" value={input} onChange={(event) => setInput(event.target.value)} maxLength={800} rows={3} placeholder="例：この画面の使い方を教えて" disabled={loading} />

@@ -84,37 +84,40 @@ function targetQuestionsFor(store: Store) {
   ];
 }
 
-async function countRows(table: string, storeId: string) {
+async function countRows(table: string, storeId: string, strict = false, organizationId?: string) {
   const supabase = createSupabaseAdminClient();
-  if (!supabase) return 0;
+  if (!supabase) { if (strict) throw new Error("readiness_unavailable"); return 0; }
   let query = supabase.from(table).select("id", { count: "exact", head: true }).eq("store_id", readStoreId(storeId));
+  if (organizationId) query = query.eq("organization_id", organizationId);
   if (["items", "customers", "invoices", "data_import_jobs", "growth_actions"].includes(table)) {
     query = query.is("archived_at", null);
   }
-  const { count } = await query;
+  const { count, error } = await query;
+  if (strict && (error || count === null)) throw new Error("readiness_unavailable");
   return count ?? 0;
 }
 
-async function hasGoogleConnection(store: Store) {
+async function hasGoogleConnection(store: Store, strict = false) {
   if (hasText(store.google_business_url)) return true;
   const supabase = createSupabaseAdminClient();
-  if (!supabase) return false;
-  const [{ data: google }, { data: businessProfile }] = await Promise.all([
-    supabase.from("google_oauth_connections").select("id").eq("store_id", readStoreId(store.id)).eq("status", "connected").limit(1).maybeSingle(),
-    supabase.from("google_business_profiles").select("id, status").eq("store_id", readStoreId(store.id)).limit(1).maybeSingle()
+  if (!supabase) { if (strict) throw new Error("readiness_unavailable"); return false; }
+  const [{ data: google, error: googleError }, { data: businessProfile, error: profileError }] = await Promise.all([
+    supabase.from("google_oauth_connections").select("id").eq("store_id", readStoreId(store.id)).eq("organization_id", store.organization_id).eq("status", "connected").limit(1).maybeSingle(),
+    supabase.from("google_business_profiles").select("id, status").eq("store_id", readStoreId(store.id)).eq("organization_id", store.organization_id).limit(1).maybeSingle()
   ]);
+  if (strict && (googleError || profileError)) throw new Error("readiness_unavailable");
   return Boolean(google?.id || businessProfile?.id);
 }
 
-export async function getStoreAiReadiness(store: Store): Promise<StoreAiReadiness> {
+export async function getStoreAiReadiness(store: Store, strict = false): Promise<StoreAiReadiness> {
   const [itemCount, customerCount, salesCount, googleReady, invoices, dataImports, growthActions] = await Promise.all([
-    countRows("items", store.id),
-    countRows("customers", store.id),
-    countRows("sales_transactions", store.id),
-    hasGoogleConnection(store),
-    countRows("invoices", store.id),
-    countRows("data_import_jobs", store.id),
-    countRows("growth_actions", store.id)
+    countRows("items", store.id, strict, store.organization_id),
+    countRows("customers", store.id, strict, store.organization_id),
+    countRows("sales_transactions", store.id, strict, store.organization_id),
+    hasGoogleConnection(store, strict),
+    countRows("invoices", store.id, strict, store.organization_id),
+    countRows("data_import_jobs", store.id, strict, store.organization_id),
+    countRows("growth_actions", store.id, strict, store.organization_id)
   ]);
 
   const profile = store.profile_data ?? {};

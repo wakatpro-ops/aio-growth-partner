@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AuthHashHandler } from "@/components/auth/auth-hash-handler";
 import { StoreAiWorkspace } from "@/components/store-ai/store-ai-workspace";
 import "./globals.css";
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <AuthHashHandler />
         {children}
-        <StoreAiWorkspace />
+        <Suspense fallback={null}><StoreAiWorkspace /></Suspense>
       </body>
     </html>
   );
