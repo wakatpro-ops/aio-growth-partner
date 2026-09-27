@@ -16,6 +16,7 @@ export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathn
   const [error, setError] = useState<string | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const shouldFocus = useRef(false);
   const inFlight = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathn
       const detail: unknown = (event as CustomEvent).detail;
       if (typeof detail === "string") setInput(detail.slice(0, 800));
       setExpanded(true);
+      shouldFocus.current = true;
       setFocusRequest((current) => current + 1);
     };
     window.addEventListener("aio:ask", prefill);
@@ -35,7 +37,10 @@ export function StoreAiAssistant({ storeId, pathname }: { storeId: string; pathn
   }, []);
 
   useEffect(() => {
-    if (focusRequest && expanded && !loading) inputRef.current?.focus({ preventScroll: true });
+    if (shouldFocus.current && expanded && !loading) {
+      inputRef.current?.focus({ preventScroll: true });
+      shouldFocus.current = false;
+    }
   }, [focusRequest, expanded, loading]);
 
   useEffect(() => {

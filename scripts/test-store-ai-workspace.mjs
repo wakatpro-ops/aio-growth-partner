@@ -120,7 +120,7 @@ try {
   await page.route("**/api/stores/*/assistant",async route=>{
     const payload=route.request().postDataJSON(); requests.push(payload);
     if(failNext) {failNext=false;await route.fulfill({status:503,json:{error:"test"}});return;}
-    if(payload.message==="二重送信テスト") await new Promise(resolve=>{release=resolve;});
+    if(["二重送信テスト","作業を続ける相談"].includes(payload.message)) await new Promise(resolve=>{release=resolve;});
     await route.fulfill({json:{answer:`確認しました: ${payload.message}\n${"回答 ".repeat(500)}`}});
   });
   await page.locator("#store_ai_question").fill("二重送信テスト");
@@ -157,6 +157,15 @@ try {
   assert.equal(requests.length,4,"prefill must not auto-send");
   pass("existing contextual ask buttons open mobile AI and prefill without sending");
   await page.setViewportSize({width:1366,height:900});
+  await page.locator("#store_ai_question").fill("作業を続ける相談");
+  await page.locator(".store-ai-conversation form").evaluate(form=>form.requestSubmit());
+  await expect.poll(()=>requests.length).toBe(5);
+  const businessLink=page.locator('.nav[aria-label="main"]').getByRole("link",{name:"Google口コミ",exact:true});
+  await businessLink.focus();
+  release();
+  await expect(page.locator(".store-ai-message.assistant")).toHaveCount(4);
+  await expect(businessLink).toBeFocused();
+  pass("AI reply does not steal focus from business controls");
   await page.locator("#sidebar_store_switcher").selectOption(second);
   await page.waitForURL(`**/stores/${second}/reviews`);
   await expect(page.locator(".store-ai-messages")).toHaveText("");

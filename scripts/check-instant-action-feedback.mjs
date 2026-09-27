@@ -26,7 +26,7 @@ assert.match(login, /busy=\{loading\}/u);
 assert.match(login, /利用できる店舗を確認しています/u);
 assert.match(setPassword, /onSubmit=\{submit\}/u);
 assert.match(aiGenerator, /PendingSubmitButton/u);
-assert.match(storeAssistant, /AIが回答を考えています/u);
+assert.match(storeAssistant, /pendingLabel="回答を考えています/u);
 assert.match(diagnosis, /正式申込を送信しています/u);
 assert.match(applicationAdmin, /案内メールを送信しています/u);
 assert.match(snsPost, /SNS投稿を準備しています/u);
