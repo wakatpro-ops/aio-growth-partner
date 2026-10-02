@@ -725,14 +725,17 @@ function buildSalesSummaryRows(
 }
 
 export async function rebuildSalesSummaries(supabase: SupabaseClient, organizationId: string, storeId: string) {
-  const [{ data: transactions, error: transactionError }, { data: items, error: itemError }] = await Promise.all([
-    supabase.from("sales_transactions").select("*").eq("store_id", storeId),
-    supabase.from("sales_transaction_items").select("*").eq("store_id", storeId)
-  ]);
-  if (transactionError || itemError) {
-    throw new Error(`売上集計の元データを取得できませんでした: ${transactionError?.message ?? itemError?.message}`);
+  async function allRows(table: "sales_transactions" | "sales_transaction_items") {
+    const result: Array<Record<string, unknown>> = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from(table).select("*").eq("store_id", storeId).eq("organization_id", organizationId).order("id").range(offset, offset + 499);
+      if (error) throw new Error(`売上集計の元データを取得できませんでした: ${error.message}`);
+      result.push(...(data ?? []));
+      if (!data || data.length < 500) return result;
+    }
   }
-  const rows = buildSalesSummaryRows(organizationId, storeId, transactions ?? [], items ?? []);
+  const [transactions, items] = await Promise.all([allRows("sales_transactions"), allRows("sales_transaction_items")]);
+  const rows = buildSalesSummaryRows(organizationId, storeId, transactions, items);
   const { error: deleteError } = await supabase.from("normalized_sales_summaries").delete().eq("store_id", storeId);
   if (deleteError) throw new Error(`以前の売上集計を更新できませんでした: ${deleteError.message}`);
   if (rows.length > 0) {

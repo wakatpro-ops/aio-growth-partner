@@ -4,7 +4,7 @@ import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { executeUnifiedImport, saveUnifiedImportReview, uploadUnifiedImportFile } from "@/lib/unified-import/data";
+import { executeUnifiedImport, reanalyzeUnifiedImport, saveUnifiedImportReview, uploadUnifiedImportFile } from "@/lib/unified-import/data";
 
 function errorParam(error: unknown) {
   const message = error instanceof Error ? error.message : "処理に失敗しました。";
@@ -36,6 +36,18 @@ export async function saveUnifiedImportReviewAction(storeId: string, jobId: stri
   }
   revalidatePath(`/stores/${storeId}/data-imports/ai/${jobId}`);
   redirect(`/stores/${storeId}/data-imports/ai/${jobId}?${result?.unresolved ? `questions=${result.unresolved}` : "reviewed=1"}${onboarding ? "&onboarding=1" : ""}`);
+}
+
+export async function reanalyzeUnifiedImportAction(storeId: string, jobId: string, onboarding: boolean) {
+  await requireStoreActionWriteAccess(storeId);
+  let nextJobId: string;
+  try {
+    nextJobId = (await reanalyzeUnifiedImport(storeId, jobId)).jobId;
+  } catch (error) {
+    redirect(`/stores/${storeId}/data-imports/ai/${jobId}?error=${errorParam(error)}`);
+  }
+  revalidatePath(`/stores/${storeId}/data-imports/ai`);
+  redirect(`/stores/${storeId}/data-imports/ai/${nextJobId}?reanalyzed=1${onboarding ? "&onboarding=1" : ""}`);
 }
 
 export async function executeUnifiedImportAction(storeId: string, jobId: string, onboarding: boolean) {

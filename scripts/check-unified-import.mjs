@@ -27,7 +27,10 @@ assert.match(service, /detail\.job\.status !== "review_ready"|\["review_ready", 
 assert.match(service, /freee_status: "review_required"/);
 assert.doesNotMatch(service, /openai|chat\.completions|responses\.create/i, "顧客の生データを外部AIへ送信してはいけません。");
 assert.match(parser, /bookVBA: false/);
-assert.match(parser, /cellFormula: false/);
+// Reading formula text is necessary to detect references/duplicate totals.
+// XLSX.read does not evaluate it; macros remain disabled.
+assert.match(parser, /cellFormula: true/);
+assert.doesNotMatch(parser, /eval\(|new Function\(|xlsx-calc/);
 assert.match(detail, /確認した内容で取り込みを確定/);
 assert.match(detail, /マクロは実行せず/);
 assert.match(detail, /保存先ごとの整理結果/);
