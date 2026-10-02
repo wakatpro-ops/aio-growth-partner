@@ -4,6 +4,13 @@
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
+## 2026-10-03 Excel集計表取り込みの修正（Issue #166）
+
+- 既存GitHub/Vercel/Supabase環境を再利用し、新規契約・DBスキーマ・API権限・秘密値の設定変更は行わない。
+- 既存staging Supabaseで、実サービス関数を使う合成データの保存・再解析・全件取得・権限検証を完了。生成した合成店舗・利用者・ファイルは後片付け済み。
+- 元のExcelを外部AIへ送信せず、数式は実行しない。構造と保存済みセル値をローカル処理し、確認済み候補だけを保存する。
+- 検証済みコードは通常のProduction設定で配備し、最終の配備URL・状態はIssue/PRへ記録する。詳細は `docs/unified-import-report-layout.md`。
+
 ## 2026-09-27 店舗AIの実データ文脈対応（Issue #164 / PR #165）
 
 - 既存GitHub `wakatpro-ops/aio-growth-partner` は公開リポジトリ・ADMIN権限と再確認。秘密値を差分に含めない。

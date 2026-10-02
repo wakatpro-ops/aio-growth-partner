@@ -20,6 +20,14 @@ export type UnifiedImportSheetSummary = {
   suggestedMapping?: Record<string, string>;
   missingRequiredFields?: string[];
   macroNotice?: string | null;
+  sourceSheetName?: string;
+  sourceRange?: string;
+  layout?: "flat" | "matrix";
+  notices?: string[];
+  requiresConfirmation?: boolean;
+  blockingIssues?: string[];
+  excludedReason?: string;
+  ambiguousColumns?: string[];
 };
 
 export type UnifiedImportQuestion = {
@@ -48,6 +56,7 @@ export type ParsedUnifiedImport = {
   macroEnabled: boolean;
   sheets: UnifiedImportSheetSummary[];
   rows: ParsedUnifiedImportRow[];
+  notices?: string[];
 };
 
 export type UnifiedImportJob = {

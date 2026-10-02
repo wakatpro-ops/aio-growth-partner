@@ -78,8 +78,98 @@ assert.equal(normalizeImportBusinessDate(salonExport.rows[0]?.normalizedData.dat
 const grouped = groupUnifiedSaleRows(salonExport.rows.map((row, index) => ({ id: `row-${index}`, normalized_data: row.normalizedData })));
 assert.deepEqual(grouped.map((rows) => rows.length), [2, 1]);
 
+function excelFixture(sheets, { date1904 = false, hidden = [] } = {}) {
+  const workbook = XLSX.utils.book_new();
+  for (const [name, sheet] of Object.entries(sheets)) XLSX.utils.book_append_sheet(workbook, sheet, name);
+  workbook.Workbook = { WBProps: { date1904 }, Sheets: workbook.SheetNames.map((name) => ({ name, Hidden: hidden.includes(name) ? 1 : 0 })) };
+  return arrayBuffer(XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }));
+}
+
+// Generated fixtures only: no customer workbook data belongs in regression tests.
+for (const date1904 of [false, true]) {
+  const nativeDates = XLSX.utils.aoa_to_sheet([
+    ["売上日", "商品名", "金額", "会計時間"],
+    [0, "テスト商品", -1200, 0.5]
+  ]);
+  nativeDates.A2 = { t: "n", v: (Date.UTC(2026, 0, 2) - Date.UTC(1899, 11, 30)) / 86400000 - (date1904 ? 1462 : 0), z: "m/d/yy" };
+  nativeDates.C2.z = '#,##0;(#,##0)';
+  nativeDates.D2.z = "h:mm";
+  const native = await parseUnifiedImportFile("native-dates.xlsx", excelFixture({ 売上: nativeDates }, { date1904 }));
+  assert.equal(native.rows[0]?.normalizedData.date, "2026-01-02", `Excel calendar date must honor date1904=${date1904}`);
+  assert.equal(native.rows[0]?.normalizedData.amount, "-1200", "Accounting display must not lose the raw sign");
+  assert.equal(native.rows[0]?.normalizedData.time, "12:00:00");
+  assert.equal(parseImportDateIso(native.rows[0]?.normalizedData.date, native.rows[0]?.normalizedData.time), "2026-01-02T03:00:00.000Z");
+}
+
+const physicalRows = await parseUnifiedImportFile("physical-rows.xlsx", excelFixture({ 売上: XLSX.utils.aoa_to_sheet([
+  ["テスト用売上台帳"], [], ["売上日", "商品名", "金額"],
+  ["2026-01-02", "テストA", 100], [], ["2026-01-03", "テストB", 200],
+  ["売上日", "商品名", "金額"], ["2026-01-04", "テストC", 300], ["合計", "", 600]
+]) }));
+assert.deepEqual(physicalRows.rows.map((row) => row.rowNumber), [4, 6, 8]);
+assert.equal(physicalRows.sheets[0]?.headerRowNumber, 3);
+assert.ok(physicalRows.sheets[0]?.notices?.some((notice) => notice.includes("繰り返し")));
+assert.ok(physicalRows.sheets[0]?.notices?.some((notice) => notice.includes("合計・小計")));
+
+const duplicate = await parseUnifiedImportFile("duplicate.csv", arrayBuffer("日付,商品名,金額,金額\n2026-01-02,テスト商品,100,200"));
+assert.deepEqual(duplicate.sheets[0]?.headers, ["日付", "商品名", "金額 [C列]", "金額 [D列]"]);
+assert.equal(duplicate.rows[0]?.rawData["金額 [C列]"], "100");
+assert.equal(duplicate.rows[0]?.rawData["金額 [D列]"], "200");
+assert.equal(duplicate.sheets[0]?.suggestedMapping?.amount, undefined);
+assert.deepEqual(duplicate.sheets[0]?.missingRequiredFields, ["amount"]);
+assert.equal(duplicate.rows[0]?.question, null, "An unmapped duplicate requires one column question, not a question on every row");
+assert.equal(duplicate.sheets[0]?.requiresConfirmation, true);
+
+const csvRows = await parseUnifiedImportFile("physical.csv", arrayBuffer('\n日付,商品名,金額,備考\n2026-01-02,テストA,100,"2行の\nメモ"\n\n2026-01-03,テストB,200,\n'));
+assert.deepEqual(csvRows.rows.map((row) => row.rowNumber), [3, 6]);
+assert.equal(csvRows.rows[0]?.normalizedData.memo, "2行の\nメモ");
+await assert.rejects(() => parseUnifiedImportFile("broken.csv", arrayBuffer('日付,商品名,金額\n2026-01-02,"テスト,100')), /引用符/);
+
+const blocks = await parseUnifiedImportFile("blocks.xlsx", excelFixture({ 管理: XLSX.utils.aoa_to_sheet([
+  ["売上日", "商品名", "金額"], ["2026-01-02", "テスト商品", 100], [],
+  ["名前", "電話番号", "メール", "備考"], ["テスト顧客", "09000000000", "test@example.invalid", "テスト"]
+]) }));
+assert.deepEqual(blocks.sheets.map((sheet) => sheet.suggestedRecordType), ["sale", "customer"]);
+assert.deepEqual(blocks.rows.map((row) => row.rowNumber), [2, 5]);
+assert.equal(new Set(blocks.rows.map((row) => row.sheetName)).size, 2);
+const unknownFirst = await parseUnifiedImportFile("unknown-first.csv", arrayBuffer("A,B\nfoo,bar\n\n売上日,商品名,金額\n2026-01-02,テスト商品,100"));
+assert.deepEqual(unknownFirst.sheets.map((sheet) => sheet.suggestedRecordType), ["unknown", "sale"]);
+assert.deepEqual(unknownFirst.rows.map((row) => row.rowNumber), [2, 5]);
+const sideBySide = await parseUnifiedImportFile("side-by-side.xlsx", excelFixture({ 管理: XLSX.utils.aoa_to_sheet([
+  ["売上日", "商品名", "合計", "", "支払日", "支払先", "金額"],
+  ["2026-01-02", "テスト商品", 100, "", "2026-01-03", "テスト仕入先", 200]
+]) }));
+assert.deepEqual(sideBySide.sheets.map((sheet) => sheet.suggestedRecordType), ["sale", "expense"]);
+assert.deepEqual(sideBySide.rows.map((row) => row.normalizedData.amount), ["100", "200"]);
+assert.deepEqual(sideBySide.sheets.map((sheet) => sheet.sourceRange), ["A1:C2", "E1:G2"]);
+const unrecognizedSide = await parseUnifiedImportFile("unrecognized-side.csv", arrayBuffer("売上日,商品名,金額,,A,B\n2026-01-02,テスト商品,100,,foo,bar"));
+assert.ok(unrecognizedSide.sheets[0]?.blockingIssues?.length, "Unknown neighboring regions must not be silently discarded");
+const tabCsv = await parseUnifiedImportFile("tab-export.csv", arrayBuffer("売上日\t商品名\t金額\n2026-01-02\tテスト商品\t100"));
+assert.equal(tabCsv.rows[0]?.normalizedData.amount, "100");
+
+const hidden = await parseUnifiedImportFile("hidden.xlsx", excelFixture({
+  表示: XLSX.utils.aoa_to_sheet([["売上日", "商品名", "金額"], ["2026-01-02", "テスト商品", 100]]),
+  非表示: XLSX.utils.aoa_to_sheet([["売上日", "商品名", "金額"], ["2026-01-02", "非表示商品", 100]])
+}, { hidden: ["非表示"] }));
+assert.equal(hidden.rows.length, 1);
+assert.ok(hidden.notices?.some((notice) => notice.includes("非表示シート「非表示」")));
+
+const invalidValues = await parseUnifiedImportFile("invalid.csv", arrayBuffer("売上日,商品名,金額,数量\n2026-02-30,テストA,1200,1\n2026-01-02,テストB,not-a-number,1\n2026-01-03,テストC,200,invalid"));
+assert.ok(invalidValues.rows.every((row) => row.question), "Nonempty invalid dates/amounts/quantities must not be ready");
+assert.deepEqual(invalidValues.rows.map((row) => row.missingFields[0]), ["date", "amount", "quantity"]);
+
+const cellErrors = XLSX.utils.aoa_to_sheet([["売上日", "商品名", "金額", "数量"], ["2026-01-02", "テストA", 100, 1], ["2026-01-03", "テストB", 200, 1]]);
+cellErrors.C2 = { t: "e", v: 7 };
+cellErrors.D3 = { t: "n", f: "1+1" };
+const errors = await parseUnifiedImportFile("cell-errors.xlsx", excelFixture({ 売上: cellErrors }));
+assert.ok(errors.rows.every((row) => row.question), "Cell error codes and missing formula caches must not become valid numeric values");
+const identifiers = XLSX.utils.aoa_to_sheet([["名前", "電話番号"], ["テスト顧客", 9000000000]]);
+identifiers.B2.z = "00000000000";
+const padded = await parseUnifiedImportFile("identifiers.xlsx", excelFixture({ 顧客: identifiers }));
+assert.equal(padded.rows[0]?.normalizedData.phone, "09000000000");
+
 assert.match(buildImportStorageFileName("店舗管理_マクロ付き.xlsm", "0123456789abcdef0123"), /^[a-zA-Z0-9_-]+\.xlsm$/u);
 await assert.rejects(() => parseUnifiedImportFile("danger.exe", arrayBuffer("bad")), /XLSM/);
 await assert.rejects(() => parseUnifiedImportFile("empty.xlsx", new ArrayBuffer(0)), /空ファイル/);
 
-console.log("Unified XLSM, multi-sheet classification, question, and safe filename tests passed.");
+console.log("Unified import: workbook dates/epochs, accounting values, physical rows, duplicate columns, repeated totals, multiple tables, hidden sheets, semantic validation, and original compatibility tests passed.");
