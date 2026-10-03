@@ -23,6 +23,10 @@ type Sheet = {
   blockingIssues?: string[];
   excludedReason?: string;
   amountTotal?: number | null;
+  held?: boolean;
+  started?: boolean;
+  locked?: boolean;
+  supplementedFields?: string[];
 };
 
 const typeOptions: Array<[UnifiedImportRecordType, string]> = [
@@ -42,9 +46,9 @@ export function MappingReviewPanel({ sheets, fieldLabels }: { sheets: Sheet[]; f
 
 function SheetReview({ sheet, index, fieldLabels }: { sheet: Sheet; index: number; fieldLabels: Record<string, string> }) {
   const [activeHeader, setActiveHeader] = useState<string | null>(null);
-  const unresolved = useMemo(() => sheet.fields.filter((field) => field.required && !sheet.mapping[field.key]), [sheet]);
+  const unresolved = useMemo(() => sheet.fields.filter((field) => field.required && !sheet.mapping[field.key] && !sheet.supplementedFields?.includes(field.key)), [sheet]);
   const resolved = useMemo(() => sheet.fields.filter((field) => Boolean(sheet.mapping[field.key])), [sheet]);
-  const optional = sheet.fields.filter((field) => !field.required && !sheet.mapping[field.key]);
+  const optional = sheet.fields.filter((field) => !field.required && !sheet.mapping[field.key] && !sheet.supplementedFields?.includes(field.key));
 
   return (
     <article className="card unified-import-sheet-review">
@@ -58,7 +62,10 @@ function SheetReview({ sheet, index, fieldLabels }: { sheet: Sheet; index: numbe
       </div>
       {sheet.notices?.length ? <ul>{sheet.notices.map((notice, i) => <li key={i}>{notice}</li>)}</ul> : null}
       {sheet.excludedReason ? <p className="notice">{sheet.excludedReason} この表は重複計上を避けるため取り込みません。</p> : null}
-      {sheet.blockingIssues?.length ? <div className="notice danger"><strong>この表は確認が必要です</strong><ul>{sheet.blockingIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul><p>元ファイルを修正して再アップロードするか、この表を「取り込まない」にしてください。問題のない表だけ先に取り込めます。</p></div> : null}
+      {sheet.blockingIssues?.length ? <div className="notice danger"><strong>この表は確認が必要です</strong><ul>{sheet.blockingIssues.map((issue, i) => <li key={i}>{issue}</li>)}</ul><p>上の質問に回答するか、この表を「保留」にしてください。元データは保持し、問題のない表だけ先に取り込めます。</p></div> : null}
+      {sheet.started ? <p className="notice">取り込み開始済みのため、内容は変更できません。</p> : !sheet.excludedReason ? <label className="field checkbox-row"><input type="checkbox" name={`sheet_hold_${index}`} defaultChecked={sheet.held} /><span>この表を保留する（後から続けられます）</span></label> : null}
+      {sheet.locked && !sheet.started ? <p className="notice">承認した修正案を保存しています。列の対応・保存先は固定し、元の値に戻ることを防いでいます。</p> : null}
+      <fieldset disabled={Boolean(sheet.locked)} className="import-clarification-fields">
       <label className="field unified-import-type-field">この表の保存先
         <select name={`sheet_type_${index}`} defaultValue={sheet.selectedType} disabled={Boolean(sheet.excludedReason)}>{typeOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select>
       </label>
@@ -77,6 +84,7 @@ function SheetReview({ sheet, index, fieldLabels }: { sheet: Sheet; index: numbe
         </div>
         <aside className="unified-import-assistant">
           <p className="unified-import-pane-title">AIO boostの整理結果</p>
+          {sheet.supplementedFields?.length ? <p className="notice success">{sheet.supplementedFields.map((key) => fieldLabels[key] ?? key).join("・")}は、承認した回答で補完済みです。</p> : null}
           {sheet.selectedType === "unknown" ? <p className="notice">保存先を選んでから、列の対応を確認してください。</p> : unresolved.length > 0 ? <div className="notice"><strong>あと{unresolved.length}項目だけ教えてください</strong><p>右の選択欄を押すと、元表の対象列を強調します。</p></div> : <div className="notice"><strong>必須項目の列を整理しました</strong><p>日付・金額・対象範囲は、取り込み前に確認してください。</p></div>}
           {unresolved.map((field) => <label className="field unified-import-question" key={field.key}>{fieldLabels[field.key] ?? field.key}<span className="required-mark"> 必須</span>
             <select name={`sheet_mapping_${index}_${field.key}`} defaultValue="" onFocus={(event) => setActiveHeader(event.currentTarget.value || null)} onChange={(event) => setActiveHeader(event.currentTarget.value || null)}>
@@ -94,6 +102,7 @@ function SheetReview({ sheet, index, fieldLabels }: { sheet: Sheet; index: numbe
         </aside>
       </div>
       </details> : null}
+      </fieldset>
     </article>
   );
 }

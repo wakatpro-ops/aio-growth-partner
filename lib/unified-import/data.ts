@@ -9,14 +9,15 @@ import { getStore } from "@/lib/stores";
 import { buildImportStorageFileName } from "@/lib/storage-object-name";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { classifyUnifiedImportRow, normalizeUnifiedRow, parseUnifiedImportFile, suggestUnifiedImportMapping, unifiedImportFields } from "@/lib/unified-import/parser";
-import { groupUnifiedSaleRows } from "@/lib/unified-import/sales-groups";
+import { groupUnifiedSaleRows, unifiedSaleGroupKey } from "@/lib/unified-import/sales-groups";
 import { parseImportNumber, validateUnifiedImportValues } from "@/lib/unified-import/value-validation";
 import { UNIFIED_IMPORT_PARSER_VERSION } from "@/lib/unified-import/version";
+import { resolveImportClarification, selectActiveImportResolutions, type ImportClarificationResolution } from "@/lib/unified-import/clarification";
 import type { Store } from "@/types/domain";
 import type { UnifiedImportJob, UnifiedImportQuestion, UnifiedImportRecordType, UnifiedImportRow } from "@/types/unified-import";
 
 const storageBucket = "import-files";
-const editableRoles = new Set(["org_owner", "store_manager", "staff"]);
+const editableRoles = new Set(["org_owner", "store_manager"]);
 const allowedRecordTypes = new Set<UnifiedImportRecordType>(["sale", "expense", "customer", "item", "inventory", "unknown", "ignore"]);
 const requiredLabels: Record<string, string> = {
   date: "日付",
@@ -29,6 +30,7 @@ const requiredLabels: Record<string, string> = {
 };
 
 type SupabaseClient = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
+const ownTableValue = <T,>(values: Record<string, T>, name: string): T | undefined => Object.hasOwn(values, name) ? values[name] : undefined;
 
 function hash(value: string | ArrayBuffer | Buffer) {
   return createHash("sha256").update(value instanceof ArrayBuffer ? Buffer.from(value) : value).digest("hex");
@@ -70,8 +72,8 @@ function phoneValue(value: unknown) {
 async function context(storeId: string, write = false) {
   const [store, access] = await Promise.all([getStore(storeId), getCurrentUserAccess()]);
   if (!access) throw new Error("ログインが必要です。");
-  const role = access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer";
-  if (write && !access.isPlatformAdmin && !editableRoles.has(role)) throw new Error("データを取り込む権限がありません。");
+  const roles = [access.organizationRoles[store.organization_id], access.storeRoles[store.id]];
+  if (!access.isPlatformAdmin && !roles.some((role) => editableRoles.has(role ?? ""))) throw new Error(write ? "データを取り込む権限がありません。店舗管理者に確認してください。" : "取込元データを閲覧する権限がありません。店舗管理者に確認してください。");
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
   return { store, access, supabase };
@@ -312,46 +314,114 @@ function selectedType(value: FormDataEntryValue | null, fallback: UnifiedImportR
   return allowedRecordTypes.has(result) ? result : fallback;
 }
 
+function nextImportRevision(previous: string) {
+  return new Date(Math.max(Date.now(), (Date.parse(previous) || 0) + 1)).toISOString();
+}
+
+function requireImportRevision(expected: unknown, actual: string) {
+  if (typeof expected !== "string" || expected !== actual) throw new Error("別の操作で内容が変わりました。再読み込みして最新の内容を確認してください。");
+}
+
+function importedRow(row: UnifiedImportRow) {
+  return row.review_status === "imported" || Boolean(row.result_id);
+}
+
+function currentImportQuality(job: UnifiedImportJob, sheets: UnifiedImportJob["sheet_summaries"], rows: UnifiedImportRow[], held: Set<string>, confirmations: Record<string, boolean>) {
+  const originals = (job.answers.clarification_original_sheets ?? {}) as Record<string, UnifiedImportJob["sheet_summaries"][number]>;
+  const ignored = sheets.filter((sheet) => sheet.excludedReason || sheet.suggestedRecordType === "ignore").map((sheet) => sheet.name);
+  const history = (job.answers.clarification_resolutions ?? []) as ImportClarificationResolution[];
+  const resolutions = selectActiveImportResolutions(history);
+  const result = resolveImportClarification({
+    sheets: sheets.map((sheet) => ownTableValue(originals, sheet.name) ?? sheet),
+    rows: rows.filter((row) => row.normalized_data.clarification_adjustment !== true).map((row) => ({
+      sheetName: row.sheet_name, rowNumber: row.row_number, rawData: row.raw_data,
+      suggestedRecordType: row.confirmed_record_type ?? row.suggested_record_type, confidence: row.confidence,
+      normalizedData: (row as UnifiedImportRow & { clarification_base_data?: UnifiedImportRow["normalized_data"] | null }).clarification_base_data ?? row.normalized_data,
+      missingFields: row.missing_fields, question: row.question
+    })),
+    resolutions,
+    heldTables: [...new Set([...held, ...ignored])]
+  });
+  const issues = result.issues.filter((issue) => issue.code !== "layout_confirmation" || ownTableValue(confirmations, issue.tableName) !== true);
+  return {
+    ...result, issues, heldTables: [...held],
+    rejectedResolutions: result.rejectedResolutions.filter((rejected) => !held.has(resolutions.find((answer) => answer.id === rejected.id)?.tableName ?? "")),
+    quality: result.qualityMetrics.hardThresholdTriggered || issues.some((issue) => issue.severity === "unprocessable") ? "unprocessable" : issues.length ? "clarifiable" : "normal"
+  };
+}
+
 export async function saveUnifiedImportReview(storeId: string, jobId: string, formData: FormData) {
   const { store, access, supabase } = await context(storeId, true);
   const detail = await getUnifiedImportJob(store.id, jobId);
   if (!detail) throw new Error("AIデータ取込が見つかりません。");
-  if (!["questions_required", "review_required", "review_ready"].includes(detail.job.status)) throw new Error("取り込み開始済みのため、分析結果を変更できません。");
+  requireImportRevision(formData.get("expected_revision"), detail.job.updated_at);
+  if (!["questions_required", "review_required", "review_ready", "partial_failed", "failed"].includes(detail.job.status)) throw new Error("取り込み中または完了済みのため、分析結果を変更できません。");
   if (detail.job.answers.parser_version !== UNIFIED_IMPORT_PARSER_VERSION) throw new Error("以前の解析方式の結果です。先に「元ファイルを再解析」を実行してください。");
 
+  const priorHeld = new Set((detail.job.answers.held_sheets ?? []) as string[]);
+  const startedTables = new Set([
+    ...((detail.job.answers.execution_started_tables ?? []) as string[]),
+    ...detail.rows.filter((row) => importedRow(row) || row.review_status === "error").map((row) => row.sheet_name)
+  ]);
+  const resolvedTables = new Set(((detail.job.answers.clarification_resolutions ?? []) as Array<{ tableName: string }>).map((resolution) => resolution.tableName));
+  const lockedTables = new Set([...startedTables, ...resolvedTables]);
+  const heldSheets = new Set(detail.job.sheet_summaries.filter((sheet, index) => !sheet.excludedReason && formData.get(`sheet_hold_${index}`) === "on").map((sheet) => sheet.name));
+  for (const name of startedTables) {
+    if (heldSheets.has(name) !== priorHeld.has(name)) throw new Error(`${name}: 反映を開始した表は保留へ変更できません。失敗した行は元の内容で再実行してください。`);
+  }
   const storedSheetTypes = (detail.job.answers.sheet_types ?? {}) as Record<string, UnifiedImportRecordType>;
-  const sheetKinds = new Map(detail.job.sheet_summaries.map((sheet, index) => [sheet.name, sheet.excludedReason ? "ignore" as const : selectedType(formData.get(`sheet_type_${index}`), storedSheetTypes[sheet.name] ?? sheet.suggestedRecordType)]));
-  const previousSheetKinds = new Map(detail.job.sheet_summaries.map((sheet) => [sheet.name, storedSheetTypes[sheet.name] ?? sheet.suggestedRecordType]));
+  const sheetKinds = new Map(detail.job.sheet_summaries.map((sheet, index) => {
+    const previous = ownTableValue(storedSheetTypes, sheet.name) ?? sheet.suggestedRecordType;
+    const next = sheet.excludedReason ? "ignore" as const : selectedType(formData.get(`sheet_type_${index}`), previous);
+    if (lockedTables.has(sheet.name) && next !== previous) throw new Error(`${sheet.name}: 承認済み・反映開始済みの表の分類は変更できません。`);
+    return [sheet.name, next];
+  }));
+  const previousSheetKinds = new Map(detail.job.sheet_summaries.map((sheet) => [sheet.name, ownTableValue(storedSheetTypes, sheet.name) ?? sheet.suggestedRecordType]));
   const previousMappings = (detail.job.answers.column_mappings ?? {}) as Record<string, Record<string, string>>;
   const sheetMappings = new Map<string, Record<string, string>>();
-  const updatedSummaries = detail.job.sheet_summaries.map((sheet, index) => {
+  let updatedSummaries = detail.job.sheet_summaries.map((sheet, index) => {
     const kind = sheetKinds.get(sheet.name) ?? sheet.suggestedRecordType;
     const inferred = suggestUnifiedImportMapping(sheet.headers, kind);
     const mapping: Record<string, string> = {};
     for (const field of unifiedImportFields(kind)) {
       const formKey = `sheet_mapping_${index}_${field.key}`;
+      const previous = ownTableValue(previousMappings, sheet.name)?.[field.key] ?? sheet.suggestedMapping?.[field.key] ?? inferred[field.key] ?? "";
       const selected = formData.has(formKey)
         ? String(formData.get(formKey) ?? "")
-        : previousMappings[sheet.name]?.[field.key] ?? sheet.suggestedMapping?.[field.key] ?? inferred[field.key] ?? "";
+        : previous;
+      if (lockedTables.has(sheet.name) && selected !== previous) throw new Error(`${sheet.name}: 承認済み・反映開始済みの表の列対応は変更できません。`);
       if (selected && sheet.headers.includes(selected)) mapping[field.key] = selected;
     }
     sheetMappings.set(sheet.name, mapping);
-    const missingRequiredFields = unifiedImportFields(kind).filter((field) => field.required && !mapping[field.key]).map((field) => field.key);
+    const missingRequiredFields = unifiedImportFields(kind).filter((field) => field.required && (lockedTables.has(sheet.name)
+      ? detail.rows.some((row) => row.sheet_name === sheet.name && !valueText(row.normalized_data[field.key]))
+      : !mapping[field.key])).map((field) => field.key);
     return { ...sheet, suggestedRecordType: kind, suggestedMapping: mapping, missingRequiredFields };
   });
-  const unresolvedSheets = updatedSummaries.filter((sheet) => sheet.suggestedRecordType === "unknown").length;
-  const unresolvedColumns = updatedSummaries.reduce((count, sheet) => count + (sheet.missingRequiredFields?.length ?? 0), 0);
-  const layoutConfirmations = Object.fromEntries(updatedSummaries.map((sheet, index) => [sheet.name, formData.get(`sheet_confirm_${index}`) === "on"]));
-  const unresolvedLayouts = updatedSummaries.filter((sheet) => sheet.suggestedRecordType !== "ignore" && (sheet.blockingIssues?.length || (sheet.requiresConfirmation && !layoutConfirmations[sheet.name]))).length;
-  const blockedSheets = new Set(updatedSummaries.filter((sheet) => sheet.blockingIssues?.length).map((sheet) => sheet.name));
-  let unresolved = 0;
-  let approved = 0;
-  const rowUpdates: Array<Record<string, unknown>> = [];
+  const previousConfirmations = (detail.job.answers.layout_confirmations ?? {}) as Record<string, boolean>;
+  const layoutConfirmations = Object.fromEntries(updatedSummaries.map((sheet, index) => [sheet.name, lockedTables.has(sheet.name) ? ownTableValue(previousConfirmations, sheet.name) === true : formData.get(`sheet_confirm_${index}`) === "on"]));
+  const rowUpdates: Array<UnifiedImportRow & { updated_at: string }> = [];
   for (const row of detail.rows) {
     const fallback = sheetKinds.get(row.sheet_name) ?? row.suggested_record_type;
     const sheetMapping = sheetMappings.get(row.sheet_name);
     const rowTypeKey = `row_type_${row.id}`;
-    const sheetTypeChanged = fallback !== previousSheetKinds.get(row.sheet_name);
+    if (lockedTables.has(row.sheet_name) || importedRow(row)) {
+      if (formData.has(rowTypeKey) && selectedType(formData.get(rowTypeKey), row.confirmed_record_type ?? fallback) !== (row.confirmed_record_type ?? fallback)) {
+        throw new Error(`${row.sheet_name}: 承認済み・反映開始済みの行は変更できません。`);
+      }
+      for (const [key, value] of formData.entries()) {
+        if (!key.startsWith(`row_${row.id}_`)) continue;
+        const field = key.slice(`row_${row.id}_`.length);
+        if (String(value).trim() !== String(row.user_corrections[field] ?? row.normalized_data[field] ?? "").trim()) {
+          throw new Error(`${row.sheet_name}: 承認済み・反映開始済みの値は変更できません。未反映の表は新しい説明を作成してください。`);
+        }
+      }
+      continue;
+    }
+    if (heldSheets.has(row.sheet_name)) continue;
+    // A held table's classification may have changed while its rows remained
+    // untouched. Apply that saved classification when it is resumed.
+    const sheetTypeChanged = fallback !== previousSheetKinds.get(row.sheet_name) || priorHeld.has(row.sheet_name);
     // Excluding an entire table takes precedence over stale row selectors in
     // the same submitted form; a row cannot opt back into a blocked table.
     const kind = fallback === "ignore" ? "ignore" : formData.has(rowTypeKey)
@@ -386,8 +456,6 @@ export async function saveUnifiedImportReview(storeId: string, jobId: string, fo
         ? `${missingRowFields.map((field) => requiredLabels[field] ?? field).join("・")}を入力してください。`
         : null;
     const reviewStatus = question ? "question" : "ready";
-    if (question && !blockedSheets.has(row.sheet_name)) unresolved += 1;
-    if (!question && !blockedSheets.has(row.sheet_name) && kind !== "unknown" && missingColumnFields.size === 0) approved += 1;
     rowUpdates.push({
       ...row,
       confirmed_record_type: kind,
@@ -399,7 +467,28 @@ export async function saveUnifiedImportReview(storeId: string, jobId: string, fo
       updated_at: new Date().toISOString()
     });
   }
-  const reviewLockAt = new Date().toISOString();
+  const updatedById = new Map(rowUpdates.map((row) => [row.id, row]));
+  const effectiveRows = detail.rows.map((row) => updatedById.get(row.id) ?? row);
+  const quality = currentImportQuality(detail.job, updatedSummaries, effectiveRows, heldSheets, layoutConfirmations);
+  // Typed row issues are recomputed from effective values. Retaining the old
+  // display strings would block corrected rows and checked layout confirmations.
+  // Keep the issue evidence itself so unchecking a confirmation restores its gate.
+  const replayedSheets = new Map(quality.sheets.map((sheet) => [sheet.name, sheet]));
+  updatedSummaries = updatedSummaries.map((sheet) => {
+    const replayed = replayedSheets.get(sheet.name);
+    if (!replayed) return sheet;
+    return { ...sheet, clarification: replayed.clarification, requiresConfirmation: replayed.requiresConfirmation,
+      blockingIssues: (replayed.clarification?.issues ?? []).filter((issue) => issue.code !== "layout_confirmation" || !layoutConfirmations[sheet.name]).map((issue) => issue.message) };
+  });
+  const activeSummaries = updatedSummaries.filter((sheet) => !heldSheets.has(sheet.name));
+  const unresolvedSheets = activeSummaries.filter((sheet) => sheet.suggestedRecordType === "unknown").length;
+  const unresolvedColumns = activeSummaries.reduce((count, sheet) => count + (sheet.missingRequiredFields?.length ?? 0), 0);
+  const unresolvedLayouts = activeSummaries.filter((sheet) => sheet.suggestedRecordType !== "ignore" && (sheet.blockingIssues?.length || (sheet.requiresConfirmation && !layoutConfirmations[sheet.name]))).length;
+  const blockedSheets = new Set(updatedSummaries.filter((sheet) => sheet.blockingIssues?.length).map((sheet) => sheet.name));
+  const activeRows = effectiveRows.filter((row) => !heldSheets.has(row.sheet_name) && !importedRow(row) && row.review_status !== "ignored");
+  const unresolved = activeRows.filter((row) => row.review_status === "question" && !blockedSheets.has(row.sheet_name)).length;
+  const approved = activeRows.filter((row) => ["ready", "error"].includes(row.review_status) && row.confirmed_record_type && !["unknown", "ignore"].includes(row.confirmed_record_type) && !blockedSheets.has(row.sheet_name) && !updatedSummaries.find((sheet) => sheet.name === row.sheet_name)?.missingRequiredFields?.length).length;
+  const reviewLockAt = nextImportRevision(detail.job.updated_at);
   const { data: reviewLock, error: reviewLockError } = await supabase.from("unified_import_jobs").update({ status: "analyzing", updated_at: reviewLockAt }).eq("store_id", store.id).eq("id", jobId).eq("status", detail.job.status).eq("updated_at", detail.job.updated_at).is("archived_at", null).select("id").maybeSingle();
   if (reviewLockError || !reviewLock) throw new Error("別の操作で状態が変わりました。再読み込みしてください。");
   try {
@@ -408,17 +497,19 @@ export async function saveUnifiedImportReview(storeId: string, jobId: string, fo
     if (error) throw new Error(`確認結果を保存できませんでした: ${error.message}`);
   }
 
-  const totalUnresolved = unresolvedSheets + unresolvedColumns + unresolvedLayouts + unresolved;
-  const status = totalUnresolved > 0 ? "questions_required" : "review_ready";
-  const answers = { ...detail.job.answers, sheet_types: Object.fromEntries(sheetKinds), column_mappings: Object.fromEntries(sheetMappings), layout_confirmations: layoutConfirmations, reviewed_by: access.userId, reviewed_at: new Date().toISOString() };
-  const questions = questionList(rowUpdates.map((row) => ({ sheetName: String(row.sheet_name), rowNumber: Number(row.row_number), suggestedRecordType: row.suggested_record_type as UnifiedImportRecordType, missingFields: row.missing_fields as string[], question: row.question as string | null })), updatedSummaries.map((sheet) => ({ ...sheet, requiresConfirmation: sheet.requiresConfirmation && !layoutConfirmations[sheet.name] })));
-  const { data: saved, error } = await supabase.from("unified_import_jobs").update({ status, answers, sheet_summaries: updatedSummaries, approved_rows: approved, questions, updated_at: new Date().toISOString() }).eq("id", jobId).eq("store_id", store.id).eq("status", "analyzing").eq("updated_at", reviewLockAt).is("archived_at", null).select("id").maybeSingle();
+  const totalUnresolved = Math.max(unresolvedSheets + unresolvedColumns + unresolvedLayouts + unresolved, quality.issues.length, quality.quality === "unprocessable" || quality.rejectedResolutions.length ? 1 : 0);
+  const status = totalUnresolved > 0 || (heldSheets.size > 0 && approved === 0) ? "questions_required" : "review_ready";
+  const answers = { ...detail.job.answers, sheet_types: Object.fromEntries(sheetKinds), column_mappings: Object.fromEntries(sheetMappings), layout_confirmations: layoutConfirmations, held_sheets: [...heldSheets], execution_started_tables: [...startedTables], clarification_pending: null,
+    clarification_state: { ...(detail.job.answers.clarification_state as Record<string, unknown> ?? {}), remainingIssueIds: quality.issues.map((issue) => issue.id), heldTables: [...heldSheets], acceptedResolutionIds: quality.acceptedResolutionIds, quality: quality.quality, qualityMetrics: quality.qualityMetrics },
+    reviewed_by: access.userId, reviewed_at: nextImportRevision(reviewLockAt) };
+  const questions = questionList(activeRows.map((row) => ({ sheetName: row.sheet_name, rowNumber: row.row_number, suggestedRecordType: row.suggested_record_type, missingFields: row.missing_fields, question: row.question })), activeSummaries.map((sheet) => ({ ...sheet, requiresConfirmation: sheet.requiresConfirmation && !layoutConfirmations[sheet.name] })));
+  const { data: saved, error } = await supabase.from("unified_import_jobs").update({ status, answers, sheet_summaries: updatedSummaries, approved_rows: approved, questions, completed_at: null, updated_at: nextImportRevision(reviewLockAt) }).eq("id", jobId).eq("store_id", store.id).eq("status", "analyzing").eq("updated_at", reviewLockAt).is("archived_at", null).select("id").maybeSingle();
   if (error || !saved) throw new Error("確認状態を保存できませんでした。内容を再確認してください。");
-  await logAuditEvent({ storeId: store.id, actionType: "unified_import_reviewed", targetType: "unified_import", targetId: jobId, message: totalUnresolved > 0 ? `分析結果を保存しました。未回答が${totalUnresolved}件あります。` : `${approved}行の取り込み内容を確認しました。`, metadata: { approved, unresolved_rows: unresolved, unresolved_columns: unresolvedColumns, unresolved_sheets: unresolvedSheets } });
-  return { unresolved: totalUnresolved, approved };
+  await logAuditEvent({ storeId: store.id, actionType: "unified_import_reviewed", targetType: "unified_import", targetId: jobId, message: totalUnresolved > 0 ? `分析結果を保存しました。未回答が${totalUnresolved}件あります。` : `${approved}行の取り込み内容を確認しました（保留${heldSheets.size}表）。`, metadata: { approved, held: [...heldSheets], actor_id: access.userId, unresolved_rows: unresolved, unresolved_columns: unresolvedColumns, unresolved_sheets: unresolvedSheets } });
+  return { unresolved: totalUnresolved, approved, held: heldSheets.size };
   } catch (error) {
     // A partly saved review must not leave a previously-ready job executable.
-    await supabase.from("unified_import_jobs").update({ status: "questions_required", updated_at: new Date().toISOString() }).eq("store_id", store.id).eq("id", jobId).eq("status", "analyzing").eq("updated_at", reviewLockAt).is("archived_at", null);
+    await supabase.from("unified_import_jobs").update({ status: "questions_required", updated_at: nextImportRevision(reviewLockAt) }).eq("store_id", store.id).eq("id", jobId).eq("status", "analyzing").eq("updated_at", reviewLockAt).is("archived_at", null);
     throw error;
   }
 }
@@ -448,11 +539,67 @@ async function importSaleGroup(supabase: SupabaseClient, store: Store, job: Unif
   if (prepared.some((entry) => !entry.date || !entry.itemName)) throw new Error("売上日または商品・メニュー名を確認してください。");
   const first = prepared[0];
   const externalTransactionId = valueText(first.data.transaction_id, 500);
-  const sourceRowHash = hash(`unified:${job.id}:sale:${externalTransactionId ?? rows.map((row) => row.id).sort().join(":")}:${first.date?.slice(0, 10)}`);
-  const { data: existing } = await supabase.from("sales_transactions").select("id").eq("store_id", store.id).eq("source_row_hash", sourceRowHash).maybeSingle();
-  if (existing?.id) return { table: "sales_transactions", id: String(existing.id) };
+  const sourceRowHash = hash(JSON.stringify(["unified-sale-v2", job.id, unifiedSaleGroupKey(first.row)]));
+  const { data: existing, error: existingError } = await supabase.from("sales_transactions").select("id,business_date,gross_amount,tax_amount,source_metadata").eq("store_id", store.id).eq("source_row_hash", sourceRowHash).maybeSingle();
+  if (existingError) throw new Error(`保存済みの売上を照合できませんでした: ${existingError.message}`);
   const grossAmount = prepared.reduce((sum, entry) => sum + numberValue(entry.data.amount), 0);
   const taxAmount = prepared.reduce((sum, entry) => sum + numberValue(entry.data.tax_amount), 0);
+  const recoverMovement = async (entry: typeof prepared[number], transactionId: string, itemId: string, quantity: number) => {
+    const { error } = await supabase.rpc("apply_inventory_movement", {
+      p_store_id: store.id, p_item_id: itemId, p_movement_type: "sale",
+      p_quantity_delta: -Math.abs(quantity), p_reserved_delta: 0,
+      p_reason: `AI共通取込: ${entry.itemName}`, p_reference_type: "sales_transaction", p_reference_id: transactionId,
+      p_movement_key: `unified-sale:${entry.row.id}`, p_actor_user_id: job.created_by
+    });
+    if (error) throw new Error(`売上は保存しましたが在庫へ反映できませんでした: ${error.message}`);
+  };
+  if (existing?.id) {
+    const metadata = existing.source_metadata as Record<string, unknown> | null;
+    const savedIds = Array.isArray(metadata?.unified_import_row_ids) ? metadata.unified_import_row_ids.map(String).sort() : [];
+    const expectedIds = rows.map((row) => row.id).sort();
+    if (metadata?.unified_import_job_id !== job.id || JSON.stringify(savedIds) !== JSON.stringify(expectedIds)
+      || existing.business_date !== normalizeImportBusinessDate(first.data.date)
+      || Number(existing.gross_amount) !== grossAmount || Number(existing.tax_amount) !== taxAmount) {
+      throw new Error("保存済み売上と今回の取込内容が一致しません。既存売上は変更せず停止しました。");
+    }
+    // A previous attempt may have saved the sale and then failed on inventory.
+    // Validate every persisted line first; never rematch a changed item master
+    // or silently accept a partial/different receipt as already imported.
+    const savedLines: Array<Record<string, unknown>> = [];
+    for (let offset = 0; ; offset += 500) {
+      const { data, error } = await supabase.from("sales_transaction_items").select("id,item_id,item_name,quantity,unit_price,tax_amount,total_amount,source_metadata").eq("store_id", store.id).eq("sales_transaction_id", existing.id).order("id").range(offset, offset + 499);
+      if (error) throw new Error(`保存済み売上明細を照合できませんでした: ${error.message}`);
+      const batch = (data ?? []) as Array<Record<string, unknown>>;
+      savedLines.push(...batch);
+      if (savedLines.length > prepared.length || batch.length < 500) break;
+    }
+    if (savedLines.length !== prepared.length) throw new Error("保存済み売上の明細件数が一致しません。既存売上は保持しています。");
+    const linesByRow = new Map<string, Record<string, unknown>>();
+    for (const line of savedLines) {
+      const savedMetadata = line.source_metadata as Record<string, unknown> | null;
+      const rowId = String(savedMetadata?.unified_import_row_id ?? "");
+      if (!expectedIds.includes(rowId) || linesByRow.has(rowId)) throw new Error("保存済み売上明細の元データを照合できませんでした。");
+      linesByRow.set(rowId, line);
+    }
+    const movements = prepared.map((entry) => {
+      const line = linesByRow.get(entry.row.id)!;
+      const savedMetadata = line.source_metadata as Record<string, unknown>;
+      const quantity = numberValue(entry.data.quantity, 1);
+      if (line.item_name !== entry.itemName || Number(line.quantity) !== quantity
+        || Number(line.unit_price) !== numberValue(entry.data.unit_price)
+        || Number(line.tax_amount) !== numberValue(entry.data.tax_amount)
+        || Number(line.total_amount) !== numberValue(entry.data.amount)
+        || typeof savedMetadata.inventory_movement_required !== "boolean"
+        || (savedMetadata.inventory_movement_required && (!line.item_id || quantity <= 0 || ["日別サービス別集計", "利用者確認済み売上調整"].includes(entry.row.raw_data["データ粒度"]) || entry.data.clarification_adjustment === true))) {
+        throw new Error("保存済み売上明細の数量・金額・在庫対象が一致しません。既存売上は変更していません。");
+      }
+      return { entry, itemId: String(line.item_id ?? ""), quantity, required: savedMetadata.inventory_movement_required };
+    });
+    for (const movement of movements) {
+      if (movement.required) await recoverMovement(movement.entry, String(existing.id), movement.itemId, movement.quantity);
+    }
+    return { table: "sales_transactions", id: String(existing.id) };
+  }
   const customerName = prepared.map((entry) => valueText(entry.data.customer_name, 500)).find(Boolean) ?? null;
   const paymentMethod = prepared.map((entry) => valueText(entry.data.payment_method, 200)).find(Boolean) ?? null;
   const { data: transaction, error } = await supabase.from("sales_transactions").insert({
@@ -498,7 +645,10 @@ async function importSaleGroup(supabase: SupabaseClient, store: Store, job: Unif
       unit_price: numberValue(entry.data.unit_price),
       tax_amount: numberValue(entry.data.tax_amount),
       total_amount: numberValue(entry.data.amount),
-      source_metadata: { unified_import_row_id: entry.row.id }
+      source_metadata: {
+        unified_import_row_id: entry.row.id,
+        inventory_movement_required: !["日別サービス別集計", "利用者確認済み売上調整"].includes(entry.row.raw_data["データ粒度"]) && entry.data.clarification_adjustment !== true && Boolean(item?.id && item.is_stock_managed && quantity > 0)
+      }
     })));
   if (itemError) {
     await supabase.from("sales_transactions").delete().eq("id", transaction.id);
@@ -506,20 +656,8 @@ async function importSaleGroup(supabase: SupabaseClient, store: Store, job: Unif
   }
   for (const { entry, item, quantity } of items) {
     // Aggregated historical reports describe sales, not a new stock movement.
-    if (entry.row.raw_data["データ粒度"] !== "日別サービス別集計" && item?.id && item.is_stock_managed && quantity > 0) {
-      const { error: inventoryError } = await supabase.rpc("apply_inventory_movement", {
-        p_store_id: store.id,
-        p_item_id: item.id,
-        p_movement_type: "sale",
-        p_quantity_delta: -Math.abs(quantity),
-        p_reserved_delta: 0,
-        p_reason: `AI共通取込: ${entry.itemName}`,
-        p_reference_type: "sales_transaction",
-        p_reference_id: transaction.id,
-        p_movement_key: `unified-sale:${entry.row.id}`,
-        p_actor_user_id: job.created_by
-      });
-      if (inventoryError) throw new Error(`売上は保存しましたが在庫へ反映できませんでした: ${inventoryError.message}`);
+    if (!["日別サービス別集計", "利用者確認済み売上調整"].includes(entry.row.raw_data["データ粒度"]) && entry.data.clarification_adjustment !== true && item?.id && item.is_stock_managed && quantity > 0) {
+      await recoverMovement(entry, String(transaction.id), String(item.id), quantity);
     }
   }
   return { table: "sales_transactions", id: String(transaction.id) };
@@ -667,41 +805,45 @@ async function importRow(supabase: SupabaseClient, store: Store, job: UnifiedImp
   throw new Error("取り込み先が確定していません。");
 }
 
-export async function executeUnifiedImport(storeId: string, jobId: string) {
+export async function executeUnifiedImport(storeId: string, jobId: string, expectedRevision: string) {
   const { store, supabase } = await context(storeId, true);
   const detail = await getUnifiedImportJob(store.id, jobId);
   if (!detail) throw new Error("AIデータ取込が見つかりません。");
+  requireImportRevision(expectedRevision, detail.job.updated_at);
+  const heldSheets = new Set((detail.job.answers.held_sheets ?? []) as string[]);
+  const held = heldSheets.size;
   if (detail.job.status === "completed") {
     if (detail.rows.some((row) => row.confirmed_record_type === "sale" && row.review_status === "imported")) {
       await rebuildSalesSummaries(supabase, store.organization_id, store.id);
     }
-    return { success: detail.job.success_rows, errors: detail.job.error_rows };
+    return { success: detail.job.success_rows, errors: detail.job.error_rows, held };
   }
   if (!["review_ready", "partial_failed", "failed"].includes(detail.job.status)) throw new Error("不明点への回答と分析結果の確認を完了してください。");
   if (detail.job.answers.parser_version !== UNIFIED_IMPORT_PARSER_VERSION) throw new Error("以前の解析方式の結果です。未反映のファイルは再解析してください。");
   const confirmations = (detail.job.answers.layout_confirmations ?? {}) as Record<string, boolean>;
   const kinds = (detail.job.answers.sheet_types ?? {}) as Record<string, UnifiedImportRecordType>;
-  if (detail.job.sheet_summaries.some((sheet) => (kinds[sheet.name] ?? sheet.suggestedRecordType) !== "ignore" && (sheet.blockingIssues?.length || (sheet.requiresConfirmation && !confirmations[sheet.name])))) {
+  const quality = currentImportQuality(detail.job, detail.job.sheet_summaries.map((sheet) => ({ ...sheet, suggestedRecordType: ownTableValue(kinds, sheet.name) ?? sheet.suggestedRecordType })), detail.rows, heldSheets, confirmations);
+  if (detail.job.sheet_summaries.some((sheet) => !heldSheets.has(sheet.name) && (ownTableValue(kinds, sheet.name) ?? sheet.suggestedRecordType) !== "ignore" && (sheet.blockingIssues?.length || (sheet.requiresConfirmation && ownTableValue(confirmations, sheet.name) !== true)))) {
     throw new Error("表の対象範囲・日付・合計に未確認の項目があります。確認画面へ戻ってください。");
   }
   const processingOrder: Record<UnifiedImportRecordType, number> = { item: 0, customer: 1, sale: 2, expense: 3, inventory: 4, unknown: 5, ignore: 6 };
   const rows = detail.rows
-    .filter((row) => row.review_status === "ready" || row.review_status === "error")
+    .filter((row) => !heldSheets.has(row.sheet_name) && !importedRow(row) && (row.review_status === "ready" || row.review_status === "error"))
     .sort((left, right) => processingOrder[left.confirmed_record_type ?? "unknown"] - processingOrder[right.confirmed_record_type ?? "unknown"]);
-  const alreadyImported = detail.rows.filter((row) => row.review_status === "imported").length;
+  const alreadyImported = detail.rows.filter(importedRow).length;
   // A summary/final-state failure may happen after every business row was
   // saved. Retrying that job must finish bookkeeping without importing again.
   const retryFinalization = rows.length === 0 && alreadyImported > 0 && ["partial_failed", "failed"].includes(detail.job.status);
   if (rows.length === 0 && !retryFinalization) throw new Error("取り込む行がありません。");
-  if (detail.rows.some((row) => row.review_status === "question" || !row.confirmed_record_type || row.confirmed_record_type === "unknown")) throw new Error("未確認の行が残っています。内容を確認してから取り込んでください。");
+  if (detail.rows.some((row) => !heldSheets.has(row.sheet_name) && !importedRow(row) && (row.review_status === "question" || !row.confirmed_record_type || row.confirmed_record_type === "unknown"))) throw new Error("未確認の行が残っています。内容を確認してから取り込んでください。");
   const sheetsByName = new Map(detail.job.sheet_summaries.map((sheet) => [sheet.name, sheet]));
   for (const row of rows) {
     const sheet = sheetsByName.get(row.sheet_name);
-    const sheetKind = sheet ? kinds[sheet.name] ?? sheet.suggestedRecordType : "unknown";
+    const sheetKind = sheet ? ownTableValue(kinds, sheet.name) ?? sheet.suggestedRecordType : "unknown";
     if (!sheet || sheet.excludedReason || sheetKind === "ignore" || sheetKind === "unknown" || row.confirmed_record_type === "ignore") {
       throw new Error(`${row.sheet_name}: 取り込み対象外または未確認の表に反映予定の行があります。確認画面で分類を保存し直してください。`);
     }
-    if (sheet.blockingIssues?.length || (sheet.requiresConfirmation && !confirmations[sheet.name])) {
+    if (sheet.blockingIssues?.length || (sheet.requiresConfirmation && ownTableValue(confirmations, sheet.name) !== true)) {
       throw new Error(`${row.sheet_name}: 表の対象範囲・日付・合計に未確認の項目があります。`);
     }
     const requiredMissing = unifiedImportFields(row.confirmed_record_type ?? "unknown").filter((field) => field.required && !valueText(row.normalized_data[field.key]));
@@ -709,8 +851,11 @@ export async function executeUnifiedImport(storeId: string, jobId: string) {
     const issues = validateUnifiedImportValues(row.confirmed_record_type ?? "unknown", row.normalized_data);
     if (issues.length) throw new Error(`${row.sheet_name}: ${issues.map((issue) => issue.message).join(" ")}`);
   }
-  const executionLockAt = new Date().toISOString();
-  const { data: started, error: startingError } = await supabase.from("unified_import_jobs").update({ status: "importing", approved_rows: retryFinalization ? detail.job.approved_rows : rows.length, error_message: null, completed_at: null, updated_at: executionLockAt }).eq("id", jobId).eq("store_id", store.id).eq("status", detail.job.status).eq("updated_at", detail.job.updated_at).is("archived_at", null).select("id").maybeSingle();
+  if (quality.rejectedResolutions.length || quality.issues.length || quality.quality === "unprocessable") throw new Error("表の品質・説明に未確認の項目があります。最新の修正案を確認するか、対象の表を保留してください。");
+  const executionLockAt = nextImportRevision(detail.job.updated_at);
+  const startedTables = [...new Set([...((detail.job.answers.execution_started_tables ?? []) as string[]), ...detail.rows.filter((row) => importedRow(row) || row.review_status === "error").map((row) => row.sheet_name), ...rows.map((row) => row.sheet_name)])];
+  const executionAnswers = { ...detail.job.answers, execution_started_tables: startedTables, clarification_pending: null };
+  const { data: started, error: startingError } = await supabase.from("unified_import_jobs").update({ status: "importing", answers: executionAnswers, approved_rows: retryFinalization ? detail.job.approved_rows : rows.length, error_message: null, completed_at: null, updated_at: executionLockAt }).eq("id", jobId).eq("store_id", store.id).eq("status", detail.job.status).eq("updated_at", detail.job.updated_at).is("archived_at", null).select("id").maybeSingle();
   if (startingError || !started) throw new Error("別の操作で取り込み状態が変わりました。二重処理を防ぐため停止しました。再読み込みしてください。");
   let success = alreadyImported;
   let errors = 0;
@@ -742,23 +887,23 @@ export async function executeUnifiedImport(storeId: string, jobId: string) {
       }));
     }
   }
-  const status = errors === 0 ? "completed" : success > 0 ? "partial_failed" : "failed";
+  const status = errors === 0 ? held > 0 ? "questions_required" : "completed" : success > 0 ? "partial_failed" : "failed";
   try {
     if (saleRows.length > 0 || detail.rows.some((row) => row.review_status === "imported" && row.confirmed_record_type === "sale")) {
       await rebuildSalesSummaries(supabase, store.organization_id, store.id);
     }
-    const { data: finished, error: finishError } = await supabase.from("unified_import_jobs").update({ status, success_rows: success, error_rows: errors, error_message: null, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", jobId).eq("store_id", store.id).eq("status", "importing").eq("updated_at", executionLockAt).is("archived_at", null).select("id").maybeSingle();
+    const { data: finished, error: finishError } = await supabase.from("unified_import_jobs").update({ status, success_rows: success, error_rows: errors, error_message: null, completed_at: status === "completed" ? nextImportRevision(executionLockAt) : null, updated_at: nextImportRevision(executionLockAt) }).eq("id", jobId).eq("store_id", store.id).eq("status", "importing").eq("updated_at", executionLockAt).is("archived_at", null).select("id").maybeSingle();
     if (finishError || !finished) throw new Error(`取り込み結果の確定状態を保存できませんでした${finishError?.message ? `: ${finishError.message}` : "。"}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : "取り込み後の集計・結果保存に失敗しました。";
     const { data: recovered, error: recoveryError } = await supabase.from("unified_import_jobs").update({
       status: success > 0 ? "partial_failed" : "failed", success_rows: success, error_rows: errors,
       error_message: `${message} 取込済みの行は保持しています。再実行では未反映の行と集計・結果保存だけを処理します。`.slice(0, 2000),
-      completed_at: null, updated_at: new Date().toISOString()
+      completed_at: null, updated_at: nextImportRevision(executionLockAt)
     }).eq("id", jobId).eq("store_id", store.id).eq("status", "importing").eq("updated_at", executionLockAt).is("archived_at", null).select("id").maybeSingle();
     if (recoveryError || !recovered) throw new Error(`${message} 取込済みデータは保持していますが、再試行状態を確認できませんでした。再読み込みし、取込中のままの場合は運営へご連絡ください。`);
     throw new Error(`${message} 取込済みデータは保持しています。失敗した処理だけ再実行してください。`);
   }
-  await logAuditEvent({ storeId: store.id, actionType: "unified_import_completed", targetType: "unified_import", targetId: jobId, message: `AI共通取込を実行しました（成功${success}件・失敗${errors}件）。`, metadata: { success, errors } });
-  return { success, errors };
+  await logAuditEvent({ storeId: store.id, actionType: "unified_import_completed", targetType: "unified_import", targetId: jobId, message: `AI共通取込を実行しました（成功${success}件・失敗${errors}件・保留${held}表）。`, metadata: { success, errors, held, held_sheets: [...heldSheets] } });
+  return { success, errors, held };
 }

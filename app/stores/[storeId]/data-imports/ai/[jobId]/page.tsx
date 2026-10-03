@@ -6,14 +6,17 @@ import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { MappingReviewPanel } from "@/components/unified-import/mapping-review-panel";
+import { ClarificationPanel } from "@/components/unified-import/clarification-panel";
+import { calculateClarification } from "@/lib/unified-import/clarification-data";
 import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
+import { getCurrentUserAccess } from "@/lib/auth/server";
 import { getUnifiedImportJob } from "@/lib/unified-import/data";
 import { normalizeUnifiedRow, suggestUnifiedImportMapping, unifiedImportFields } from "@/lib/unified-import/parser";
 import { parseImportNumber, validateUnifiedImportValues } from "@/lib/unified-import/value-validation";
 import { UNIFIED_IMPORT_PARSER_VERSION } from "@/lib/unified-import/version";
 import type { UnifiedImportRecordType } from "@/types/unified-import";
-import { executeUnifiedImportAction, reanalyzeUnifiedImportAction, saveUnifiedImportReviewAction } from "../actions";
+import { executeUnifiedImportAction, reanalyzeUnifiedImportAction, saveUnifiedImportReviewAction, previewImportClarificationAction, applyImportClarificationAction } from "../actions";
 
 const typeOptions: Array<[UnifiedImportRecordType, string]> = [
   ["sale", "売上"],
@@ -37,20 +40,30 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
   const { storeId, jobId } = await params;
   const query = await searchParams;
   const store = await getStore(storeId);
+  const access = await getCurrentUserAccess();
+  const manager = access?.isPlatformAdmin || [access?.organizationRoles[store.organization_id], access?.storeRoles[store.id]].some((role) => ["org_owner", "store_manager"].includes(role ?? ""));
+  if (!manager) return <AppShell><PageHeader title="店舗管理者による確認が必要です" description="この取り込みには売上・経費などの情報が含まれるため、法人オーナーまたは店長が確認してください。" /><Link href={`/stores/${store.id}`}>店舗トップへ戻る</Link></AppShell>;
   const detail = await getUnifiedImportJob(store.id, jobId);
   if (!detail) notFound();
   const { job, rows } = detail;
   const currentParser = job.answers.parser_version === UNIFIED_IMPORT_PARSER_VERSION;
-  const layoutConfirmations = (job.answers.layout_confirmations ?? {}) as Record<string, boolean>;
+  const clarification = currentParser ? calculateClarification(job, rows) : null;
+  const heldTables = new Set(job.answers.held_sheets as string[] ?? []);
+  const startedTables = new Set([...(job.answers.execution_started_tables as string[] ?? []), ...rows.filter((row) => row.result_id || ["imported", "error"].includes(row.review_status)).map((row) => row.sheet_name)]);
+  const answeredTables = new Set((job.answers.clarification_resolutions as { tableName: string }[] ?? []).map((answer) => answer.tableName));
+  const layoutConfirmations = Object.assign(Object.create(null), job.answers.layout_confirmations ?? {}) as Record<string, boolean>;
   const industry = getIndustryConfig(store.industry_type_key);
   const resolvedMappings = new Map(job.sheet_summaries.map((sheet) => {
-    const selectedType = String((job.answers.sheet_types as Record<string, string> | undefined)?.[sheet.name] ?? sheet.suggestedRecordType) as UnifiedImportRecordType;
-    const mapping = (job.answers.column_mappings as Record<string, Record<string, string>> | undefined)?.[sheet.name]
+    const types = job.answers.sheet_types as Record<string, string> | undefined;
+    const mappings = job.answers.column_mappings as Record<string, Record<string, string>> | undefined;
+    const selectedType = String(types && Object.hasOwn(types, sheet.name) ? types[sheet.name] : sheet.suggestedRecordType) as UnifiedImportRecordType;
+    const mapping = (mappings && Object.hasOwn(mappings, sheet.name) ? mappings[sheet.name] : undefined)
       ?? sheet.suggestedMapping
       ?? suggestUnifiedImportMapping(sheet.headers, selectedType);
     return [sheet.name, { selectedType, mapping }] as const;
   }));
   const questions = rows.filter((row) => {
+    if (heldTables.has(row.sheet_name) || startedTables.has(row.sheet_name) || answeredTables.has(row.sheet_name)) return false;
     if (row.review_status !== "question") return false;
     if (job.sheet_summaries.find((sheet) => sheet.name === row.sheet_name)?.blockingIssues?.length) return false;
     const sheet = resolvedMappings.get(row.sheet_name);
@@ -62,11 +75,12 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
     return missingRowValue || validateUnifiedImportValues(kind, { ...normalized.normalizedData, ...row.user_corrections }).length > 0 || row.confidence < 0.7;
   });
   const columnQuestionCount = job.sheet_summaries.reduce((count, sheet) => {
+    if (heldTables.has(sheet.name) || startedTables.has(sheet.name)) return count;
     const resolved = resolvedMappings.get(sheet.name);
     if (!resolved || resolved.selectedType === "unknown") return count + 1;
-    return count + unifiedImportFields(resolved.selectedType).filter((field) => field.required && !resolved.mapping[field.key]).length;
+    return count + unifiedImportFields(resolved.selectedType).filter((field) => field.required && (answeredTables.has(sheet.name) ? rows.some((row) => row.sheet_name === sheet.name && !String(row.normalized_data[field.key] ?? "").trim()) : !resolved.mapping[field.key])).length;
   }, 0);
-  const structureQuestionCount = job.sheet_summaries.filter((sheet) => resolvedMappings.get(sheet.name)?.selectedType !== "ignore" && (sheet.blockingIssues?.length || (sheet.requiresConfirmation && !layoutConfirmations[sheet.name]))).length;
+  const structureQuestionCount = job.sheet_summaries.filter((sheet) => !heldTables.has(sheet.name) && !startedTables.has(sheet.name) && resolvedMappings.get(sheet.name)?.selectedType !== "ignore" && (sheet.blockingIssues?.length || (sheet.requiresConfirmation && !layoutConfirmations[sheet.name]))).length;
   const questionCount = columnQuestionCount + structureQuestionCount + questions.length;
   const previews = rows.slice(0, 50);
   const results = rows.filter((row) => ["imported", "error"].includes(row.review_status));
@@ -96,8 +110,8 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
       {query.duplicate ? <p className="notice">同じファイルはすでに解析済みのため、既存の結果を表示しています。</p> : null}
       {query.questions ? <p className="notice">分析結果を保存しました。まだ回答が必要な項目が{query.questions}件あります。</p> : null}
-      {query.reviewed ? <p className="notice success">すべての不明点を確認しました。「確認した内容で取り込みを確定」へ進めます。</p> : null}
-      {query.completed ? <p className="notice success">取り込みが完了しました。成功{job.success_rows}件、失敗{job.error_rows}件です。</p> : null}
+      {query.reviewed ? <p className="notice success">今回の対象を確認しました。保留していない表の取り込みへ進めます。</p> : null}
+      {query.completed ? <p className="notice success">今回の取り込み結果：成功{job.success_rows}件、失敗{job.error_rows}件。{heldTables.size ? `${heldTables.size}表は保留中です。元データは保持しています。` : job.status === "completed" ? "取り込みが完了しました。" : "未完了の内容を確認してください。"}</p> : null}
       {query.reanalyzed ? <p className="notice success">保存済みファイルを再解析しました。以前の解析結果は削除済み履歴に保持し、売上・経費はまだ変更していません。</p> : null}
 
       {canReview && !currentParser ? <section className="card"><h2>元ファイルを新しい方式で読み直せます</h2><p>以前の方式では、集計表・複数の表・同名の列を正しく読み分けられない場合がありました。未反映のファイルを読み直してから、日付と金額をご確認ください。元ファイルと以前の結果は保持します。</p><form action={reanalyzeUnifiedImportAction.bind(null, store.id, job.id, onboarding)}><ConfirmSubmitButton message="元ファイルを再解析します。以前の結果は削除済み履歴に保持され、売上・経費には反映しません。">元ファイルを再解析</ConfirmSubmitButton></form></section> : null}
@@ -112,8 +126,12 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         {Array.isArray(job.answers.parsing_notices) && job.answers.parsing_notices.length > 0 ? <details><summary>ファイルの読み取り方と対象外の内容</summary><ul>{job.answers.parsing_notices.map((notice, i) => <li key={i}>{String(notice)}</li>)}</ul></details> : null}
       </section>
 
+      {canReview && clarification ? <ClarificationPanel issues={clarification.issues.filter((issue) => !startedTables.has(issue.tableName))} quality={clarification.quality} revision={job.updated_at} tableTypes={Object.fromEntries(job.sheet_summaries.map((sheet) => [sheet.name, sheet.suggestedRecordType]))} fieldLabels={fieldLabels} previewAction={previewImportClarificationAction.bind(null, store.id, job.id)} applyAction={applyImportClarificationAction.bind(null, store.id, job.id)} /> : null}
+      {heldTables.size ? <p className="notice">保留中：{[...heldTables].join("、")}。回答の準備ができたら、下の「保留」を外して保存すると続きから確認できます。</p> : null}
+      {Array.isArray(job.answers.clarification_resolutions) && job.answers.clarification_resolutions.length ? <details className="card"><summary>承認済みの回答履歴（{job.answers.clarification_resolutions.length}件）</summary><ul>{(job.answers.clarification_resolutions as { id: string; tableName: string; reason: string; approvedAt: string }[]).map((answer) => <li key={answer.id}><strong>{answer.tableName}</strong>：{answer.reason} <span className="muted">{answer.approvedAt}</span></li>)}</ul></details> : null}
       {canReview && currentParser ? (
         <form className="form" action={saveUnifiedImportReviewAction.bind(null, store.id, job.id, onboarding)}>
+          <input type="hidden" name="expected_revision" value={job.updated_at} />
           <section>
             <h2>1. 元の表を見ながら、整理結果を確認</h2>
             <p>売上・経費などの表を分けて整理しました。対象範囲・日付・合計を確認してください。合計表と内訳は重ねて取り込みません。</p>
@@ -123,6 +141,9 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
                 const resolved = resolvedMappings.get(sheet.name)!;
                 return {
                   name: sheet.name,
+                  held: heldTables.has(sheet.name),
+                  started: startedTables.has(sheet.name),
+                  locked: startedTables.has(sheet.name) || answeredTables.has(sheet.name),
                   sourceSheetName: sheet.sourceSheetName,
                   sourceRange: sheet.sourceRange,
                   layout: sheet.layout,
@@ -137,6 +158,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
                   headers: sheet.headers,
                   selectedType: resolved.selectedType,
                   mapping: resolved.mapping,
+                  supplementedFields: answeredTables.has(sheet.name) ? unifiedImportFields(resolved.selectedType).filter((field) => !resolved.mapping[field.key] && rows.some((row) => row.sheet_name === sheet.name) && rows.filter((row) => row.sheet_name === sheet.name).every((row) => String(row.normalized_data[field.key] ?? "").trim())).map((field) => field.key) : [],
                   fields: unifiedImportFields(resolved.selectedType).map((field) => ({ key: field.key, required: field.required })),
                   rows: rows.filter((row) => row.sheet_name === sheet.name).slice(0, 12).map((row) => ({ id: row.id, rowNumber: row.row_number, rawData: row.raw_data })),
                   reused: reusedSheets.has(sheet.name)
@@ -195,7 +217,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         <section className="card">
           <h2>確認した内容で取り込みを確定</h2>
           <p className="notice">確定すると、分類に従って売上・経費・顧客・商品・在庫へ反映します。経費はfreee送信前の確認待ちとして保存され、自動送信されません。</p>
-          <form action={executeUnifiedImportAction.bind(null, store.id, job.id, onboarding)}><ConfirmSubmitButton message={`${job.approved_rows}行を売上・経費・顧客・商品・在庫へ振り分けて取り込みます。内容を確認しましたか？`}>確認した内容で取り込みを確定</ConfirmSubmitButton></form>
+          <form action={executeUnifiedImportAction.bind(null, store.id, job.id, onboarding)}><input type="hidden" name="expected_revision" value={job.updated_at} /><ConfirmSubmitButton message={`${job.approved_rows}行を売上・経費・顧客・商品・在庫へ振り分けて取り込みます。保留中の表は反映しません。内容を確認しましたか？`}>確認した内容で取り込みを確定</ConfirmSubmitButton></form>
         </section>
       ) : null}
 
@@ -203,7 +225,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         <section className="card">
           <h2>未完了の処理を再実行</h2>
           <p className="notice danger">{job.error_message || `${job.error_rows}件を取り込めませんでした。下の結果を確認してください。`} 取込済みの行は重複登録せず、未反映の行と集計・結果保存を再試行します。</p>
-          <form action={executeUnifiedImportAction.bind(null, store.id, job.id, onboarding)}><ConfirmSubmitButton message="未反映の行と集計・結果保存を再実行します。すでに取込済みの行は重複登録しません。">未完了の処理を再実行</ConfirmSubmitButton></form>
+          <form action={executeUnifiedImportAction.bind(null, store.id, job.id, onboarding)}><input type="hidden" name="expected_revision" value={job.updated_at} /><ConfirmSubmitButton message="未反映の行と集計・結果保存を再実行します。すでに取込済みの行は重複登録しません。">未完了の処理を再実行</ConfirmSubmitButton></form>
         </section>
       ) : null}
 

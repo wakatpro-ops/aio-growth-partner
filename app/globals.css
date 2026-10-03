@@ -5764,3 +5764,14 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
   .store-ai-workspace { display:none !important; }
   .store-workspace { padding-right:0; padding-bottom:0; }
 }
+.import-clarification-panel, .import-clarification-question { min-width:0; overflow-wrap:anywhere; }
+.import-clarification-question { margin-block:16px; }
+.import-clarification-fields { border:0; padding:0; margin:0; min-width:0; display:grid; gap:14px; }
+.import-clarification-fields:disabled { opacity:.7; }
+.import-clarification-fields input, .import-clarification-fields select, .import-clarification-fields textarea { max-width:100%; min-width:0; }
+.import-clarification-question .notice .button { margin:6px 4px 0 0; white-space:normal; }
+.import-clarification-question td { overflow-wrap:anywhere; }
+@media (max-width:600px) {
+  .import-clarification-fields .grid { grid-template-columns:minmax(0,1fr); }
+  .import-clarification-question { padding:14px; }
+}

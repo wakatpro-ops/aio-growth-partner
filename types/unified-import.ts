@@ -28,6 +28,7 @@ export type UnifiedImportSheetSummary = {
   blockingIssues?: string[];
   excludedReason?: string;
   ambiguousColumns?: string[];
+  clarification?: ImportClarificationMetadata;
 };
 
 export type UnifiedImportQuestion = {
@@ -107,3 +108,4 @@ export type UnifiedImportRow = {
   result_id: string | null;
   error_message: string | null;
 };
+import type { ImportClarificationMetadata } from "@/lib/unified-import/clarification";

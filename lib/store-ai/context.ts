@@ -12,6 +12,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStoreAiReadiness } from "./readiness";
 import { bookingFacts, bookingPeriod, contextGreeting, resolveAiPage, salesFacts, type AiContext, type AiPage, type AiSection } from "./context-rules";
 import { contextVersion, pageKnowledge } from "./knowledge";
+import { importDetailSection, type ImportContextJob, type ImportContextRow } from "./context-import-rules";
 import type { Store } from "@/types/domain";
 import type { BusinessItem, InventoryStock } from "@/types/phase2";
 import type { AioGoal, AioImprovementTask } from "@/types/aio-improvement";
@@ -120,6 +121,39 @@ async function marketing(db: Db, store: Store): Promise<AiSection> {
   });
 }
 
+async function importDetail(db: Db | null, store: Store, page: AiPage, canEdit: boolean, manager: boolean): Promise<AiSection> {
+  if (!page.importJobId) return { key: "import_detail", label: "データ取り込み", state: "empty", summary: "取り込みの一覧・アップロード画面です。ファイルの解析結果を開くと、そのファイルの確認事項を案内できます。" };
+  // Import write permission includes staff, but mixed workbooks can contain
+  // expenses/costs. Do not turn that permission into financial AI disclosure.
+  if (!canEdit || !manager) return { key: "import_detail", label: "選択中の取込ファイル", state: "restricted", summary: "取込ファイルには経費などの情報が含まれるため、この会話で解析内容を確認するには店長以上の権限が必要です。操作方法は案内できます。" };
+  return section("import_detail", "選択中の取込ファイル", async () => {
+    if (!db) throw new Error("database_unavailable");
+    const { data, error } = await db.from("unified_import_jobs")
+      .select("id,status,total_rows,approved_rows,updated_at,sheet_summaries,questions,clarification_state:answers->clarification_state,held_sheets:answers->held_sheets,clarification_pending_id:answers->clarification_pending->>id")
+      .eq("id", page.importJobId).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null).maybeSingle();
+    if (error) throw new Error("import_context_read_failed");
+    // Do not reveal whether an unknown UUID belongs to an archived/other-store job.
+    if (!data) return { state: "unavailable", summary: "選択した取り込みの解析結果を確認できませんでした。現在の店舗の取込一覧から開き直してください。" };
+    const job = data as unknown as ImportContextJob;
+    if (!Number.isSafeInteger(job.total_rows) || job.total_rows < 0 || job.total_rows > 50_000) throw new Error("import_context_limit");
+    const records: ImportContextRow[] = [];
+    for (let from = 0; from < job.total_rows; from += 500) {
+      const result = await db.from("unified_import_rows").select("id,sheet_name,review_status,confirmed_record_type,missing_fields")
+        .eq("import_job_id", page.importJobId).eq("store_id", store.id).eq("organization_id", store.organization_id).order("id").range(from, from + 499);
+      if (result.error) throw new Error("import_context_rows_failed");
+      records.push(...(result.data ?? []) as unknown as ImportContextRow[]);
+    }
+    // A reanalysis can archive the job during pagination. Never return stale
+    // source evidence after that transition or mix two review revisions.
+    const latest = await db.from("unified_import_jobs").select("id,updated_at").eq("id", page.importJobId)
+      .eq("store_id", store.id).eq("organization_id", store.organization_id).eq("updated_at", job.updated_at).is("archived_at", null).maybeSingle();
+    if (latest.error || !latest.data) throw new Error("import_context_changed");
+    const { key: _key, label: _label, ...safe } = importDetailSection(job, records);
+    void _key; void _label;
+    return safe;
+  });
+}
+
 export async function loadStoreAiContext(store: Store, pathname: string, search = ""): Promise<AiContext> {
   const access = await getCurrentUserAccess();
   if (!access || !mayReadStore(access, store.id, store.organization_id)) throw new Error("unauthorized");
@@ -128,7 +162,7 @@ export async function loadStoreAiContext(store: Store, pathname: string, search 
   const canEdit = mayEditStore(access, store.id, store.organization_id);
   const db = createSupabaseAdminClient();
   const readers: Partial<Record<typeof page.area, () => Promise<AiSection>>> = {
-    bookings: () => reservations(store, page), customers: () => customers(store, page), sales: () => sales(db!, store), inventory: () => inventory(db!, store, page, manager), reviews: () => reviews(db!, store), aio: () => aio(db!, store, page), marketing: () => marketing(db!, store)
+    bookings: () => reservations(store, page), customers: () => customers(store, page), sales: () => sales(db!, store), inventory: () => inventory(db!, store, page, manager), reviews: () => reviews(db!, store), aio: () => aio(db!, store, page), marketing: () => marketing(db!, store), imports: () => importDetail(db, store, page, canEdit, manager)
   };
   const areas = page.area === "home" ? ["sales", "bookings", "inventory", "reviews", "marketing"] as const : [page.area];
   const sections = await Promise.all(areas.map(area => readers[area]).filter((reader): reader is () => Promise<AiSection> => Boolean(reader)).map(reader => reader()));
@@ -136,6 +170,7 @@ export async function loadStoreAiContext(store: Store, pathname: string, search 
   const links = page.area === "bookings" ? [{ label: "予約を確認", href: `${base}/customers?tab=bookings` }, { label: "予約メールを確認", href: `${base}/ai-inbox` }]
     : page.area === "customers" ? [{ label: "顧客を確認", href: `${base}/customers?tab=customers` }]
       : page.area === "home" ? [{ label: "売上を見る", href: `${base}/sales-hub` }]
+        : page.area === "imports" ? [{ label: "取込一覧を確認", href: `${base}/data-imports/ai` }]
         : [];
   return { version: contextVersion, key: page.key, pageLabel: knowledge.label, storeName: store.name, industry: store.industry_type_key,
     role: access.isPlatformAdmin ? "運営管理者（選択中の店舗のみ）" : access.organizationRoles[store.organization_id] || access.storeRoles[store.id] || "viewer", canEdit, manager,

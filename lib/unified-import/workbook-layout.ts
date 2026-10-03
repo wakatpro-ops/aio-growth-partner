@@ -1,5 +1,7 @@
 import * as XLSX from "xlsx/xlsx.mjs";
 import { parseImportNumber } from "./value-validation.ts";
+import { createImportClarificationIssue } from "./clarification.ts";
+import type { ImportClarificationMetadata, ImportClarificationIssue, ImportIssueCode } from "./clarification.ts";
 
 /** A logical table is deliberately separate from a worksheet: report sheets may
  * contain several independent tables and repeated summaries of the same sales. */
@@ -24,6 +26,7 @@ export type WorkbookLayoutTable = {
   requiresConfirmation: boolean;
   blockingIssues: string[];
   excludedReason?: string;
+  clarification: ImportClarificationMetadata;
 };
 
 type Matrix = {
@@ -48,26 +51,30 @@ const cell = (sheet: XLSX.WorkSheet, row: number, column: number): XLSX.CellObje
 const value = (sheet: XLSX.WorkSheet, row: number, column: number) => cell(sheet, row, column)?.v;
 const range = (r: number, c: number, er: number, ec: number) => XLSX.utils.encode_range({ s: { r, c }, e: { r: er, c: ec } });
 
-function addIssue(table: WorkbookLayoutTable, message: string) {
+function addIssue(table: WorkbookLayoutTable, message: string, evidence: { code: ImportIssueCode; cells?: string[]; sourceRange?: string; field?: string; rowNumbers?: number[]; details?: ImportClarificationIssue["details"] }) {
   // A malformed whole report should not produce thousands of identical prompts.
   if (!table.blockingIssues.includes(message) && table.blockingIssues.length < 30) table.blockingIssues.push(message);
+  const issue = createImportClarificationIssue({ tableName: table.name, code: evidence.code, message, source: { sheetName: table.sourceSheetName, range: evidence.sourceRange ?? table.sourceRange, cells: evidence.cells }, field: evidence.field, rowNumbers: evidence.rowNumbers, details: evidence.details });
+  const index = table.clarification.issues.findIndex((candidate) => candidate.id === issue.id);
+  if (index >= 0) table.clarification.issues[index] = issue;
+  else if (table.clarification.issues.length < 200) table.clarification.issues.push(issue);
 }
 
 function numeric(sheet: XLSX.WorkSheet, row: number, column: number, table: WorkbookLayoutTable) {
   const entry = cell(sheet, row, column);
   const source = address(row, column);
   if (entry?.t === "e") {
-    addIssue(table, `${source}: Excelのエラー値があるため、元ファイルで修正してください。`);
+    addIssue(table, `${source}: Excelのエラー値があるため、元ファイルで修正してください。`, { code: "source_error", cells: [source] });
     return null;
   }
   if (entry?.f && (entry.t === "z" || entry.v === undefined || entry.v === null || entry.v === "")) {
-    addIssue(table, `${source}: 数式の保存済み計算結果がありません。Excelで再計算して保存してください。`);
+    addIssue(table, `${source}: 数式の保存済み計算結果がありません。Excelで再計算して保存してください。`, { code: "source_missing", cells: [source] });
     return null;
   }
   if (entry?.v === undefined || entry.v === null || entry.v === "") return null;
   const number = parseImportNumber(entry.v);
   if (number === null) {
-    addIssue(table, `${source}: 数値として確認できない値があります。`);
+    addIssue(table, `${source}: 数値として確認できない値があります。`, { code: "invalid_number", cells: [source] });
     return null;
   }
   return number;
@@ -79,7 +86,7 @@ function hasContent(sheet: XLSX.WorkSheet, row: number, column: number) {
 }
 
 function makeTable(sheetName: string, suffix: string, kind: WorkbookLayoutTable["kind"], sourceRange: string, header: number): WorkbookLayoutTable {
-  return {
+  const table: WorkbookLayoutTable = {
     name: `${sheetName}｜${suffix}`,
     sourceSheetName: sheetName,
     sourceRange,
@@ -92,8 +99,11 @@ function makeTable(sheetName: string, suffix: string, kind: WorkbookLayoutTable[
     rows: [],
     notices: [],
     requiresConfirmation: kind !== "ignore",
-    blockingIssues: []
+    blockingIssues: [],
+    clarification: { version: 1, issues: [], checks: [] }
   };
+  if (kind !== "ignore") table.clarification.issues.push(createImportClarificationIssue({ tableName: table.name, code: "layout_confirmation", source: { sheetName, range: sourceRange }, message: "抽出した表の範囲・日別集計の意味を確認してください。" }));
+  return table;
 }
 
 function addRow(table: WorkbookLayoutTable, sourceRow: number, sourceColumn: number, sourceRange: string, values: Record<string, string>) {
@@ -167,21 +177,26 @@ function validDate(year: number, month: number, day: number) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
-function reconcile(table: WorkbookLayoutTable, sheet: XLSX.WorkSheet, row: number, column: number, actual: number, label: string) {
+function reconcile(table: WorkbookLayoutTable, sheet: XLSX.WorkSheet, row: number, column: number, actual: number, label: string, field: "amount" | "quantity", rowNumbers = table.rows.map((record) => record.rowNumber)) {
   const declared = numeric(sheet, row, column, table);
   if (declared === null) {
-    addIssue(table, `${address(row, column)}: ${label}の保存値を確認できないため、明細との照合ができません。`);
+    addIssue(table, `${address(row, column)}: ${label}の保存値を確認できないため、明細との照合ができません。`, { code: "source_missing", cells: [address(row, column)], field });
   } else if (Math.abs(declared - actual) > 0.01) {
-    addIssue(table, `${address(row, column)}: ${label}（${declared}）と抽出明細の合計（${actual}）が一致しません。`);
+    addIssue(table, `${address(row, column)}: ${label}（${declared}）と抽出明細の合計（${actual}）が一致しません。`, { code: "reconciliation", cells: [address(row, column)], field, rowNumbers, details: { expected: declared, actual, delta: declared - actual } });
+  }
+  if (declared !== null) {
+    const source = { sheetName: table.sourceSheetName, range: table.sourceRange, cells: [address(row, column)] };
+    const issue = createImportClarificationIssue({ tableName: table.name, code: "reconciliation", message: label, source, field, rowNumbers });
+    table.clarification.checks!.push({ id: issue.id, tableName: table.name, field, expected: declared, rowNumbers, source });
   }
   return declared;
 }
 
 function extractSales(sheetName: string, sheet: XLSX.WorkSheet, matrix: Matrix, year: number | null, month: number | null) {
   const table = makeTable(sheetName, `日別売上 ${address(matrix.header, matrix.dayColumn + 1)}`, "sale", range(matrix.header, matrix.dayColumn - 1, matrix.end, matrix.totalColumn), matrix.header);
-  if (year === null) addIssue(table, "帳票の対象年を一意に確認できません。対象年を明記した元ファイルを確認してください（現在年は補完していません）。");
-  if (month === null) addIssue(table, "帳票の対象月を一意に確認できません。元ファイルの月表示を確認してください。");
-  if (!matrix.overall) addIssue(table, "全体の売上集計であることを確認できません。担当者別の明細との重複を確認してください。");
+  table.clarification.period = { year, month };
+  if (year === null || month === null) addIssue(table, "帳票の対象年・月を一意に確認できません。対象年月を確認してください（現在年は補完していません）。", { code: "report_period", details: { year, month } });
+  if (!matrix.overall) addIssue(table, "全体の売上集計であることを確認できません。担当者別の明細との重複を確認してください。", { code: "unproven_coverage" });
   const amountTotals = new Map<number, number>();
   const quantityTotals = new Map<number, number>();
   let blanks = 0;
@@ -197,30 +212,32 @@ function extractSales(sheetName: string, sheet: XLSX.WorkSheet, matrix: Matrix, 
       if (quantity === null && amount === null && !present) { blanks++; continue; }
       if (quantity === 0 && amount === 0) { zeros++; continue; }
       if ((quantity === null || quantity === 0) && (amount === null || amount === 0) && !cell(sheet, row, column)?.f && !cell(sheet, row + 1, column)?.f && cell(sheet, row, column)?.t !== "e" && cell(sheet, row + 1, column)?.t !== "e") { zeros++; continue; }
-      if (quantity === null) addIssue(table, `${address(row, column)}: 件数が未入力または読取不能です。1件には補完していません。`);
-      if (amount === null) addIssue(table, `${address(row + 1, column)}: 売上金額が未入力または読取不能です。0円には補完していません。`);
+      if (quantity === null) addIssue(table, `${address(row, column)}: 件数が未入力または読取不能です。1件には補完していません。`, { code: "missing_field", cells: [address(row, column)], field: "quantity" });
+      if (amount === null) addIssue(table, `${address(row + 1, column)}: 売上金額が未入力または読取不能です。0円には補完していません。`, { code: "missing_field", cells: [address(row + 1, column)], field: "amount" });
       if (quantity !== null && quantity < 0 || amount !== null && amount < 0) negative++;
-      if (year !== null && month !== null && !validDate(year, month, day)) addIssue(table, `${address(row, matrix.dayColumn)}: ${year}年${month}月${day}日は存在しない日付ですが、売上値があります。`);
+      if (year !== null && month !== null && !validDate(year, month, day)) addIssue(table, `${address(row, matrix.dayColumn)}: ${year}年${month}月${day}日は存在しない日付ですが、売上値があります。`, { code: "invalid_date", cells: [address(row, matrix.dayColumn)], field: "date", details: { year, month, day } });
       const date = year !== null && month !== null ? `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` : `${month ?? "?"}月${day}日`;
-      addRow(table, row + 1, column, range(row, column, row + 1, column), { 売上日: date, サービス名: label, 数量: quantity === null ? "" : String(quantity), 売上金額: amount === null ? "" : String(amount), データ粒度: "日別サービス別集計" });
+      addRow(table, row + 1, column, range(row, column, row + 1, column), { 売上日: date, サービス名: label, 数量: quantity === null ? "" : String(quantity), 売上金額: amount === null ? "" : String(amount), データ粒度: "日別サービス別集計", 元日: String(day) });
       dayAmount += amount ?? 0;
       dayQuantity += quantity ?? 0;
       amountTotals.set(column, (amountTotals.get(column) ?? 0) + (amount ?? 0));
       quantityTotals.set(column, (quantityTotals.get(column) ?? 0) + (quantity ?? 0));
     }
-    reconcile(table, sheet, row, matrix.totalColumn, dayQuantity, `${day}日の件数合計`);
-    reconcile(table, sheet, row + 1, matrix.totalColumn, dayAmount, `${day}日の金額合計`);
+    const dayRows = table.rows.filter((record) => record.sourceRowNumber === row + 2).map((record) => record.rowNumber);
+    reconcile(table, sheet, row, matrix.totalColumn, dayQuantity, `${day}日の件数合計`, "quantity", dayRows);
+    reconcile(table, sheet, row + 1, matrix.totalColumn, dayAmount, `${day}日の金額合計`, "amount", dayRows);
   }
   const total = [...amountTotals.values()].reduce((sum, number) => sum + number, 0);
   if (matrix.subtotalRow === null) {
-    addIssue(table, "月合計行を確認できないため、月全体との照合ができません。");
+    addIssue(table, "月合計行を確認できないため、月全体との照合ができません。", { code: "source_missing" });
   } else {
     for (const { column } of matrix.columns) {
-      reconcile(table, sheet, matrix.subtotalRow, column, quantityTotals.get(column) ?? 0, "サービス別の月間件数");
-      reconcile(table, sheet, matrix.subtotalRow + 1, column, amountTotals.get(column) ?? 0, "サービス別の月間金額");
+      const columnRows = table.rows.filter((record) => record.sourceColumn === XLSX.utils.encode_col(column)).map((record) => record.rowNumber);
+      reconcile(table, sheet, matrix.subtotalRow, column, quantityTotals.get(column) ?? 0, "サービス別の月間件数", "quantity", columnRows);
+      reconcile(table, sheet, matrix.subtotalRow + 1, column, amountTotals.get(column) ?? 0, "サービス別の月間金額", "amount", columnRows);
     }
-    reconcile(table, sheet, matrix.subtotalRow, matrix.totalColumn, [...quantityTotals.values()].reduce((sum, number) => sum + number, 0), "月間件数合計");
-    const declared = reconcile(table, sheet, matrix.subtotalRow + 1, matrix.totalColumn, total, "月間売上合計");
+    reconcile(table, sheet, matrix.subtotalRow, matrix.totalColumn, [...quantityTotals.values()].reduce((sum, number) => sum + number, 0), "月間件数合計", "quantity");
+    const declared = reconcile(table, sheet, matrix.subtotalRow + 1, matrix.totalColumn, total, "月間売上合計", "amount");
     if (declared !== null) table.notices.push(`月合計 ${address(matrix.subtotalRow + 1, matrix.totalColumn)}: 保存値 ${declared} / 抽出合計 ${total}。`);
   }
   table.notices.push(`件数・金額の2行組を日付×サービスの明細に変換しました。空欄 ${blanks}組、件数・金額とも0または空欄 ${zeros}組は売上として追加しません。`);
@@ -293,7 +310,8 @@ function extractExpenses(sheetName: string, sheet: XLSX.WorkSheet, year: number 
   const tables: WorkbookLayoutTable[] = [];
   for (const { r, c } of headers) {
     const table = makeTable(sheetName, `経費 ${address(r, c)}`, "expense", range(r, c, bounds.e.r, c + 2), r);
-    if (month === null) addIssue(table, "帳票の月表示が不明または複数あるため、経費の日付との整合性を確認できません。保存された日付は変更していません。");
+    table.clarification.period = { year, month };
+    if (month === null) addIssue(table, "帳票の月表示が不明または複数あるため、経費の日付との整合性を確認できません。保存された日付は変更していません。", { code: "expense_period", details: { year, month } });
     let lastRow = r;
     let mismatches = 0;
     let amountTotal = 0;
@@ -305,26 +323,25 @@ function extractExpenses(sheetName: string, sheet: XLSX.WorkSheet, year: number 
       lastRow = row;
       // Expense totals can have a label immediately to the left of the date column.
       if ([c - 1, c, c + 1].some((column) => totalLabel.test(key(value(sheet, row, column))))) {
-        const declared = numeric(sheet, row, c + 2, table);
-        if (declared !== null && Math.abs(declared - amountTotal) > 0.01) addIssue(table, `${address(row, c + 2)}: 経費合計（${declared}）と明細合計（${amountTotal}）が一致しません。`);
+        reconcile(table, sheet, row, c + 2, amountTotal, "経費合計", "amount");
         aggregateCount++;
         // Rows after the explicit total are outside this expense ledger.
         break;
       }
       const dateCell = cell(sheet, row, c);
-      if (dateCell?.f && (dateCell.t === "z" || dateCell.v === undefined || dateCell.v === null || dateCell.v === "")) addIssue(table, `${address(row, c)}: 日付の数式に保存済み計算結果がありません。`);
+      if (dateCell?.f && (dateCell.t === "z" || dateCell.v === undefined || dateCell.v === null || dateCell.v === "")) addIssue(table, `${address(row, c)}: 日付の数式に保存済み計算結果がありません。`, { code: "source_missing", cells: [address(row, c)], field: "date" });
       const date = dateValue(dateCell, date1904);
       const purpose = text(value(sheet, row, c + 1));
       const amount = numeric(sheet, row, c + 2, table);
       if (!date && !purpose && amount === 0) continue;
-      if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) addIssue(table, `${address(row, c)}: 年を含む有効な経費日を確認できません。帳票の年・月からは補完していません。`);
+      if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) addIssue(table, `${address(row, c)}: 年を含む有効な経費日を確認できません。帳票の年・月からは補完していません。`, { code: "invalid_date", cells: [address(row, c)], field: "date" });
       else if (year !== null && Number(date.slice(0, 4)) !== year || month !== null && /^\d{4}-\d{2}-\d{2}$/u.test(date) && Number(date.slice(5, 7)) !== month) mismatches++;
-      if (amount === null) addIssue(table, `${address(row, c + 2)}: 経費金額を確認できません。0円には補完していません。`);
+      if (amount === null) addIssue(table, `${address(row, c + 2)}: 経費金額を確認できません。0円には補完していません。`, { code: "missing_field", cells: [address(row, c + 2)], field: "amount" });
       addRow(table, row, c, range(row, c, row, c + 2), { 経費日: date, 用途: purpose, 経費金額: amount === null ? "" : String(amount) });
       amountTotal += amount ?? 0;
     }
     table.sourceRange = range(r, c, lastRow, c + 2);
-    if (mismatches) addIssue(table, `${mismatches}件の経費日が帳票の対象年月（${year ?? "年不明"}年${month ?? "月不明"}月）と一致しません。保存された日付を保持しています。元ファイルを確認してください。`);
+    if (mismatches) addIssue(table, `${mismatches}件の経費日が帳票の対象年月（${year ?? "年不明"}年${month ?? "月不明"}月）と一致しません。保存された日付を保持しています。元ファイルを確認してください。`, { code: "expense_period", details: { year, month, count: mismatches } });
     table.notices.push("用途を支払先とはみなしていません。支払先列がないため、取り込み時の確認が必要です。");
     if (aggregateCount) table.notices.push("経費合計行は照合のみに使用し、明細には追加していません。合計行より下の値はこの経費台帳の範囲外です。");
     tables.push(table);
@@ -357,14 +374,14 @@ export function extractWorkbookLayouts(workbook: XLSX.WorkBook): { tables: Workb
       const sourceRange = range(detail.header, detail.dayColumn - 1, detail.end, detail.totalColumn);
       if (main.overall && referencesMatrix(sheet, main, detail)) {
         sales.notices.push(`${sourceRange}: 全体売上の数式が参照する内訳表のため、重複計上を避けて追加していません。`);
-        if (main.columns.some((column, index) => column.label !== detail.columns[index]?.label)) addIssue(sales, `${sourceRange}: 全体と内訳で同じ参照列のサービス見出しが異なります。名称・集計区分を元ファイルで確認してください。`);
+        if (main.columns.some((column, index) => column.label !== detail.columns[index]?.label)) addIssue(sales, `${sourceRange}: 全体と内訳で同じ参照列のサービス見出しが異なります。名称・集計区分を元ファイルで確認してください。`, { code: "label_conflict", sourceRange });
       } else {
-        addIssue(sales, `${sourceRange}: 別の売上表がありますが、全体との重複・独立を判定できません。自動追加していません。`);
+        addIssue(sales, `${sourceRange}: 別の売上表がありますが、全体との重複・独立を判定できません。自動追加していません。`, { code: "unproven_coverage", sourceRange });
       }
     }
     const expenses = extractExpenses(sheetName, sheet, year, month, Boolean(workbook.Workbook?.WBProps?.date1904), main);
     for (const coordinate of unclaimedTableHeaders(sheet, expenses.map((table) => table.sourceRange.split(":")[0]))) {
-      addIssue(sales, `${coordinate}: 自動抽出した売上・経費表のほかに取引・台帳の見出しがあります。取り落としを避けるため停止しました。この表を別シートに分けて確認してください。`);
+      addIssue(sales, `${coordinate}: 自動抽出した売上・経費表のほかに取引・台帳の見出しがあります。取り落としを避けるため停止しました。この表を別シートに分けて確認してください。`, { code: "unclaimed_structure", cells: [coordinate] });
     }
     tables.push(sales, ...expenses);
     handled.add(sheetName);
@@ -400,9 +417,9 @@ export function extractWorkbookLayouts(workbook: XLSX.WorkBook): { tables: Workb
         const adjusted = numeric(workbook.Sheets[sourceSheetName], target.r, target.c, layout.sales);
         const gross = layout.sales.rows.reduce((sum, row) => sum + Number(row.rawData.売上金額 || 0), 0);
         if (adjusted === null) {
-          addIssue(layout.sales, `${sheetName}!${coordinate}が参照する${address(target.r, target.c)}の調整後合計を確認できません。日別明細との整合性を確認してください。`);
+          addIssue(layout.sales, `${sheetName}!${coordinate}が参照する${address(target.r, target.c)}の調整後合計を確認できません。日別明細との整合性を確認してください。`, { code: "source_missing", cells: [address(target.r, target.c)] });
         } else if (Math.abs(adjusted - gross) > 0.01) {
-          addIssue(layout.sales, `${sheetName}!${coordinate}が参照する${address(target.r, target.c)}の調整後合計（${adjusted}）と日別明細合計（${gross}）に差額（${adjusted - gross}）があります。調整・控除の用途を確認するまで取り込めません。`);
+          addIssue(layout.sales, `${sheetName}!${coordinate}が参照する${address(target.r, target.c)}の調整後合計（${adjusted}）と日別明細合計（${gross}）に差額（${adjusted - gross}）があります。調整・控除の用途を確認するまで取り込めません。`, { code: "adjustment", cells: [address(target.r, target.c)], details: { expected: adjusted, actual: gross, delta: adjusted - gross } });
           const notice = `日別明細合計 ${gross} / 累計が参照する調整後合計 ${adjusted}。差額を新しい売上や値引きとして自動作成していません。`;
           if (!layout.sales.notices.includes(notice)) layout.sales.notices.push(notice);
         }
