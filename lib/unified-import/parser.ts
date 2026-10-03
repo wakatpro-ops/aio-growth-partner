@@ -2,6 +2,7 @@ import * as XLSX from "xlsx/xlsx.mjs";
 import { parseImportFile } from "../phase4/import-parser.ts";
 import { validateUnifiedImportValues } from "./value-validation.ts";
 import { extractWorkbookLayouts } from "./workbook-layout.ts";
+import { createImportClarificationIssue, resolveImportClarification } from "./clarification.ts";
 import type { ParsedUnifiedImport, ParsedUnifiedImportRow, UnifiedImportRecordType, UnifiedImportSheetSummary } from "@/types/unified-import";
 
 export const MAX_UNIFIED_IMPORT_FILE_SIZE = 20 * 1024 * 1024;
@@ -216,7 +217,7 @@ export function classifyUnifiedImportRow(rawData: Record<string, string>, sheetK
   return { rawData, suggestedRecordType, confidence, normalizedData, missingFields: [...new Set([...missingFields, ...invalidValues.map(({ field }) => field)])], question };
 }
 
-type MatrixRow = { values: string[]; rowNumber: number };
+type MatrixRow = { values: string[]; rowNumber: number; sourceIssues?: { column: number; code: "source_missing" | "source_error" }[] };
 type FlatBlock = { header: MatrixRow; data: MatrixRow[]; repeated: number; columnOffset: number; blockingIssues?: string[] };
 const MAX_WORKSHEET_CELLS = 2_000_000;
 
@@ -318,14 +319,23 @@ function parseMatrix(sheetName: string, matrix: MatrixRow[], macroEnabled: boole
       const rawData = Object.fromEntries(headers.map((header, column) => [header, clean(values[column])]));
       return { sheetName: name, rowNumber, ...classifyUnifiedImportRow(rawData, classified.kind, classified.confidence, classified.mapping) };
     });
-    sheets.push({
+    const summary: UnifiedImportSheetSummary = {
       name, sourceSheetName: sheetName, sourceRange: `${XLSX.utils.encode_col(block.columnOffset)}${block.header.rowNumber}:${XLSX.utils.encode_col(block.columnOffset + width - 1)}${block.data.at(-1)!.rowNumber}`,
       headerRowNumber: block.header.rowNumber, headers, rowCount: sheetRows.length,
       suggestedRecordType: classified.kind, confidence: classified.confidence, suggestedMapping: classified.mapping, missingRequiredFields,
       layout: "flat", notices, ambiguousColumns, requiresConfirmation: ambiguousColumns.length > 0,
       blockingIssues: block.blockingIssues,
       macroNotice: macroEnabled ? "マクロは実行せず、保存済みのセル値だけを読み取りました。" : null
-    });
+    };
+    summary.clarification = { version: 1, issues: [] };
+    for (const message of block.blockingIssues ?? []) summary.clarification.issues.push(createImportClarificationIssue({ tableName: name, code: "unclaimed_structure", message, source: { sheetName, range: summary.sourceRange! } }));
+    for (const sourceRow of block.data) for (const issue of sourceRow.sourceIssues ?? []) {
+      if (issue.column < block.columnOffset || issue.column >= block.columnOffset + width) continue;
+      const coordinate = `${XLSX.utils.encode_col(issue.column)}${sourceRow.rowNumber}`;
+      summary.clarification.issues.push(createImportClarificationIssue({ tableName: name, code: issue.code, message: issue.code === "source_missing" ? `${coordinate}: 数式の保存済み結果がありません。元ファイルを再計算・保存してください。` : `${coordinate}: 元ファイルにExcelエラー値があります。`, source: { sheetName, range: summary.sourceRange!, cells: [coordinate] }, rowNumbers: [sourceRow.rowNumber] }));
+    }
+    if (summary.requiresConfirmation) summary.clarification.issues.push(createImportClarificationIssue({ tableName: name, code: "layout_confirmation", message: "同名の見出しを元の列位置で区別しました。列の対応を確認してください。", source: { sheetName, range: summary.sourceRange! } }));
+    sheets.push(summary);
     rows.push(...sheetRows);
   }
   return { sheets, rows };
@@ -340,8 +350,11 @@ function worksheetMatrix(worksheet: XLSX.WorkSheet, date1904: boolean): MatrixRo
   const matrix: MatrixRow[] = [];
   for (let row = range.s.r; row <= range.e.r; row += 1) {
     const values: string[] = [];
+    const sourceIssues: NonNullable<MatrixRow["sourceIssues"]> = [];
     for (let column = 0; column <= range.e.c; column += 1) {
       const cell = worksheet[XLSX.utils.encode_cell({ r: row, c: column })] as XLSX.CellObject | undefined;
+      if (cell?.t === "e") sourceIssues.push({ column, code: "source_error" });
+      else if (cell?.f && (cell.t === "z" || cell.v === undefined || cell.v === null || cell.v === "")) sourceIssues.push({ column, code: "source_missing" });
       let value = cell?.t === "e" ? cell.w || "#CELL_ERROR!"
         : cell?.f && (cell.t === "z" || cell.v === undefined || cell.v === null || cell.v === "") ? "#数式の保存済み結果なし"
         : cell?.t === "z" ? ""
@@ -366,7 +379,7 @@ function worksheetMatrix(worksheet: XLSX.WorkSheet, date1904: boolean): MatrixRo
       // minus sign in parentheses or decorate the number with currency text.
       values.push(value);
     }
-    matrix.push({ rowNumber: row + 1, values });
+    matrix.push({ rowNumber: row + 1, values, sourceIssues });
   }
   return matrix;
 }
@@ -410,6 +423,11 @@ function delimitedMatrix(buffer: ArrayBuffer, delimiter: string): MatrixRow[] {
   return rows;
 }
 
+function withClarification(parsed: ParsedUnifiedImport): ParsedUnifiedImport {
+  const evaluated = resolveImportClarification({ sheets: parsed.sheets, rows: parsed.rows });
+  return { ...parsed, sheets: evaluated.sheets, rows: evaluated.rows };
+}
+
 export async function parseUnifiedImportFile(fileName: string, buffer: ArrayBuffer): Promise<ParsedUnifiedImport> {
   if (buffer.byteLength === 0) throw new Error("空ファイルは取り込めません。");
   if (buffer.byteLength > MAX_UNIFIED_IMPORT_FILE_SIZE) throw new Error("ファイルは20MB以下にしてください。");
@@ -424,14 +442,14 @@ export async function parseUnifiedImportFile(fileName: string, buffer: ArrayBuff
     const classified = classifyHeaders(parsed.headers);
     const missingRequiredFields = classified.kind === "unknown" ? [] : requiredFields[classified.kind].filter((field) => !classified.mapping[field]);
     const rows = parsed.rows.map((rawData, index) => ({ sheetName: "PDF", rowNumber: index + 2, ...classifyUnifiedImportRow(rawData, classified.kind, classified.confidence, classified.mapping) }));
-    return { fileType: "pdf", macroEnabled: false, sheets: [{ name: "PDF", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence, suggestedMapping: classified.mapping, missingRequiredFields }], rows };
+    return withClarification({ fileType: "pdf", macroEnabled: false, sheets: [{ name: "PDF", headerRowNumber: 1, headers: parsed.headers, rowCount: rows.length, suggestedRecordType: classified.kind, confidence: classified.confidence, suggestedMapping: classified.mapping, missingRequiredFields, clarification: { version: 1, issues: [] } }], rows });
   }
 
   if (lower.endsWith(".csv") || lower.endsWith(".tsv")) {
     const parsed = parseMatrix("データ", delimitedMatrix(buffer, lower.endsWith(".tsv") ? "\t" : ""), false);
     if (parsed.rows.length > MAX_UNIFIED_IMPORT_ROWS) throw new Error(`一度に解析できるのは${MAX_UNIFIED_IMPORT_ROWS.toLocaleString("ja-JP")}行までです。ファイルを分割してください。`);
     if (!parsed.rows.length) throw new Error("取り込める表形式のデータがありません。見出し行とデータ行を確認してください。");
-    return { fileType: "csv", macroEnabled: false, ...parsed };
+    return withClarification({ fileType: "csv", macroEnabled: false, ...parsed });
   }
 
   let workbook: XLSX.WorkBook;
@@ -464,6 +482,7 @@ export async function parseUnifiedImportFile(fileName: string, buffer: ArrayBuff
       missingRequiredFields: table.kind === "ignore" ? [] : requiredFields[table.kind].filter((field) => !table.mapping[field]),
       layout: "matrix", notices: table.notices, requiresConfirmation: table.requiresConfirmation,
       blockingIssues: table.blockingIssues, excludedReason: table.excludedReason,
+      clarification: table.clarification,
       macroNotice: macroEnabled ? "マクロは実行せず、保存済みのセル値だけを読み取りました。" : null
     });
     rows.push(...tableRows);
@@ -480,5 +499,5 @@ export async function parseUnifiedImportFile(fileName: string, buffer: ArrayBuff
   }
   if (rows.length > MAX_UNIFIED_IMPORT_ROWS) throw new Error(`一度に解析できるのは${MAX_UNIFIED_IMPORT_ROWS.toLocaleString("ja-JP")}行までです。ファイルを分割してください。`);
   if (rows.length === 0) throw new Error(`取り込める表形式のデータがありません。見出し行とデータ行を確認してください。${notices.join(" ")}`);
-  return { fileType: "excel", macroEnabled, sheets, rows, notices };
+  return withClarification({ fileType: "excel", macroEnabled, sheets, rows, notices });
 }

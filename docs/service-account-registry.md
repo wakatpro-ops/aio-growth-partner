@@ -4,6 +4,13 @@
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
+## 2026-10-03 取り込み対話確認・品質判定（Issue #168）
+
+- 既存GitHub/Vercel/Supabaseを再利用。staging `zlqqjifitnvorudxbepy` に原本保護・承認保存RPCのmigration `202610030001` を適用し、実DBの7テスト群を通過。
+- 本番Vercelプロジェクトの隔離Preview `dpl_B3Sb5cefijXGGxWA4emtN5KohbRt` で、DBをstagingに限定し、既存の保護済みAI設定をその場で利用。8テスト群と実AI応答5回が成功し、モデルは `gpt-6-luna`。秘密値の出力・ファイル保存・保護解除は行わない。
+- 本番URL・本番業務データは検証で変更しない。隔離Previewは本番へ昇格せず、通常のProduction設定で配備する。最終本番migration・配備結果はIssue/PRに記録。詳細は `docs/import-clarification.md`。
+- 同日、本番 `tykanoxkfmixdrmyqelq` の実行中取込が0件であることを確認して同じmigrationを適用・履歴記録。原本列、証跡トリガー、直接DBアクセス拒否、service_roleのみのRPC実行を読取検証済み。業務データの訂正・取り込みは行っていない。
+
 ## 2026-10-03 Excel集計表取り込みの修正（Issue #166）
 
 - 既存GitHub/Vercel/Supabase環境を再利用し、新規契約・DBスキーマ・API権限・秘密値の設定変更は行わない。

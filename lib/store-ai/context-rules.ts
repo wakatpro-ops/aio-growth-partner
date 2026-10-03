@@ -1,7 +1,7 @@
 import { calendarDays, japanDay, shiftDay, validDay } from "../customer-workbench-rules";
 
 export type AiArea = "home" | "bookings" | "customers" | "sales" | "inventory" | "reviews" | "aio" | "marketing" | "inbox" | "documents" | "imports" | "settings" | "help";
-export type AiPage = { area: AiArea; pathname: string; key: string; tab: string; view: string; day: string; days: string[]; recordId: string | null; query: Record<string, string> };
+export type AiPage = { area: AiArea; pathname: string; key: string; tab: string; view: string; day: string; days: string[]; recordId: string | null; importJobId: string | null; query: Record<string, string> };
 export type AiSection = { key: string; label: string; state: "ready" | "empty" | "unavailable" | "restricted"; summary: string; data?: unknown; truncated?: boolean };
 export type AiLink = { label: string; href: string };
 export type AiContext = { version: string; key: string; pageLabel: string; storeName: string; industry: string; role: string; canEdit: boolean; manager: boolean; observedAt: string; day: string; greeting: string; suggestions: string[]; links: AiLink[]; guidance: string; sections: AiSection[] };
@@ -31,7 +31,8 @@ export function resolveAiPage(storeId: string, pathname: string, search = "", no
   const day = validDay(query.date, japanDay(now));
   const view = ["day", "week", "upcoming", "past", "deleted"].includes(query.view) ? query.view : "week";
   const tab = query.tab || (area === "bookings" ? "bookings" : area === "inventory" ? "menu" : "");
-  return { area, pathname, key: `${pathname}?${new URLSearchParams(Object.entries(query).sort())}`, tab, view, day, days: calendarDays(day, view === "week"), recordId: parts.find(part => uuid.test(part)) ?? null, query };
+  const importJobId = parts.length === 3 && parts[0] === "data-imports" && parts[1] === "ai" && uuid.test(parts[2]) ? parts[2] : null;
+  return { area, pathname, key: `${pathname}?${new URLSearchParams(Object.entries(query).sort())}`, tab, view, day, days: calendarDays(day, view === "week"), recordId: parts.find(part => uuid.test(part)) ?? null, importJobId, query };
 }
 
 export function bookingPeriod(page: AiPage) {

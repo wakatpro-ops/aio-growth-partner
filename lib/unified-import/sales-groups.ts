@@ -1,5 +1,8 @@
+import { normalizeImportBusinessDate } from "../import-date.ts";
+
 type SaleGroupRow = {
   id: string;
+  sheet_name?: string;
   normalized_data: Record<string, string | number | boolean | null>;
 };
 
@@ -8,14 +11,16 @@ function text(value: unknown) {
 }
 
 function businessDate(value: unknown) {
-  const input = text(value);
-  if (!input) return "unknown-date";
-  return input.replace(/[年月]/gu, "-").replace(/日/gu, "").replace(/[./]/gu, "-").slice(0, 10);
+  return normalizeImportBusinessDate(value) ?? "unknown-date";
 }
 
 export function unifiedSaleGroupKey(row: SaleGroupRow) {
   const transactionId = text(row.normalized_data.transaction_id);
-  return transactionId ? `${businessDate(row.normalized_data.date)}:${transactionId}` : `row:${row.id}`;
+  // A receipt number is local to its source table. A held table must not
+  // collide with another table's already-imported receipt when resumed.
+  return JSON.stringify(transactionId
+    ? ["receipt", row.sheet_name ?? "", businessDate(row.normalized_data.date), transactionId]
+    : ["row", row.sheet_name ?? "", row.id]);
 }
 
 export function groupUnifiedSaleRows<T extends SaleGroupRow>(rows: T[]) {

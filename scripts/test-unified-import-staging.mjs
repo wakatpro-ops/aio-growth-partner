@@ -7,6 +7,7 @@ import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import XLSX from "xlsx";
 import ts from "typescript";
+import { z } from "zod";
 import * as dates from "../lib/import-date.ts";
 import * as parser from "../lib/unified-import/parser.ts";
 import * as legacyParser from "../lib/phase4/import-parser.ts";
@@ -14,6 +15,7 @@ import * as saleGroups from "../lib/unified-import/sales-groups.ts";
 import * as values from "../lib/unified-import/value-validation.ts";
 import * as version from "../lib/unified-import/version.ts";
 import * as storageNames from "../lib/storage-object-name.ts";
+import * as clarification from "../lib/unified-import/clarification.ts";
 
 assert(process.argv.includes("--staging-synthetic"), "Pass --staging-synthetic to authorize disposable staging fixtures");
 const ref = "zlqqjifitnvorudxbepy";
@@ -49,6 +51,7 @@ const modules = {
   "@/lib/unified-import/sales-groups": saleGroups,
   "@/lib/unified-import/value-validation": values,
   "@/lib/unified-import/version": version,
+  "@/lib/unified-import/clarification": clarification,
   "@/lib/storage-object-name": storageNames,
   "@/lib/phase4/import-parser": legacyParser,
   "@/lib/inventory-operations": { applyImportedSaleInventory: unexpected, syncOrderInventory: unexpected },
@@ -67,6 +70,13 @@ function loadService(file) {
 modules["@/lib/phase6/compliance-data"] = loadService("../lib/phase6/compliance-data.ts");
 modules["@/lib/phase4/sales-import-data"] = loadService("../lib/phase4/sales-import-data.ts");
 const service = loadService("../lib/unified-import/data.ts");
+Object.assign(modules, { zod: { z }, "./data": service, "./clarification": clarification, "./version": version, "./value-validation": values });
+const clarificationService = loadService("../lib/unified-import/clarification-data.ts");
+function sheetsFile(sheets, name) {
+  const book = XLSX.utils.book_new();
+  for (const [sheetName, matrix] of sheets) XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(matrix), sheetName);
+  return new File([XLSX.write(book, { type: "buffer", bookType: "xlsx" })], name, { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+}
 function fileFor(matrix, name) {
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(matrix), "合成表");
@@ -89,6 +99,28 @@ async function upload(file) {
   const form = new FormData(); form.set("file", file);
   return service.uploadUnifiedImportFile(storeId, form);
 }
+async function review(jobId, form = new FormData()) {
+  const detail = await service.getUnifiedImportJob(storeId, jobId);
+  form.set("expected_revision", detail.job.updated_at);
+  return service.saveUnifiedImportReview(storeId, jobId, form);
+}
+async function execute(jobId) {
+  const detail = await service.getUnifiedImportJob(storeId, jobId);
+  return service.executeUnifiedImport(storeId, jobId, detail.job.updated_at);
+}
+async function previewResolution(jobId, resolutions) {
+  const detail = await service.getUnifiedImportJob(storeId, jobId);
+  const form = new FormData();
+  form.set("expected_revision", detail.job.updated_at);
+  form.set("resolutions", JSON.stringify(resolutions));
+  return clarificationService.previewUnifiedImportClarification(storeId, jobId, form);
+}
+async function approveResolution(jobId, proposal) {
+  const form = new FormData();
+  form.set("expected_revision", proposal.revision); form.set("proposal_id", proposal.id); form.set("approved", "on");
+  return clarificationService.applyUnifiedImportClarification(storeId, jobId, form);
+}
+const denied = (result, message) => { assert(result.error, message); assert.equal(result.data, null); };
 
 try {
   checked(await db.from("organizations").insert({ id: orgId, name: "IMPORT SYNTHETIC ONLY", status: "active" }));
@@ -107,13 +139,13 @@ try {
   const preview = await service.getUnifiedImportJob(storeId, monthly.jobId);
   assert.equal(preview.rows.length, 2);
   assert(preview.job.sheet_summaries.some((sheet) => sheet.requiresConfirmation));
-  await service.saveUnifiedImportReview(storeId, monthly.jobId, new FormData());
-  await assert.rejects(() => service.executeUnifiedImport(storeId, monthly.jobId));
+  await review(monthly.jobId);
+  await assert.rejects(() => execute(monthly.jobId));
   assert.equal(await count("sales_transactions"), 0);
   const confirm = new FormData();
   preview.job.sheet_summaries.forEach((sheet, index) => { if (sheet.requiresConfirmation) confirm.set(`sheet_confirm_${index}`, "on"); });
-  assert.equal((await service.saveUnifiedImportReview(storeId, monthly.jobId, confirm)).unresolved, 0);
-  assert.deepEqual(await service.executeUnifiedImport(storeId, monthly.jobId), { success: 2, errors: 0 });
+  assert.equal((await review(monthly.jobId, confirm)).unresolved, 0);
+  assert.deepEqual(await execute(monthly.jobId), { success: 2, errors: 0, held: 0 });
   const sales = checked(await db.from("sales_transactions").select("gross_amount,business_date").eq("store_id", storeId));
   assert.deepEqual(sales.map((sale) => Number(sale.gross_amount)).sort((a, b) => a - b), [-20, 100]);
   assert.equal(Number(checked(await db.from("inventory_stocks").select("quantity").eq("item_id", itemId).single()).quantity), 7);
@@ -130,8 +162,8 @@ try {
   assert(checked(await db.from("unified_import_jobs").select("archived_at").eq("id", flat.jobId).single()).archived_at);
   assert.deepEqual(checked(await db.from("unified_import_rows").select("*").eq("import_job_id", flat.jobId)), oldRows);
   assert.equal(await count("sales_transactions"), salesBefore);
-  await service.saveUnifiedImportReview(storeId, replacement.jobId, new FormData());
-  assert.deepEqual(await service.executeUnifiedImport(storeId, replacement.jobId), { success: 1, errors: 0 });
+  await review(replacement.jobId);
+  assert.deepEqual(await execute(replacement.jobId), { success: 1, errors: 0, held: 0 });
   const refund = checked(await db.from("sales_transaction_items").select("quantity,total_amount").eq("store_id", storeId).eq("item_name", "Synthetic Refund").single());
   assert.equal(Number(refund.quantity), 1);
   assert.equal(Number(refund.total_amount), -1000);
@@ -141,21 +173,107 @@ try {
   const manyPreview = await service.getUnifiedImportJob(storeId, many.jobId);
   assert.equal(manyPreview.rows.length, 1205);
   assert.equal(new Set(manyPreview.rows.map((row) => row.id)).size, 1205);
-  assert.equal((await service.saveUnifiedImportReview(storeId, many.jobId, new FormData())).approved, 1205);
+  assert.equal((await review(many.jobId)).approved, 1205);
   assert.equal(await count("sales_transactions"), 3);
   pass("1205 real PostgREST preview/review rows are complete and remain unimported");
 
+  const expense = await upload(sheetsFile([["経費", [["支払日", "勘定科目", "経費金額"], ["2026-09-02", "Synthetic Supplies", 123]]]], "synthetic-expense-default.xlsx"));
+  const expenseBefore = await service.getUnifiedImportJob(storeId, expense.jobId);
+  assert.equal(expenseBefore.rows.length, 1);
+  const expenseSheet = expenseBefore.job.sheet_summaries.find((sheet) => sheet.suggestedRecordType === "expense");
+  assert(expenseSheet, "Synthetic expense table must be detected");
+  const vendorIssue = clarificationService.calculateClarification(expenseBefore.job, expenseBefore.rows).sheets.flatMap((sheet) => sheet.clarification?.issues ?? []).find((issue) => issue.field === "vendor_name");
+  assert(vendorIssue, "Missing source vendor column requires an explicit default answer");
+  const vendorAnswer = { id: randomUUID(), tableName: expenseSheet.name, issueIds: [vendorIssue.id], reason: "Synthetic fixture vendor verified", action: "set_default", field: "vendor_name", value: "Synthetic Approved Vendor" };
+  const vendorProposal = await previewResolution(expense.jobId, [vendorAnswer]);
+  assert.equal(vendorProposal.changedRows, 1);
+  assert.deepEqual(checked(await db.from("unified_import_rows").select("*").eq("import_job_id", expense.jobId)), expenseBefore.rows, "Preview must not alter rows or their source snapshot");
+  const unapproved = new FormData(); unapproved.set("expected_revision", vendorProposal.revision); unapproved.set("proposal_id", vendorProposal.id);
+  await assert.rejects(() => clarificationService.applyUnifiedImportClarification(storeId, expense.jobId, unapproved), /承認/);
+  assert.equal(await count("expense_receipts"), 0);
+  assert.deepEqual(await approveResolution(expense.jobId, vendorProposal), { remaining: 0 });
+  await assert.rejects(() => approveResolution(expense.jobId, vendorProposal), /別の操作/);
+  const expenseApproved = await service.getUnifiedImportJob(storeId, expense.jobId);
+  assert.deepEqual(expenseApproved.rows[0].raw_data, expenseBefore.rows[0].raw_data);
+  assert.deepEqual(expenseApproved.rows[0].clarification_base_data, expenseBefore.rows[0].normalized_data);
+  assert.equal(expenseApproved.rows[0].normalized_data.vendor_name, vendorAnswer.value);
+  assert.equal(expenseApproved.job.answers.clarification_resolutions[0].actorId, users[0].id);
+  assert.equal(expenseApproved.job.answers.clarification_resolutions[0].id, vendorAnswer.id);
+  denied(await db.from("unified_import_rows").update({ raw_data: { synthetic: "tamper" } }).eq("id", expenseApproved.rows[0].id).select(), "Original source must be immutable");
+  denied(await db.from("unified_import_rows").update({ clarification_base_data: {} }).eq("id", expenseApproved.rows[0].id).select(), "Original normalized snapshot must be immutable");
+  denied(await db.from("unified_import_jobs").update({ file_sha256: "synthetic-tamper" }).eq("id", expense.jobId).select(), "File evidence must be immutable");
+  const badAnswers = { ...expenseApproved.job.answers, clarification_resolutions: [] };
+  const rpcArgs = { p_job_id: expense.jobId, p_store_id: storeId, p_organization_id: orgId, p_expected_revision: expenseApproved.job.updated_at,
+    p_revision: new Date(Date.parse(expenseApproved.job.updated_at) + 1000).toISOString(),
+    p_rows: [{ ...expenseApproved.rows[0], normalized_data: { ...expenseApproved.rows[0].normalized_data, amount: "999" } }],
+    p_answers: badAnswers, p_sheets: expenseApproved.job.sheet_summaries, p_questions: [] };
+  denied(await db.rpc("apply_unified_import_clarification", rpcArgs), "Removing approval history must reject and atomically roll back row changes");
+  assert.deepEqual((await service.getUnifiedImportJob(storeId, expense.jobId)).rows, expenseApproved.rows);
+  assert.deepEqual((await service.getUnifiedImportJob(storeId, expense.jobId)).job, expenseApproved.job);
+  denied(await db.rpc("apply_unified_import_clarification", { ...rpcArgs, p_store_id: randomUUID(), p_answers: expenseApproved.job.answers }), "Cross-store RPC must reject");
+  denied(await db.rpc("apply_unified_import_clarification", { ...rpcArgs, p_organization_id: randomUUID(), p_answers: expenseApproved.job.answers }), "Cross-organization RPC must reject");
+  denied(await db.rpc("apply_unified_import_clarification", { ...rpcArgs, p_expected_revision: expenseBefore.job.updated_at, p_answers: expenseApproved.job.answers }), "Stale RPC revision must reject");
+  assert.deepEqual(await review(expense.jobId), { unresolved: 0, approved: 1, held: 0 }, "Approved default must not require a source column");
+  assert.deepEqual(await execute(expense.jobId), { success: 1, errors: 0, held: 0 });
+  const receipt = checked(await db.from("expense_receipts").select("vendor_name,receipt_date,total_amount").eq("store_id", storeId).single());
+  assert.equal(receipt.vendor_name, vendorAnswer.value); assert.equal(receipt.receipt_date, "2026-09-02"); assert.equal(Number(receipt.total_amount), 123);
+  denied(await db.from("unified_import_rows").update({ normalized_data: { amount: "999" }, review_status: "ready", result_id: null }).eq("id", expenseApproved.rows[0].id).select(), "Posted rows must remain immutable");
+  pass("real clarification preview/approval RPC, missing vendor default, immutable evidence/history, atomic rollback, stale/cross-tenant rejection, and expense execution");
+
+  const partial = await upload(sheetsFile([
+    ["先に取込", [["売上日", "商品名", "金額", "伝票番号"], ["2026-09-03", "Synthetic Shared Receipt", 100, "SHARED-SYNTHETIC"]]],
+    ["保留分", [["売上日", "商品名", "金額", "伝票番号"], ["2026-09-03", "Synthetic Shared Receipt", "#VALUE!", "SHARED-SYNTHETIC"]]]
+  ], "synthetic-partial-hold.xlsx"));
+  const partialBefore = await service.getUnifiedImportJob(storeId, partial.jobId);
+  const heldIndex = partialBefore.job.sheet_summaries.findIndex((sheet) => sheet.sourceSheetName === "保留分" || sheet.name === "保留分");
+  assert(heldIndex >= 0);
+  const heldName = partialBefore.job.sheet_summaries[heldIndex].name;
+  const hold = new FormData(); hold.set(`sheet_hold_${heldIndex}`, "on");
+  assert.deepEqual(await review(partial.jobId, hold), { unresolved: 0, approved: 1, held: 1 });
+  assert.deepEqual(await execute(partial.jobId), { success: 1, errors: 0, held: 1 });
+  const heldDetail = await service.getUnifiedImportJob(storeId, partial.jobId);
+  assert.equal(heldDetail.job.status, "questions_required"); assert.equal(heldDetail.job.completed_at, null);
+  const posted = heldDetail.rows.find((row) => row.review_status === "imported");
+  const heldRow = heldDetail.rows.find((row) => row.sheet_name === heldName);
+  assert.deepEqual(heldRow.raw_data, partialBefore.rows.find((row) => row.id === heldRow.id).raw_data);
+  const amountIssue = clarificationService.calculateClarification(heldDetail.job, heldDetail.rows).sheets.find((sheet) => sheet.name === heldName).clarification.issues.find((issue) => issue.field === "amount");
+  assert(amountIssue);
+  const amountProposal = await previewResolution(partial.jobId, [{ id: randomUUID(), tableName: heldName, issueIds: [amountIssue.id], reason: "Synthetic amount independently verified", action: "correct_values", corrections: [{ rowNumber: heldRow.row_number, field: "amount", value: 200 }] }]);
+  await approveResolution(partial.jobId, amountProposal);
+  assert.deepEqual(await review(partial.jobId), { unresolved: 0, approved: 1, held: 0 });
+  assert.deepEqual((await service.getUnifiedImportJob(storeId, partial.jobId)).rows.find((row) => row.id === posted.id), posted, "Resuming never rewrites posted rows");
+  assert.deepEqual(await execute(partial.jobId), { success: 2, errors: 0, held: 0 });
+  const shared = checked(await db.from("sales_transactions").select("id,gross_amount").eq("store_id", storeId).contains("source_metadata", { unified_import_job_id: partial.jobId }));
+  assert.equal(shared.length, 2); assert.equal(shared.reduce((sum, row) => sum + Number(row.gross_amount), 0), 300);
+  const salesAfterResume = await count("sales_transactions");
+  assert.deepEqual(await execute(partial.jobId), { success: 2, errors: 0, held: 0 });
+  assert.equal(await count("sales_transactions"), salesAfterResume);
+  pass("real partial hold/import/approved correction/resume with shared receipt ID, preserved posted rows, and zero duplicate transactions");
+
+  checked(await db.from("unified_import_jobs").update({ status: "importing" }).eq("id", many.jobId));
+  denied(await db.from("unified_import_jobs").update({ archived_at: new Date().toISOString() }).eq("id", many.jobId).select(), "Active execution cannot be archived");
+  checked(await db.from("unified_import_jobs").update({ status: "review_ready" }).eq("id", many.jobId));
+  pass("database rejects archival during an active import");
+
   activeRole = "outsider";
-  await assert.rejects(() => service.saveUnifiedImportReview(storeId, many.jobId, new FormData()), /権限/);
-  await assert.rejects(() => service.executeUnifiedImport(storeId, many.jobId), /権限/);
+  await assert.rejects(() => service.getUnifiedImportJob(storeId, many.jobId), /権限/);
+  await assert.rejects(() => service.listUnifiedImportJobs(storeId), /権限/);
+  await assert.rejects(() => review(many.jobId), /権限/);
+  await assert.rejects(() => execute(many.jobId), /権限/);
   await assert.rejects(() => service.reanalyzeUnifiedImport(storeId, many.jobId), /権限/);
   activeRole = "owner";
-  const outsider = createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  checked(await outsider.auth.signInWithPassword({ email: users[1].email, password: users[1].password }));
-  assert.deepEqual(checked(await outsider.from("unified_import_jobs").select("id").eq("store_id", storeId)), []);
-  assert.deepEqual(checked(await outsider.from("unified_import_rows").select("id").eq("store_id", storeId)), []);
-  await outsider.auth.signOut();
-  pass("non-member service writes denied and real authenticated RLS cannot read fixture jobs or rows");
+  for (const user of users) {
+    const authenticated = createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    checked(await authenticated.auth.signInWithPassword({ email: user.email, password: user.password }));
+    for (const table of ["unified_import_jobs", "unified_import_rows"]) {
+      denied(await authenticated.from(table).select("id").eq("store_id", storeId), "Direct authenticated raw financial reads denied, including owner");
+      denied(await authenticated.from(table).update({ updated_at: new Date().toISOString() }).eq("store_id", storeId).select(), "Direct authenticated mutation denied");
+      denied(await authenticated.from(table).delete().eq("store_id", storeId).select(), "Direct authenticated deletion denied");
+    }
+    denied(await authenticated.rpc("apply_unified_import_clarification", rpcArgs), "Authenticated RPC access denied");
+    await authenticated.auth.signOut();
+  }
+  pass("non-member raw service access denied; real authenticated owner and outsider direct SELECT/DML/RPC permissions denied");
   console.log(JSON.stringify({ passed: true, checks }));
 } finally {
   // Exact random fixture IDs generated by this invocation only; no pre-existing business data is touched.
@@ -165,7 +283,7 @@ try {
     const jobs = checked(await db.from("unified_import_jobs").select("storage_path").eq("store_id", storeId));
     return jobs.length ? db.storage.from("import-files").remove(jobs.map((job) => job.storage_path)) : { data: [], error: null };
   });
-  for (const table of ["audit_logs", "normalized_sales_summaries", "sales_transaction_items", "sales_transactions", "unified_import_rows", "unified_import_jobs", "inventory_movements", "inventory_stocks", "items"]) {
+  for (const table of ["audit_logs", "normalized_sales_summaries", "sales_transaction_items", "sales_transactions", "expense_receipts", "unified_import_rows", "unified_import_jobs", "inventory_movements", "inventory_stocks", "items"]) {
     await cleanup(table, () => db.from(table).delete().eq("store_id", storeId));
   }
   await cleanup("store", () => db.from("stores").delete().eq("id", storeId));

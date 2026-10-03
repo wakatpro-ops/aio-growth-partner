@@ -68,7 +68,8 @@ export async function setStoreEntityArchived(storeId: string, entity: StoreArchi
   if (!access) throw new Error("ログインが必要です。");
   const store = await getStore(storeId);
   if (entity === "item" && !menuPermissions(access,store.organization_id,store.id).manager) throw new Error("商品の削除・復元は店長権限が必要です。");
-  const role = access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer";
+  const role = (entity === "unified_import" ? [access.organizationRoles[store.organization_id], access.storeRoles[store.id]].find((value) => ["org_owner", "store_manager"].includes(value ?? "")) : undefined) ?? access.organizationRoles[store.organization_id] ?? access.storeRoles[store.id] ?? "viewer";
+  if (entity === "unified_import" && !access.isPlatformAdmin && ![access.organizationRoles[store.organization_id], access.storeRoles[store.id]].some((value) => ["org_owner", "store_manager"].includes(value ?? ""))) throw new Error("売上・経費を含む取込履歴の削除・復元は店舗管理者が行ってください。");
   if (!access.isPlatformAdmin && !["org_owner", "store_manager", "staff"].includes(role)) {
     throw new Error("削除・復元する権限がありません。");
   }
@@ -81,11 +82,13 @@ export async function setStoreEntityArchived(storeId: string, entity: StoreArchi
   const payload = archived
     ? { archived_at: timestamp, archived_by: access.userId, updated_at: timestamp }
     : { archived_at: null, archived_by: null, updated_at: timestamp };
-  const { data, error } = await supabase
+  let archiveQuery = supabase
     .from(config.table)
     .update(payload)
     .eq("store_id", storeId)
-    .eq("id", recordId)
+    .eq("id", recordId);
+  if (entity === "unified_import") archiveQuery = archiveQuery.not("status", "in", "(analyzing,importing)");
+  const { data, error } = await archiveQuery
     .select("id")
     .maybeSingle();
   if (error) throw new Error(`${config.label}を${archived ? "アーカイブ" : "復元"}できませんでした: ${error.message}`);
@@ -101,12 +104,15 @@ export async function setStoreEntityArchived(storeId: string, entity: StoreArchi
 }
 
 export async function listArchivedStoreRecords(storeId: string): Promise<ArchivedStoreRecord[]> {
-  await getStore(storeId);
+  const store = await getStore(storeId);
+  const access = await getCurrentUserAccess();
+  const importManager = access?.isPlatformAdmin || [access?.organizationRoles[store.organization_id], access?.storeRoles[store.id]].some((role) => ["org_owner", "store_manager"].includes(role ?? ""));
   const supabase = createSupabaseAdminClient();
   if (!supabase) return [];
 
   const entries = Object.entries(entityConfigs) as Array<[StoreArchiveEntity, EntityConfig]>;
   const results = await Promise.all(entries.map(async ([entity, config]) => {
+    if (entity === "unified_import" && !importManager) return [];
     const { data, error } = await supabase
       .from(config.table)
       .select(`id, archived_at, created_at, ${config.select}`)

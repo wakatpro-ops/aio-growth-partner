@@ -1,6 +1,6 @@
 import type { AiArea, AiPage } from "./context-rules";
 
-export const contextVersion = "2026-09-27.2";
+export const contextVersion = "2026-10-03.1";
 // Versioned, code-reviewed product knowledge. Store/email text cannot override it.
 const pages: Record<AiArea, { label: string; guidance: string; suggestions: string[] }> = {
   home: { label: "店舗トップ", guidance: "今日やること、売上、在庫、口コミ、SNS下書きを横断して確認する。運営データ確認度は接続・登録範囲であり経営成績ではない。", suggestions: ["今日、先に確認することは？", "今の売上を教えて", "確認できていない情報は？"] },
@@ -13,13 +13,14 @@ const pages: Record<AiArea, { label: string; guidance: string; suggestions: stri
   marketing: { label: "集客・販促", guidance: "集客の提案、下書き、承認、予定・公開状態を確認。下書きや承認済みを公開済みと混同しない。外部公開は接続・権限・媒体条件と内容の確認が必要。", suggestions: ["準備中の投稿はある？", "次の投稿テーマを考えたい", "公開までの手順は？"] },
   inbox: { label: "AI受信箱", guidance: "店舗固有転送先へ届いたメールを予約・問い合わせなどに分類。初回は内容を確認し、送信元・媒体・形式・新規/変更/取消の種類を承認したルールだけ以後自動処理。情報不足・重複・衝突・形式変更は確認。外部サービスへの変更通知は自動で保証されない。この会話にはメール本文・受信記録を取得していない。", suggestions: ["予約メールの転送方法は？", "毎回確認が必要？", "自動処理できない場合は？"] },
   documents: { label: "書類・入金", guidance: "見積・請求はプレビューと入力を照らし合わせる。領収・入金は別記録。税額・発行者情報などを保存前に確認。この会話では書類明細や未保存の入力を取得していない。書類を保存・送信・削除しない。", suggestions: ["この画面の操作手順は？", "保存前に確認することは？", "見積から請求に進むには？"] },
-  imports: { label: "データ取り込み", guidance: "CSV・Excel・PDFなどを分類し、列の意味と抽出結果を確認して対象領域へ保存。マクロは実行しない。集計済みの表と取引明細の重複に注意。取り込み状況やファイル本文はこの会話では取得していない。", suggestions: ["どんなデータを取り込める？", "取り込み後に確認することは？", "同じデータを二重登録しないためには？"] },
+  imports: { label: "データ取り込み", guidance: "CSV・Excel・PDFなどを分類し、列の意味と抽出結果を確認して対象領域へ保存。マクロは実行しない。集計済みの表と取引明細の重複に注意。一覧・アップロード画面では特定のファイルを選択していない。解析結果の詳細画面では、権限内で選択したファイルの状態・確認事項だけを取得する。ファイル全文・氏名・連絡先・自由記入欄は会話に渡していない。", suggestions: ["どんなデータを取り込める？", "取り込み後に確認することは？", "同じデータを二重登録しないためには？"] },
   settings: { label: "設定・連携", guidance: "店舗情報・スタッフ・外部サービスを管理する。連携は選択中の店舗が対象。他法人の情報を混ぜない。認証情報は会話に貼らせない。この会話では個々の接続設定・秘密情報を取得していない。", suggestions: ["どの設定から進める？", "スタッフの権限を確認したい", "外部サービスの接続方法は？"] },
   help: { label: "店舗の操作ガイド", guidance: "取得していない画面の内容・保存結果・未実装機能を断定しない。表示文言を確認して案内する。", suggestions: ["この画面でできることは？", "操作について相談したい"] }
 };
 
 export function pageKnowledge(page: AiPage) {
   const entry = pages[page.area];
+  if (page.area === "imports" && page.importJobId) return { ...entry, label: "選択したファイルの取込確認", guidance: `${entry.guidance} import_detailはURLで選択した一つの未削除ジョブ。表番号は画面の順番。issueGroups/nextQuestionの未解決事項を種類ごとにまとめ、一度に一つだけ尋ねる。年月・調整額・支払先などは利用者の意図を確認し、推測で補完しない。「修正案を見る」で提案を作り、専用の承認操作で修正案を採用し、その後の取り込み確定で初めて本データへ反映する。hasPendingProposal=trueは未承認の案があるだけで、適用・取り込み済みではない。acceptedResolutionCountは修正案の承認数で、反映済み行数ではない。heldは後で確認する保留であり削除・無視・反映済みと区別。解消できない範囲は保留し、確認できた表だけ先に進める。新しいファイルへ移動したら以前の質問・回答を流用しない。会話だけで回答保存・承認・確定はできず、専用操作へ案内する。restricted/unavailableなら個別ファイルの内容を知らないと伝える。`, suggestions: ["このファイルで最初に確認することは？", "保留と反映済みは何行？", "修正案を確認して進めるには？"] };
   if (/\/bookings\/(line|migration|integrations|settings)(?:\/|$)/u.test(page.pathname)) return { ...pages.settings, label: "予約の設定・連携", guidance: `${pages.settings.guidance} 予約内容・担当や設備・LINE予約・既存予約の移行・外部サービス連携を設定する領域。メール転送による予約の集約はAI受信箱。API利用可否は媒体の契約・審査による。既存の外部サービスを自動で停止・移行完了しない。`, suggestions: ["予約メールで連携するには？", "既存LINE予約から移行するには？", "連携前に確認することは？"] };
   if (page.area === "inventory" && page.tab === "analysis") return { ...entry, label: "商品の売れ方・参考利益", suggestions: ["この期間によく売れている商品は？", "参考利益と実際の利益の違いは？", "商品に紐付いていない売上は？"] };
   if (/\/inventory\/documents(?:\/|$)/u.test(page.pathname)) return { ...entry, label: "入荷・廃棄・仕入の確認", guidance: `${entry.guidance} 伝票の明細・未保存の入力は会話では未取得。商品と単位・数量を確認してから在庫に反映する。` };

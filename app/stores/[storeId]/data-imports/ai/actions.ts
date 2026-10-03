@@ -5,6 +5,7 @@ import { requireStoreActionWriteAccess } from "@/lib/auth/store-action-access";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { executeUnifiedImport, reanalyzeUnifiedImport, saveUnifiedImportReview, uploadUnifiedImportFile } from "@/lib/unified-import/data";
+import { applyUnifiedImportClarification, previewUnifiedImportClarification } from "@/lib/unified-import/clarification-data";
 
 function errorParam(error: unknown) {
   const message = error instanceof Error ? error.message : "処理に失敗しました。";
@@ -50,10 +51,10 @@ export async function reanalyzeUnifiedImportAction(storeId: string, jobId: strin
   redirect(`/stores/${storeId}/data-imports/ai/${nextJobId}?reanalyzed=1${onboarding ? "&onboarding=1" : ""}`);
 }
 
-export async function executeUnifiedImportAction(storeId: string, jobId: string, onboarding: boolean) {
+export async function executeUnifiedImportAction(storeId: string, jobId: string, onboarding: boolean, formData: FormData) {
   await requireStoreActionWriteAccess(storeId);
   try {
-    await executeUnifiedImport(storeId, jobId);
+    await executeUnifiedImport(storeId, jobId, String(formData.get("expected_revision") ?? ""));
   } catch (error) {
     redirect(`/stores/${storeId}/data-imports/ai/${jobId}?error=${errorParam(error)}${onboarding ? "&onboarding=1" : ""}`);
   }
@@ -66,4 +67,20 @@ export async function executeUnifiedImportAction(storeId: string, jobId: string,
   revalidatePath(`/stores/${storeId}/items`);
   revalidatePath(`/stores/${storeId}/inventory`);
   redirect(`/stores/${storeId}/data-imports/ai/${jobId}?completed=1${onboarding ? "&onboarding=1" : ""}`);
+}
+
+export async function previewImportClarificationAction(storeId: string, jobId: string, formData: FormData) {
+  try {
+    await requireStoreActionWriteAccess(storeId);
+    return { preview: await previewUnifiedImportClarification(storeId, jobId, formData) };
+  } catch (error) { return { error: decodeURIComponent(errorParam(error)) }; }
+}
+
+export async function applyImportClarificationAction(storeId: string, jobId: string, formData: FormData) {
+  try {
+    await requireStoreActionWriteAccess(storeId);
+    await applyUnifiedImportClarification(storeId, jobId, formData);
+    revalidatePath(`/stores/${storeId}/data-imports/ai/${jobId}`);
+    return { success: true };
+  } catch (error) { return { error: decodeURIComponent(errorParam(error)) }; }
 }

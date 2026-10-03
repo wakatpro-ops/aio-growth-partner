@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getStore } from "@/lib/stores";
+import { getCurrentUserAccess } from "@/lib/auth/server";
 import { listUnifiedImportJobs } from "@/lib/unified-import/data";
 import { archiveStoreEntityAction } from "../../archive-actions";
 import { uploadUnifiedImportAction } from "./actions";
@@ -27,6 +28,9 @@ export default async function UnifiedImportPage({ params, searchParams }: { para
   const { storeId } = await params;
   const query = await searchParams;
   const store = await getStore(storeId);
+  const access = await getCurrentUserAccess();
+  const role = [access?.organizationRoles[store.organization_id], access?.storeRoles[store.id]].find((value) => ["org_owner", "store_manager"].includes(value ?? ""));
+  if (!access?.isPlatformAdmin && !["org_owner", "store_manager"].includes(role ?? "")) return <AppShell><PageHeader title="店舗管理者による確認が必要です" description="この取り込みには売上・経費などの情報が含まれるため、法人オーナーまたは店長が確認してください。" /><Link href={`/stores/${store.id}`}>店舗トップへ戻る</Link></AppShell>;
   const flags = resolveFeatureFlags(store);
   if (!isFeatureEnabled(flags, "data_imports")) notFound();
   const industry = getIndustryConfig(store.industry_type_key);
