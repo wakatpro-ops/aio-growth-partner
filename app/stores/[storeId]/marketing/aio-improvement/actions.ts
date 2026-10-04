@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   runAioRediagnosis,
+  saveAioDraft,
   saveAioGoalFromForm,
   startAioImprovementTask,
   updateAioImprovementTaskFromForm
@@ -13,6 +14,16 @@ import {
 
 function errorParam(error: unknown) {
   return encodeURIComponent(error instanceof Error ? error.message : "処理に失敗しました。");
+}
+
+export async function saveAioDraftAction(storeId: string, taskId: string, _previous: { error?: string; saved?: boolean }, formData: FormData) {
+  try {
+    await requireStoreActionWriteAccess(storeId);
+    await saveAioDraft(storeId, taskId, String(formData.get("draft_body") ?? ""));
+    revalidateAio(storeId);
+    revalidatePath(`/stores/${storeId}/marketing/aio-improvement/tasks/${taskId}`);
+    return { saved: true };
+  } catch (error) { return { error: error instanceof Error ? error.message : "保存できませんでした。入力は残っています。" }; }
 }
 
 function revalidateAio(storeId: string) {

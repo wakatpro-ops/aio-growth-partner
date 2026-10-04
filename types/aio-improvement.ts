@@ -28,6 +28,8 @@ export type AioImprovementTask = {
   before_value: string | null;
   after_value: string | null;
   change_summary: string | null;
+  draft_body?: string | null;
+  draft_kind?: string | null;
   hold_reason: string | null;
   publication_target: AioPublicationTarget;
   publication_status: AioPublicationStatus;

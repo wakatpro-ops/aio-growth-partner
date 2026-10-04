@@ -262,6 +262,19 @@ export async function updateAioImprovementTaskFromForm(storeId: string, taskId: 
   });
 }
 
+export async function saveAioDraft(storeId: string, taskId: string, body: string) {
+  const { store, access, supabase } = await context(storeId, true);
+  const task = await getAioImprovementTask(store.id, taskId);
+  if (!task?.draft_kind) throw new Error("下書きが見つかりません。");
+  const draft = body.trim();
+  if (!draft || draft.length > 2000) throw new Error("下書きは1〜2,000文字で入力してください。");
+  const lines = draft.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  if (task.draft_kind === "aio_questions" && (lines.length > 3 || lines.some(line => line.length > 160))) throw new Error("質問は1〜3件、1行160文字以内で入力してください。");
+  const { data, error } = await supabase.from("aio_improvement_tasks").update({ draft_body: draft, updated_by: access.userId, updated_at: new Date().toISOString() }).eq("id", task.id).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null).select("id").maybeSingle();
+  if (error || !data) throw new Error("下書きを保存できませんでした。入力を残したまま再試行できます。");
+  await logAuditEvent({ storeId: store.id, actionType: "aio_draft_updated", targetType: "aio_improvement_task", targetId: task.id, message: "AIO改善の下書きを編集しました。" });
+}
+
 export async function runAioRediagnosis(storeId: string) {
   const { store } = await context(storeId, true);
   const readiness = await getStoreAiReadiness(store);
