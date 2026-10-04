@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { getAioImprovementWorkspace } from "@/lib/aio-improvement";
-import { archiveStoreEntityAction } from "../archive-actions";
+import { archiveStoreEntityAction } from "../../archive-actions";
+import { MarketingSections } from "@/components/marketing/marketing-sections";
 import { runAioRediagnosisAction, saveAioGoalAction, startAioImprovementTaskAction } from "./actions";
 
 const taskStatusLabels = {
@@ -40,12 +41,13 @@ export default async function AioImprovementPage({
   return (
     <AppShell>
       <PageHeader
-        eyebrow="AIO改善"
+        eyebrow="集客・販促 / AIO改善"
         title="見つけてもらうための改善を続ける"
         description="準備度、改善実行、外部公開の確認、再診断を一つの流れで管理します。外部AIの推薦や順位を保証するものではありません。"
-        action={<Link className="button secondary" href={`/stores/${store.id}/aio-improvement/history`}>改善履歴を見る</Link>}
+        action={<Link className="button secondary" href={`/stores/${store.id}/marketing/aio-improvement/history`}>改善履歴を見る</Link>}
       />
       <StoreBusinessNav store={store} />
+      <MarketingSections store={store} active="aio" />
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
       {query.goalSaved ? <p className="notice success">目指す質問を保存しました。次の改善提案に反映されます。</p> : null}
       {query.rediagnosed ? <p className="notice success">現在の情報で再診断し、履歴を保存しました。</p> : null}
@@ -146,7 +148,7 @@ export default async function AioImprovementPage({
         ) : null}
         <div className="form-actions">
           {activeTask ? (
-            <Link className="button" href={`/stores/${store.id}/aio-improvement/tasks/${activeTask.id}`}>この改善を続ける</Link>
+            <Link className="button" href={`/stores/${store.id}/marketing/aio-improvement/tasks/${activeTask.id}`}>この改善を続ける</Link>
           ) : priority ? (
             <form action={startAioImprovementTaskAction.bind(null, store.id, priority.key)}>
               <PendingSubmitButton pendingLabel="改善計画を作成しています...">この改善に着手する</PendingSubmitButton>
@@ -182,7 +184,7 @@ export default async function AioImprovementPage({
                   <td><span className="badge">{taskStatusLabels[task.status]}</span></td>
                   <td>{task.assignee_name ?? "未設定"}<br /><span className="muted">{task.due_date ?? "期限未設定"}</span></td>
                   <td>{publicationLabels[task.publication_status]}</td>
-                  <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/aio-improvement/tasks/${task.id}`}>進捗を更新</Link><form action={archiveStoreEntityAction.bind(null, store.id, "aio_improvement_task", task.id, `/stores/${store.id}/aio-improvement`)}><ConfirmSubmitButton message={`「${task.title}」を削除済みに移します。履歴は保持され、あとで元に戻せます。`}>削除</ConfirmSubmitButton></form></div></td>
+                  <td><div className="button-row"><Link className="button secondary" href={`/stores/${store.id}/marketing/aio-improvement/tasks/${task.id}`}>進捗を更新</Link><form action={archiveStoreEntityAction.bind(null, store.id, "aio_improvement_task", task.id, `/stores/${store.id}/marketing/aio-improvement`)}><ConfirmSubmitButton message={`「${task.title}」を削除済みに移します。履歴は保持され、あとで元に戻せます。`}>削除</ConfirmSubmitButton></form></div></td>
                 </tr>
               ))}
               {tasks.length === 0 ? <tr><td colSpan={5}>改善項目はまだありません。上の「この改善に着手する」から最初の1件を始めてください。</td></tr> : null}

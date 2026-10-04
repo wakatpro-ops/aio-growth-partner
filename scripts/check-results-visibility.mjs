@@ -10,7 +10,7 @@ const actions = readFileSync("app/stores/[storeId]/results/actions.ts", "utf8");
 const cron = readFileSync("app/api/cron/search-visibility/route.ts", "utf8");
 const exportRoute = readFileSync("app/stores/[storeId]/results/export/route.ts", "utf8");
 const googleIntegration = readFileSync("lib/phase5/google-integrations.ts", "utf8");
-const improvementHub = readFileSync("app/stores/[storeId]/aio-improvement/page.tsx", "utf8");
+const improvementHub = readFileSync("app/stores/[storeId]/marketing/aio-improvement/page.tsx", "utf8");
 
 for (const table of ["search_visibility_settings", "search_visibility_keywords", "search_visibility_snapshots"]) {
   if (!migration.includes(`create table if not exists public.${table}`)) throw new Error(`${table} is missing`);

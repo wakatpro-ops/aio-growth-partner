@@ -290,17 +290,17 @@ function alertsFor(storeId: string, tasks: AioImprovementTask[], snapshots: AioR
   const alerts: AioImprovementAlert[] = [];
   const latest = snapshots[0];
   if (!latest || now - new Date(latest.created_at).getTime() >= 30 * 86400000) {
-    alerts.push({ key: "monthly-review", tone: "warning", title: "今月の再診断が必要です", message: "現在の店舗情報と公開状況から、次に行う改善を1件に絞り直します。", href: `/stores/${storeId}/aio-improvement#rediagnosis` });
+    alerts.push({ key: "monthly-review", tone: "warning", title: "今月の再診断が必要です", message: "現在の店舗情報と公開状況から、次に行う改善を1件に絞り直します。", href: `/stores/${storeId}/marketing/aio-improvement#rediagnosis` });
   }
   for (const task of tasks) {
     if (task.due_date && task.status !== "completed" && new Date(`${task.due_date}T23:59:59`).getTime() < now) {
-      alerts.push({ key: `overdue-${task.id}`, tone: "danger", title: `${task.title}の期限を過ぎています`, message: "担当者・期限・保留理由を確認してください。", href: `/stores/${storeId}/aio-improvement/tasks/${task.id}` });
+      alerts.push({ key: `overdue-${task.id}`, tone: "danger", title: `${task.title}の期限を過ぎています`, message: "担当者・期限・保留理由を確認してください。", href: `/stores/${storeId}/marketing/aio-improvement/tasks/${task.id}` });
     }
     if (task.status === "completed" && task.publication_status !== "verified") {
-      alerts.push({ key: `unpublished-${task.id}`, tone: "warning", title: `${task.title}は公開確認が未完了です`, message: "準備度の完了と、Web・Google・SNSへの公開確認は別です。", href: `/stores/${storeId}/aio-improvement/tasks/${task.id}` });
+      alerts.push({ key: `unpublished-${task.id}`, tone: "warning", title: `${task.title}は公開確認が未完了です`, message: "準備度の完了と、Web・Google・SNSへの公開確認は別です。", href: `/stores/${storeId}/marketing/aio-improvement/tasks/${task.id}` });
     }
     if (task.next_review_at && new Date(task.next_review_at).getTime() <= now) {
-      alerts.push({ key: `stale-${task.id}`, tone: "info", title: `${task.title}の公開情報を再確認してください`, message: "前回の公開確認から90日が経過しました。内容の古さや不一致を確認します。", href: `/stores/${storeId}/aio-improvement/tasks/${task.id}` });
+      alerts.push({ key: `stale-${task.id}`, tone: "info", title: `${task.title}の公開情報を再確認してください`, message: "前回の公開確認から90日が経過しました。内容の古さや不一致を確認します。", href: `/stores/${storeId}/marketing/aio-improvement/tasks/${task.id}` });
     }
   }
   if (storeUpdatedAt && now - new Date(storeUpdatedAt).getTime() >= 180 * 86400000) {

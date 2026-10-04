@@ -33,5 +33,5 @@ export async function confirmInitialSetupAction(
   revalidatePath(`/stores/${storeId}/bookings`);
   revalidatePath(`/stores/${storeId}/bookings/settings`);
   revalidatePath(`/stores/${storeId}/settings`);
-  redirect(`/stores/${storeId}/aio-improvement?setup=completed`);
+  redirect(`/stores/${storeId}/marketing/aio-improvement?setup=completed`);
 }

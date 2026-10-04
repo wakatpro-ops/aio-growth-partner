@@ -32,7 +32,7 @@ export default async function InitialSetupReviewPage({ searchParams }: { searchP
         <PageHeader eyebrow="初回設定" title="初期設定は反映済みです" description={`${store.name}の確認済み情報で利用を開始できます。`} />
         <p className="notice success">店舗情報、請求書設定、選択したメニュー、業種別の管理画面構成を反映しました。</p>
         <div className="button-row">
-          <Link className="button" href={`/stores/${store.id}/aio-improvement`}>最初のAIO改善へ進む</Link>
+          <Link className="button" href={`/stores/${store.id}/marketing/aio-improvement`}>最初のAIO改善へ進む</Link>
           <Link className="button secondary" href={`/stores/${store.id}/settings`}>設定を確認する</Link>
         </div>
       </AppShell>

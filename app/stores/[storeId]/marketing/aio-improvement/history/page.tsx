@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MarketingSections } from "@/components/marketing/marketing-sections";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
@@ -18,12 +19,13 @@ export default async function AioImprovementHistoryPage({ params }: { params: Pr
   return (
     <AppShell>
       <PageHeader
-        eyebrow="AIO改善"
+        eyebrow="集客・販促 / AIO改善"
         title="改善前後と再診断の履歴"
         description="準備度の変化、完了した内容、外部公開の確認を時系列で振り返れます。"
-        action={<Link className="button secondary" href={`/stores/${store.id}/aio-improvement`}>AIO改善へ戻る</Link>}
+        action={<Link className="button secondary" href={`/stores/${store.id}/marketing/aio-improvement`}>AIO改善へ戻る</Link>}
       />
       <StoreBusinessNav store={store} />
+      <MarketingSections store={store} active="aio" />
 
       <section className="card">
         <h2>準備度の記録</h2>
@@ -58,7 +60,7 @@ export default async function AioImprovementHistoryPage({ params }: { params: Pr
             <tbody>
               {tasks.map((task) => (
                 <tr key={task.id}>
-                  <td><Link className="text-link" href={`/stores/${store.id}/aio-improvement/tasks/${task.id}`}>{task.title}</Link></td>
+                  <td><Link className="text-link" href={`/stores/${store.id}/marketing/aio-improvement/tasks/${task.id}`}>{task.title}</Link></td>
                   <td>{task.status === "completed" ? "完了" : task.status === "in_progress" ? "対応中" : task.status === "on_hold" ? "保留" : "未着手"}</td>
                   <td>{task.before_score ?? "-"}% → {task.after_score ?? "-"}%</td>
                   <td>{task.change_summary ?? "未記録"}</td>

@@ -2,7 +2,7 @@ import fs from "node:fs";
 
 const files = {
   page: fs.readFileSync("app/stores/[storeId]/page.tsx", "utf8"),
-  aio: fs.readFileSync("app/stores/[storeId]/aio-improvement/page.tsx", "utf8"),
+  aio: fs.readFileSync("app/stores/[storeId]/marketing/aio-improvement/page.tsx", "utf8"),
   component: fs.readFileSync("components/dashboard/store-command-center.tsx", "utf8"),
   data: fs.readFileSync("lib/store-command-center.ts", "utf8"),
   css: fs.readFileSync("app/globals.css", "utf8")

@@ -26,7 +26,7 @@ export function StoreAiReadinessPanel({
           <h2>{readiness.score}% {readiness.stage}</h2>
           <p>{readiness.headline}</p>
         </div>
-        <Link className="button" href={`/stores/${storeId}/aio-improvement`}>
+        <Link className="button" href={`/stores/${storeId}/marketing/aio-improvement`}>
           AIにおすすめされやすくする
         </Link>
       </div>

@@ -1,0 +1,31 @@
+.sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 6px;
+  border: 1px solid #d9e4df;
+  border-radius: 14px;
+  background: #fff;
+}
+.sections a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 180px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  color: #365b50;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.sections a:hover { background: #eef5f1; }
+.sections a[aria-current="page"] { color: #fff; background: #217b60; }
+.sections a:focus-visible { outline: 3px solid #138bb8; outline-offset: 2px; }
+.sections span { font-size: 0.85em; }
+@media (max-width: 600px) {
+  .sections a { flex-basis: 120px; padding: 10px 8px; font-size: 14px; }
+}

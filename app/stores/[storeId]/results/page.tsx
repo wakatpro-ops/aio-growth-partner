@@ -263,7 +263,7 @@ export default async function ResultsVisibilityPage({
         </section>
 
         <section className="card">
-          <div className="section-heading"><div><p className="eyebrow">何を改善したか</p><h2>改善実施と成果を同じ時系列で確認</h2></div><Link className="text-link print-actions" href={`/stores/${store.id}/aio-improvement/history`}>AIO改善履歴を見る →</Link></div>
+          <div className="section-heading"><div><p className="eyebrow">何を改善したか</p><h2>改善実施と成果を同じ時系列で確認</h2></div><Link className="text-link print-actions" href={`/stores/${store.id}/marketing/aio-improvement/history`}>AIO改善履歴を見る →</Link></div>
           <ol className="results-timeline">
             {workspace.completedImprovements.map((improvement) => <li key={improvement.id}><span>{dateLabel(improvement.completed_at)}</span><div><strong>{improvement.title}</strong><p>{improvement.change_summary ?? "改善完了として記録されています。"}</p></div></li>)}
             {workspace.completedImprovements.length === 0 ? <li><span>-</span><div><strong>完了した改善はまだありません</strong><p>AIO改善で変更内容を完了すると、ここに成果と一緒に表示されます。</p></div></li> : null}
