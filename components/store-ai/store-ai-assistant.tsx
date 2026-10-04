@@ -15,10 +15,11 @@ export function StoreAiAssistant({ storeId, pathname, search = "" }: { storeId: 
   const [guidedUnavailable, setGuidedUnavailable] = useState(false);
   const [marketingOpen, setMarketingOpen] = useState(0);
   const marketing = pathname === `/stores/${storeId}/marketing`;
+  const aio = pathname === `/stores/${storeId}/marketing/aio-improvement`;
   useEffect(() => { setConsult(false); setGuidedUnavailable(false); }, [pathname, storeId]);
   useEffect(() => { const open = () => { setConsult(false); setMarketingOpen(value => value + 1); }; window.addEventListener("aio:marketing", open); return () => window.removeEventListener("aio:marketing", open); }, []);
-  if (marketing && !consult) return <MarketingAssistant key={storeId} storeId={storeId} openRequest={marketingOpen} onConsult={() => setConsult(true)} onUnavailable={() => { setGuidedUnavailable(true); setConsult(true); }} />;
-  return <ReadOnlyStoreAiAssistant key={storeId} storeId={storeId} pathname={pathname} search={search} onResume={marketing && !guidedUnavailable ? () => setConsult(false) : undefined} />;
+  if ((marketing || aio) && !consult) return <MarketingAssistant key={`${storeId}:${aio}`} mode={aio ? "aio" : "marketing"} storeId={storeId} openRequest={marketingOpen} onConsult={() => setConsult(true)} onUnavailable={() => { setGuidedUnavailable(true); setConsult(true); }} />;
+  return <ReadOnlyStoreAiAssistant key={storeId} storeId={storeId} pathname={pathname} search={search} onResume={(marketing || aio) && !guidedUnavailable ? () => setConsult(false) : undefined} />;
 }
 
 function ReadOnlyStoreAiAssistant({ storeId, pathname, search = "", onResume }: { storeId: string; pathname: string; search?: string; onResume?: () => void }) {
@@ -141,7 +142,7 @@ function ReadOnlyStoreAiAssistant({ storeId, pathname, search = "", onResume }: 
         <button className="store-ai-mobile-toggle" type="button" aria-controls="store-ai-conversation" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "小さくする ↓" : "会話を開く ↑"}</button>
       </header>
       <div className="store-ai-conversation" id="store-ai-conversation">
-        {onResume ? <button className="button secondary" type="button" onClick={onResume}>投稿の準備に戻る（続きから）</button> : null}
+        {onResume ? <button className="button secondary" type="button" onClick={onResume}>{pathname.endsWith("/marketing/aio-improvement") ? "AIO改善の準備に戻る（続きから）" : "投稿の準備に戻る（続きから）"}</button> : null}
         <div className="store-ai-assistant-thread" ref={threadRef}>
           <div className="store-ai-welcome">
             <AiRobotPortrait />

@@ -10,6 +10,7 @@ const expected = new Map([
   ["lib/openai/generate.ts", ["createMeteredOpenAI", "params.templateKey"]],
   ["lib/store-ai/assistant.ts", ["createMeteredOpenAI", '"assistant"']],
   ["lib/marketing/conversation.ts", ["createMeteredOpenAI", '"marketing_conversation"']],
+  ["lib/marketing/aio-conversation.ts", ["createMeteredOpenAI", '"aio_conversation"']],
   ["lib/store-email/classifier.ts", ["createMeteredOpenAI", '"email_classification"']],
   ["lib/phase6/expense-receipts.ts", ["createMeteredOpenAI", '"receipt_extraction"']],
   ["lib/phase5/sns-publishing.ts", ["createMeteredOpenAI", '"sns_image_analysis"']],

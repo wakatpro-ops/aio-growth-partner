@@ -9,7 +9,8 @@ import { getAioImprovementTask } from "@/lib/aio-improvement";
 import { getStore } from "@/lib/stores";
 import { archiveStoreEntityAction } from "../../../../archive-actions";
 import { MarketingSections } from "@/components/marketing/marketing-sections";
-import { updateAioImprovementTaskAction } from "../../actions";
+import { updateAioImprovementTaskAction, saveAioGoalAction, saveAioDraftAction } from "../../actions";
+import { AioDraftEditor } from "@/components/marketing/aio-draft-editor";
 
 const publicationTargetLabels: Record<string, string> = {
   none: "まだ公開しない",
@@ -53,6 +54,7 @@ export default async function AioImprovementTaskPage({
         <article className="static-card"><span>公開先</span><strong>{publicationTargetLabels[task.publication_target] ?? task.publication_target}</strong><p>{task.publication_status === "verified" ? "公開確認済み" : task.publication_status === "pending_review" ? "公開確認待ち" : "未公開"}</p></article>
       </section>
 
+      {task.draft_kind ? <AioDraftEditor body={task.draft_body ?? ""} questions={task.draft_kind === "aio_questions"} save={saveAioDraftAction.bind(null, store.id, task.id)} /> : null}
       <form className="card form" action={updateAioImprovementTaskAction.bind(null, store.id, task.id)}>
         <section className="subsection">
           <h2>1. 改善の進捗</h2>
@@ -112,6 +114,12 @@ export default async function AioImprovementTaskPage({
           <Link className="button secondary" href={`/stores/${store.id}/marketing/aio-improvement`}>保存せず戻る</Link>
         </div>
       </form>
+
+      {task.draft_kind === "aio_questions" ? <form className="card form" action={saveAioGoalAction.bind(null, store.id)}>
+        <h2>質問の候補を、目標質問にする</h2><p>内容を確認して保存すると、この店舗の目標質問を更新します。下書きだけの保存とは別の操作です。</p>
+        {[0, 1, 2].map(index => <div className="field" key={index}><label htmlFor={`goal_${index}`}>目標質問 {index + 1}</label><textarea id={`goal_${index}`} name={`target_question_${index + 1}`} maxLength={160} required={index === 0} defaultValue={task.draft_body?.split(/\r?\n/).filter(Boolean)[index] ?? ""} /></div>)}
+        <PendingSubmitButton pendingLabel="目標質問を保存しています…">確認した内容を目標質問として保存</PendingSubmitButton>
+      </form> : null}
 
       <section className="card danger-zone">
         <h2>この改善項目を削除</h2>

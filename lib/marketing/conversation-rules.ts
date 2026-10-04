@@ -1,4 +1,4 @@
-export type Channel = "google_business_profile" | "instagram";
+export type Channel = "google_business_profile" | "instagram" | "aio_service" | "aio_profile" | "aio_questions";
 export type Offer = { id: string; priority: number; weight: number; text: string; label: string; href?: string; channel?: Channel };
 export type Brief = { channel: Channel; subject: string; details: string; itemId?: string };
 export type Conversation = {
@@ -30,4 +30,4 @@ export function chooseOffer(offers: Offer[], deferred: Record<string, number> = 
   for (const peer of peers) { pick -= peer.weight; if (pick < 0) return peer; }
   return peers[0];
 }
-export const channelLabel = (channel?: Channel) => channel === "instagram" ? "Instagram" : "Google";
+export const channelLabel = (channel?: Channel) => ({ instagram: "Instagram", google_business_profile: "Google", aio_service: "サービスの紹介文", aio_profile: "お店の強み", aio_questions: "見つけてもらいたい質問" })[channel ?? "google_business_profile"];

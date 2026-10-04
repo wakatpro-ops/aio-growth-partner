@@ -8,6 +8,11 @@ import { getIndustryConfig } from "@/config/industries";
 import { getAioImprovementWorkspace } from "@/lib/aio-improvement";
 import { archiveStoreEntityAction } from "../../archive-actions";
 import { MarketingSections } from "@/components/marketing/marketing-sections";
+import { StartMarketingConversation } from "@/components/marketing/marketing-assistant";
+import { AioFunctionList } from "@/components/marketing/aio-function-list";
+import { getCurrentUserAccess } from "@/lib/auth/server";
+import { mayEditStore } from "@/lib/auth/access-policy";
+import { aioConversationEnabled } from "@/lib/marketing/aio-conversation";
 import { runAioRediagnosisAction, saveAioGoalAction, startAioImprovementTaskAction } from "./actions";
 
 const taskStatusLabels = {
@@ -37,6 +42,8 @@ export default async function AioImprovementPage({
   const industry = getIndustryConfig(store.industry_type_key);
   const priority = readiness.nextBestActions[0];
   const lastSnapshot = snapshots[0];
+  const actor = await getCurrentUserAccess();
+  const canPrepare = Boolean(actor && mayEditStore(actor, store.id, store.organization_id) && aioConversationEnabled(store));
 
   return (
     <AppShell>
@@ -65,12 +72,17 @@ export default async function AioImprovementPage({
           <p className="eyebrow">外部への反映状況</p>
           <div className="status-list">
             <span><b>Google連携</b><em>{readiness.publicationStatus.googleConnected ? "接続・URL確認済み" : "未確認"}</em></span>
-            <span><b>改善コンテンツ</b><em>{readiness.publicationStatus.contentCreated ? "下書きあり" : "未作成"}</em></span>
+            <span><b>改善コンテンツ</b><em>{readiness.publicationStatus.contentCreated || tasks.some(task => task.draft_body) ? "下書きあり" : "未作成"}</em></span>
           </div>
           <p className="muted">準備度と公開状況は別に判定します。準備度が上がっても、公開確認が終わるまでは反映完了ではありません。</p>
         </article>
       </section>
 
+      <section className="card aio-guided-intro">
+        <div><p className="eyebrow">検索やAIに、お店の魅力が伝わるように</p><h2>選んで、話して、下書きへ。</h2><p>メニューやサービスを選ぶだけ。AIと一緒に紹介文や質問の候補を整えましょう。</p></div>
+        {canPrepare ? <StartMarketingConversation /> : <p className="muted">右側のAIに相談するか、機能一覧から内容を確認できます。</p>}
+      </section>
+      <AioFunctionList alerts={alerts.length}>
       <section className="aio-specialist-overview">
         <div className="section-heading">
           <div><p className="eyebrow">AIO改善の専門エリア</p><h2>見つけられ方・根拠・成果をここで管理</h2></div>
@@ -206,6 +218,7 @@ export default async function AioImprovementPage({
         </ol>
         <p className="muted">{industry.name}の店舗情報をAIが参照・説明しやすくするための準備状況です。特定サービスでの掲載順位や推薦を示すものではありません。</p>
       </section>
+      </AioFunctionList>
     </AppShell>
   );
 }

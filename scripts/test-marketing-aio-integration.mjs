@@ -18,7 +18,7 @@ const mocks = {
   "next/cache": { revalidatePath: path => events.push(["revalidate", path]) },
   "@/lib/auth/store-action-access": { requireStoreActionWriteAccess: async id => { events.push(["authorize", id]); if (!allowed) throw new Error("forbidden"); } },
   "@/lib/feature-flags/resolve-feature-flags": { resolveFeatureFlags: s => s.feature_flags, isFeatureEnabled: () => promotion },
-  "@/lib/aio-improvement": Object.fromEntries(["saveAioGoalFromForm", "runAioRediagnosis", "startAioImprovementTask", "updateAioImprovementTaskFromForm"].map(name => [name, async (...args) => { events.push([name, ...args]); if (failSave) throw new Error("validation failed"); return "task-123"; }]))
+  "@/lib/aio-improvement": Object.fromEntries(["saveAioDraft", "saveAioGoalFromForm", "runAioRediagnosis", "startAioImprovementTask", "updateAioImprovementTaskFromForm"].map(name => [name, async (...args) => { events.push([name, ...args]); if (failSave) throw new Error("validation failed"); return "task-123"; }]))
 };
 function load(file) {
   const path = resolve(file), loaded = { exports: {} };
@@ -53,6 +53,13 @@ promotion = false;
 assert(!renderToStaticMarkup(React.createElement(MarketingSections, { store, active: "aio" })).includes("投稿・販促"));
 
 const actions = load(`${root}/actions.ts`);
+const draftForm = new FormData(); draftForm.set("draft_body", "保存する下書き");
+assert.deepEqual(await actions.saveAioDraftAction(store.id, "task-123", {}, draftForm), { saved: true });
+failSave = true;
+assert.equal((await actions.saveAioDraftAction(store.id, "task-123", {}, draftForm)).error, "validation failed");
+failSave = false; allowed = false; events.length = 0;
+assert.equal((await actions.saveAioDraftAction(store.id, "task-123", {}, draftForm)).error, "forbidden");
+assert.equal(events.length, 1);
 for (const [name, args, target] of [
   ["saveAioGoalAction", [store.id, new FormData()], "?goalSaved=1#questions"],
   ["runAioRediagnosisAction", [store.id], "?rediagnosed=1#rediagnosis"],
