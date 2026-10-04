@@ -15,7 +15,7 @@ const acquisitionPage = readFileSync("app/stores/[storeId]/acquisition/page.tsx"
 const dashboardPage = readFileSync("app/dashboard/page.tsx", "utf8");
 const noStorePage = readFileSync("app/no-store/page.tsx", "utf8");
 const storeSummaryRoute = readFileSync("app/api/stores/[storeId]/summary/route.ts", "utf8");
-const requiredAreas = ["店舗トップ", "AIO改善", "売上・経理", "集客・販促", "設定"];
+const requiredAreas = ["店舗トップ", "売上・経理", "集客・販促", "設定"];
 const missingAreas = requiredAreas.filter((label) => !sidebar.includes(`label: \"${label}\"`));
 if (!sidebar.includes('label: `${navigationLabels.customer}・予約`')) missingAreas.push("業種別の顧客・予約");
 if (!sidebar.includes("label: navigationLabels.product")) missingAreas.push("業種別の商品・在庫");

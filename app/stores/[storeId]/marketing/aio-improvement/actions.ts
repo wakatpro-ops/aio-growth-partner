@@ -16,9 +16,10 @@ function errorParam(error: unknown) {
 }
 
 function revalidateAio(storeId: string) {
+  revalidatePath(`/stores/${storeId}/marketing`);
   revalidatePath(`/stores/${storeId}`);
-  revalidatePath(`/stores/${storeId}/aio-improvement`);
-  revalidatePath(`/stores/${storeId}/aio-improvement/history`);
+  revalidatePath(`/stores/${storeId}/marketing/aio-improvement`);
+  revalidatePath(`/stores/${storeId}/marketing/aio-improvement/history`);
   revalidatePath("/onboarding");
   revalidatePath("/dashboard");
 }
@@ -28,10 +29,10 @@ export async function saveAioGoalAction(storeId: string, formData: FormData) {
   try {
     await saveAioGoalFromForm(storeId, formData);
   } catch (error) {
-    redirect(`/stores/${storeId}/aio-improvement?error=${errorParam(error)}#questions`);
+    redirect(`/stores/${storeId}/marketing/aio-improvement?error=${errorParam(error)}#questions`);
   }
   revalidateAio(storeId);
-  redirect(`/stores/${storeId}/aio-improvement?goalSaved=1#questions`);
+  redirect(`/stores/${storeId}/marketing/aio-improvement?goalSaved=1#questions`);
 }
 
 export async function startAioImprovementTaskAction(storeId: string, sourceKey: string) {
@@ -40,10 +41,10 @@ export async function startAioImprovementTaskAction(storeId: string, sourceKey: 
   try {
     taskId = await startAioImprovementTask(storeId, sourceKey);
   } catch (error) {
-    redirect(`/stores/${storeId}/aio-improvement?error=${errorParam(error)}#priority`);
+    redirect(`/stores/${storeId}/marketing/aio-improvement?error=${errorParam(error)}#priority`);
   }
   revalidateAio(storeId);
-  redirect(`/stores/${storeId}/aio-improvement/tasks/${taskId}?started=1`);
+  redirect(`/stores/${storeId}/marketing/aio-improvement/tasks/${taskId}?started=1`);
 }
 
 export async function updateAioImprovementTaskAction(storeId: string, taskId: string, formData: FormData) {
@@ -51,11 +52,11 @@ export async function updateAioImprovementTaskAction(storeId: string, taskId: st
   try {
     await updateAioImprovementTaskFromForm(storeId, taskId, formData);
   } catch (error) {
-    redirect(`/stores/${storeId}/aio-improvement/tasks/${taskId}?error=${errorParam(error)}`);
+    redirect(`/stores/${storeId}/marketing/aio-improvement/tasks/${taskId}?error=${errorParam(error)}`);
   }
   revalidateAio(storeId);
-  revalidatePath(`/stores/${storeId}/aio-improvement/tasks/${taskId}`);
-  redirect(`/stores/${storeId}/aio-improvement/tasks/${taskId}?saved=1`);
+  revalidatePath(`/stores/${storeId}/marketing/aio-improvement/tasks/${taskId}`);
+  redirect(`/stores/${storeId}/marketing/aio-improvement/tasks/${taskId}?saved=1`);
 }
 
 export async function runAioRediagnosisAction(storeId: string) {
@@ -63,8 +64,8 @@ export async function runAioRediagnosisAction(storeId: string) {
   try {
     await runAioRediagnosis(storeId);
   } catch (error) {
-    redirect(`/stores/${storeId}/aio-improvement?error=${errorParam(error)}#rediagnosis`);
+    redirect(`/stores/${storeId}/marketing/aio-improvement?error=${errorParam(error)}#rediagnosis`);
   }
   revalidateAio(storeId);
-  redirect(`/stores/${storeId}/aio-improvement?rediagnosed=1#rediagnosis`);
+  redirect(`/stores/${storeId}/marketing/aio-improvement?rediagnosed=1#rediagnosis`);
 }

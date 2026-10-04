@@ -87,7 +87,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         </div>
         <p>{firstTaskDescription}</p>
         <div className="button-row">
-          <Link className="button" href={activeTask ? `/stores/${selectedStore.id}/aio-improvement/tasks/${activeTask.id}` : `/stores/${selectedStore.id}/aio-improvement`}>{activeTask ? "進行中の改善を続ける" : "改善内容を確認する"}</Link>
+          <Link className="button" href={activeTask ? `/stores/${selectedStore.id}/marketing/aio-improvement/tasks/${activeTask.id}` : `/stores/${selectedStore.id}/marketing/aio-improvement`}>{activeTask ? "進行中の改善を続ける" : "改善内容を確認する"}</Link>
           <Link className="button secondary" href={`/stores/${selectedStore.id}`}>店舗トップを先に見る</Link>
         </div>
       </section>

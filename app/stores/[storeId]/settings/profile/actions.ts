@@ -10,7 +10,7 @@ export async function updateStoreProfileAction(storeId: string, formData: FormDa
   await requireStoreActionWriteAccess(storeId);
   await updateStoreFromForm(storeId, formData);
   revalidatePath(`/stores/${storeId}`);
-  revalidatePath(`/stores/${storeId}/aio-improvement`);
+  revalidatePath(`/stores/${storeId}/marketing/aio-improvement`);
   revalidatePath(`/stores/${storeId}/settings`);
   redirect(`/stores/${storeId}/settings/profile?saved=1`);
 }

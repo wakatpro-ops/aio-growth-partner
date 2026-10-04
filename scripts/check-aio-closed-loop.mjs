@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 
 const migration = readFileSync("database/migrations/phase-aio-improvement-closed-loop.sql", "utf8");
 const service = readFileSync("lib/aio-improvement.ts", "utf8");
-const mainPage = readFileSync("app/stores/[storeId]/aio-improvement/page.tsx", "utf8");
-const taskPage = readFileSync("app/stores/[storeId]/aio-improvement/tasks/[taskId]/page.tsx", "utf8");
-const historyPage = readFileSync("app/stores/[storeId]/aio-improvement/history/page.tsx", "utf8");
+const mainPage = readFileSync("app/stores/[storeId]/marketing/aio-improvement/page.tsx", "utf8");
+const taskPage = readFileSync("app/stores/[storeId]/marketing/aio-improvement/tasks/[taskId]/page.tsx", "utf8");
+const historyPage = readFileSync("app/stores/[storeId]/marketing/aio-improvement/history/page.tsx", "utf8");
 const archiveLibrary = readFileSync("lib/archive-management.ts", "utf8");
 
 for (const table of ["aio_goals", "aio_improvement_tasks", "aio_readiness_snapshots"]) {

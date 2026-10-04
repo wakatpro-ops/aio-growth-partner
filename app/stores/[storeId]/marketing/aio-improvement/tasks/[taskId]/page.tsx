@@ -7,7 +7,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getAioImprovementTask } from "@/lib/aio-improvement";
 import { getStore } from "@/lib/stores";
-import { archiveStoreEntityAction } from "../../../archive-actions";
+import { archiveStoreEntityAction } from "../../../../archive-actions";
+import { MarketingSections } from "@/components/marketing/marketing-sections";
 import { updateAioImprovementTaskAction } from "../../actions";
 
 const publicationTargetLabels: Record<string, string> = {
@@ -35,12 +36,13 @@ export default async function AioImprovementTaskPage({
   return (
     <AppShell>
       <PageHeader
-        eyebrow="AIO改善"
+        eyebrow="集客・販促 / AIO改善"
         title={task.title}
         description="進捗、担当者、期限、変更内容、外部への公開確認を記録します。"
-        action={<Link className="button secondary" href={`/stores/${store.id}/aio-improvement`}>AIO改善へ戻る</Link>}
+        action={<Link className="button secondary" href={`/stores/${store.id}/marketing/aio-improvement`}>AIO改善へ戻る</Link>}
       />
       <StoreBusinessNav store={store} />
+      <MarketingSections store={store} active="aio" />
       {query.started ? <p className="notice success">改善項目を開始しました。担当者と期限を確認してください。</p> : null}
       {query.saved ? <p className="notice success">進捗と公開確認を保存しました。次に必要な操作を下で確認できます。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
@@ -107,14 +109,14 @@ export default async function AioImprovementTaskPage({
         <div className="form-actions">
           <PendingSubmitButton pendingLabel="改善状況を保存しています...">進捗と公開確認を保存</PendingSubmitButton>
           {task.source_href ? <Link className="button secondary" href={task.source_href}>元の情報を編集する</Link> : null}
-          <Link className="button secondary" href={`/stores/${store.id}/aio-improvement`}>保存せず戻る</Link>
+          <Link className="button secondary" href={`/stores/${store.id}/marketing/aio-improvement`}>保存せず戻る</Link>
         </div>
       </form>
 
       <section className="card danger-zone">
         <h2>この改善項目を削除</h2>
         <p>改善前後の記録は保持したまま、通常の一覧から非表示にします。削除済みデータから元に戻せます。</p>
-        <form action={archiveStoreEntityAction.bind(null, store.id, "aio_improvement_task", task.id, `/stores/${store.id}/aio-improvement`)}>
+        <form action={archiveStoreEntityAction.bind(null, store.id, "aio_improvement_task", task.id, `/stores/${store.id}/marketing/aio-improvement`)}>
           <ConfirmSubmitButton message={`「${task.title}」を削除済みに移します。改善履歴は保持され、あとで元に戻せます。`}>改善項目を削除</ConfirmSubmitButton>
         </form>
       </section>

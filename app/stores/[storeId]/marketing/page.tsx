@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
+import { MarketingSections } from "@/components/marketing/marketing-sections";
 import { AppShell } from "@/components/layout/app-shell";
 import { StoreBusinessNav } from "@/components/phase2/store-business-nav";
 import { PageHeader } from "@/components/ui/page-header";
@@ -22,7 +23,8 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
   const { storeId } = await params;
   const store = await getStore(storeId);
   const flags = resolveFeatureFlags(store);
-  if (!isFeatureEnabled(flags, "marketing_drafts")) notFound();
+  // AIO improvement remains available even when optional posting features are disabled.
+  if (!isFeatureEnabled(flags, "marketing_drafts")) redirect(`/stores/${store.id}/marketing/aio-improvement`);
 
   const industry = getIndustryConfig(store.industry_type_key);
   const labels = marketingLabels(store.industry_type_key);
@@ -46,9 +48,10 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
       <PageHeader
         eyebrow={industry.name}
         title="集客・販促"
-        description={`${labels.focus}を軸に、AI提案、投稿下書き、口コミ対応、配信予定を一つの入口から確認します。`}
+        description={`${labels.focus}の発信と、検索・AIに見つけてもらうための改善をここで進めます。`}
       />
       <StoreBusinessNav store={store} />
+      <MarketingSections store={store} active="promotion" />
       <section className="visual-section">
         <div className="section-heading"><div><p className="eyebrow">投稿の準備状況</p><h2>何を確認すべきか、ひと目で把握</h2></div><p>AIが勝手に公開せず、投稿済みになるまで人が確認します。</p></div>
         <div className="visual-grid cols-2">

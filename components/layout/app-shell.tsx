@@ -49,7 +49,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [pathname]);
   const visibleNavItems = activeStoreId ? [
     { href: `/stores/${activeStoreId}`, label: "店舗トップ" },
-    { href: `/stores/${activeStoreId}/aio-improvement`, label: "AIO改善" },
     { href: `/stores/${activeStoreId}/sales-hub`, label: "売上・経理" },
     { href: `/stores/${activeStoreId}/customers`, label: `${navigationLabels.customer}・予約` },
     { href: `/stores/${activeStoreId}/marketing`, label: "集客・販促" },
@@ -63,6 +62,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const backHref = useMemo(() => {
     if (!activeStoreId || pathname === `/stores/${activeStoreId}`) return null;
     const parts = pathname.split("/").filter(Boolean);
+    if (/\/marketing\/aio-improvement\/tasks\/[^/]+$/u.test(pathname)) return `/stores/${activeStoreId}/marketing/aio-improvement`;
     if (parts.length === 3) return `/stores/${activeStoreId}`;
     parts.pop();
     return `/${parts.join("/")}`;
@@ -144,7 +144,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (!activeStoreId) return "";
     const section = pathname.slice(`/stores/${activeStoreId}`.length);
     if (section === "") return "";
-    if (section.startsWith("/aio-improvement") || section.startsWith("/diagnosis")) return "/aio-improvement";
+    if (section.startsWith("/aio-improvement") || section.startsWith("/diagnosis")) return "/marketing";
     if (["/sales-hub", "/sales", "/estimates", "/invoices", "/payments", "/accounting", "/reports"].some((prefix) => section.startsWith(prefix))) return "/sales-hub";
     if (["/customers", "/customer-segments", "/customer-messages", "/bookings"].some((prefix) => section.startsWith(prefix))) return "/customers";
     if (section === "/reviews" || section.startsWith("/reviews/")) return "/reviews";

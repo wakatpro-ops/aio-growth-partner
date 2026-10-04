@@ -326,7 +326,7 @@ try {
     await ownerPage.getByRole("button", { name: "この請求書情報で進む" }).click();
     await ownerPage.getByText("この内容で正式データを作成します").click();
     await ownerPage.getByRole("button", { name: "この内容で利用を開始する" }).click();
-    await ownerPage.waitForURL((url) => url.pathname === `/stores/${storeId}/aio-improvement` && url.searchParams.get("setup") === "completed", { timeout: 45_000 });
+    await ownerPage.waitForURL((url) => url.pathname === `/stores/${storeId}/marketing/aio-improvement` && url.searchParams.get("setup") === "completed", { timeout: 45_000 });
     await ownerPage.getByText("初期設定を反映しました。", { exact: false }).waitFor();
 
     const [{ data: finalStore }, { data: finalItems }, { data: finalSnapshot }, { data: finalInvoice }, { data: finalApplication }, { data: organizationStores }] = await Promise.all([

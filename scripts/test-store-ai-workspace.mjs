@@ -19,7 +19,7 @@ const org = randomUUID(), foreignOrg = randomUUID(), store = randomUUID(), secon
 const users = {}, results = [], directory = `test-results/store-ai-${local ? "local" : "staging"}`;
 let browser, server;
 const pass = name => { console.log(`PASS ${name}`); results.push({ name, passed:true }); };
-const routes = ["", "/sales-hub", "/customers", "/inventory", "/reviews", "/settings", "/invoices/new", "/aio-improvement"];
+const routes = ["", "/sales-hub", "/customers", "/inventory", "/reviews", "/settings", "/invoices/new", "/marketing", "/marketing/aio-improvement"];
 async function open(page, path) {
   await page.goto(`${base}${path}`, { timeout:60000 });
   await page.locator(".store-workspace .main").waitFor({ timeout:30000 });
