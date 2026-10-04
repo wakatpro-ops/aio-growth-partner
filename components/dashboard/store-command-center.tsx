@@ -53,7 +53,7 @@ export function StoreCommandCenterView({ dashboard }: { dashboard: StoreCommandC
           </section>
           <section className="command-panel command-alert-summary">
             {dashboard.enabledAreas.inventory ? <div><span>在庫アラート</span><strong>{dashboard.inventoryLowCount ? `${dashboard.inventoryLowCount}件` : "なし"}</strong><Link href={`/stores/${store.id}/inventory`}>在庫を見る →</Link></div> : null}
-            <div><span>口コミ未返信</span><strong>{dashboard.unansweredReviewCount ? `${dashboard.unansweredReviewCount}件` : "なし"}</strong><Link href={`/stores/${store.id}/reviews`}>口コミを見る →</Link></div>
+            <div><span>口コミ未返信</span><strong>{dashboard.unansweredReviewCount ? `${dashboard.unansweredReviewCount}件` : "なし"}</strong><Link href={`/stores/${store.id}/marketing/reviews#review-tools`}>口コミを見る →</Link></div>
           </section>
         </section>
         <aside className="command-kpi-column">

@@ -7,7 +7,7 @@ const failures = [];
 const source = read("lib/phase5/google-integrations.ts");
 const migration = read("supabase/migrations/202608150001_google_business_workflows.sql");
 const businessPage = read("app/stores/[storeId]/settings/google/business-profile/page.tsx");
-const reviewsPage = read("app/stores/[storeId]/reviews/page.tsx");
+const reviewsPage = read("app/stores/[storeId]/marketing/reviews/page.tsx");
 const sendPage = read("app/stores/[storeId]/growth-actions/[actionId]/send/page.tsx");
 
 const requiredSource = [

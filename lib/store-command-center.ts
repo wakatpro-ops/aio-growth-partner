@@ -194,7 +194,7 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
     });
   }
   if (unansweredReviews.length) {
-    tasks.push({ key: "reviews", tone: "warning", category: "口コミ対応", title: `Google口コミに${unansweredReviews.length}件未返信`, detail: "返信内容を確認し、承認後にGoogleへ反映できます。", actionLabel: "返信を作成する", href: `/stores/${store.id}/reviews` });
+    tasks.push({ key: "reviews", tone: "warning", category: "口コミ対応", title: `Google口コミに${unansweredReviews.length}件未返信`, detail: "返信内容を確認し、承認後にGoogleへ反映できます。", actionLabel: "返信を作成する", href: `/stores/${store.id}/marketing/reviews#review-tools` });
   }
   if (socialDrafts.length) {
     tasks.push({ key: "social", tone: "opportunity", category: "集客チャンス", title: `${socialDrafts[0].channel}の下書きを確認できます`, detail: socialDrafts[0].title, actionLabel: "下書きを確認する", href: socialDrafts[0].href });
