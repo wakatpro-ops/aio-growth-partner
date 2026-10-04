@@ -59,7 +59,10 @@ export async function processInboundStoreEmail(input: InboundStoreEmailInput) {
   const body = clean(input.text || stripHtml(input.html), 25_000);
   const providerEventId = messageIdFromHeaders(input.headers);
   const fingerprint = storeEmailFingerprint({ inboxId: inbox.id, providerEventId, senderEmail: sender.email, subject, body });
-  const classified = await classifyInboundStoreEmail({ subject, body, senderEmail: sender.email });
+  const classified = await classifyInboundStoreEmail({ subject, body, senderEmail: sender.email }, {
+    storeId: inbox.store_id,
+    organizationId: inbox.organization_id
+  });
   const completeReservation = classified.category === "reservation"
     && Boolean(classified.extractedData.reservation_id)
     && (classified.bookingEventType === "cancelled" || (

@@ -1,5 +1,5 @@
 import "server-only";
-import OpenAI from "openai";
+import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
 import { getChatModelOptions } from "@/lib/openai/models";
 import { buildPrompt, getPromptTemplate } from "@/lib/openai/templates";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -243,7 +243,12 @@ export async function generateWithAi(params: {
     if (!process.env.OPENAI_API_KEY) {
       output = demoOutput(params.templateKey, params.store);
     } else {
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const client = createMeteredOpenAI({
+        feature: params.templateKey,
+        storeId: params.store.id,
+        organizationId: params.store.organization_id,
+        userId: params.userId ?? null
+      }, { apiKey: process.env.OPENAI_API_KEY });
       const response = await client.chat.completions.create({
         model,
         ...getChatModelOptions(model),
@@ -255,8 +260,8 @@ export async function generateWithAi(params: {
       });
 
       const content = response.choices[0]?.message?.content ?? "{}";
-      output = JSON.parse(content) as Record<string, unknown>;
       tokens = response.usage ? { ...response.usage } : null;
+      output = JSON.parse(content) as Record<string, unknown>;
     }
   } catch (error) {
     status = "error";

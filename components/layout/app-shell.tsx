@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import styles from "./app-shell.module.css";
 
 const navItems = [
   { href: "/stores", label: "店舗を選ぶ" },
@@ -20,7 +21,8 @@ const footerLinks = [
 
 const adminItems = [
   { href: "/admin", label: "管理者トップ" },
-  { href: "/admin/applications", label: "申込管理" }
+  { href: "/admin/applications", label: "申込管理" },
+  { href: "/admin/ai-logs", label: "AI利用料・稼働状況" }
 ];
 
 const publicPaths = ["/", "/apply", "/login", "/terms", "/privacy", "/legal", "/help", "/beta-notes"];
@@ -204,9 +206,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
             );
           })}
-          {isAdminArea ? (
-            <>
-              <div className="nav-section-label">管理者メニュー</div>
+        </nav>
+        {isAdminArea ? (
+          <section className={styles.adminGroup} aria-labelledby="admin-menu-heading">
+            <div id="admin-menu-heading" className={styles.adminHeading}>管理者メニュー</div>
+            <nav className={`nav ${styles.adminNav}`} aria-labelledby="admin-menu-heading">
               {adminItems.map((item) => {
                 const active = item.href === "/admin" ? pathname === "/admin" : pathname === item.href || pathname.startsWith(`${item.href}/`);
                 return (
@@ -215,9 +219,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </Link>
                 );
               })}
-            </>
-          ) : null}
-        </nav>
+            </nav>
+          </section>
+        ) : null}
         {storeUtilityItems.length > 0 ? (
           <nav className="nav nav-utility" aria-label="settings">
             <div className="nav-section-label">管理・設定</div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getStoreForApi } from "@/lib/stores";
+import { getCurrentUserAccess } from "@/lib/auth/server";
 import { generateStoreAssistantAnswer } from "@/lib/store-ai/assistant";
 import { loadStoreAiContext } from "@/lib/store-ai/context";
 import { publicContext, resolveAiPage } from "@/lib/store-ai/context-rules";
@@ -31,13 +32,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ sto
   const { storeId } = await params;
   const access = await getStoreForApi(storeId);
   if (!access.ok) return NextResponse.json({ error: access.status === 401 ? "ログインが必要です。" : "店舗を確認できませんでした。" }, { status: access.status, headers });
+  const user = await getCurrentUserAccess();
+  if (!user) return NextResponse.json({ error: "ログインが必要です。" }, { status: 401, headers });
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "質問内容を確認してください。" }, { status: 400, headers });
   try { resolveAiPage(storeId, parsed.data.pathname, parsed.data.search); }
   catch { return NextResponse.json({ error: "対象店舗の画面を指定してください。" }, { status: 400, headers }); }
   try {
     const context = await loadStoreAiContext(access.store, parsed.data.pathname, parsed.data.search);
-    const { answer, model } = await generateStoreAssistantAnswer(context, parsed.data);
+    const { answer, model } = await generateStoreAssistantAnswer(context, parsed.data, {
+      storeId: access.store.id,
+      organizationId: access.store.organization_id,
+      userId: user.userId
+    });
     return NextResponse.json({ answer, model, context: publicContext(context) }, { headers });
   } catch {
     return NextResponse.json({ error: "AIの回答を取得できませんでした。時間をおいてもう一度送信してください。" }, { status: 503, headers });

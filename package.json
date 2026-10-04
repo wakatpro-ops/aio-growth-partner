@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:ai-usage": "node --experimental-strip-types --test tests/unit/ai-usage-*.test.mjs && node scripts/test-ai-usage-callsite-coverage.mjs",
+    "test:staging:ai-usage": "node scripts/test-ai-usage-staging.mjs --staging-synthetic-live",
     "test:store-ai-workspace": "node scripts/test-store-ai-workspace.mjs",
     "test:google-business-policy": "node --experimental-strip-types --test tests/unit/google-business-policy.test.mjs",
     "test:customer-workbench": "node --experimental-strip-types --test tests/unit/customer-workbench.test.mjs",

@@ -1,6 +1,6 @@
 import "server-only";
 
-import OpenAI from "openai";
+import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
 import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { classifyStoreEmailByRules, type StoreEmailRuleInput, type StoreEmailRuleResult } from "@/lib/store-email/rules";
 import type { StoreEmailCategory } from "@/types/store-ai-inbox";
@@ -15,13 +15,13 @@ function cleanAiText(value: unknown, fallback: string) {
   return result || fallback;
 }
 
-export async function classifyInboundStoreEmail(input: StoreEmailRuleInput): Promise<StoreEmailRuleResult> {
+export async function classifyInboundStoreEmail(input: StoreEmailRuleInput, attribution: { storeId: string; organizationId: string }): Promise<StoreEmailRuleResult> {
   const rules = classifyStoreEmailByRules(input);
   if (rules.sensitive || rules.confidence >= 0.9 || !process.env.OPENAI_API_KEY) return rules;
 
   try {
     const model = getOpenAiModel();
-    const response = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
+    const response = await createMeteredOpenAI({ feature: "email_classification", ...attribution }, { apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
       model,
       ...getChatModelOptions(model),
       temperature: 0,

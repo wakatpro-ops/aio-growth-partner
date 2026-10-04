@@ -4,6 +4,15 @@
 
 秘密鍵、APIキー、OAuthトークン、パスワード、MFAコードは記録しない。
 
+## 2026-10-04 AI使用量・費用の運営者可視化（Issue #170）
+
+- 既存GitHub/Vercel Pro/Supabase Pro/OpenAI APIを再利用。新規サービス・契約・キー・課金設定変更なし。モデル・プロンプト・利用上限・最適化は変更しない。
+- staging `zlqqjifitnvorudxbepy` にmigration `202610040001` を適用。運営者のみの集計、JWTの直接読取拒否、1,000件超の集計、月跨ぎ再試行、停止管理者拒否、設定と監査の原子保存を実SQLで確認。合成SQLデータはROLLBACK済み。
+- 本番プロジェクト内の隔離PreviewでDBのみstagingへ限定し、既存保護済みAI設定をその場で使用する。秘密値は出力・平文保存・保護解除しない。最終配備と実API/画面の結果はIssue/PRおよび `docs/ai-usage-metering.md` に記録する。
+- 新しい画面は `/admin/ai-logs`。USD公表単価推計と、月別の運営者入力による参考円換算・AIOb利用料原価率。OpenAI確定請求額とは区別する。店舗自身の売上を分母にしない。
+- 隔離Previewで役割別アクセス、月別設定の保存・再読込・解除、GPT-6 Lunaの実API応答1回と単価照合、PC/スマートフォン表示を確認。合成店舗・利用者は後片付け済み。実際のstaging利用証跡だけ保持する。
+- 本番 `tykanoxkfmixdrmyqelq` に同じ追加migrationと履歴を適用し、運営者のみのservice境界・RLS・追記専用権限を読戻し確認済み。計測開始はアプリ配備後に有効化する。既存店舗の業務データは変更していない。
+
 ## 2026-10-03 取り込み対話確認・品質判定（Issue #168）
 
 - 既存GitHub/Vercel/Supabaseを再利用。staging `zlqqjifitnvorudxbepy` に原本保護・承認保存RPCのmigration `202610030001` を適用し、実DBの7テスト群を通過。

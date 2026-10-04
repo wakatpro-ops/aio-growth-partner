@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
 import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
@@ -162,7 +162,7 @@ export async function selectMetaPage(storeId: string, pageId: string) {
   await logAuditEvent({ storeId, actionType: "meta_page_selected", targetType: "external_channel_account", message: "利用者がMetaの投稿先ページを選択しました。", metadata: { facebook_page_id: page.id, instagram_connected: Boolean(page.instagramId) } });
 }
 
-async function analyzeAndCaption(buffer: Buffer, mimeType: string, store: { name: string; address?: string | null; phone?: string | null }, action: Record<string, unknown>, productContext: string) {
+async function analyzeAndCaption(buffer: Buffer, mimeType: string, store: { name: string; address?: string | null; phone?: string | null }, action: Record<string, unknown>, productContext: string, attribution: { storeId: string; organizationId: string; userId: string }) {
   const fallbackAnalysis = { summary: "画像を保存しました。内容を確認し、投稿文を編集してください。", safety: "needs_human_review" };
   if (!process.env.OPENAI_API_KEY) return { analysis: fallbackAnalysis, captions: {} };
   const prompt = [
@@ -173,7 +173,7 @@ async function analyzeAndCaption(buffer: Buffer, mimeType: string, store: { name
     "JSON形式: analysis={summary,objects,scene,alt_text,safety_flags}, captions={instagram,facebook,x,line}。各媒体はbody,short_body,hashtags配列,cta。断定できない内容は書かないでください。"
   ].join("\n");
   const model = getOpenAiModel();
-  const response = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
+  const response = await createMeteredOpenAI({ feature: "sns_image_analysis", ...attribution }, { apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
     model, ...getChatModelOptions(model), response_format: { type: "json_object" }, messages: [
       { role: "system", content: "あなたは店舗SNSの安全な編集者です。公開は行わず、人が承認する下書きだけをJSONで作ります。" },
       { role: "user", content: [{ type: "text", text: prompt }, { type: "image_url", image_url: { url: `data:${mimeType};base64,${buffer.toString("base64")}` } }] }
@@ -215,7 +215,9 @@ export async function uploadSnsMedia(storeId: string, actionId: string, formData
   const { error: uploadError } = await supabase.storage.from("sns-media").upload(storagePath, buffer, { contentType: detected, upsert: false });
   if (uploadError) throw new Error(`画像を保存できませんでした: ${uploadError.message}`);
   try {
-    const generated = await analyzeAndCaption(buffer, detected, resolved.store, action, productContext);
+    const generated = await analyzeAndCaption(buffer, detected, resolved.store, action, productContext, {
+      storeId: resolved.storeId, organizationId: resolved.organizationId, userId: access.userId
+    });
     const result: JobResult = { ...generated, product_context: productContext, image_note: String(formData.get("image_note") ?? "").trim() };
     const { data, error } = await supabase.from("image_caption_jobs").insert({ organization_id: resolved.organizationId, store_id: resolved.storeId, industry_type_key: resolved.store.industry_type_key,
       growth_action_id: actionId, storage_bucket: "sns-media", storage_path: storagePath, original_file_name: file.name.slice(0, 255), mime_type: detected, file_size: file.size,

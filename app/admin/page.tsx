@@ -7,7 +7,7 @@ const items = [
   { href: "/admin/users", label: "ユーザー管理" },
   { href: "/admin/organizations", label: "組織管理" },
   { href: "/admin/stores", label: "店舗管理" },
-  { href: "/admin/ai-logs", label: "AI利用ログ" },
+  { href: "/admin/ai-logs", label: "AI利用料・稼働状況" },
   { href: "/admin/billing-integrations", label: "課金・外部連携分離" },
   { href: "/admin/beta-release", label: "βリリース運用" },
   { href: "/admin/first-customer-ready", label: "1社目導入前チェック" },

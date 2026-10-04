@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createMeteredFetch } from "@/lib/ai-usage/meter";
 import { getOpenAiSearchModel, getResponsesModelOptions } from "@/lib/openai/models";
 import { canEditStore, getCurrentUserAccess } from "@/lib/auth/server";
 import { getStoredGoogleAccessToken, GOOGLE_SEARCH_CONSOLE_SCOPE } from "@/lib/phase5/google-integrations";
@@ -360,7 +361,8 @@ async function runAiVisibilityObservationContext({ supabase, organizationId, sto
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OpenAI APIキーが未設定のため、AI定点観測を実行できません。");
   const model = getOpenAiSearchModel();
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const meteredFetch = createMeteredFetch({ feature: "ai_visibility", storeId, organizationId, userId });
+  const response = await meteredFetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
     body: JSON.stringify({

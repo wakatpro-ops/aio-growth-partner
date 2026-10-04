@@ -1,13 +1,14 @@
 import "server-only";
 import OpenAI from "openai";
+import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
 import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { buildAssistantMessages, type AssistantInput } from "./prompt";
 import type { AiContext } from "./context-rules";
 
-export async function generateStoreAssistantAnswer(context: AiContext, input: AssistantInput) {
+export async function generateStoreAssistantAnswer(context: AiContext, input: AssistantInput, attribution: { storeId: string; organizationId: string; userId: string }) {
   if (!process.env.OPENAI_API_KEY) { console.warn("store_ai_reply_failed", { reason: "missing_api_key" }); throw new Error("assistant_unavailable"); }
   const model = getOpenAiModel();
-  const response = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 45_000, maxRetries: 0 }).chat.completions.create({
+  const response = await createMeteredOpenAI({ feature: "assistant", ...attribution }, { apiKey: process.env.OPENAI_API_KEY, timeout: 45_000, maxRetries: 0 }).chat.completions.create({
     model,
     ...getChatModelOptions(model, 1500),
     temperature: 0.2,
