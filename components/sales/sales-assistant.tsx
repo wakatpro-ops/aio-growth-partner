@@ -46,7 +46,17 @@ export function SalesAssistant({ storeId, onConsult, onUnavailable, openRequest 
   const prompts = { subject: "どの商品・サービスで作りますか？一覧から選ぶか、名前を教えてください。", customer: "宛先はどのお客様ですか？あとで編集画面から指定することもできます。", amounts: "数量・単価・税の扱いを確認しましょう。登録単価は参考です。今回の金額を入力してください。", details: "書類に添えたい説明はありますか？価格や期限は編集画面で確認できます。", confirm: "この内容で下書きを作りますか？まだ発行・送信はしません。", generating: "下書きを準備しています。完了すると編集画面へ進みます。", done: "下書きを保存しました。編集画面で宛先・金額・期限を確認してください。" };
   async function select(offer: SalesOffer) {
     if (offer.kind) await request({ action: "start", value: offer.id });
-    else if (offer.href && !lock.current) { const href = offer.href; if (await request({ action: "open", value: offer.id })) router.push(href); }
+    else if (offer.href && !lock.current) {
+      const href = offer.href;
+      if (await request({ action: "open", value: offer.id })) {
+        if (href === `/stores/${storeId}/sales-hub#reports`) {
+          // Same-page router pushes do not always emit hashchange. Reveal the folded target even on repeat visits.
+          window.location.hash = "reports";
+          window.dispatchEvent(new Event("hashchange"));
+          setExpanded(false);
+        } else router.push(href);
+      }
+    }
   }
   return <aside className={`store-ai-assistant store-ai-workspace ${styles.panel}${step ? ` ${styles.inProgress}` : ""}${expanded ? " is-expanded" : ""}`} aria-labelledby="sales-assistant-title" aria-busy={busy}>
     <header><div><AiRobotFace className="assistant-header-avatar"/><div><strong id="sales-assistant-title">AIと売上・経理</strong><small>選んで、確認して、編集へ</small></div></div><button className="store-ai-mobile-toggle" type="button" aria-expanded={expanded} aria-controls="sales-conversation" onClick={() => setExpanded(value => !value)}>{expanded ? "小さくする ↓" : "会話を開く ↑"}</button></header>
