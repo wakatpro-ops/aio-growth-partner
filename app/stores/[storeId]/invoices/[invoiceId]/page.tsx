@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
-import { getDocument, listCustomers } from "@/lib/phase2/business-data";
+import { getCustomer, getDocument, listCustomers } from "@/lib/phase2/business-data";
 import { listPdfIssues } from "@/lib/phase6/compliance-data";
 import { getInvoiceStripePayment } from "@/lib/phase6/stripe-payments";
 import { labelFor, paymentRecordStatusLabels, paymentStatusLabels } from "@/lib/status-labels";
@@ -30,6 +30,10 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
     getInvoiceStripePayment(store.id, invoiceId)
   ]);
   if (!invoice) notFound();
+  if (invoice.customer_id && !customers.some(customer => customer.id === invoice.customer_id)) {
+    const selected = await getCustomer(store.id, invoice.customer_id);
+    if (selected) customers.push(selected);
+  }
 
   const industry = getIndustryConfig(store.industry_type_key);
   const flags = resolveFeatureFlags(store);
@@ -50,6 +54,7 @@ export default async function InvoiceDetailPage({ params, searchParams }: { para
           </div>
         )}
       />
+      <Link className="text-link" href={`/stores/${store.id}/sales-hub`}>売上・経理へ戻る →</Link>
       {notices.stripeSaved ? <p className="notice success">Stripe決済URLを保存しました。</p> : null}
       {notices.stripeCheckout === "created" ? <p className="notice success">この請求書専用のStripe決済URLを作成しました。内容を確認して顧客へ共有してください。</p> : null}
       {notices.stripeCheckout === "success" ? <p className="notice success">Stripeの支払い画面から戻りました。入金状態はWebhook確認後に自動更新されます。</p> : null}
