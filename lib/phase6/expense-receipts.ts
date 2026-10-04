@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
 import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { getStore } from "@/lib/stores";
@@ -69,7 +70,7 @@ async function pdfText(buffer: Buffer) {
   } finally { await parser.destroy(); }
 }
 
-async function analyzeReceipt(fileBuffer: Buffer, mimeType: string, storeName: string): Promise<ReceiptAnalysis> {
+async function analyzeReceipt(fileBuffer: Buffer, mimeType: string, storeName: string, attribution: { storeId: string; organizationId: string; userId: string }): Promise<ReceiptAnalysis> {
   const model = getOpenAiModel();
   let extractedPdf: { text: string; pageCount: number } | null = null;
   if (mimeType === "application/pdf") {
@@ -90,7 +91,7 @@ async function analyzeReceipt(fileBuffer: Buffer, mimeType: string, storeName: s
   const content: OpenAI.Chat.Completions.ChatCompletionContentPart[] = extractedPdf
     ? [{ type: "text", text: `${instructions}\n\nPDF抽出本文（全${extractedPdf.pageCount}ページ）:\n${extractedPdf.text || "文字を抽出できませんでした"}` }]
     : [{ type: "text", text: instructions }, { type: "image_url", image_url: { url: `data:${mimeType};base64,${fileBuffer.toString("base64")}` } }];
-  const response = await new OpenAI({ apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
+  const response = await createMeteredOpenAI({ feature: "receipt_extraction", ...attribution }, { apiKey: process.env.OPENAI_API_KEY }).chat.completions.create({
     model, ...getChatModelOptions(model), response_format: { type: "json_object" }, messages: [
       { role: "system", content: "あなたは日本の店舗会計の入力補助です。複数ページ・複数税率を保ったJSONだけを返してください。" },
       { role: "user", content }
@@ -168,7 +169,9 @@ export async function createReceiptFromForm(storeId: string, formData: FormData)
   if (uploadError) throw new Error(`レシート画像を保存できませんでした: ${uploadError.message}`);
   try {
     const integrationResult = await supabase.from("store_accounting_integrations").select("id, external_company_id, office_name").eq("store_id", resolved.storeId).eq("provider", "freee").maybeSingle();
-    const ai = await analyzeReceipt(fileBuffer, file.type, resolved.store.name);
+    const ai = await analyzeReceipt(fileBuffer, file.type, resolved.store.name, {
+      storeId: resolved.storeId, organizationId: resolved.organizationId, userId: access.userId
+    });
     const values = analysisValues(ai);
     const draft: ReceiptReviewDraft = { vendorName: String(values.vendor_name ?? ""), receiptDate: String(values.receipt_date ?? ""), paymentMethod: String(values.payment_method ?? ""), categoryName: String(values.category_name ?? ""), invoiceRegistrationNumber: String(values.invoice_registration_number ?? ""), subtotalAmount: Number(values.subtotal_amount), taxAmount: Number(values.tax_amount), totalAmount: Number(values.total_amount), taxRate: String(values.tax_rate ?? ""), summary: String(values.ai_summary ?? ""), reviewNotes: "", items: values.extracted_items };
     const fingerprint = receiptContentFingerprint({ vendorName: draft.vendorName, receiptDate: draft.receiptDate, totalAmount: draft.totalAmount, invoiceRegistrationNumber: draft.invoiceRegistrationNumber });
@@ -232,7 +235,9 @@ export async function reanalyzeExpenseReceipt(storeId: string, receiptId: string
   if (!receipt?.storage_path) throw new Error("再解析する元ファイルが見つかりません。");
   const { data: file, error: downloadError } = await supabase.storage.from(receipt.storage_bucket || "receipt-files").download(receipt.storage_path);
   if (downloadError || !file) throw new Error("元ファイルを読み込めませんでした。");
-  const ai = await analyzeReceipt(Buffer.from(await file.arrayBuffer()), receipt.mime_type || "application/octet-stream", resolved.store.name);
+  const ai = await analyzeReceipt(Buffer.from(await file.arrayBuffer()), receipt.mime_type || "application/octet-stream", resolved.store.name, {
+    storeId: resolved.storeId, organizationId: resolved.organizationId, userId: access.userId
+  });
   const values = analysisValues(ai);
   const fingerprint = receiptContentFingerprint({ vendorName: values.vendor_name, receiptDate: values.receipt_date, totalAmount: values.total_amount, invoiceRegistrationNumber: values.invoice_registration_number });
   const { error } = await supabase.from("expense_receipts").update({ ...values, content_fingerprint: fingerprint, approval_status: "draft", approved_by: null, approved_at: null,

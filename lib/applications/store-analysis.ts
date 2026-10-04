@@ -1,5 +1,6 @@
 import "server-only";
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
 import { getOpenAiModelCandidates, getResponsesModelOptions } from "@/lib/openai/models";
 import { publicIndustryOptions } from "@/lib/applications/options";
 import { buildRuleBasedDiagnosis, extractStoreProfile } from "@/lib/applications/page-extraction";
@@ -324,7 +325,7 @@ export async function analyzeFetchedStoreSite(fetched: PublicSiteFetchResult, st
     return { ...normalized, operatingModelDraft: buildOperatingModelDraft(extracted), ai: { status: "fallback", model: null, errorCode: "missing_openai_api_key" } };
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = createMeteredOpenAI({ feature: "public_url_analysis" }, { apiKey: process.env.OPENAI_API_KEY });
   let lastCode = "openai_api_error";
   let lastModel: string | null = null;
   for (const model of modelCandidates()) {

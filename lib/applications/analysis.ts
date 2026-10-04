@@ -1,5 +1,6 @@
 import "server-only";
-import OpenAI from "openai";
+import type OpenAI from "openai";
+import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
 import { getChatModelOptions, getOpenAiModelCandidates } from "@/lib/openai/models";
 
 export type PublicApplicationAnalysisInput = {
@@ -187,7 +188,7 @@ export async function analyzePublicApplication(input: PublicApplicationAnalysisI
     };
   }
 
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const client = createMeteredOpenAI({ feature: "application_analysis" }, { apiKey: process.env.OPENAI_API_KEY });
   let lastError: { code: AnalysisErrorCode; message: string; model: string } | null = null;
 
   for (const model of getModelCandidates()) {
