@@ -57,7 +57,7 @@ export function selectActiveImportResolutions<T extends { tableName: string; iss
 const hardCodes = new Set<ImportIssueCode>(["source_missing", "source_error", "unclaimed_structure", "unproven_coverage", "label_conflict"]);
 const dateFields = new Set(["date", "birth_date", "last_visit_date", "time"]);
 const numberFields = new Set(["amount", "quantity", "unit_price", "tax_amount", "subtotal_amount", "cost_price", "unit_price", "tax_rate", "reorder_point", "visit_count"]);
-const required: Record<string, string[]> = { sale: ["date", "item_name", "amount"], expense: ["date", "vendor_name", "amount"], customer: ["name", "phone"], item: ["name"], inventory: ["item_name", "quantity"] };
+const required: Record<string, string[]> = { sale: ["date", "item_name", "amount"], expense: ["date", "amount"], customer: ["name", "phone"], item: ["name"], inventory: ["item_name", "quantity"] };
 const clean = (value: unknown) => String(value ?? "").trim();
 const sameMoney = (a: number, b: number) => Number.isFinite(a) && Number.isFinite(b) && Math.abs(a - b) <= 0.01;
 
@@ -97,6 +97,9 @@ function rowIssues(sheets: UnifiedImportSheetSummary[], rows: ParsedUnifiedImpor
     const groups = new Map<string, { code: ImportIssueCode; field: string; rows: number[]; message: string }>();
     for (const row of rows.filter((row) => row.sheetName === sheet.name)) {
       const fields = [...(required[row.suggestedRecordType] ?? [])];
+      // A supplied but incomplete supplier column still needs a grouped answer.
+      // A ledger with no such column is saved as a draft, not fabricated.
+      if (row.suggestedRecordType === "expense" && Object.hasOwn(row.normalizedData, "vendor_name")) fields.push("vendor_name");
       if (row.suggestedRecordType === "sale" && row.rawData.データ粒度 === "日別サービス別集計") fields.push("quantity");
       const missing = fields.filter((field) => !clean(row.normalizedData[field]));
       const invalid = validateUnifiedImportValues(row.suggestedRecordType, row.normalizedData).map((issue) => ({ ...issue, code: dateFields.has(issue.field) ? "invalid_date" as const : "invalid_number" as const }));

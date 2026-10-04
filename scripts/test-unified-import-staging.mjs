@@ -16,6 +16,7 @@ import * as values from "../lib/unified-import/value-validation.ts";
 import * as version from "../lib/unified-import/version.ts";
 import * as storageNames from "../lib/storage-object-name.ts";
 import * as clarification from "../lib/unified-import/clarification.ts";
+import * as reviewGroups from "../lib/unified-import/review-groups.ts";
 
 assert(process.argv.includes("--staging-synthetic"), "Pass --staging-synthetic to authorize disposable staging fixtures");
 const ref = "zlqqjifitnvorudxbepy";
@@ -52,6 +53,8 @@ const modules = {
   "@/lib/unified-import/value-validation": values,
   "@/lib/unified-import/version": version,
   "@/lib/unified-import/clarification": clarification,
+  "@/lib/unified-import/review-groups": reviewGroups,
+  "./review-groups": reviewGroups,
   "@/lib/storage-object-name": storageNames,
   "@/lib/phase4/import-parser": legacyParser,
   "@/lib/inventory-operations": { applyImportedSaleInventory: unexpected, syncOrderInventory: unexpected },
@@ -138,13 +141,11 @@ try {
   const monthly = await upload(matrixFile());
   const preview = await service.getUnifiedImportJob(storeId, monthly.jobId);
   assert.equal(preview.rows.length, 2);
-  assert(preview.job.sheet_summaries.some((sheet) => sheet.requiresConfirmation));
-  await review(monthly.jobId);
+  assert(!preview.job.sheet_summaries.some((sheet) => sheet.requiresConfirmation), "proven matrix layout still needs final review, not a blanket question");
   await assert.rejects(() => execute(monthly.jobId));
   assert.equal(await count("sales_transactions"), 0);
-  const confirm = new FormData();
-  preview.job.sheet_summaries.forEach((sheet, index) => { if (sheet.requiresConfirmation) confirm.set(`sheet_confirm_${index}`, "on"); });
-  assert.equal((await review(monthly.jobId, confirm)).unresolved, 0);
+  assert.equal((await review(monthly.jobId)).unresolved, 0);
+  assert.equal(await count("sales_transactions"), 0, "review still requires a separate final import action");
   assert.deepEqual(await execute(monthly.jobId), { success: 2, errors: 0, held: 0 });
   const sales = checked(await db.from("sales_transactions").select("gross_amount,business_date").eq("store_id", storeId));
   assert.deepEqual(sales.map((sale) => Number(sale.gross_amount)).sort((a, b) => a - b), [-20, 100]);
@@ -177,13 +178,13 @@ try {
   assert.equal(await count("sales_transactions"), 3);
   pass("1205 real PostgREST preview/review rows are complete and remain unimported");
 
-  const expense = await upload(sheetsFile([["経費", [["支払日", "勘定科目", "経費金額"], ["2026-09-02", "Synthetic Supplies", 123]]]], "synthetic-expense-default.xlsx"));
+  const expense = await upload(sheetsFile([["経費", [["支払日", "勘定科目", "経費金額", "支払先"], ["2026-09-02", "Synthetic Supplies", 123, ""]]]], "synthetic-expense-default.xlsx"));
   const expenseBefore = await service.getUnifiedImportJob(storeId, expense.jobId);
   assert.equal(expenseBefore.rows.length, 1);
   const expenseSheet = expenseBefore.job.sheet_summaries.find((sheet) => sheet.suggestedRecordType === "expense");
   assert(expenseSheet, "Synthetic expense table must be detected");
   const vendorIssue = clarificationService.calculateClarification(expenseBefore.job, expenseBefore.rows).sheets.flatMap((sheet) => sheet.clarification?.issues ?? []).find((issue) => issue.field === "vendor_name");
-  assert(vendorIssue, "Missing source vendor column requires an explicit default answer");
+  assert(vendorIssue, "A supplied but blank vendor column requires an explicit answer");
   const vendorAnswer = { id: randomUUID(), tableName: expenseSheet.name, issueIds: [vendorIssue.id], reason: "Synthetic fixture vendor verified", action: "set_default", field: "vendor_name", value: "Synthetic Approved Vendor" };
   const vendorProposal = await previewResolution(expense.jobId, [vendorAnswer]);
   assert.equal(vendorProposal.changedRows, 1);
@@ -219,6 +220,20 @@ try {
   assert.equal(receipt.vendor_name, vendorAnswer.value); assert.equal(receipt.receipt_date, "2026-09-02"); assert.equal(Number(receipt.total_amount), 123);
   denied(await db.from("unified_import_rows").update({ normalized_data: { amount: "999" }, review_status: "ready", result_id: null }).eq("id", expenseApproved.rows[0].id).select(), "Posted rows must remain immutable");
   pass("real clarification preview/approval RPC, missing vendor default, immutable evidence/history, atomic rollback, stale/cross-tenant rejection, and expense execution");
+
+  const noVendor = await upload(sheetsFile([["経費", [["経費日", "用途", "経費金額"], ["2026-09-02", "Synthetic draft expense", 321]]]], "synthetic-no-vendor-column.xlsx"));
+  const noVendorDetail = await service.getUnifiedImportJob(storeId, noVendor.jobId);
+  assert.equal(noVendorDetail.job.questions.length, 0);
+  assert.equal((await review(noVendor.jobId)).unresolved, 0);
+  assert.deepEqual(await execute(noVendor.jobId), { success: 1, errors: 0, held: 0 });
+  const noVendorReceipt = checked(await db.from("expense_receipts").select("vendor_name,status,approval_status,freee_status,total_amount").eq("store_id", storeId).eq("total_amount", 321).single());
+  assert.equal(noVendorReceipt.vendor_name, null);
+  assert.equal(noVendorReceipt.status, "needs_review");
+  assert.equal(noVendorReceipt.approval_status, "draft");
+  assert.equal(noVendorReceipt.freee_status, "review_required");
+  assert.deepEqual(await execute(noVendor.jobId), { success: 1, errors: 0, held: 0 });
+  assert.equal(await count("expense_receipts"), 2, "retries do not duplicate unknown-vendor drafts");
+  pass("absent supplier column remains NULL in an unapproved, unexported draft; retry is idempotent");
 
   const partial = await upload(sheetsFile([
     ["先に取込", [["売上日", "商品名", "金額", "伝票番号"], ["2026-09-03", "Synthetic Shared Receipt", 100, "SHARED-SYNTHETIC"]]],

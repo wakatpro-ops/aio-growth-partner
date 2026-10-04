@@ -9,6 +9,7 @@ import * as saleGroups from "../lib/unified-import/sales-groups.ts";
 import * as values from "../lib/unified-import/value-validation.ts";
 import * as version from "../lib/unified-import/version.ts";
 import * as clarification from "../lib/unified-import/clarification.ts";
+import * as reviewGroups from "../lib/unified-import/review-groups.ts";
 
 const store = { id: "synthetic-store", organization_id: "synthetic-org", industry_type_key: "other" };
 const originalBytes = new TextEncoder().encode("売上日,商品名,金額\n2026-09-01,合成サービス,1000");
@@ -160,7 +161,8 @@ const modules = {
   "@/lib/unified-import/sales-groups": saleGroups,
   "@/lib/unified-import/value-validation": values,
   "@/lib/unified-import/version": version,
-  "@/lib/unified-import/clarification": clarification
+  "@/lib/unified-import/clarification": clarification,
+  "@/lib/unified-import/review-groups": reviewGroups
 };
 const source = readFileSync(new URL("../lib/unified-import/data.ts", import.meta.url), "utf8");
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;

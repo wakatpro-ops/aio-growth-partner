@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getUnifiedImportJob } from "./data";
 import { resolveImportClarification, selectActiveImportResolutions, type ImportClarificationResolution } from "./clarification";
 import { UNIFIED_IMPORT_PARSER_VERSION } from "./version";
+import { importReviewQuestions } from "./review-groups";
 import { parseImportNumber } from "./value-validation";
 import type { ParsedUnifiedImportRow, UnifiedImportJob, UnifiedImportRow, UnifiedImportSheetSummary } from "@/types/unified-import";
 
@@ -99,7 +100,7 @@ function proposalSummary(job: UnifiedImportJob, rows: UnifiedImportRow[], result
     after: result.rows.filter((row) => row.sheetName === sheet.name).reduce<number | null>((sum, row) => { const value = parseImportNumber(row.normalizedData.amount); return sum === null || value === null ? null : sum + value; }, 0)
   })).filter((entry) => entry.before !== entry.after);
   const removedRows = rows.filter((row) => row.normalized_data.clarification_adjustment === true && !result.rows.some((after) => after.normalizedData.source_resolution_id === row.normalized_data.source_resolution_id)).length;
-  return { id, revision, changedRows, addedRows, removedRows, remaining: result.issues.length, quality: result.quality, totals, changes };
+  return { id, revision, changedRows, addedRows, removedRows, remaining: importReviewQuestions(result.issues).length, quality: result.quality, totals, changes };
 }
 
 export async function previewUnifiedImportClarification(storeId: string, jobId: string, formData: FormData) {
@@ -107,7 +108,7 @@ export async function previewUnifiedImportClarification(storeId: string, jobId: 
   const input = String(formData.get("resolutions") ?? "");
   if (input.length > 100000) throw new Error("回答が多すぎます。表ごとに分けて確認してください。");
   let additions: ImportClarificationResolution[];
-  try { additions = z.array(resolutionSchema).min(1).max(30).parse(JSON.parse(input)); }
+  try { additions = z.array(resolutionSchema).min(1).max(100).parse(JSON.parse(input)); }
   catch { throw new Error("回答の形式を確認してください。必要な項目と理由を入力してください。"); }
   const result = validateAdditions(job, rows, additions);
   const revision = nextRevision(job.updated_at);
@@ -121,7 +122,7 @@ export async function applyUnifiedImportClarification(storeId: string, jobId: st
   const { job, rows, store, access, supabase } = await writableDetail(storeId, jobId, String(formData.get("expected_revision") ?? ""));
   const pending = job.answers.clarification_pending as Pending | undefined;
   if (formData.get("approved") !== "on" || !pending || pending.id !== formData.get("proposal_id") || pending.createdBy !== access.userId) throw new Error("ご自身が確認した最新の修正案を承認してください。");
-  const additions = z.array(resolutionSchema).min(1).max(30).parse(pending.resolutions);
+  const additions = z.array(resolutionSchema).min(1).max(100).parse(pending.resolutions);
   const result = validateAdditions(job, rows, additions);
   const revision = nextRevision(job.updated_at);
   const activeTables = new Set(additions.map((answer) => answer.tableName));
@@ -143,7 +144,7 @@ export async function applyUnifiedImportClarification(storeId: string, jobId: st
   };
   // One transaction: source snapshots, normalized proposals, durable approval history
   // and the job revision must commit together, or none of them may change.
-  const { error } = await supabase.rpc("apply_unified_import_clarification", { p_job_id: job.id, p_store_id: store.id, p_organization_id: store.organization_id, p_expected_revision: job.updated_at, p_revision: revision, p_rows: updates, p_answers: answers, p_sheets: result.sheets, p_questions: result.issues.map((issue) => ({ key: issue.id, sheetName: issue.tableName, prompt: issue.message })) });
+  const { error } = await supabase.rpc("apply_unified_import_clarification", { p_job_id: job.id, p_store_id: store.id, p_organization_id: store.organization_id, p_expected_revision: job.updated_at, p_revision: revision, p_rows: updates, p_answers: answers, p_sheets: result.sheets, p_questions: importReviewQuestions(result.issues) });
   if (error) throw new Error("修正案を反映できませんでした。元データは変更せず停止しました。画面を更新して再確認してください。");
-  return { remaining: result.issues.length };
+  return { remaining: importReviewQuestions(result.issues).length };
 }

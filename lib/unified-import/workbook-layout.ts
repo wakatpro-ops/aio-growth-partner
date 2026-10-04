@@ -98,11 +98,12 @@ function makeTable(sheetName: string, suffix: string, kind: WorkbookLayoutTable[
       : kind === "expense" ? { date: "経費日", category_name: "用途", amount: "経費金額" } : {},
     rows: [],
     notices: [],
-    requiresConfirmation: kind !== "ignore",
+    // Proven layouts still pass through the final review/confirm step. Only
+    // actual ambiguity gets a question; table count must not become quiz count.
+    requiresConfirmation: false,
     blockingIssues: [],
     clarification: { version: 1, issues: [], checks: [] }
   };
-  if (kind !== "ignore") table.clarification.issues.push(createImportClarificationIssue({ tableName: table.name, code: "layout_confirmation", source: { sheetName, range: sourceRange }, message: "抽出した表の範囲・日別集計の意味を確認してください。" }));
   return table;
 }
 
