@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { BusinessDocument, Customer } from "@/types/phase2";
 import type { IndustryTypeKey } from "@/types/domain";
@@ -32,6 +32,17 @@ export function DocumentForm({ action, document, customers, kind, industryTypeKe
   storeAddress?: string | null;
   storePhone?: string | null;
 }) {
+  const editor = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (window.location.hash !== "#document-edit") return;
+    // App-router scroll restoration can run before this streamed client form exists.
+    // Resolve the requested destination after mount, including nested scroll panes.
+    const frame = window.requestAnimationFrame(() => {
+      editor.current?.scrollIntoView({ block: "start" });
+      editor.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [document?.id]);
   const today = new Date().toISOString().slice(0, 10);
   const showReducedTaxRate = industryTypeKey === "restaurant" || industryTypeKey === "retail" || Number(document?.tax_8_subtotal ?? 0) > 0;
   const [values, setValues] = useState<EditorValues>({
@@ -68,7 +79,7 @@ export function DocumentForm({ action, document, customers, kind, industryTypeKe
       </article>
     </aside>
 
-    <section id="document-edit" className="document-fields-pane card form">
+    <section ref={editor} id="document-edit" tabIndex={-1} className="document-fields-pane card form">
       {document?.document_number.includes("-DRAFT-") && document.status === "draft" ? <p className="notice success">AIとの会話から下書きを準備しました。まだ発行・送信していません。宛先・金額・期限・備考を確認してください。書類番号は仮番号です。</p> : null}
       <div className="document-edit-intro"><p className="eyebrow">右側を入力すると左の書類に反映されます</p><h2>{document ? `${documentLabel}を編集` : `${documentLabel}を作成`}</h2><p>同じ番号の印を見比べながら入力してください。</p></div>
       <fieldset className="document-field-group"><legend><PairMarker number={1} />お客様</legend><div className="field"><label htmlFor="customer_id">宛先となる顧客</label><select id="customer_id" name="customer_id" value={values.customerId} onChange={(event) => update("customerId", event.target.value)}><option value="">未選択</option>{customers.map((item) => <option key={item.id} value={item.id}>{item.company_name ? `${item.company_name} / ${item.name}` : item.name}</option>)}</select><span className="muted">顧客名・会社名が書類の宛先に表示されます。</span></div></fieldset>
