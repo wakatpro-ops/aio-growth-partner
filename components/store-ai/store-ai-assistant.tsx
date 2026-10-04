@@ -12,12 +12,13 @@ const clock = (value: string) => new Date(value).toLocaleTimeString("ja-JP", { t
 
 export function StoreAiAssistant({ storeId, pathname, search = "" }: { storeId: string; pathname: string; search?: string }) {
   const [consult, setConsult] = useState(false);
+  const [guidedUnavailable, setGuidedUnavailable] = useState(false);
   const [marketingOpen, setMarketingOpen] = useState(0);
   const marketing = pathname === `/stores/${storeId}/marketing`;
-  useEffect(() => { setConsult(false); }, [pathname, storeId]);
+  useEffect(() => { setConsult(false); setGuidedUnavailable(false); }, [pathname, storeId]);
   useEffect(() => { const open = () => { setConsult(false); setMarketingOpen(value => value + 1); }; window.addEventListener("aio:marketing", open); return () => window.removeEventListener("aio:marketing", open); }, []);
-  if (marketing && !consult) return <MarketingAssistant key={storeId} storeId={storeId} openRequest={marketingOpen} onConsult={() => setConsult(true)} />;
-  return <ReadOnlyStoreAiAssistant key={storeId} storeId={storeId} pathname={pathname} search={search} onResume={marketing ? () => setConsult(false) : undefined} />;
+  if (marketing && !consult) return <MarketingAssistant key={storeId} storeId={storeId} openRequest={marketingOpen} onConsult={() => setConsult(true)} onUnavailable={() => { setGuidedUnavailable(true); setConsult(true); }} />;
+  return <ReadOnlyStoreAiAssistant key={storeId} storeId={storeId} pathname={pathname} search={search} onResume={marketing && !guidedUnavailable ? () => setConsult(false) : undefined} />;
 }
 
 function ReadOnlyStoreAiAssistant({ storeId, pathname, search = "", onResume }: { storeId: string; pathname: string; search?: string; onResume?: () => void }) {

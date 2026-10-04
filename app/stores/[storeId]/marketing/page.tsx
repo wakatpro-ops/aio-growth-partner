@@ -11,6 +11,8 @@ import { listAiRecommendations, listMarketingDrafts } from "@/lib/phase3/marketi
 import { getStore } from "@/lib/stores";
 import { listGrowthActions } from "@/lib/phase5/growth-actions";
 import { StartMarketingConversation } from "@/components/marketing/marketing-assistant";
+import { canEditStore } from "@/lib/auth/server";
+import { conversationEnabled } from "@/lib/marketing/conversation";
 
 function marketingLabels(industryKey: string) {
   return industryKey === "auto_repair"
@@ -30,6 +32,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
 
   const industry = getIndustryConfig(store.industry_type_key);
   const labels = marketingLabels(store.industry_type_key);
+  const canPrepare = conversationEnabled(store) && await canEditStore(store.id, store.organization_id);
   const [legacyDrafts, recommendations, actions] = await Promise.all([
     listMarketingDrafts(store.id),
     listAiRecommendations(store.id),
@@ -61,7 +64,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
       />
       <StoreBusinessNav store={store} />
       <MarketingSections store={store} active="promotion" />
-      <section className="card"><div className="section-heading"><div><h2>何から始めるか、AIと一緒に。</h2><p>お店に合った次の一手をご案内。投稿の下書きも会話から準備できます。</p></div><StartMarketingConversation /></div></section>
+      {canPrepare ? <section className="card"><div className="section-heading"><div><h2>何から始めるか、AIと一緒に。</h2><p>お店に合った次の一手をご案内。投稿の下書きも会話から準備できます。</p></div><StartMarketingConversation /></div></section> : null}
       <section className="visual-section">
         <div className="section-heading"><div><p className="eyebrow">投稿の準備状況</p><h2>何を確認すべきか、ひと目で把握</h2></div><p>AIが勝手に公開せず、投稿済みになるまで人が確認します。</p></div>
         <div className="visual-grid cols-2">

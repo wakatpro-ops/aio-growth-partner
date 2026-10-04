@@ -7,7 +7,7 @@ import { channelLabel, type Conversation, type Offer } from "@/lib/marketing/con
 import styles from "./marketing-assistant.module.css";
 type View = { revision: number; state: Conversation; offer: Offer | null; offers: Offer[]; items: { id: string; name: string }[]; actionAvailable: boolean; observedAt: string };
 
-export function MarketingAssistant({ storeId, onConsult, openRequest = 0 }: { storeId: string; onConsult: () => void; openRequest?: number }) {
+export function MarketingAssistant({ storeId, onConsult, onUnavailable, openRequest = 0 }: { storeId: string; onConsult: () => void; onUnavailable?: () => void; openRequest?: number }) {
   const router = useRouter();
   const [view, setView] = useState<View | null>(null), [error, setError] = useState("");
   const [busy, setBusy] = useState(false), [expanded, setExpanded] = useState(false), [input, setInput] = useState("");
@@ -24,7 +24,7 @@ export function MarketingAssistant({ storeId, onConsult, openRequest = 0 }: { st
       });
       const data = await response.json();
       if (!response.ok) {
-        if (data.unavailable) { onConsult(); return; }
+        if (data.unavailable) { (onUnavailable ?? onConsult)(); return; }
         throw new Error(data.error || "読み込みに失敗しました。");
       }
       if (!mounted.current || flight.current !== controller) return;
