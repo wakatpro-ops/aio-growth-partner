@@ -55,7 +55,7 @@ export function DocumentForm({ action, document, customers, kind, industryTypeKe
   const deadline = kind === "estimate" ? values.expiryDate : values.dueDate;
   function update<K extends keyof EditorValues>(key: K, value: EditorValues[K]) { setValues((current) => ({ ...current, [key]: value })); }
 
-  return <form id="document-edit" className="document-editor" action={action}>
+  return <form className="document-editor" action={action}>
     <aside className="document-preview-pane" aria-label={`${documentLabel}プレビュー`}>
       <div className="document-preview-toolbar"><span>入力と同時に更新</span><strong>書類プレビュー</strong></div>
       <article className="document-sheet">
@@ -68,7 +68,7 @@ export function DocumentForm({ action, document, customers, kind, industryTypeKe
       </article>
     </aside>
 
-    <section className="document-fields-pane card form">
+    <section id="document-edit" className="document-fields-pane card form">
       {document?.document_number.includes("-DRAFT-") && document.status === "draft" ? <p className="notice success">AIとの会話から下書きを準備しました。まだ発行・送信していません。宛先・金額・期限・備考を確認してください。書類番号は仮番号です。</p> : null}
       <div className="document-edit-intro"><p className="eyebrow">右側を入力すると左の書類に反映されます</p><h2>{document ? `${documentLabel}を編集` : `${documentLabel}を作成`}</h2><p>同じ番号の印を見比べながら入力してください。</p></div>
       <fieldset className="document-field-group"><legend><PairMarker number={1} />お客様</legend><div className="field"><label htmlFor="customer_id">宛先となる顧客</label><select id="customer_id" name="customer_id" value={values.customerId} onChange={(event) => update("customerId", event.target.value)}><option value="">未選択</option>{customers.map((item) => <option key={item.id} value={item.id}>{item.company_name ? `${item.company_name} / ${item.name}` : item.name}</option>)}</select><span className="muted">顧客名・会社名が書類の宛先に表示されます。</span></div></fieldset>

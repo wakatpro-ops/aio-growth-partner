@@ -5783,6 +5783,11 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
 .sales-guided-entry { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-block:16px; }
 .sales-guided-entry small { color:var(--muted); }
 #document-edit { scroll-margin-top:16px; }
+.document-editor > *, .document-field-group { min-width:0; }
+.document-sheet { overflow-wrap:anywhere; }
+@media (max-width:620px) {
+  .document-sheet-dates { grid-template-columns:minmax(0,1fr); }
+}
 .store-ai-page-context form { display:grid; gap:8px; padding:12px 0; }
 .store-ai-page-context input, .store-ai-page-context select, .store-ai-page-context textarea { min-width:0; max-width:100%; width:100%; font-size:16px; }
 @media (max-width:600px) {
