@@ -8,3 +8,7 @@
 .footer { display: grid; gap: 10px; padding: 12px 16px; border-top: 1px solid #dce5df; }
 .footer button { background: white; border: 1px solid #bad2c7; border-radius: 10px; padding: 10px; color: #195e4b; min-height: 44px; }
 .footer small { color: #586860; line-height: 1.6; }
+@media (max-width: 1279px) {
+  .inProgress :global(.store-ai-welcome) { display: none; }
+  .inProgress .footer { gap: 6px; padding: 8px 12px; }
+}

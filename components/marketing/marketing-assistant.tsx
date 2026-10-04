@@ -7,7 +7,7 @@ import { channelLabel, type Conversation, type Offer } from "@/lib/marketing/con
 import styles from "./marketing-assistant.module.css";
 type View = { revision: number; state: Conversation; offer: Offer | null; offers: Offer[]; items: { id: string; name: string }[]; actionAvailable: boolean; observedAt: string };
 
-export function MarketingAssistant({ storeId, onConsult, openRequest = 0 }: { storeId: string; onConsult: () => void; openRequest?: number }) {
+export function MarketingAssistant({ storeId, onConsult, onUnavailable, openRequest = 0 }: { storeId: string; onConsult: () => void; onUnavailable?: () => void; openRequest?: number }) {
   const router = useRouter();
   const [view, setView] = useState<View | null>(null), [error, setError] = useState("");
   const [busy, setBusy] = useState(false), [expanded, setExpanded] = useState(false), [input, setInput] = useState("");
@@ -24,7 +24,7 @@ export function MarketingAssistant({ storeId, onConsult, openRequest = 0 }: { st
       });
       const data = await response.json();
       if (!response.ok) {
-        if (data.unavailable) { onConsult(); return; }
+        if (data.unavailable) { (onUnavailable ?? onConsult)(); return; }
         throw new Error(data.error || "読み込みに失敗しました。");
       }
       if (!mounted.current || flight.current !== controller) return;
@@ -60,7 +60,7 @@ export function MarketingAssistant({ storeId, onConsult, openRequest = 0 }: { st
     : step === "done" ? view?.actionAvailable ? "下書きができました！文章・写真を確認して仕上げましょう。まだ公開されていません。" : "作成した下書きは削除済み、または利用できない状態です。集客アクションの削除済み一覧から確認できます。"
     : offer?.text ?? "今の提案は後回しにしました。機能一覧から進むか、気になることをご相談ください。";
   const button = (label: string, action: string, value?: string, itemId?: string) => <button type="button" disabled={busy} onClick={() => void request(action, value, itemId)}>{label}</button>;
-  return <aside className={`store-ai-assistant store-ai-workspace${expanded ? " is-expanded" : ""}`} aria-labelledby="marketing-assistant-title" data-store-id={storeId}>
+  return <aside className={`store-ai-assistant store-ai-workspace${expanded ? " is-expanded" : ""}${step ? ` ${styles.inProgress}` : ""}`} aria-labelledby="marketing-assistant-title" data-store-id={storeId}>
     <header><div><AiRobotFace className="assistant-header-avatar" /><div><strong id="marketing-assistant-title">AIと集客を進める</strong><small>一つずつ、一緒に準備しましょう</small></div></div><button className="store-ai-mobile-toggle" type="button" aria-expanded={expanded} aria-controls="marketing-conversation" onClick={() => setExpanded(!expanded)}>{expanded ? "小さくする ↓" : "会話を開く ↑"}</button></header>
     <div className="store-ai-conversation" id="marketing-conversation">
       <div className="store-ai-assistant-thread" ref={thread}>
