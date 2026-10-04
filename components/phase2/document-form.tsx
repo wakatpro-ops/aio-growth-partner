@@ -33,7 +33,7 @@ export function DocumentForm({ action, document, customers, kind, industryTypeKe
   storePhone?: string | null;
 }) {
   const today = new Date().toISOString().slice(0, 10);
-  const showReducedTaxRate = industryTypeKey === "restaurant" || industryTypeKey === "retail";
+  const showReducedTaxRate = industryTypeKey === "restaurant" || industryTypeKey === "retail" || Number(document?.tax_8_subtotal ?? 0) > 0;
   const [values, setValues] = useState<EditorValues>({
     documentNumber: document?.document_number ?? (kind === "estimate" ? `EST-${today.replaceAll("-", "")}` : ""),
     customerId: document?.customer_id ?? "", title: document?.title ?? "", status: document?.status ?? "draft",
@@ -49,6 +49,7 @@ export function DocumentForm({ action, document, customers, kind, industryTypeKe
   });
   const customer = useMemo(() => customers.find((item) => item.id === values.customerId), [customers, values.customerId]);
   const total = values.subtotal + values.taxTotal;
+  const otherSubtotal = Math.max(0, values.subtotal - values.tax10Subtotal - values.tax8Subtotal);
   const documentLabel = kind === "estimate" ? "御見積書" : "請求書";
   const deadlineLabel = kind === "estimate" ? "有効期限" : "支払期限";
   const deadline = kind === "estimate" ? values.expiryDate : values.dueDate;
@@ -62,12 +63,13 @@ export function DocumentForm({ action, document, customers, kind, industryTypeKe
         <section className="document-sheet-parties"><div><PairMarker number={1} /><span>お客様</span><strong>{customer?.company_name || customer?.name || "顧客を選択してください"} 御中</strong><small>{customer?.email || customer?.phone || "連絡先未選択"}</small></div><div><PairMarker number={4} /><span>発行者</span><strong>{values.issuerName || storeName}</strong><small>{storeAddress || "住所未設定"}</small><small>{storePhone || "電話番号未設定"}</small>{values.registrationNumber ? <small>登録番号 {values.registrationNumber}</small> : null}</div></section>
         <section className="document-sheet-dates"><div><span>発行日</span><strong>{values.issueDate || "未設定"}</strong></div><div><span>{deadlineLabel}</span><strong>{deadline || "未設定"}</strong></div></section>
         <section className="document-sheet-total"><PairMarker number={3} /><span>ご請求・お見積金額</span><strong>{yen(total)}</strong><small>{values.taxInclusion === "inclusive" ? "税込（内税）として入力" : "税抜（外税）として入力"}</small></section>
-        <table className="document-sheet-table"><thead><tr><th>内容</th><th>税率</th><th>金額</th></tr></thead><tbody><tr><td>{values.title || "商品・サービス内容"}</td><td>10%</td><td>{yen(values.tax10Subtotal)}</td></tr>{showReducedTaxRate && values.tax8Subtotal > 0 ? <tr><td>軽減税率対象</td><td>8%</td><td>{yen(values.tax8Subtotal)}</td></tr> : null}</tbody><tfoot><tr><th colSpan={2}>小計</th><td>{yen(values.subtotal)}</td></tr><tr><th colSpan={2}>消費税</th><td>{yen(values.taxTotal)}</td></tr><tr><th colSpan={2}>合計</th><td>{yen(total)}</td></tr></tfoot></table>
+        <table className="document-sheet-table"><thead><tr><th>内容</th><th>税率</th><th>金額</th></tr></thead><tbody>{values.tax10Subtotal > 0 ? <tr><td>{values.title || "商品・サービス内容"}</td><td>10%</td><td>{yen(values.tax10Subtotal)}</td></tr> : null}{showReducedTaxRate && values.tax8Subtotal > 0 ? <tr><td>軽減税率対象</td><td>8%</td><td>{yen(values.tax8Subtotal)}</td></tr> : null}{otherSubtotal > 0 ? <tr><td>{values.title || "その他の内容"}</td><td>{values.taxTotal === 0 ? "課税なし" : "内訳を確認"}</td><td>{yen(otherSubtotal)}</td></tr> : null}</tbody><tfoot><tr><th colSpan={2}>小計</th><td>{yen(values.subtotal)}</td></tr><tr><th colSpan={2}>消費税</th><td>{yen(values.taxTotal)}</td></tr><tr><th colSpan={2}>合計</th><td>{yen(total)}</td></tr></tfoot></table>
         <section className="document-sheet-notes"><PairMarker number={5} /><span>備考</span><p>{values.notes || "備考はありません。"}</p></section>
       </article>
     </aside>
 
-    <section className="document-fields-pane card form">
+    <section id="document-edit" className="document-fields-pane card form">
+      {document?.document_number.includes("-DRAFT-") && document.status === "draft" ? <p className="notice success">AIとの会話から下書きを準備しました。まだ発行・送信していません。宛先・金額・期限・備考を確認してください。書類番号は仮番号です。</p> : null}
       <div className="document-edit-intro"><p className="eyebrow">右側を入力すると左の書類に反映されます</p><h2>{document ? `${documentLabel}を編集` : `${documentLabel}を作成`}</h2><p>同じ番号の印を見比べながら入力してください。</p></div>
       <fieldset className="document-field-group"><legend><PairMarker number={1} />お客様</legend><div className="field"><label htmlFor="customer_id">宛先となる顧客</label><select id="customer_id" name="customer_id" value={values.customerId} onChange={(event) => update("customerId", event.target.value)}><option value="">未選択</option>{customers.map((item) => <option key={item.id} value={item.id}>{item.company_name ? `${item.company_name} / ${item.name}` : item.name}</option>)}</select><span className="muted">顧客名・会社名が書類の宛先に表示されます。</span></div></fieldset>
       <fieldset className="document-field-group"><legend><PairMarker number={2} />書類の基本情報</legend><div className="grid cols-2"><div className="field"><label htmlFor="document_number">番号</label><input id="document_number" name="document_number" value={values.documentNumber} onChange={(event) => update("documentNumber", event.target.value)} placeholder={kind === "invoice" ? "空欄なら連番で自動採番" : undefined} required={kind === "estimate"} /></div><div className="field"><label htmlFor="status">状態</label><select id="status" name="status" value={values.status} onChange={(event) => update("status", event.target.value)}>{Object.entries(statusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div><div className="field full-span"><label htmlFor="title">件名</label><input id="title" name="title" value={values.title} onChange={(event) => update("title", event.target.value)} required /></div><div className="field"><label htmlFor="issue_date">発行日</label><input id="issue_date" name="issue_date" type="date" value={values.issueDate} onChange={(event) => update("issueDate", event.target.value)} /></div>{kind === "estimate" ? <div className="field"><label htmlFor="expiry_date">有効期限</label><input id="expiry_date" name="expiry_date" type="date" value={values.expiryDate} onChange={(event) => update("expiryDate", event.target.value)} /></div> : <div className="field"><label htmlFor="due_date">支払期限</label><input id="due_date" name="due_date" type="date" value={values.dueDate} onChange={(event) => update("dueDate", event.target.value)} /></div>}</div></fieldset>

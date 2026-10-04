@@ -10,6 +10,8 @@ import { getStore } from "@/lib/stores";
 import { registeredDataCount } from "@/lib/customer-workbench";
 import { DataPreview } from "@/components/ui/data-preview";
 import { canEditStore } from "@/lib/auth/server";
+import { AioFunctionList } from "@/components/marketing/aio-function-list";
+import { StartSalesConversation } from "@/components/sales/sales-assistant";
 
 function formatCurrency(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
@@ -175,7 +177,7 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
       <PageHeader
         eyebrow={industry.name}
         title="売上・経理"
-        description="売上、見積・請求・入金、経費・伝票、会計用データを一つの入口から確認できます。"
+        description="お店の変化をひと目で。書類や次の操作は、AIと一緒に準備できます。"
         action={<Link className="button" href={`/stores/${store.id}/data-imports/ai`}>売上・経費データを取り込む</Link>}
       />
       <StoreBusinessNav store={store} />
@@ -191,6 +193,11 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
               <article className="card"><p className="muted">平均取引額</p><div className="metric">{formatCurrency(report.averageTransactionAmount)}</div><small>顧客単位の客単価とは区別しています</small></article>
             </div>
           </div>
+        </section>
+      ) : <p className="notice">この店舗では売上レポートを利用しない設定です。見積・請求などは機能一覧から確認できます。</p>}
+      <div className="sales-guided-entry"><StartSalesConversation/><small>必要なことを順番に確認し、下書きが入った編集画面へ案内します。</small></div>
+      <AioFunctionList alerts={0}>
+      {report ? <>
           <div className="visual-grid cols-2">
             <HorizontalBarChart
               title="売上上位の商品・メニュー"
@@ -206,8 +213,7 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
             />
           </div>
           <p className="visual-guidance">グラフは取り込んだ実データだけを表示しています。未設定が多い場合は、次回の取り込みで支払方法の列を指定すると内訳が分かりやすくなります。</p>
-        </section>
-      ) : <p className="notice">この店舗では売上レポートを利用しない設定です。見積・請求・領収など、利用中の機能は下から開けます。</p>}
+        </> : null}
 
       <section className="sales-hub-actions">
         <div className="section-heading"><div><p className="eyebrow">売上・経理の操作</p><h2>作成・確認する</h2></div></div>
@@ -238,6 +244,7 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
           </div>
         </section>
       ) : null}
+      </AioFunctionList>
     </AppShell>
   );
 }

@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
-import { getDocument, listCustomers } from "@/lib/phase2/business-data";
+import { getCustomer, getDocument, listCustomers } from "@/lib/phase2/business-data";
 import { getStore } from "@/lib/stores";
 import { deleteEstimateAction, updateEstimateAction } from "../../business/actions";
 import { createOrderFromEstimateAction } from "../../compliance/actions";
@@ -20,6 +20,10 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
     listCustomers(store.id)
   ]);
   if (!estimate) notFound();
+  if (estimate.customer_id && !customers.some(customer => customer.id === estimate.customer_id)) {
+    const selected = await getCustomer(store.id, estimate.customer_id);
+    if (selected) customers.push(selected);
+  }
 
   const industry = getIndustryConfig(store.industry_type_key);
   const flags = resolveFeatureFlags(store);
@@ -40,6 +44,7 @@ export default async function EstimateDetailPage({ params }: { params: Promise<{
           </div>
         ) : undefined}
       />
+      <Link className="text-link" href={`/stores/${store.id}/sales-hub`}>売上・経理へ戻る →</Link>
       <DocumentForm action={updateEstimateAction.bind(null, store.id, estimate.id)} document={estimate} customers={customers} kind="estimate" industryTypeKey={store.industry_type_key} storeName={store.name} storeAddress={store.address} storePhone={store.phone} />
       <form action={deleteEstimateAction.bind(null, store.id, estimate.id)} className="danger-zone">
         <ConfirmSubmitButton message={`見積「${estimate.document_number}」を削除します。受注などの関連履歴は保持され、削除済みデータから元に戻せます。`}>削除</ConfirmSubmitButton>

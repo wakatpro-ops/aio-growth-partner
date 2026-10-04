@@ -19,7 +19,7 @@ export function offersFor(storeId: string, facts: Facts): Offer[] {
   return offers;
 }
 // Stable for the same page visit/day. Randomness never overrides priority.
-export function chooseOffer(offers: Offer[], deferred: Record<string, number> = {}, now = Date.now(), seed = ""): Offer | null {
+export function chooseOffer<T extends Offer>(offers: T[], deferred: Record<string, number> = {}, now = Date.now(), seed = ""): T | null {
   const available = offers.filter(offer => !(deferred[offer.id] > now));
   const priority = Math.max(...available.map(offer => offer.priority));
   const peers = available.filter(offer => offer.priority === priority);
