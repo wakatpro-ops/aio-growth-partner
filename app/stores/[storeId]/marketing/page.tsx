@@ -13,6 +13,7 @@ import { listGrowthActions } from "@/lib/phase5/growth-actions";
 import { StartMarketingConversation } from "@/components/marketing/marketing-assistant";
 import { canEditStore } from "@/lib/auth/server";
 import { conversationEnabled } from "@/lib/marketing/conversation";
+import { growthDraftOverview } from "@/lib/marketing/draft-overview";
 
 function marketingLabels(industryKey: string) {
   return industryKey === "auto_repair"
@@ -20,8 +21,8 @@ function marketingLabels(industryKey: string) {
     : { draft: "投稿下書き", stock: "商品在庫", customer: "顧客", focus: "商品・サービス・来店促進" };
 }
 
-const draftStatusLabels: Record<string, string> = { draft: "下書き", approved: "確認済み", published: "投稿済み" };
-const channelLabels: Record<string, string> = { instagram: "Instagram", google_business_profile: "Google", facebook: "Facebook", line: "LINE" };
+const draftStatusLabels: Record<string, string> = { draft: "下書き", approved: "確認済み", completed: "対応済み", published: "投稿済み" };
+const channelLabels: Record<string, string> = { instagram: "Instagram", google_business_profile: "Google", facebook: "Facebook", line: "LINE", review_reply: "口コミ返信", customer_message: "お客様への案内", store_pop: "店内POP", other: "その他" };
 
 export default async function MarketingPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
@@ -40,9 +41,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
   ]);
   const drafts = [
     ...legacyDrafts.map(draft => ({ ...draft, href: `/stores/${store.id}/marketing/drafts/${draft.id}` })),
-    ...actions.filter(action => action.source_type === "guided_conversation").map(action => ({ id: action.id, created_at: action.created_at, channel: action.target_channel, title: action.title,
-      status: action.published_at || action.status === "done" ? "published" : action.status === "approved" ? "approved" : "draft",
-      body: action.drafts?.[0]?.body ?? action.summary, short_body: "", href: `/stores/${store.id}/growth-actions/${action.id}` }))
+    ...growthDraftOverview(actions, store.id)
   ].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const statusCounts = [...drafts.reduce((counts, draft) => {
     const label = draftStatusLabels[draft.status] ?? draft.status;
