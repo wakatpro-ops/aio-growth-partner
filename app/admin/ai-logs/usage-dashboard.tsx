@@ -15,7 +15,7 @@ const timestamp = (value: string | null) => value && Number.isFinite(Date.parse(
 const missingCost = (metrics: AiUsageMetrics) => metrics.requests - metrics.knownCostRequests;
 const pricedCost = (metrics: AiUsageMetrics) => metrics.requests > 0 && metrics.knownCostRequests === 0 ? null : metrics.estimatedCostUsd;
 const featureNames: Record<string, string> = {
-  assistant: "店舗AI相談", email_classification: "メール分類", receipt_extraction: "レシート読取", sns_image_analysis: "SNS画像解析", application_analysis: "申込内容整理", public_url_analysis: "URL店舗診断", ai_visibility: "AI定点観測",
+  assistant: "店舗AI相談", marketing_conversation: "会話から投稿下書き", email_classification: "メール分類", receipt_extraction: "レシート読取", sns_image_analysis: "SNS画像解析", application_analysis: "申込内容整理", public_url_analysis: "URL店舗診断", ai_visibility: "AI定点観測",
   aio_diagnosis: "AIO診断", post_generation: "投稿文の生成", review_reply: "口コミ返信案", google_business_profile_draft: "Google店舗情報の下書き", instagram_draft_generation: "Instagram投稿案", ai_monthly_recommendations: "月次改善提案", sales_ai_monthly_report: "月次売上レポート", demand_action_recommendations: "需要・販促提案", growth_action_draft_generation: "集客施策の下書き", customer_segment_message: "顧客向けメッセージ"
 };
 const featureLabel = (key: string, fallback: string) => Object.hasOwn(featureNames, key) ? featureNames[key] : fallback;

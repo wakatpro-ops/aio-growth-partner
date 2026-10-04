@@ -266,7 +266,8 @@ export async function generateGrowthActions(storeId: string) {
 
   const normalized = normalizeAiActions(ai.output, store);
   const archivedAt = new Date().toISOString();
-  await supabase.from("growth_actions").update({ archived_at: archivedAt, updated_at: archivedAt }).eq("store_id", resolved.storeId).is("archived_at", null);
+  // Regenerating bulk recommendations must not discard user-prepared conversation drafts.
+  await supabase.from("growth_actions").update({ archived_at: archivedAt, updated_at: archivedAt }).eq("store_id", resolved.storeId).eq("source_type", "ai_growth_action").is("archived_at", null);
 
   for (const item of normalized) {
     const provider = providerFor(item.target_channel);
