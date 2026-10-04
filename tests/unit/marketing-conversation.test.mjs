@@ -25,3 +25,14 @@ test("connection prerequisites and feature restrictions", () => {
   assert(offers.every(o => o.href?.startsWith("/stores/store/")));
   assert.deepEqual(offersFor("store", { ...base, googleEnabled: false, instagramEnabled: false }).map(o => o.id), ["aio"]);
 });
+test("Google connection precedes replies and urgent posting; intentional deferral remains available", () => {
+  const offers = offersFor("store", { ...base, google: false, unanswered: 101, pending: 4, urgent: 4 });
+  for (let seed = 0; seed < 100; seed++) assert.equal(chooseOffer(offers, {}, 1, String(seed)).id, "connect-google");
+  assert.equal(chooseOffer(offers, { "connect-google": 10 }, 1).id, "drafts");
+  assert.equal(offers.find(o => o.id === "reviews").href, "/stores/store/marketing/reviews#review-tools");
+});
+test("review connection remains available when posting is disabled", () => {
+  const offers = offersFor("store", { ...base, google: false, googleEnabled: false, googleConnectEnabled: true });
+  assert.equal(chooseOffer(offers).id, "connect-google");
+  assert(!offers.some(o => o.id === "post-google"));
+});

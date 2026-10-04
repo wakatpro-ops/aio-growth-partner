@@ -2,7 +2,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 /** Keep bookmarked question/rediagnosis links usable even while the tools are folded. */
-export function AioFunctionList({ children, alerts }: { children: ReactNode; alerts: number }) {
+export function AioFunctionList({ children, alerts, badge }: { children: ReactNode; alerts: number; badge?: string }) {
   const ref = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     const reveal = () => {
@@ -13,5 +13,5 @@ export function AioFunctionList({ children, alerts }: { children: ReactNode; ale
     reveal(); window.addEventListener("hashchange", reveal);
     return () => window.removeEventListener("hashchange", reveal);
   }, []);
-  return <details ref={ref} className="aio-function-list"><summary>機能一覧{alerts > 0 ? <span className="badge">確認事項 {alerts}件</span> : null}</summary><div>{children}</div></details>;
+  return <details ref={ref} className="aio-function-list"><summary>機能一覧{badge || alerts > 0 ? <span className="badge">{badge ?? `確認事項 ${alerts}件`}</span> : null}</summary><div>{children}</div></details>;
 }

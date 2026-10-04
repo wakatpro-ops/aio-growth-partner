@@ -34,6 +34,7 @@ test("generation failure preserves answers, stale finish cannot overwrite done, 
     "server-only": {}, "@/lib/supabase/admin": { createSupabaseAdminClient: () => db },
     "@/lib/feature-flags/resolve-feature-flags": { resolveFeatureFlags: () => ({}), isFeatureEnabled: () => true },
     "./conversation-rules": rules,
+    "./reviews": { getReviewSummary: async () => ({ connected: false, unanswered: 0, locationIds: [] }) },
     "@/lib/openai/models": { getOpenAiModel: () => "test", getChatModelOptions: () => ({}) },
     "@/lib/ai-usage/meter": { createMeteredOpenAI: () => ({ chat: { completions: { create: async () => { providerCalls++; if (failProvider) throw new Error("provider_down"); return { choices: [{ finish_reason: "stop", message: { content: "コーヒーの香りを楽しみませんか。" } }] }; } } } }) }
   });

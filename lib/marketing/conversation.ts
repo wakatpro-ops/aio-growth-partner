@@ -1,4 +1,5 @@
 import "server-only";
+import { getReviewSummary } from "./reviews";
 import { randomUUID } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
@@ -22,7 +23,7 @@ export async function readConversation(store: Store, actor: string) {
     scoped("google_business_locations", "id,google_oauth_connection_id,is_selected").is("archived_at", null).eq("is_selected", true),
     scoped("external_channel_accounts", "channel,connection_status,token_expires_at").eq("channel", "instagram"),
     scoped("growth_actions", "id,priority,recommended_date").is("archived_at", null).in("status", ["drafted", "pending_approval", "approved"]).limit(1000),
-    scoped("google_business_reviews", "google_business_location_id,google_reply_text,reply_status").limit(1000),
+    getReviewSummary(store.id).then(data => ({ data, error: null })),
     scoped("items", "id,name,description").is("archived_at", null).eq("status", "active").eq("availability", "available").order("name").limit(20)
   ]);
   if (results.some(result => result.error)) throw new Error("context_unavailable");
@@ -31,15 +32,16 @@ export async function readConversation(store: Store, actor: string) {
   const connections = results[1].data as unknown as { id: string; status: string }[];
   const locations = results[2].data as unknown as { id: string; google_oauth_connection_id: string }[];
   const instagram = results[3].data as unknown as { connection_status: string; token_expires_at: string | null }[];
-  const reviews = results[5].data as unknown as { google_business_location_id: string; google_reply_text: string | null; reply_status: string }[];
+  const reviews = results[5].data;
   const pending = results[4].data as unknown as { priority: string; recommended_date: string | null }[];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tokyo" });
   const facts = {
     google: locations.some(location => connections.some(connection => connection.id === location.google_oauth_connection_id && connection.status === "connected")),
     instagram: instagram.some(account => account.connection_status === "connected" && (!account.token_expires_at || Date.parse(account.token_expires_at) > Date.now())),
-    unanswered: reviews.filter(review => locations.some(location => location.id === review.google_business_location_id) && !review.google_reply_text && review.reply_status !== "published").length,
+    unanswered: reviews.unanswered,
     pending: results[4].data?.length ?? 0,
     urgent: pending.filter(action => action.priority === "high" || (action.recommended_date && action.recommended_date <= today)).length,
+    googleConnectEnabled: isFeatureEnabled(flags, "google_oauth_connection"),
     googleEnabled: isFeatureEnabled(flags, "google_business_profile_drafts"), instagramEnabled: isFeatureEnabled(flags, "instagram_drafts")
   };
   const state = session?.state ?? {};

@@ -1,4 +1,5 @@
 import "server-only";
+import { getReviewSummary } from "@/lib/marketing/reviews";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { mayReadStore, mayEditStore } from "@/lib/auth/access-policy";
 import { menuPermissions } from "@/lib/menu-workbench-rules";
@@ -93,15 +94,11 @@ async function inventory(db: Db, store: Store, page: AiPage, manager: boolean): 
 
 async function reviews(db: Db, store: Store): Promise<AiSection> {
   return section("reviews", "Google口コミ", async () => {
-    const [connections, locations, allReviews] = await Promise.all([
-      rows<{ status: string; updated_at: string }>(db, store, "google_oauth_connections", "id,status,updated_at"),
-      rows<{ id: string }>(db, store, "google_business_locations", "id", true),
-      rows<{ id: string; google_business_location_id: string; star_rating: number; google_updated_at: string; google_reply_text: string | null; reply_status: string }>(db, store, "google_business_reviews", "id,google_business_location_id,star_rating,google_updated_at,google_reply_text,reply_status")
-    ]);
-    const ids = new Set(locations.map(row => row.id)), visible = allReviews.filter(row => ids.has(row.google_business_location_id));
-    const unanswered = visible.filter(row => !row.google_reply_text && row.reply_status !== "published").length;
-    const connected = connections.some(row => row.status === "connected");
-    return { state: visible.length ? "ready" : "empty", summary: `${connected ? "Googleから取得済みの" : "Googleは未接続です。保存済みの"}口コミは${visible.length}件、未返信は${unanswered}件です。`, data: { connected, storedCount: visible.length, unanswered, latestReviewUpdate: visible.map(row => row.google_updated_at).sort().at(-1) ?? null, note: "保存済みデータ。今Googleを同期した結果ではない。口コミ本文・氏名は未取得。" } };
+    const { connected, unanswered } = await getReviewSummary(store.id);
+    return { state: "ready", summary: !connected
+      ? `Googleの連携がまだ完了していないようです。口コミを管理できるよう、接続と対象店舗の選択を進めませんか？${unanswered ? `保存済みの未返信口コミは${unanswered}件です。` : ""}`
+      : unanswered ? `未返信の口コミが${unanswered}件あります。機能一覧を開いて、返信を準備しませんか？` : "取得済みの口コミに未返信はありません。必要なときに機能一覧から更新・履歴の確認ができます。",
+      data: { connected, unanswered, note: "選択中の削除されていないGoogle店舗の保存済みデータ。今Googleを同期した結果ではない。本文・氏名は未取得。" } };
   });
 }
 
@@ -170,10 +167,14 @@ export async function loadStoreAiContext(store: Store, pathname: string, search 
   const readers: Partial<Record<typeof page.area, () => Promise<AiSection>>> = {
     bookings: () => reservations(store, page), customers: () => customers(store, page), sales: () => sales(db!, store), inventory: () => inventory(db!, store, page, manager), reviews: () => reviews(db!, store), aio: () => aio(db!, store, page), marketing: () => marketing(db!, store), imports: () => importDetail(db, store, page, canEdit, manager)
   };
-  const areas = page.area === "home" ? ["sales", "bookings", "inventory", "reviews", "marketing"] as const : [page.area];
+  const areas = page.area === "home" ? ["sales", "bookings", "inventory", "reviews", "marketing"] as const : page.area === "marketing" ? ["reviews", "marketing"] as const : [page.area];
   const sections = await Promise.all(areas.map(area => readers[area]).filter((reader): reader is () => Promise<AiSection> => Boolean(reader)).map(reader => reader()));
   const base = `/stores/${store.id}`;
   const links = page.area === "bookings" ? [{ label: "予約を確認", href: `${base}/customers?tab=bookings` }, { label: "予約メールを確認", href: `${base}/ai-inbox` }]
+    : page.area === "reviews" || page.area === "marketing" ? [
+      ...((sections.find(s => s.key === "reviews")?.data as { connected?: boolean } | undefined)?.connected === false ? [{ label: canEdit ? "Googleの接続画面へ" : "Googleの接続状況を確認", href: `${base}/settings/google` }] : []),
+      { label: "口コミの機能一覧を開く", href: `${base}/marketing/reviews#review-tools` }
+    ]
     : page.area === "customers" ? [{ label: "顧客を確認", href: `${base}/customers?tab=customers` }]
       : page.area === "home" ? [{ label: "売上を見る", href: `${base}/sales-hub` }]
         : page.area === "imports" ? [{ label: "取込一覧を確認", href: `${base}/data-imports/ai` }]

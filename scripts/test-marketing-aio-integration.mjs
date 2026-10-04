@@ -16,6 +16,7 @@ const mocks = {
   "next/link": { __esModule: true, default: ({ children, ...props }) => React.createElement("a", props, children) },
   "next/navigation": { redirect },
   "next/cache": { revalidatePath: path => events.push(["revalidate", path]) },
+  "@/lib/marketing/reviews": { getReviewSummary: async () => ({ unanswered: 3 }) },
   "@/lib/auth/store-action-access": { requireStoreActionWriteAccess: async id => { events.push(["authorize", id]); if (!allowed) throw new Error("forbidden"); } },
   "@/lib/feature-flags/resolve-feature-flags": { resolveFeatureFlags: s => s.feature_flags, isFeatureEnabled: () => promotion },
   "@/lib/aio-improvement": Object.fromEntries(["saveAioDraft", "saveAioGoalFromForm", "runAioRediagnosis", "startAioImprovementTask", "updateAioImprovementTaskFromForm"].map(name => [name, async (...args) => { events.push([name, ...args]); if (failSave) throw new Error("validation failed"); return "task-123"; }]))
@@ -43,14 +44,15 @@ assert.equal(resolveAiPage(store.id, `/stores/${store.id}/marketing/aio-improvem
 assert.throws(() => resolveAiPage(store.id, "/stores/another-store/marketing/aio-improvement"), /invalid_page/);
 
 const { MarketingSections } = load("components/marketing/marketing-sections.tsx");
-for (const active of ["promotion", "aio"]) {
-  const html = renderToStaticMarkup(React.createElement(MarketingSections, { store, active }));
+for (const active of ["promotion", "aio", "reviews"]) {
+  const html = renderToStaticMarkup(await MarketingSections({ store, active }));
   assert.equal((html.match(/aria-current="page"/g) ?? []).length, 1);
   assert(html.includes(`/stores/${store.id}/marketing/aio-improvement`));
   assert(html.includes("投稿・販促") && html.includes("検索・AI対策"));
+  assert(html.includes("要返信 3件") && html.includes(`/stores/${store.id}/marketing/reviews`));
 }
 promotion = false;
-assert(!renderToStaticMarkup(React.createElement(MarketingSections, { store, active: "aio" })).includes("投稿・販促"));
+assert(!renderToStaticMarkup(await MarketingSections({ store, active: "aio" })).includes("投稿・販促"));
 
 const actions = load(`${root}/actions.ts`);
 const draftForm = new FormData(); draftForm.set("draft_body", "保存する下書き");
@@ -78,9 +80,10 @@ allowed = true; failSave = true;
 await assert.rejects(() => actions.saveAioGoalAction(store.id, new FormData()), error => error.href === `/stores/${store.id}/marketing/aio-improvement?error=validation%20failed#questions`);
 
 const rules = await load("next.config.ts").default.redirects();
-assert.equal(rules.length, 2);
-assert(rules.every(rule => !rule.permanent && rule.destination.startsWith("/stores/:storeId/marketing/aio-improvement")));
-assert.equal(rules[1].source, "/stores/:storeId/aio-improvement/:path+");
+assert.equal(rules.length, 3);
+assert(rules.every(rule => !rule.permanent && rule.destination.startsWith("/stores/:storeId/marketing/")));
+assert.equal(rules[2].source, "/stores/:storeId/aio-improvement/:path+");
+assert.equal(resolveAiPage(store.id, `/stores/${store.id}/marketing/reviews`).area, "reviews");
 const shell = readFileSync("components/layout/app-shell.tsx", "utf8");
 assert(!shell.includes('label: "AIO改善"'));
 for (const page of ["page.tsx", "history/page.tsx", "tasks/[taskId]/page.tsx"]) {

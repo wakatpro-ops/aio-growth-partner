@@ -100,7 +100,7 @@ export default async function MarketingPage({ params }: { params: Promise<{ stor
         <Link href={`/stores/${store.id}/growth-actions`}>今日の集客アクション・会話で作った下書き →</Link>
         <Link href={`/stores/${store.id}/marketing/drafts`}>従来の投稿下書き →</Link>
         <Link href={`/stores/${store.id}/growth-calendar`}>投稿・配信カレンダー →</Link>
-        <Link href={`/stores/${store.id}/reviews`}>Google口コミ →</Link>
+        <Link href={`/stores/${store.id}/marketing/reviews#review-tools`}>Google口コミ →</Link>
         <Link href={`/stores/${store.id}/results`}>集客・検索成果 →</Link>
         <Link href={`/stores/${store.id}/settings/channels`}>連携先を確認 →</Link>
       </nav></details>

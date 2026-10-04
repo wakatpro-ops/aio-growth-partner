@@ -52,7 +52,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     { href: `/stores/${activeStoreId}/sales-hub`, label: "売上・経理" },
     { href: `/stores/${activeStoreId}/customers`, label: `${navigationLabels.customer}・予約` },
     { href: `/stores/${activeStoreId}/marketing`, label: "集客・販促" },
-    { href: `/stores/${activeStoreId}/reviews`, label: "Google口コミ" },
     { href: `/stores/${activeStoreId}/inventory`, label: navigationLabels.product }
   ] : navItems;
   const storeUtilityItems = activeStoreId ? [
@@ -147,7 +146,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     if (section.startsWith("/aio-improvement") || section.startsWith("/diagnosis")) return "/marketing";
     if (["/sales-hub", "/sales", "/estimates", "/invoices", "/payments", "/accounting", "/reports"].some((prefix) => section.startsWith(prefix))) return "/sales-hub";
     if (["/customers", "/customer-segments", "/customer-messages", "/bookings"].some((prefix) => section.startsWith(prefix))) return "/customers";
-    if (section === "/reviews" || section.startsWith("/reviews/")) return "/reviews";
+    if (section === "/reviews" || section.startsWith("/reviews/")) return "/marketing";
     if (["/marketing", "/growth-actions", "/growth-calendar", "/results", "/posts"].some((prefix) => section.startsWith(prefix))) return "/marketing";
     if (["/inventory", "/items", "/orders"].some((prefix) => section.startsWith(prefix))) return "/inventory";
     if (section.startsWith("/settings") || section.startsWith("/data-imports")) return "/settings";

@@ -321,7 +321,7 @@ export async function publishGoogleBusinessPostAction(storeId: string, actionId:
 
 export async function syncGoogleBusinessReviewsAction(storeId: string) {
   await requireStoreActionWriteAccess(storeId);
-  const path = `/stores/${storeId}/reviews`;
+  const path = `/stores/${storeId}/marketing/reviews`;
   let count = 0;
   try {
     const result = await syncGoogleBusinessReviews(storeId);
@@ -331,36 +331,38 @@ export async function syncGoogleBusinessReviewsAction(storeId: string) {
   } catch (error) {
     errorRedirect(path, error);
   }
-  redirect(`${path}?synced=1&count=${count}`);
+  revalidatePath(`/stores/${storeId}/marketing`);
+  redirect(`${path}?synced=1&count=${count}#review-tools`);
 }
 
 export async function saveGoogleReviewReplyDraftAction(storeId: string, reviewId: string, formData: FormData) {
   await requireStoreActionWriteAccess(storeId);
-  const path = `/stores/${storeId}/reviews`;
+  const path = `/stores/${storeId}/marketing/reviews`;
   try {
     await saveGoogleReviewReplyDraft(storeId, reviewId, formData);
     revalidatePath(path);
   } catch (error) {
     errorRedirect(path, error);
   }
-  redirect(`${path}?saved=1`);
+  revalidatePath(`/stores/${storeId}/marketing`);
+  redirect(`${path}?saved=1#review-tools`);
 }
 
 export async function approveGoogleReviewReplyAction(storeId: string, reviewId: string) {
   await requireStoreActionWriteAccess(storeId);
-  const path = `/stores/${storeId}/reviews`;
+  const path = `/stores/${storeId}/marketing/reviews`;
   try {
     await approveGoogleReviewReply(storeId, reviewId);
     revalidatePath(path);
   } catch (error) {
     errorRedirect(path, error);
   }
-  redirect(`${path}?approved=1`);
+  redirect(`${path}?approved=1#review-tools`);
 }
 
 export async function publishGoogleReviewReplyAction(storeId: string, reviewId: string) {
   await requireStoreActionWriteAccess(storeId);
-  const path = `/stores/${storeId}/reviews`;
+  const path = `/stores/${storeId}/marketing/reviews`;
   try {
     await publishGoogleReviewReply(storeId, reviewId);
     revalidatePath(path);
@@ -368,5 +370,6 @@ export async function publishGoogleReviewReplyAction(storeId: string, reviewId: 
   } catch (error) {
     errorRedirect(path, error);
   }
-  redirect(`${path}?published=1`);
+  revalidatePath(`/stores/${storeId}/marketing`);
+  redirect(`${path}?published=1#review-tools`);
 }

@@ -107,7 +107,7 @@ export default async function GoogleBusinessProfilePage({
         <p>{apiApproved ? "店舗の管理権限があるGoogleアカウントを接続してください。口コミの取得と、内容を承認した投稿・返信の反映を利用できます。審査承認だけで店舗が自動接続されたり、投稿されたりすることはありません。" : "承認までは下書きを確認してGoogle管理画面へコピーして投稿できます。"}</p>
         <div className="form-actions">
           <Link className="button secondary" href={`/stores/${store.id}/settings/google`}>Google接続を確認</Link>
-          {apiApproved ? <Link className="button secondary" href={`/stores/${store.id}/reviews`}>口コミを取得・返信</Link> : null}
+          {apiApproved ? <Link className="button secondary" href={`/stores/${store.id}/marketing/reviews#review-tools`}>口コミを取得・返信</Link> : null}
           <Link className="button" href={`/stores/${store.id}/growth-actions`}>Google投稿下書きを作る</Link>
           <Link className="button secondary" href="https://business.google.com/" target="_blank">Google管理画面を開く</Link>
         </div>
