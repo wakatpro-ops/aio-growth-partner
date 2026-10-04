@@ -82,6 +82,8 @@ for (const page of ["page.tsx", "history/page.tsx", "tasks/[taskId]/page.tsx"]) 
   assert(source.includes("await getStore(storeId)") || source.includes("await getAioImprovementWorkspace(storeId)"));
 }
 const marketing = readFileSync("app/stores/[storeId]/marketing/page.tsx", "utf8");
-for (const label of ["今日の集客アクション", "投稿下書き", "投稿・配信カレンダー", "Google口コミ", "集客・検索成果", "連携先を確認"]) assert(marketing.includes(`<h3>${label}</h3>`));
+for (const label of ["今日の集客アクション", "投稿下書き", "投稿・配信カレンダー", "Google口コミ", "集客・検索成果", "連携先を確認"]) assert(marketing.includes(label));
+assert(marketing.includes('<details className="card"><summary>機能一覧から選ぶ</summary>'));
+assert(!marketing.includes('className="hub-link'));
 assert(marketing.includes('if (!isFeatureEnabled(flags, "marketing_drafts")) redirect('));
-console.log("PASS marketing/AIO: canonical + legacy routes, task context, tenant boundary, tab rendering/flags, authorized actions, success/error redirects, revalidation, retained six cards");
+console.log("PASS marketing/AIO: routes, context, tenant boundary, flags, authorized actions, redirects, revalidation, collapsed feature navigation");

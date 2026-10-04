@@ -9,6 +9,7 @@ const read = path => readFileSync(join(root, path), "utf8");
 const expected = new Map([
   ["lib/openai/generate.ts", ["createMeteredOpenAI", "params.templateKey"]],
   ["lib/store-ai/assistant.ts", ["createMeteredOpenAI", '"assistant"']],
+  ["lib/marketing/conversation.ts", ["createMeteredOpenAI", '"marketing_conversation"']],
   ["lib/store-email/classifier.ts", ["createMeteredOpenAI", '"email_classification"']],
   ["lib/phase6/expense-receipts.ts", ["createMeteredOpenAI", '"receipt_extraction"']],
   ["lib/phase5/sns-publishing.ts", ["createMeteredOpenAI", '"sns_image_analysis"']],
@@ -99,4 +100,4 @@ const generic = read("lib/openai/generate.ts");
 assert.ok(generic.indexOf("tokens = response.usage") < generic.indexOf("output = JSON.parse(content)"), "Usage must survive output JSON parsing errors");
 assert.match(generic, /from\("ai_generation_logs"\)\.insert\(logRecord\)/u, "Keep existing generation logs");
 
-console.log("AI usage callsite coverage: all 8 production callers use metering with trusted attribution.");
+console.log(`AI usage callsite coverage: all ${found.size} production callers use metering with trusted attribution.`);

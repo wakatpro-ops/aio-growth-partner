@@ -5,11 +5,22 @@ import Link from "next/link";
 import type { AiContextCard } from "@/lib/store-ai/context-rules";
 import { AiRobotFace, AiRobotPortrait } from "@/components/brand/ai-robot";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
+import { MarketingAssistant } from "@/components/marketing/marketing-assistant";
 
 type Message = { role: "user" | "assistant"; content: string; pageLabel?: string; observedAt?: string };
 const clock = (value: string) => new Date(value).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" });
 
 export function StoreAiAssistant({ storeId, pathname, search = "" }: { storeId: string; pathname: string; search?: string }) {
+  const [consult, setConsult] = useState(false);
+  const [marketingOpen, setMarketingOpen] = useState(0);
+  const marketing = pathname === `/stores/${storeId}/marketing`;
+  useEffect(() => { setConsult(false); }, [pathname, storeId]);
+  useEffect(() => { const open = () => { setConsult(false); setMarketingOpen(value => value + 1); }; window.addEventListener("aio:marketing", open); return () => window.removeEventListener("aio:marketing", open); }, []);
+  if (marketing && !consult) return <MarketingAssistant key={storeId} storeId={storeId} openRequest={marketingOpen} onConsult={() => setConsult(true)} />;
+  return <ReadOnlyStoreAiAssistant key={storeId} storeId={storeId} pathname={pathname} search={search} onResume={marketing ? () => setConsult(false) : undefined} />;
+}
+
+function ReadOnlyStoreAiAssistant({ storeId, pathname, search = "", onResume }: { storeId: string; pathname: string; search?: string; onResume?: () => void }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -129,6 +140,7 @@ export function StoreAiAssistant({ storeId, pathname, search = "" }: { storeId: 
         <button className="store-ai-mobile-toggle" type="button" aria-controls="store-ai-conversation" aria-expanded={expanded} onClick={() => setExpanded((current) => !current)}>{expanded ? "小さくする ↓" : "会話を開く ↑"}</button>
       </header>
       <div className="store-ai-conversation" id="store-ai-conversation">
+        {onResume ? <button className="button secondary" type="button" onClick={onResume}>投稿の準備に戻る（続きから）</button> : null}
         <div className="store-ai-assistant-thread" ref={threadRef}>
           <div className="store-ai-welcome">
             <AiRobotPortrait />
