@@ -12,6 +12,7 @@ import { classifyUnifiedImportRow, normalizeUnifiedRow, parseUnifiedImportFile, 
 import { groupUnifiedSaleRows, unifiedSaleGroupKey } from "@/lib/unified-import/sales-groups";
 import { parseImportNumber, validateUnifiedImportValues } from "@/lib/unified-import/value-validation";
 import { UNIFIED_IMPORT_PARSER_VERSION } from "@/lib/unified-import/version";
+import { importReviewQuestions } from "@/lib/unified-import/review-groups";
 import { resolveImportClarification, selectActiveImportResolutions, type ImportClarificationResolution } from "@/lib/unified-import/clarification";
 import type { Store } from "@/types/domain";
 import type { UnifiedImportJob, UnifiedImportQuestion, UnifiedImportRecordType, UnifiedImportRow } from "@/types/unified-import";
@@ -81,10 +82,13 @@ async function context(storeId: string, write = false) {
 
 function questionList(
   rows: Array<{ sheetName: string; rowNumber: number; suggestedRecordType: UnifiedImportRecordType; missingFields: string[]; question: string | null }>,
-  sheets: Array<{ name: string; suggestedRecordType?: UnifiedImportRecordType; missingRequiredFields?: string[]; blockingIssues?: string[]; requiresConfirmation?: boolean }>
+  sheets: Array<{ name: string; suggestedRecordType?: UnifiedImportRecordType; missingRequiredFields?: string[]; blockingIssues?: string[]; requiresConfirmation?: boolean; clarification?: import("./clarification").ImportClarificationMetadata }>
 ) {
+  if (sheets.length && sheets.every((sheet) => sheet.clarification)) {
+    return importReviewQuestions(sheets.filter((sheet) => sheet.suggestedRecordType !== "ignore").flatMap((sheet) => sheet.clarification!.issues));
+  }
   const structureQuestions = sheets.filter((sheet) => sheet.suggestedRecordType !== "ignore").flatMap((sheet): UnifiedImportQuestion[] => {
-    if (sheet.blockingIssues?.length) return [{ key: `sheet-${sheet.name}-structure`, sheetName: sheet.name, prompt: `${sheet.name}: ${sheet.blockingIssues.join(" / ")} 元ファイルを修正して再解析するか、この表を取り込み対象から外してください。` }];
+    if (sheet.blockingIssues?.length) return [{ key: `sheet-${sheet.name}-structure`, sheetName: sheet.name, prompt: `${sheet.name}: ${sheet.blockingIssues.join(" / ")} 確認画面で回答するか、この表を保留してください。` }];
     return sheet.requiresConfirmation ? [{ key: `sheet-${sheet.name}-confirm`, sheetName: sheet.name, prompt: `${sheet.name}の対象範囲・日付・合計を確認してください。` }] : [];
   });
   const sheetTypeQuestions = sheets.filter((sheet) => sheet.suggestedRecordType === "unknown").map((sheet): UnifiedImportQuestion => ({
@@ -671,7 +675,7 @@ async function importExpense(supabase: SupabaseClient, store: Store, job: Unifie
   const data = row.normalized_data;
   const date = normalizeImportBusinessDate(data.date);
   const vendorName = valueText(data.vendor_name, 500);
-  if (!date || !vendorName) throw new Error("経費の日付または支払先を確認してください。");
+  if (!date) throw new Error("経費の日付を確認してください。");
   const fingerprint = hash(`unified-expense:${job.id}:${row.id}`);
   const { data: existing } = await supabase.from("expense_receipts").select("id").eq("store_id", store.id).eq("content_fingerprint", fingerprint).is("archived_at", null).maybeSingle();
   if (existing?.id) return { table: "expense_receipts", id: String(existing.id) };
@@ -685,7 +689,7 @@ async function importExpense(supabase: SupabaseClient, store: Store, job: Unifie
     original_file_name: `${job.original_filename} / ${row.sheet_name} ${row.row_number}行目`,
     mime_type: job.mime_type,
     file_size: job.file_size,
-    status: "analyzed",
+    status: vendorName ? "analyzed" : "needs_review",
     vendor_name: vendorName,
     receipt_date: date,
     payment_method: valueText(data.payment_method, 200),
@@ -701,7 +705,7 @@ async function importExpense(supabase: SupabaseClient, store: Store, job: Unifie
     approval_status: "draft",
     content_fingerprint: fingerprint,
     field_confidence: { source: "unified_import", confidence: row.confidence },
-    review_notes: "内容を確認してからfreeeへ送信してください。",
+    review_notes: vendorName ? "内容を確認してからfreeeへ送信してください。" : "元の表に支払先がないため未入力で保存しました。経費の承認・会計送信の前に確認してください。",
     uploaded_by: job.created_by
   }).select("id").single();
   if (error || !receipt) throw new Error(error?.message ?? "経費を保存できませんでした。");

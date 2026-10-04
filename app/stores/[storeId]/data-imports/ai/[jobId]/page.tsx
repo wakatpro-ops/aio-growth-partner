@@ -8,6 +8,7 @@ import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { MappingReviewPanel } from "@/components/unified-import/mapping-review-panel";
 import { ClarificationPanel } from "@/components/unified-import/clarification-panel";
 import { calculateClarification } from "@/lib/unified-import/clarification-data";
+import { groupImportReviewIssues } from "@/lib/unified-import/review-groups";
 import { getIndustryConfig } from "@/config/industries";
 import { getStore } from "@/lib/stores";
 import { getCurrentUserAccess } from "@/lib/auth/server";
@@ -81,7 +82,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
     return count + unifiedImportFields(resolved.selectedType).filter((field) => field.required && (answeredTables.has(sheet.name) ? rows.some((row) => row.sheet_name === sheet.name && !String(row.normalized_data[field.key] ?? "").trim()) : !resolved.mapping[field.key])).length;
   }, 0);
   const structureQuestionCount = job.sheet_summaries.filter((sheet) => !heldTables.has(sheet.name) && !startedTables.has(sheet.name) && resolvedMappings.get(sheet.name)?.selectedType !== "ignore" && (sheet.blockingIssues?.length || (sheet.requiresConfirmation && !layoutConfirmations[sheet.name]))).length;
-  const questionCount = columnQuestionCount + structureQuestionCount + questions.length;
+  const questionCount = clarification ? groupImportReviewIssues(clarification.issues.filter((issue) => !startedTables.has(issue.tableName))).length : columnQuestionCount + structureQuestionCount + questions.length;
   const previews = rows.slice(0, 50);
   const results = rows.filter((row) => ["imported", "error"].includes(row.review_status));
   const countTypes = ["sale", "expense", "customer", "item", "inventory", "ignore"] as const;
@@ -109,7 +110,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
       {onboarding ? <p className="notice"><strong>初回設定用の取り込みです。</strong> 分類内容を確認し、取り込みを確定するとメニュー・在庫などが各管理画面で利用できます。</p> : null}
       {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
       {query.duplicate ? <p className="notice">同じファイルはすでに解析済みのため、既存の結果を表示しています。</p> : null}
-      {query.questions ? <p className="notice">分析結果を保存しました。まだ回答が必要な項目が{query.questions}件あります。</p> : null}
+      {query.questions ? <p className="notice">分析結果を保存しました。まとめて確認する項目が{questionCount}件あります。</p> : null}
       {query.reviewed ? <p className="notice success">今回の対象を確認しました。保留していない表の取り込みへ進めます。</p> : null}
       {query.completed ? <p className="notice success">今回の取り込み結果：成功{job.success_rows}件、失敗{job.error_rows}件。{heldTables.size ? `${heldTables.size}表は保留中です。元データは保持しています。` : job.status === "completed" ? "取り込みが完了しました。" : "未完了の内容を確認してください。"}</p> : null}
       {query.reanalyzed ? <p className="notice success">保存済みファイルを再解析しました。以前の解析結果は削除済み履歴に保持し、売上・経費はまだ変更していません。</p> : null}
@@ -120,7 +121,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
         <div className="grid cols-3">
           <article><p className="muted">状態</p><strong>{statusLabels[job.status] ?? job.status}</strong></article>
           <article><p className="muted">読み分けた表</p><strong>{job.sheet_summaries.filter((sheet) => !sheet.excludedReason).length}表</strong></article>
-          <article><p className="muted">確認が必要</p><strong>{questionCount}件</strong></article>
+          <article><p className="muted">まとめて確認する項目</p><strong>{questionCount}件</strong></article>
         </div>
         {job.macro_enabled ? <p className="notice">マクロ付きExcelです。安全のためマクロは実行せず、ファイルに保存されていたセル値だけを読み取りました。マクロ実行後に計算される値は、Excel側で保存してから再アップロードしてください。</p> : null}
         {Array.isArray(job.answers.parsing_notices) && job.answers.parsing_notices.length > 0 ? <details><summary>ファイルの読み取り方と対象外の内容</summary><ul>{job.answers.parsing_notices.map((notice, i) => <li key={i}>{String(notice)}</li>)}</ul></details> : null}
@@ -135,6 +136,7 @@ export default async function UnifiedImportDetailPage({ params, searchParams }: 
           <section>
             <h2>1. 元の表を見ながら、整理結果を確認</h2>
             <p>売上・経費などの表を分けて整理しました。対象範囲・日付・合計を確認してください。合計表と内訳は重ねて取り込みません。</p>
+            <p>元の表に支払先の列がない経費は、支払先を推測せず未入力の下書きとして保存します。経費の承認・会計送信の前に確認できます。</p>
             <MappingReviewPanel
               fieldLabels={fieldLabels}
               sheets={job.sheet_summaries.map((sheet) => {

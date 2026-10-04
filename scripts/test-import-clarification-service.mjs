@@ -6,6 +6,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { z } from "zod";
 import * as clarification from "../lib/unified-import/clarification.ts";
+import * as reviewGroups from "../lib/unified-import/review-groups.ts";
 import * as values from "../lib/unified-import/value-validation.ts";
 import * as version from "../lib/unified-import/version.ts";
 
@@ -144,7 +145,7 @@ const modules = {
     if (state.job.store_id !== storeId || state.job.id !== id || state.job.archived_at) return null;
     return structuredClone({ job: state.job, rows: state.rows });
   } },
-  "./clarification": clarification, "./version": version, "./value-validation": values
+  "./clarification": clarification, "./version": version, "./value-validation": values, "./review-groups": reviewGroups
 };
 const compiled = ts.transpileModule(readFileSync(new URL("../lib/unified-import/clarification-data.ts", import.meta.url), "utf8"), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
@@ -510,6 +511,25 @@ await test("prototype-like table names retain their own snapshots and never inhe
     assert.equal(state.job.answers.layout_confirmations[name], true);
     assert.equal(service.calculateClarification(state.job, state.rows).issues.length, 0);
   }
+});
+
+await test("35 expense tables share one explicit decision, with immutable dates and an atomic approval", async () => {
+  const names = Array.from({ length: 35 }, (_, index) => `合成経費${index}`);
+  const issues = names.map((name) => issue(name, "expense_period", { details: { year: 2026, month: 1 } }));
+  state.job.sheet_summaries = names.map((name, index) => sheet(name, "expense", [issues[index]]));
+  state.rows = names.map((name) => row(name, "expense", { date: "2025-01-02", amount: 123 }));
+  state.job.total_rows = state.rows.length;
+  assert.equal(reviewGroups.groupImportReviewIssues(service.calculateClarification(state.job, state.rows).issues).length, 1);
+  const originals = structuredClone(state.rows);
+  const answers = issues.map((entry) => ({ id: randomUUID(), tableName: entry.tableName, issueIds: [entry.id], reason: "すべて元の経費日付を使用する", action: "keep_expense_dates" }));
+  const proposal = await preview(answers);
+  assert.deepEqual(state.rows, originals, "preview never changes imported data");
+  assert.equal(proposal.remaining, 0);
+  await apply(proposal);
+  assert.equal(service.calculateClarification(state.job, state.rows).issues.length, 0);
+  assert.equal(state.job.questions.length, 0);
+  assert.equal(state.job.answers.clarification_resolutions.length, 35);
+  assert(state.rows.every((entry) => entry.normalized_data.date === "2025-01-02" && !Object.hasOwn(entry.normalized_data, "vendor_name")));
 });
 
 console.log(`Import clarification service: ${passed} synthetic cases passed (SQL/RLS execution requires separate staging verification).`);

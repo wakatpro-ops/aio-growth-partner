@@ -2,10 +2,15 @@ import assert from "node:assert/strict";
 import * as XLSX from "xlsx/xlsx.mjs";
 import { createImportClarificationIssue, resolveImportClarification, selectActiveImportResolutions } from "../lib/unified-import/clarification.ts";
 import { parseUnifiedImportFile } from "../lib/unified-import/parser.ts";
+import { groupImportReviewIssues } from "../lib/unified-import/review-groups.ts";
 
 // Synthetic-only fixtures: no customer files, staff names, or private values.
 const source = { sheetName: "Synthetic", range: "A1:D50" };
 const issue = (code, extra = {}) => createImportClarificationIssue({ tableName: "Table", code, message: `Synthetic ${code}`, source, ...extra });
+const expenseGroups = Array.from({ length: 135 }, (_, index) => issue("expense_period", { tableName: `Table ${index}` }));
+assert.deepEqual(groupImportReviewIssues(expenseGroups).map((group) => group.length), [100, 35], "batch sizes stay within server validation bounds");
+assert.equal(groupImportReviewIssues([issue("report_period", { tableName: "A" }), issue("report_period", { tableName: "B" })]).length, 2, "replacement periods must not be batched");
+assert.equal(groupImportReviewIssues([issue("adjustment", { tableName: "A" }), issue("adjustment", { tableName: "B" })]).length, 2, "financial decisions remain independent");
 function fixture({ kind = "sale", values = [{ date: "2026-01-01", item_name: "Service A", quantity: "1", amount: "100" }], issues = [], checks = [] } = {}) {
   return {
     sheets: [{ name: "Table", sourceSheetName: "Synthetic", sourceRange: "A1:D50", headerRowNumber: 1, headers: ["date", "amount", "quantity"], rowCount: values.length,
@@ -42,6 +47,8 @@ assert.equal(resolveImportClarification({ ...month, resolutions: [{ ...setPeriod
 
 const expensePeriod = issue("expense_period", { details: { year: 2026, month: 1 } });
 const expenses = fixture({ kind: "expense", issues: [expensePeriod], values: [{ date: "2025-01-02", amount: "10", category_name: "Supplies" }, { date: "2025-01-03", amount: "20", category_name: "Travel" }] });
+assert(!resolveImportClarification(expenses).issues.some((item) => item.field === "vendor_name"), "absent supplier columns stay unknown drafts, not repeated mandatory questions");
+for (const row of expenses.rows) row.normalizedData.vendor_name = "";
 const expenseState = resolveImportClarification(expenses);
 const vendor = pending(expenseState, "missing_field", "vendor_name");
 assert.equal(expenseState.issues.filter((item) => item.field === "vendor_name").length, 1, "one vendor question for the whole table");

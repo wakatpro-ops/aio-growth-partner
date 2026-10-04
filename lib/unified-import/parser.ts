@@ -90,7 +90,9 @@ const fieldRules: Record<ConcreteRecordType, FieldRule[]> = {
 
 const requiredFields: Record<ConcreteRecordType, string[]> = {
   sale: ["date", "item_name", "amount"],
-  expense: ["date", "vendor_name", "amount"],
+  // Imported expenses are unapproved drafts. A missing supplier is not a
+  // missing amount/date, and must never be invented from the purpose column.
+  expense: ["date", "amount"],
   customer: ["name", "phone"],
   item: ["name"],
   inventory: ["item_name", "quantity"]
@@ -191,6 +193,7 @@ export function normalizeUnifiedRow(rawData: Record<string, string>, kind: Unifi
   const mapping = mappingOverride ?? mappingFor(Object.keys(rawData), kind);
   const normalizedData = Object.fromEntries(Object.entries(mapping).map(([target, source]) => [target, clean(rawData[source])]));
   const missingFields = requiredFields[kind].filter((field) => !clean(normalizedData[field]));
+  if (kind === "expense" && mapping.vendor_name && !clean(normalizedData.vendor_name)) missingFields.push("vendor_name");
   return { normalizedData, missingFields };
 }
 
