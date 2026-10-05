@@ -25,6 +25,7 @@ const db={from(table){let fields="",filters=[],range=null,single=false;const que
 };return query;}};
 const never=()=>{throw new Error("Unexpected out-of-scope read");};
 const mocks={"server-only":{},"@/lib/auth/server":{getCurrentUserAccess:async()=>access()},"@/lib/supabase/admin":{createSupabaseAdminClient:()=>db},
+  "@/lib/marketing/reviews":{getReviewSummary:never},"@/lib/feature-flags/resolve-feature-flags":{resolveFeatureFlags:never},
   "@/lib/bookings":{getBooking:never,listBookings:never,listCalendarBookings:never},"@/lib/bookings/constants":{bookingStatusLabels:{},bookingSourceLabels:{}},
   "@/lib/customer-workbench":{readCustomerWorkbench:never},"@/lib/customer-crm":{customerMatchesSegment:never},"@/lib/menu-workbench":{menuSales:never}};
 const cache=new Map();
