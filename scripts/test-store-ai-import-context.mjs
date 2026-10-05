@@ -25,6 +25,7 @@ const db={from(table){let fields="",filters=[],range=null,single=false;const que
 };return query;}};
 const never=()=>{throw new Error("Unexpected out-of-scope read");};
 const mocks={"server-only":{},"@/lib/auth/server":{getCurrentUserAccess:async()=>access()},"@/lib/supabase/admin":{createSupabaseAdminClient:()=>db},
+  "@/lib/marketing/reviews":{getReviewSummary:never},"@/lib/feature-flags/resolve-feature-flags":{resolveFeatureFlags:never},
   "@/lib/bookings":{getBooking:never,listBookings:never,listCalendarBookings:never},"@/lib/bookings/constants":{bookingStatusLabels:{},bookingSourceLabels:{}},
   "@/lib/customer-workbench":{readCustomerWorkbench:never},"@/lib/customer-crm":{customerMatchesSegment:never},"@/lib/menu-workbench":{menuSales:never}};
 const cache=new Map();
@@ -58,3 +59,16 @@ jobs[0].total_rows=1205;resetRows();calls=[];assert.equal((await read()).section
 records.pop();jobs[1].total_rows+=1;assert.equal((await read(second)).sections[0].state,"unavailable");
 jobs=[job()];resetRows();archivedDuringRead=true;assert.equal((await read()).sections[0].state,"unavailable");
 console.log("Store AI import context: exact route/store/org/archive boundaries, financial roles, privacy allowlists, current-job switching, bounded complete counts, failures and read-only controls passed.");
+// Exercise the actual context builder, not just its presentation helper.
+let googleAvailable=false;
+mocks["@/lib/marketing/reviews"].getReviewSummary=async()=>({connected:false,unanswered:2});
+mocks["@/lib/feature-flags/resolve-feature-flags"].resolveFeatureFlags=()=>({google_integrations:googleAvailable,google_oauth_connection:googleAvailable,google_business_profile_integration:googleAvailable});
+const disabled=await loadStoreAiContext(store,`${base}/marketing/reviews`);
+assert(disabled.greeting.includes("利用対象外"));
+assert(!disabled.links.some(link=>link.href.includes("/settings/google")));
+assert(!disabled.suggestions.some(text=>text.includes("Google接続")));
+googleAvailable=true;
+const disconnected=await loadStoreAiContext(store,`${base}/marketing/reviews`);
+assert(disconnected.greeting.includes("接続と対象店舗"));
+assert(disconnected.links.some(link=>link.href===`${base}/settings/google`));
+console.log("Store AI review context: disabled features never offer connection links; enabled disconnected stores retain guidance.");

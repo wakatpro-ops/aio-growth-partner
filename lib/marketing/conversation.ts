@@ -1,5 +1,6 @@
 import "server-only";
 import { getReviewSummary } from "./reviews";
+import { googleReviewIntegrationAvailable } from "./review-guidance";
 import { randomUUID } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
@@ -41,7 +42,7 @@ export async function readConversation(store: Store, actor: string) {
     unanswered: reviews.unanswered,
     pending: results[4].data?.length ?? 0,
     urgent: pending.filter(action => action.priority === "high" || (action.recommended_date && action.recommended_date <= today)).length,
-    googleConnectEnabled: isFeatureEnabled(flags, "google_oauth_connection"),
+    googleConnectEnabled: googleReviewIntegrationAvailable(flags),
     googleEnabled: isFeatureEnabled(flags, "google_business_profile_drafts"), instagramEnabled: isFeatureEnabled(flags, "instagram_drafts")
   };
   const state = session?.state ?? {};

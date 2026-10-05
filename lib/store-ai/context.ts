@@ -1,5 +1,7 @@
 import "server-only";
 import { getReviewSummary } from "@/lib/marketing/reviews";
+import { googleReviewIntegrationAvailable, reviewGuidance } from "@/lib/marketing/review-guidance";
+import { resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { mayReadStore, mayEditStore } from "@/lib/auth/access-policy";
 import { menuPermissions } from "@/lib/menu-workbench-rules";
@@ -95,10 +97,9 @@ async function inventory(db: Db, store: Store, page: AiPage, manager: boolean): 
 async function reviews(db: Db, store: Store): Promise<AiSection> {
   return section("reviews", "Google口コミ", async () => {
     const { connected, unanswered } = await getReviewSummary(store.id);
-    return { state: "ready", summary: !connected
-      ? `Googleの連携がまだ完了していないようです。口コミを管理できるよう、接続と対象店舗の選択を進めませんか？${unanswered ? `保存済みの未返信口コミは${unanswered}件です。` : ""}`
-      : unanswered ? `未返信の口コミが${unanswered}件あります。機能一覧を開いて、返信を準備しませんか？` : "取得済みの口コミに未返信はありません。必要なときに機能一覧から更新・履歴の確認ができます。",
-      data: { connected, unanswered, note: "選択中の削除されていないGoogle店舗の保存済みデータ。今Googleを同期した結果ではない。本文・氏名は未取得。" } };
+    const available = googleReviewIntegrationAvailable(resolveFeatureFlags(store));
+    return { state: "ready", summary: reviewGuidance(available, connected, unanswered),
+      data: { available, connected, unanswered, note: "選択中の削除されていないGoogle店舗の保存済みデータ。今Googleを同期した結果ではない。本文・氏名は未取得。available=falseの場合は未接続とは違い、この店舗で機能が無効。接続操作を案内しない。" } };
   });
 }
 
@@ -170,9 +171,10 @@ export async function loadStoreAiContext(store: Store, pathname: string, search 
   const areas = page.area === "home" ? ["sales", "bookings", "inventory", "reviews", "marketing"] as const : page.area === "marketing" ? ["reviews", "marketing"] as const : [page.area];
   const sections = await Promise.all(areas.map(area => readers[area]).filter((reader): reader is () => Promise<AiSection> => Boolean(reader)).map(reader => reader()));
   const base = `/stores/${store.id}`;
+  const reviewState = sections.find(s => s.key === "reviews")?.data as { available?: boolean; connected?: boolean } | undefined;
   const links = page.area === "bookings" ? [{ label: "予約を確認", href: `${base}/customers?tab=bookings` }, { label: "予約メールを確認", href: `${base}/ai-inbox` }]
     : page.area === "reviews" || page.area === "marketing" ? [
-      ...((sections.find(s => s.key === "reviews")?.data as { connected?: boolean } | undefined)?.connected === false ? [{ label: canEdit ? "Googleの接続画面へ" : "Googleの接続状況を確認", href: `${base}/settings/google` }] : []),
+      ...(reviewState?.available && reviewState.connected === false ? [{ label: canEdit ? "Googleの接続画面へ" : "Googleの接続状況を確認", href: `${base}/settings/google` }] : []),
       { label: "口コミの機能一覧を開く", href: `${base}/marketing/reviews#review-tools` }
     ]
     : page.area === "customers" ? [{ label: "顧客を確認", href: `${base}/customers?tab=customers` }]
@@ -181,5 +183,10 @@ export async function loadStoreAiContext(store: Store, pathname: string, search 
         : [];
   return { version: contextVersion, key: page.key, pageLabel: knowledge.label, storeName: store.name, industry: store.industry_type_key,
     role: access.isPlatformAdmin ? "運営管理者（選択中の店舗のみ）" : access.organizationRoles[store.organization_id] || access.storeRoles[store.id] || "viewer", canEdit, manager,
-    observedAt: new Date().toISOString(), day: japanDay(), greeting: contextGreeting(knowledge.label, sections), suggestions: knowledge.suggestions, links, guidance: knowledge.guidance, sections };
+    observedAt: new Date().toISOString(), day: japanDay(), greeting: contextGreeting(knowledge.label, sections),
+    suggestions: page.area === "reviews" && reviewState?.available === false
+      ? ["利用できる機能を確認したい", "未返信の口コミは何件？", "返信するときの注意点は？"] : knowledge.suggestions,
+    links, guidance: reviewState?.available === false
+      ? `${knowledge.guidance} ただし現在この店舗のGoogle連携は利用対象外。未接続とは区別し、接続画面やOAuthへの操作は案内せず、店舗の管理者への確認を案内する。`
+      : knowledge.guidance, sections };
 }
