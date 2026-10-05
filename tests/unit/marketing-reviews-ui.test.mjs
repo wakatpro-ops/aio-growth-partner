@@ -7,7 +7,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 const require = createRequire(import.meta.url);
 const store = { id: "test-store", organization_id: "org", industry_type_key: "restaurant" };
-async function render({ edit = true, failed = false, status = "draft", published = false } = {}) {
+async function render({ edit = true, failed = false, status = "draft", published = false, integration = true } = {}) {
   const wrap = ({ children }) => React.createElement("div", null, children);
   const mocks = {
     "next/link": { default: ({ children, ...props }) => React.createElement("a", props, children) },
@@ -15,6 +15,8 @@ async function render({ edit = true, failed = false, status = "draft", published
     "@/components/marketing/aio-function-list": { AioFunctionList: ({ badge, children }) => React.createElement("details", null, React.createElement("summary", null, `機能一覧 ${badge ?? ""}`), children) },
     "@/lib/marketing/reviews": { getReviewSummary: async () => { if (failed) throw new Error("db"); return { unanswered: 121, connected: true }; }, getReviewPage: async () => { if (failed) throw new Error("db"); return { count: 121, reviews: [{ id: "r", reply_status: status, google_reply_text: published ? "返信済み" : null, google_updated_at: null, comment: "合成口コミ" }] }; } },
     "@/lib/auth/server": { canEditStore: async () => edit },
+    "@/lib/feature-flags/resolve-feature-flags": { resolveFeatureFlags: () => ({}) },
+    "@/lib/marketing/review-guidance": { googleReviewIntegrationAvailable: () => integration },
     "@/lib/phase5/google-business-policy": { googleBusinessApiApproved: () => true },
     "@/components/ai/ai-generator": { AiGenerator: () => React.createElement("div", null, "AI返信案") },
     "@/components/layout/app-shell": { AppShell: wrap },
@@ -46,4 +48,9 @@ test("approved reply preserves explicit publish control, failure is not empty", 
   const html = await render({ failed: true });
   assert(html.includes("未返信0件という意味ではありません"));
   assert(!html.includes("このページに返信が必要な口コミはありません"));
+});
+test("disabled integration never links to inaccessible Google settings", async () => {
+  const html = await render({ integration: false });
+  assert(html.includes("この店舗ではGoogle連携が利用対象外です"));
+  assert(!html.includes("/settings/google"));
 });

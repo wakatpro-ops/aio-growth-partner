@@ -3,6 +3,8 @@ import { MarketingSections } from "@/components/marketing/marketing-sections";
 import { AioFunctionList } from "@/components/marketing/aio-function-list";
 import { getReviewSummary, getReviewPage } from "@/lib/marketing/reviews";
 import { canEditStore } from "@/lib/auth/server";
+import { resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
+import { googleReviewIntegrationAvailable } from "@/lib/marketing/review-guidance";
 import { googleBusinessApiApproved } from "@/lib/phase5/google-business-policy";
 import { AiGenerator } from "@/components/ai/ai-generator";
 import { AppShell } from "@/components/layout/app-shell";
@@ -47,6 +49,7 @@ export default async function ReviewsPage({
   const selectedLocation = state.locations.find((item) => item.is_selected) ?? null;
   const gbpApiAllowed = googleBusinessApiApproved(state.businessProfile);
   const canEdit = await canEditStore(store.id, store.organization_id);
+  const integrationAvailable = googleReviewIntegrationAvailable(resolveFeatureFlags(store));
   const summary = await getReviewSummary(store.id).catch(() => null);
   const page = Math.min(100000, Math.max(1, Math.floor(Number(notices.page) || 1)));
   const all = notices.filter === "all";
@@ -74,9 +77,9 @@ export default async function ReviewsPage({
         {!gbpApiAllowed ? <p className="notice">Google Business Profile APIの利用承認後に口コミ同期を開始できます。</p> : null}
         <div className="form-actions">
           <form action={syncGoogleBusinessReviewsAction.bind(null, store.id)}>
-            <PendingSubmitButton pendingLabel="Google口コミを取得しています..." disabled={!canEdit || !summary?.connected || !selectedLocation || !gbpApiAllowed}>Google口コミを更新</PendingSubmitButton>
+            <PendingSubmitButton pendingLabel="Google口コミを取得しています..." disabled={!integrationAvailable || !canEdit || !summary?.connected || !selectedLocation || !gbpApiAllowed}>Google口コミを更新</PendingSubmitButton>
           </form>
-          <Link className="button secondary" href={`/stores/${store.id}/settings/google/business-profile`}>投稿先店舗を確認</Link>
+          {integrationAvailable ? <Link className="button secondary" href={`/stores/${store.id}/settings/google/business-profile`}>投稿先店舗を確認</Link> : <p>この店舗ではGoogle連携が利用対象外です。店舗の管理者に設定を確認してください。</p>}
         </div>
       </section>
 
