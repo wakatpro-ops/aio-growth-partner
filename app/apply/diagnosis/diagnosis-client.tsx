@@ -161,7 +161,7 @@ export function DiagnosisClient() {
         <div><p className="step-label">この店舗で合っていますか？</p><h2>{preview.profile.store_name}</h2>{preview.profile.address ? <p><strong>{preview.profile.address}</strong></p> : null}<p>{preview.diagnosis.business_summary}</p><p className="muted">{preview.diagnosis.source_access === "unavailable" ? "元のURLは直接取得できていません。補足いただいた店舗名・地域で検索した候補です。" : "公開情報を基にした診断です。"} 店舗名と所在地をご確認ください。</p></div>
         <div className={`store-identification ${preview.diagnosis.identification.confidence}`}><span aria-hidden="true">{preview.diagnosis.identification.confidence === "high" ? "✓" : "?"}</span><strong>{preview.diagnosis.identification.label}</strong><small>{preview.diagnosis.identification.reason}</small></div>
       </section>
-      <IdentityCorrection onEditingChange={(editing) => { setCorrecting(editing); if (editing) { setStage("form"); setDraft(null); setError(""); } }} />
+      <IdentityCorrection disabled={["sending_code", "verifying", "submitting"].includes(stage)} onEditingChange={(editing) => { setCorrecting(editing); if (editing) { setStage("form"); setDraft(null); setError(""); } }} />
       <section className="card diagnosis-sources-card">
         <div><p className="step-label">診断の参考にした公開情報</p><h2>{preview.diagnosis.checked_sources.length}件の参照ページ</h2><p>取得した店舗ページと検索の出典です。元のURLを読めなかった場合、そのURLは確認済みの情報源に含めていません。</p></div>
         <ul className="diagnosis-source-list">

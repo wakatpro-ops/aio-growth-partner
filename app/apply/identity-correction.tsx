@@ -4,13 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { APPLY_HINT_STORAGE_KEY, APPLY_PREVIEW_STORAGE_KEY, APPLY_SOURCE_STORAGE_KEY } from "./apply-form";
 
-export function IdentityCorrection({ onEditingChange }: { onEditingChange?: (editing: boolean) => void }) {
+export function IdentityCorrection({ onEditingChange, disabled = false }: { onEditingChange?: (editing: boolean) => void; disabled?: boolean }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState("");
   return <section className="card stack" aria-label="店舗の訂正">
-    {!editing ? <button className="button secondary" type="button" onClick={() => {
+    {!editing ? <button className="button secondary" type="button" disabled={disabled} onClick={() => {
       setSource(sessionStorage.getItem(APPLY_SOURCE_STORAGE_KEY) ?? "");
       setEditing(true);
       onEditingChange?.(true);
