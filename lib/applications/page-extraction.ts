@@ -1,7 +1,7 @@
 import type { IndustryTypeKey } from "@/types/domain";
 import type { PublicPageSnapshot } from "@/lib/applications/url-safety";
 
-export type EvidenceOrigin = "published" | "inferred" | "missing";
+export type EvidenceOrigin = "published" | "inferred" | "missing" | "user_provided";
 
 export type ExtractedStoreProfile = {
   store_name: string;

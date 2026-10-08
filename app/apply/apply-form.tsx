@@ -8,6 +8,7 @@ import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 export const APPLY_SOURCE_STORAGE_KEY = "aio-boost:apply-source-url";
 export const APPLY_PREVIEW_STORAGE_KEY = "aio-boost:apply-preview";
 export const APPLY_HINT_STORAGE_KEY = "aio-boost:apply-identity-hints";
+export const APPLY_EXCLUDED_STORAGE_KEY = "aio-boost:apply-excluded-sources";
 
 export function ApplyForm() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export function ApplyForm() {
     sessionStorage.setItem(APPLY_SOURCE_STORAGE_KEY, value);
     sessionStorage.removeItem(APPLY_PREVIEW_STORAGE_KEY);
     sessionStorage.removeItem(APPLY_HINT_STORAGE_KEY);
+    sessionStorage.removeItem(APPLY_EXCLUDED_STORAGE_KEY);
     window.requestAnimationFrame(() => router.push("/apply/analyzing"));
   }
 
