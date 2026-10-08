@@ -5,12 +5,15 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { APPLY_PREVIEW_STORAGE_KEY, APPLY_SOURCE_STORAGE_KEY } from "../apply-form";
+import { IdentityCorrection } from "../identity-correction";
 
 type PreviewPayload = {
   analysis_token: string;
   status: "success" | "partial";
   profile: { store_name: string; industry_label: string; address: string };
   diagnosis: {
+    identity_policy_version?: number;
+    source_access?: "read" | "unavailable";
     business_summary: string;
     identification: { confidence: "high" | "medium" | "low"; label: string; reason: string };
     research_status: "cross_checked" | "input_only";
@@ -33,6 +36,7 @@ export function DiagnosisClient() {
   const [stage, setStage] = useState<Stage>("loading");
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
+  const [correcting, setCorrecting] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem(APPLY_PREVIEW_STORAGE_KEY);
@@ -145,6 +149,7 @@ export function DiagnosisClient() {
 
   if (stage === "loading") return <section className="card"><p>診断結果を準備しています...</p></section>;
   if (!preview) return <section className="card stack"><h1>診断結果を表示できません</h1><p>診断結果が見つかりません。URLからもう一度診断してください。</p><Link className="button" href="/apply">URLを入力する</Link></section>;
+  if (preview.diagnosis.identity_policy_version !== 2) return <section className="stack"><h1>店舗情報をもう一度確認してください</h1><p>以前の診断は店舗の一致を再確認する必要があります。店舗名と地域を入力して調べ直してください。</p><IdentityCorrection /><Link href="/apply">別のURLで診断する</Link></section>;
   if (stage === "success") {
     return <section className="card success-card" aria-live="polite"><p className="eyebrow">申込受付完了</p><h1>株式会社 Navi Lifeが申込内容を確認します</h1><p>メールアドレスの確認と正式申込が完了しました。通常2営業日以内を目安に、同じメールアドレスへ審査結果をご案内します。</p><ol className="compact-list"><li>承認された場合は、パスワード設定用の専用リンクをお送りします。</li><li>追加確認が必要な場合も、同じメールアドレスへご連絡します。</li><li>この時点では契約成立、請求、外部投稿は行われません。</li></ol></section>;
   }
@@ -153,11 +158,12 @@ export function DiagnosisClient() {
     <div className="stack url-first-intake">
       <div><p className="eyebrow">無料の簡易診断</p><h1>診断結果ができました</h1></div>
       <section className="card analysis-hero">
-        <div><p className="step-label">この店舗で合っていますか？</p><h2>{preview.profile.store_name}</h2>{preview.profile.address ? <p><strong>{preview.profile.address}</strong></p> : null}<p>{preview.diagnosis.business_summary}</p><p className="muted">公開情報を基に店舗を確認しました。検索順位やAIからの推薦を保証する診断ではありません。</p></div>
-        <div className={`store-identification ${preview.diagnosis.identification.confidence}`}><span aria-hidden="true">✓</span><strong>{preview.diagnosis.identification.label}</strong><small>{preview.diagnosis.identification.reason}</small></div>
+        <div><p className="step-label">この店舗で合っていますか？</p><h2>{preview.profile.store_name}</h2>{preview.profile.address ? <p><strong>{preview.profile.address}</strong></p> : null}<p>{preview.diagnosis.business_summary}</p><p className="muted">{preview.diagnosis.source_access === "unavailable" ? "元のURLは直接取得できていません。補足いただいた店舗名・地域で検索した候補です。" : "公開情報を基にした診断です。"} 店舗名と所在地をご確認ください。</p></div>
+        <div className={`store-identification ${preview.diagnosis.identification.confidence}`}><span aria-hidden="true">{preview.diagnosis.identification.confidence === "high" ? "✓" : "?"}</span><strong>{preview.diagnosis.identification.label}</strong><small>{preview.diagnosis.identification.reason}</small></div>
       </section>
+      <IdentityCorrection onEditingChange={(editing) => { setCorrecting(editing); if (editing) { setStage("form"); setDraft(null); setError(""); } }} />
       <section className="card diagnosis-sources-card">
-        <div><p className="step-label">確認した公開情報</p><h2>{preview.diagnosis.research_status === "cross_checked" ? `${preview.diagnosis.checked_sources.length}件の情報源を照合しました` : "入力された店舗ページを確認しました"}</h2><p>{preview.diagnosis.research_status === "cross_checked" ? "店舗名・住所・提供内容などが一致する公開ページだけを表示しています。" : "他の公開情報を十分に照合できなかったため、詳細診断で追加確認します。"}</p></div>
+        <div><p className="step-label">診断の参考にした公開情報</p><h2>{preview.diagnosis.checked_sources.length}件の参照ページ</h2><p>取得した店舗ページと検索の出典です。元のURLを読めなかった場合、そのURLは確認済みの情報源に含めていません。</p></div>
         <ul className="diagnosis-source-list">
           {preview.diagnosis.checked_sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.label}<span aria-hidden="true">↗</span></a></li>)}
         </ul>
@@ -169,7 +175,7 @@ export function DiagnosisClient() {
         </ol>
       </section>
 
-      {(stage === "form" || stage === "sending_code") ? (
+      {!correcting && (stage === "form" || stage === "sending_code") ? (
         <form className="card form" onSubmit={requestVerification}>
           <div><p className="eyebrow">詳細診断を申し込む</p><h2>連絡先を確認します</h2><p>運営方法やシステム設定は、承認後にAIの下書きを確認するだけです。</p></div>
           <label className="consent-row store-match-confirmation"><input name="store_confirmed" type="checkbox" required /><span><strong>上に表示された店舗で合っています</strong><span className="required-mark"> 必須</span></span></label>

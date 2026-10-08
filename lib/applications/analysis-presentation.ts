@@ -19,6 +19,8 @@ export function publicAnalysisPreview(input: { profile: unknown; diagnosis: unkn
       address: String(profile.address ?? "")
     },
     diagnosis: {
+      identity_policy_version: diagnosis.identity_policy_version === 2 ? 2 : 0,
+      source_access: diagnosis.source_access === "unavailable" ? "unavailable" : "read",
       business_summary: String(diagnosis.business_summary ?? ""),
       identification: {
         confidence: ["high", "medium"].includes(String(identification.confidence)) ? String(identification.confidence) : "low",

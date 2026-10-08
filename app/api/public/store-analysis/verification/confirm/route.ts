@@ -9,6 +9,7 @@ import {
 } from "@/lib/applications/contact-verification";
 import { hashPublicAnalysisToken } from "@/lib/applications/public-analysis-token";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isCurrentStoreDiagnosis } from "@/lib/applications/public-diagnosis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
   if (!draft.verification_code_hash || !draft.verification_code_expires_at || new Date(draft.verification_code_expires_at).getTime() <= Date.now()) {
     return NextResponse.json({ ok: false, code: "verification_expired", error: "確認コードの有効期限が切れました。新しいコードを送信してください。" }, { status: 410 });
   }
+  if (!isCurrentStoreDiagnosis(draft.analysis_result)) return NextResponse.json({ ok: false, code: "identity_recheck_required", error: "店舗名と地域で診断をやり直してください。以前の診断は再確認が必要です。" }, { status: 409 });
   const attempts = Number(draft.verification_attempts ?? 0);
   if (attempts >= verificationMaxAttempts) {
     return NextResponse.json({ ok: false, code: "verification_locked", error: "確認コードの入力回数が上限に達しました。新しいコードを送信してください。" }, { status: 429 });
