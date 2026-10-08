@@ -3,7 +3,7 @@ import { z } from "zod";
 import { publicAnalysisPreview } from "@/lib/applications/analysis-presentation";
 import { analyzeFetchedStoreSite } from "@/lib/applications/store-analysis";
 import { createPublicAnalysisToken, hashPublicAnalysisToken, publicRequestFingerprint } from "@/lib/applications/public-analysis-token";
-import { fetchPublicStoreSite, normalizePublicUrl, PublicUrlError } from "@/lib/applications/url-safety";
+import { fetchPublicStoreSite, isRecoverableStoreFetchError, normalizePublicUrl, PublicUrlError, type PublicSiteFetchResult } from "@/lib/applications/url-safety";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
@@ -12,7 +12,8 @@ export const maxDuration = 120;
 
 const requestSchema = z.object({
   source_url: z.string().trim().min(3).max(2_000),
-  store_hint: z.string().trim().max(140).optional().default("")
+  store_hint: z.string().trim().max(140).optional().default(""),
+  area_hint: z.string().trim().max(140).optional().default("")
 });
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_REQUESTS = 8;
@@ -73,13 +74,23 @@ export async function POST(request: Request) {
   }
 
   try {
-    const fetched = await fetchPublicStoreSite(normalized.toString());
-    const result = await analyzeFetchedStoreSite(fetched, parsed.data.store_hint);
+    let fetched: PublicSiteFetchResult;
+    try {
+      fetched = await fetchPublicStoreSite(normalized.toString());
+    } catch (error) {
+      if (!isRecoverableStoreFetchError(error)) throw error;
+      if (!parsed.data.store_hint || parsed.data.area_hint.length < 2) throw error;
+      // An inaccessible page contributes no business identity or checked source.
+      fetched = { sourceUrl: normalized.toString(), finalUrl: normalized.toString(), pages: [],
+        errors: [{ url: normalized.toString(), code: (error as PublicUrlError).code }], status: "partial" };
+    }
+    const result = await analyzeFetchedStoreSite(fetched, parsed.data.store_hint, parsed.data.area_hint);
     const status = fetched.status === "partial" || result.ai.status === "fallback" ? "partial" : "success";
     const fetchSummary = {
       page_count: fetched.pages.length,
       pages: fetched.pages.map((page) => ({ url: page.url, title: page.title })),
       errors: fetched.errors,
+      user_hints: { store_name: parsed.data.store_hint, area: parsed.data.area_hint },
       fetched_at: new Date().toISOString()
     };
     const { error: updateError } = await supabase.from("public_store_analyses").update({
@@ -111,7 +122,8 @@ export async function POST(request: Request) {
         ok: false,
         code: "store_not_identified",
         needs_store_hint: true,
-        error: "このURLだけでは店舗を特定できませんでした。店舗名を追加して再解析するか、公式サイト・予約サイトなど店舗名が表示されたページをお試しください。"
+        needs_area_hint: true,
+        error: "店舗を確実に特定できませんでした。店舗名と地域を補足して再調査してください。一致する情報が見つからない場合は、別の公式・店舗ページのURLもお試しください。"
       }, { status: 422 });
     }
 
@@ -132,6 +144,10 @@ export async function POST(request: Request) {
       fetch_summary: { error_code: safe.code, failed_at: new Date().toISOString() },
       updated_at: new Date().toISOString()
     }).eq("id", draft.id);
-    return NextResponse.json({ ok: false, code: safe.code, error: safe.message }, { status: 422 });
+    const recoverable = isRecoverableStoreFetchError(error);
+    return NextResponse.json({ ok: false, code: safe.code,
+      needs_store_hint: recoverable, needs_area_hint: recoverable,
+      error: recoverable ? `${safe.code === "http_403" ? "掲載サイトが自動取得を許可していないため、このページを直接読み取れませんでした。" : safe.message} 店舗名と地域を教えてください。別の公開情報から調べ直せます。` : safe.message
+    }, { status: 422 });
   }
 }

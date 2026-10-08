@@ -38,7 +38,7 @@ export class PublicUrlError extends Error {
 }
 
 export function normalizePublicUrl(value: string) {
-  const trimmed = value.trim();
+  const trimmed = value.trim().replace(/^ttps:\/\//iu, "https://");
   if (!trimmed) throw new PublicUrlError("invalid_url", "URLを入力してください。");
   const withScheme = /^[a-z][a-z0-9+.-]*:/iu.test(trimmed) ? trimmed : `https://${trimmed}`;
   let url: URL;
@@ -54,9 +54,20 @@ export function normalizePublicUrl(value: string) {
     if (secretParameters.has(normalizedName)) {
       throw new PublicUrlError("url_secret", "認証情報を含まない公開ページのURLを入力してください。");
     }
-    if (normalizedName.startsWith("utm_") || ["gclid", "fbclid"].includes(normalizedName)) url.searchParams.delete(name);
+    if (normalizedName.startsWith("utm_") || ["gclid", "fbclid", "yclid", "igsh"].includes(normalizedName)
+      || ((url.hostname === "restaurant.ikyu.com") && ["ikco", "adcid", "adgid", "sa_p", "sa_cc", "sa_t", "sa_ra"].includes(normalizedName))) url.searchParams.delete(name);
   }
+  if (!["http:", "https:"].includes(url.protocol)) throw new PublicUrlError("unsupported_protocol", "httpまたはhttpsで始まるWebページのURLを入力してください。");
   return url;
+}
+
+export function isRecoverableStoreFetchError(error: unknown) {
+  return error instanceof PublicUrlError && /^(?:http_(?:401|403|404|408|429|5\d\d)|fetch_timeout|dns_failed|response_too_large|unsupported_content|login_required|fetch_failed)$/u.test(error.code);
+}
+
+export function isLoginPage(url: URL, title = "") {
+  return /\/(?:accounts\/login|login|signin|challenge|checkpoint)(?:\/|$)/iu.test(url.pathname)
+    || /^(?:ログイン|サインイン|アクセスが拒否|Access denied|Just a moment)(?:\s|[|｜-]|$)/iu.test(title.trim());
 }
 
 function isBlockedIpv4(address: string) {
@@ -259,7 +270,9 @@ async function fetchSinglePage(rawUrl: string, fetchFn: FetchFn | null, lookupFn
       continue;
     }
     if (!response.ok) throw new PublicUrlError(`http_${response.status}`, "ページを取得できませんでした。");
+    if (isLoginPage(current)) throw new PublicUrlError("login_required", "このページはログインが必要なため、店舗の公開情報を取得できませんでした。");
     const html = await readLimitedHtml(response);
+    if (isLoginPage(current, pageTitle(html))) throw new PublicUrlError("login_required", "店舗情報ではなくログイン・アクセス確認画面が表示されました。");
     return {
       url: current.toString(),
       title: pageTitle(html),
@@ -289,6 +302,7 @@ function relevantSameOriginLinks(page: PublicPageSnapshot) {
       const target = new URL(decodeBasicEntities(match[1]), base);
       target.hash = "";
       if (target.origin !== base.origin || !['http:', 'https:'].includes(target.protocol)) continue;
+      if (/\/(?:account|accounts|login|signup|register|carrier_payment_session)(?:\/|$)/iu.test(target.pathname)) continue;
       const label = decodeBasicEntities(match[2].replace(/<[^>]+>/gu, " ")).replace(/\s+/gu, " ").trim();
       const signal = `${target.pathname} ${label}`;
       if (!keywords.test(signal)) continue;

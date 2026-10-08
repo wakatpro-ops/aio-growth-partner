@@ -19,6 +19,7 @@ import {
 } from "@/lib/applications/applicant-email";
 import { sendEmail } from "@/lib/email/sendgrid";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { isCurrentStoreDiagnosis } from "@/lib/applications/public-diagnosis";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
   }
 
   const now = Date.now();
+  if (!isCurrentStoreDiagnosis(draft.analysis_result)) return NextResponse.json({ ok: false, code: "identity_recheck_required", error: "店舗名と地域で診断をやり直してください。以前の診断は再確認が必要です。" }, { status: 409 });
   const sentAt = draft.verification_sent_at ? new Date(draft.verification_sent_at).getTime() : 0;
   if (sentAt && now - sentAt < verificationResendSeconds * 1_000) {
     return NextResponse.json({ ok: false, code: "verification_cooldown", error: "確認メールは送信済みです。1分ほど待ってから再送してください。" }, { status: 429 });

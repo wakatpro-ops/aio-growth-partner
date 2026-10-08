@@ -7,6 +7,7 @@ import { sendApplicationReceivedEmails } from "@/lib/admin/application-emails";
 import type { SalesApplication } from "@/lib/admin/applications";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { normalizeOperatingModel } from "@/lib/applications/operating-model";
+import { isCurrentStoreDiagnosis } from "@/lib/applications/public-diagnosis";
 import {
   applicantEmailAlreadyRegistered,
   isDuplicateApplicantEmailError,
@@ -76,6 +77,9 @@ async function createUrlFirstApplication(json: unknown) {
   }
   if (draft.converted_application_id) {
     return NextResponse.json({ ok: true, already_submitted: true });
+  }
+  if (!isCurrentStoreDiagnosis(draft.analysis_result)) {
+    return NextResponse.json({ ok: false, code: "identity_recheck_required", error: "店舗名と地域で診断をやり直してください。以前の診断からは申し込めません。" }, { status: 409 });
   }
   if (!["success", "partial"].includes(draft.status) || new Date(draft.expires_at).getTime() <= Date.now()) {
     return NextResponse.json({ ok: false, error: "診断結果の有効期限が切れています。URLからもう一度診断してください。" }, { status: 410 });

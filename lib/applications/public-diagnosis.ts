@@ -18,6 +18,13 @@ export type ExpectedOutcome = {
   description: string;
 };
 
+export function isCurrentStoreDiagnosis(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  const identification = record.identification as Record<string, unknown> | undefined;
+  return record.identity_policy_version === 2 && identification?.identified === true;
+}
+
 const genericStoreNames = [
   /^google(?: maps?| マップ)?$/iu,
   /^google map$/iu,
@@ -64,14 +71,23 @@ export function identityTextMatches(left: string, right: string) {
   return Boolean(a && b && (a === b || (Math.min(a.length, b.length) >= 5 && (a.includes(b) || b.includes(a)))));
 }
 
-export function researchedIdentityMatches(base: ExtractedStoreProfile, candidate: ExtractedStoreProfile, storeHint = "") {
+export function areaMatches(address: string, areaHint: string) {
+  const area = normalizedIdentity(areaHint);
+  return area.length >= 2 && normalizedIdentity(address).includes(area);
+}
+
+export function researchedIdentityMatches(base: ExtractedStoreProfile, candidate: ExtractedStoreProfile, storeHint = "", areaHint = "") {
   const baseIdentified = assessStoreIdentification(base).identified;
   if (storeHint && !identityTextMatches(candidate.store_name, storeHint)) return false;
-  if (!baseIdentified) return assessStoreIdentification(candidate).identified;
-  if (!identityTextMatches(base.store_name, candidate.store_name)) return false;
+  if (areaHint && !areaMatches(candidate.address, areaHint)) return false;
+  // Missing evidence is not permission to accept a different business from search.
+  if (!isGenericStoreName(base.store_name) && !identityTextMatches(base.store_name, candidate.store_name)) return false;
   if (base.phone && candidate.phone && base.phone.replace(/\D/gu, "") !== candidate.phone.replace(/\D/gu, "")) return false;
   if (base.address && candidate.address && !identityTextMatches(base.address, candidate.address)) return false;
-  return true;
+  if (!baseIdentified || (!base.address && !base.phone)) {
+    return Boolean(storeHint && areaHint && assessStoreIdentification(candidate).identified);
+  }
+  return assessStoreIdentification(candidate).identified;
 }
 
 function areaLabel(address: string) {
@@ -133,9 +149,10 @@ function sourceLabel(hostname: string, kind: DiagnosisSource["kind"]) {
 
 export function normalizeDiagnosisSources(
   inputUrl: string,
-  discovered: Array<{ url?: unknown; label?: unknown; kind?: unknown }> = []
+  discovered: Array<{ url?: unknown; label?: unknown; kind?: unknown }> = [],
+  includeInput = true
 ): DiagnosisSource[] {
-  const candidates = [{ url: inputUrl, label: "", kind: "input" }, ...discovered];
+  const candidates = [...(includeInput ? [{ url: inputUrl, label: "", kind: "input" }] : []), ...discovered];
   const sources: DiagnosisSource[] = [];
   const sourceGroups = new Set<string>();
   for (const candidate of candidates) {
@@ -180,4 +197,35 @@ export function webCitationSources(response: unknown) {
       });
     });
   });
+}
+
+// Structured JSON responses may omit inline annotations. In that case only
+// model-selected URLs also present in the search tool's sources are accepted.
+export function verifiedWebResearchSources(response: unknown, selected: unknown) {
+  const record = response && typeof response === "object" ? response as Record<string, unknown> : {};
+  const output = Array.isArray(record.output) ? record.output : [];
+  const consulted = new Set<string>();
+  function sourceKey(value: unknown) {
+    try {
+      const url = new URL(String(value ?? ""));
+      if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return "";
+      url.hash = "";
+      for (const key of [...url.searchParams.keys()]) if (/^utm_/iu.test(key)) url.searchParams.delete(key);
+      return url.toString();
+    } catch { return ""; }
+  }
+  for (const item of output) {
+    if (!item || typeof item !== "object" || item.type !== "web_search_call" || item.status !== "completed") continue;
+    const sources = item.action?.sources;
+    if (!Array.isArray(sources)) continue;
+    for (const source of sources) {
+      const key = sourceKey(source?.url);
+      if (key) consulted.add(key);
+    }
+  }
+  const verified = (Array.isArray(selected) ? selected : []).flatMap(item => {
+    const key = sourceKey(item?.url);
+    return key && consulted.has(key) ? [{ url: key, label: "", kind: "other" }] : [];
+  });
+  return [...webCitationSources(response), ...verified];
 }
