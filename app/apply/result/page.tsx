@@ -13,6 +13,7 @@ function valueOrPending(value: string | string[]) {
 }
 
 function originLabel(value: unknown) {
+  if (value === "user_provided") return "ご入力の情報・公開情報は未確認";
   if (value === "published") return "公開ページで確認";
   if (value === "inferred") return "AIの推定・要確認";
   return "未確認";

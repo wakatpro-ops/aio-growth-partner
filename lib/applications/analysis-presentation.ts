@@ -21,6 +21,9 @@ export function publicAnalysisPreview(input: { profile: unknown; diagnosis: unkn
     diagnosis: {
       identity_policy_version: diagnosis.identity_policy_version === 2 ? 2 : 0,
       source_access: diagnosis.source_access === "unavailable" ? "unavailable" : "read",
+      identity_method: String(diagnosis.identity_method ?? "direct"),
+      excluded_sources: listValue(diagnosis.excluded_sources),
+      services: listValue(profile.services).slice(0, 12),
       business_summary: String(diagnosis.business_summary ?? ""),
       identification: {
         confidence: ["high", "medium"].includes(String(identification.confidence)) ? String(identification.confidence) : "low",
@@ -32,7 +35,7 @@ export function publicAnalysisPreview(input: { profile: unknown; diagnosis: unkn
         const source = recordValue(item);
         const url = String(source.url ?? "");
         if (!/^https?:\/\//iu.test(url)) return [];
-        return [{ url, label: String(source.label ?? "公開ページ").slice(0, 80), kind: String(source.kind ?? "other") }];
+        return [{ url, label: String(source.label ?? "公開ページ").slice(0, 80), kind: String(source.kind ?? "other"), access: source.access === "page" ? "page" : "search" }];
       }).slice(0, 6),
       expected_outcomes: expectedOutcomes.flatMap((item) => {
         const outcome = recordValue(item);

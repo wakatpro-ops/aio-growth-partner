@@ -3,7 +3,9 @@
 import { execFileSync, spawn } from "node:child_process";
 import assert from "node:assert/strict";
 const ref="zlqqjifitnvorudxbepy";
-const keys=JSON.parse(execFileSync("/opt/homebrew/bin/supabase",["projects","api-keys","--project-ref",ref,"--reveal","--output","json"],{encoding:"utf8",stdio:["ignore","pipe","pipe"]}));
+let keys;
+try { keys=JSON.parse(execFileSync("/opt/homebrew/bin/supabase",["projects","api-keys","--project-ref",ref,"--reveal","--output","json"],{encoding:"utf8",stdio:["ignore","pipe","pipe"]})); }
+catch { console.error("Could not load the existing staging connection. CLI output is withheld to protect credentials."); process.exit(1); }
 const secret=keys.find(k=>k.name==="aio_staging_vercel"&&k.type==="secret")?.api_key, anon=keys.find(k=>k.type==="publishable")?.api_key;
 assert(secret&&anon);
 const isolated={NEXT_PUBLIC_SUPABASE_URL:`https://${ref}.supabase.co`,NEXT_PUBLIC_SUPABASE_ANON_KEY:anon,SUPABASE_SERVICE_ROLE_KEY:secret,APP_BASE_URL:"https://staging.aioboost.jp",NEXT_PUBLIC_APP_URL:"https://staging.aioboost.jp",

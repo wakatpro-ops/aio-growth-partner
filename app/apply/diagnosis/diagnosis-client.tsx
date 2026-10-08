@@ -6,6 +6,7 @@ import type { FormEvent } from "react";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { APPLY_PREVIEW_STORAGE_KEY, APPLY_SOURCE_STORAGE_KEY } from "../apply-form";
 import { IdentityCorrection } from "../identity-correction";
+import { SourceSelection } from "../source-selection";
 
 type PreviewPayload = {
   analysis_token: string;
@@ -14,10 +15,13 @@ type PreviewPayload = {
   diagnosis: {
     identity_policy_version?: number;
     source_access?: "read" | "unavailable";
+    identity_method?: string;
+    excluded_sources?: string[];
+    services?: string[];
     business_summary: string;
     identification: { confidence: "high" | "medium" | "low"; label: string; reason: string };
     research_status: "cross_checked" | "input_only";
-    checked_sources: Array<{ url: string; label: string; kind: string }>;
+    checked_sources: Array<{ url: string; label: string; kind: string; access?: string }>;
     expected_outcomes: Array<{ title: string; description: string }>;
   };
 };
@@ -37,6 +41,7 @@ export function DiagnosisClient() {
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [correcting, setCorrecting] = useState(false);
+  const [editingSources, setEditingSources] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem(APPLY_PREVIEW_STORAGE_KEY);
@@ -156,26 +161,26 @@ export function DiagnosisClient() {
 
   return (
     <div className="stack url-first-intake">
-      <div><p className="eyebrow">無料の簡易診断</p><h1>診断結果ができました</h1></div>
+      <div><p className="eyebrow">無料の簡易診断</p><h1>{preview.diagnosis.identity_method === "self_reported" ? "入力した店舗情報をご確認ください" : "診断結果ができました"}</h1></div>
       <section className="card analysis-hero">
-        <div><p className="step-label">この店舗で合っていますか？</p><h2>{preview.profile.store_name}</h2>{preview.profile.address ? <p><strong>{preview.profile.address}</strong></p> : null}<p>{preview.diagnosis.business_summary}</p><p className="muted">{preview.diagnosis.source_access === "unavailable" ? "元のURLは直接取得できていません。補足いただいた店舗名・地域で検索した候補です。" : "公開情報を基にした診断です。"} 店舗名と所在地をご確認ください。</p></div>
+        <div><p className="step-label">この店舗で合っていますか？</p><h2>{preview.profile.store_name}</h2>{preview.profile.address ? <p><strong>{preview.profile.address}</strong></p> : null}<p>{preview.diagnosis.business_summary}</p><p className="muted">{preview.diagnosis.identity_method === "self_reported" ? "店舗名・地域はご入力の情報です。公開情報による裏付けは未確認です。" : preview.diagnosis.source_access === "unavailable" ? "元のページ本文は直接取得できていません。検索情報に基づく候補です。" : "公開情報を基にした診断です。"} 店舗名と所在地をご確認ください。</p></div>
         <div className={`store-identification ${preview.diagnosis.identification.confidence}`}><span aria-hidden="true">{preview.diagnosis.identification.confidence === "high" ? "✓" : "?"}</span><strong>{preview.diagnosis.identification.label}</strong><small>{preview.diagnosis.identification.reason}</small></div>
       </section>
-      <IdentityCorrection disabled={["sending_code", "verifying", "submitting"].includes(stage)} onEditingChange={(editing) => { setCorrecting(editing); if (editing) { setStage("form"); setDraft(null); setError(""); } }} />
+      <IdentityCorrection disabled={editingSources || ["sending_code", "verifying", "submitting"].includes(stage)} onEditingChange={(editing) => { setCorrecting(editing); if (editing) { setStage("form"); setDraft(null); setError(""); } }} />
       <section className="card diagnosis-sources-card">
-        <div><p className="step-label">診断の参考にした公開情報</p><h2>{preview.diagnosis.checked_sources.length}件の参照ページ</h2><p>取得した店舗ページと検索の出典です。元のURLを読めなかった場合、そのURLは確認済みの情報源に含めていません。</p></div>
-        <ul className="diagnosis-source-list">
-          {preview.diagnosis.checked_sources.map((source) => <li key={source.url}><a href={source.url} target="_blank" rel="noreferrer">{source.label}<span aria-hidden="true">↗</span></a></li>)}
-        </ul>
+        <div><p className="step-label">診断の参考にした公開情報</p><h2>{preview.diagnosis.checked_sources.length}件の参照ページ</h2><p>「ページ本文を取得」と「検索で参照」を区別しています。別のお店など、誤った出典は「× 除外」で外して診断を作り直せます。</p></div>
+        <SourceSelection sources={preview.diagnosis.checked_sources} excluded={preview.diagnosis.excluded_sources} storeName={preview.profile.store_name} area={preview.profile.address} disabled={correcting || ["sending_code", "verifying", "submitting"].includes(stage)} onEditingChange={editing => { setEditingSources(editing); if (editing) { setStage("form"); setDraft(null); setError(""); } }} />
+        <p className="muted">参照ページの掲載は、写真や全メニューの取得完了を意味しません。写真の自動取り込みはこの簡易診断では行っていません。</p>
+        <p><strong>読み取れたメニュー・サービス：</strong>{preview.diagnosis.services?.length ? preview.diagnosis.services.join("、") : "未取得（承認後に追加できます）"}</p>
       </section>
       <section className="card expected-outcomes-card">
-        <div><p className="step-label">AIO boostを導入すると</p><h2>この店舗には、こんな改善が期待できます</h2><p>公開情報から考えられる活用例です。効果を保証するものではなく、承認後の詳細診断で店舗に合わせて具体化します。</p></div>
+        <div><p className="step-label">AIO boostを導入すると</p><h2>{preview.diagnosis.identity_method === "self_reported" ? "情報を追加すると、こんなことができます" : "この店舗には、こんな改善が期待できます"}</h2><p>{preview.diagnosis.identity_method === "self_reported" ? "一般的な活用例です。店舗情報の確認後、お店に合わせて具体化します。" : "公開情報から考えられる活用例です。効果を保証するものではなく、承認後の詳細診断で店舗に合わせて具体化します。"}</p></div>
         <ol className="expected-outcomes-list">
           {preview.diagnosis.expected_outcomes.map((outcome, index) => <li key={`${outcome.title}-${index}`}><span aria-hidden="true">{index + 1}</span><div><h3>{outcome.title}</h3><p>{outcome.description}</p></div></li>)}
         </ol>
       </section>
 
-      {!correcting && (stage === "form" || stage === "sending_code") ? (
+      {!correcting && !editingSources && (stage === "form" || stage === "sending_code") ? (
         <form className="card form" onSubmit={requestVerification}>
           <div><p className="eyebrow">詳細診断を申し込む</p><h2>連絡先を確認します</h2><p>運営方法やシステム設定は、承認後にAIの下書きを確認するだけです。</p></div>
           <label className="consent-row store-match-confirmation"><input name="store_confirmed" type="checkbox" required /><span><strong>上に表示された店舗で合っています</strong><span className="required-mark"> 必須</span></span></label>

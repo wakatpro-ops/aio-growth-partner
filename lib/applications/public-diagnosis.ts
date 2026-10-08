@@ -11,7 +11,48 @@ export type DiagnosisSource = {
   url: string;
   label: string;
   kind: "input" | "official" | "google" | "portal" | "sns" | "other";
+  access?: "page" | "search";
 };
+
+// Compare the same listing across mobile/www variants, not just its domain.
+export function listingKey(value: string) {
+  try {
+    const url = new URL(value);
+    if (!/^https?:$/u.test(url.protocol) || url.username || url.password) return "";
+    const host = url.hostname.toLowerCase().replace(/^www\./u, "").replace(/^s\.tabelog\.com$/u, "tabelog.com");
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^(utm_.*|igsh|fbclid|gclid|yclid|ikCo|adcid|adgid|sa_.*)$/iu.test(key)) url.searchParams.delete(key);
+    }
+    url.searchParams.sort();
+    // Keep identity-bearing parameters (?id=...) and path case intact.
+    return host + url.pathname.replace(/\/+$/u, "") + (url.searchParams.size ? `?${url.searchParams}` : "");
+  } catch { return ""; }
+}
+
+export function sourceIsExcluded(url: string, excluded: string[]) {
+  const host = sourceDomain(url);
+  return Boolean(host && excluded.some(value => {
+    const blocked = sourceDomain(value);
+    return blocked && (host === blocked || host.endsWith(`.${blocked}`));
+  }));
+}
+
+export function sourceDomain(value: string) {
+  try { return new URL(value).hostname.toLowerCase().replace(/^www\./u, "").replace(/^s\.tabelog\.com$/u, "tabelog.com"); }
+  catch { return ""; }
+}
+
+export function hasUrlIdentityEvidence(inputUrl: string, candidate: ExtractedStoreProfile, sources: Array<{url: string}>, evidence: unknown) {
+  if (!Array.isArray(evidence) || !candidate.address || isGenericStoreName(candidate.store_name)) return false;
+  return evidence.some(item => {
+    if (!item || typeof item !== "object") return false;
+    const key = listingKey(String(item.url ?? ""));
+    // A similar name / hostname / handle alone cannot identify the submitted listing.
+    return key && key === listingKey(inputUrl) && sources.some(source => listingKey(source.url) === key)
+      && identityTextMatches(String(item.store_name ?? ""), candidate.store_name)
+      && areaMatches(candidate.address, String(item.area ?? ""));
+  });
+}
 
 export type ExpectedOutcome = {
   title: string;
@@ -143,13 +184,14 @@ function sourceLabel(hostname: string, kind: DiagnosisSource["kind"]) {
   if (kind === "google") return "Google マップ";
   if (/tabelog/iu.test(hostname)) return "食べログ";
   if (/hotpepper/iu.test(hostname)) return "ホットペッパー";
+  if (/ikyu/iu.test(hostname)) return "一休";
   if (kind === "sns") return hostname.replace(/^www\./u, "");
   return hostname.replace(/^www\./u, "");
 }
 
 export function normalizeDiagnosisSources(
   inputUrl: string,
-  discovered: Array<{ url?: unknown; label?: unknown; kind?: unknown }> = [],
+  discovered: Array<{ url?: unknown; label?: unknown; kind?: unknown; access?: unknown }> = [],
   includeInput = true
 ): DiagnosisSource[] {
   const candidates = [...(includeInput ? [{ url: inputUrl, label: "", kind: "input" }] : []), ...discovered];
@@ -169,7 +211,7 @@ export function normalizeDiagnosisSources(
       const hostname = url.hostname.replace(/^www\./u, "").toLowerCase();
       const sourceGroup = /google\.|goo\.gl$/u.test(hostname) ? "google" : hostname;
       if (sourceGroups.has(sourceGroup)) continue;
-      sources.push({ url: url.toString(), label, kind });
+      sources.push({ url: url.toString(), label, kind, access: candidate.kind === "input" || candidate.access === "page" ? "page" : "search" });
       sourceGroups.add(sourceGroup);
     } catch {
       // Ignore malformed model output.
