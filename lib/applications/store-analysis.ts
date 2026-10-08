@@ -297,6 +297,9 @@ function crossSourceResponseFormat() {
 }
 
 async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicSiteFetchResult, extracted: ExtractedStoreProfile, storeHint = "", areaHint = "", excluded: string[] = []) {
+  // Keep the established search path for discovery; domain filters require the
+  // current web_search tool when rebuilding without a rejected source.
+  const searchTool = excluded.length ? "web_search" : "web_search_preview";
   const pageEvidence = fetched.pages.map((page) => ({
     url: page.url,
     title: page.title,
@@ -311,12 +314,12 @@ async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicS
     // Supported by the API; this project's older SDK predates this include literal.
     include: ["web_search_call.action.sources"] as unknown as NonNullable<OpenAI.Responses.ResponseCreateParamsNonStreaming["include"]>,
     tools: [{
-      type: "web_search",
+      type: searchTool,
       search_context_size: "medium",
       ...(excluded.length ? { filters: { blocked_domains: Array.from(new Set(excluded.map(sourceDomain).filter(Boolean))) } } : {}),
       user_location: { type: "approximate", country: "JP", timezone: "Asia/Tokyo" }
     }] as unknown as OpenAI.Responses.ResponseCreateParamsNonStreaming["tools"],
-    tool_choice: { type: "web_search" } as unknown as OpenAI.Responses.ResponseCreateParamsNonStreaming["tool_choice"],
+    tool_choice: { type: searchTool } as unknown as OpenAI.Responses.ResponseCreateParamsNonStreaming["tool_choice"],
     text: { format: crossSourceResponseFormat() },
     instructions: [
       "あなたは店舗向けAIO導入診断の公開情報調査担当です。必ずWeb検索を使います。まずSOURCE_URLそのものを検索し、その完全URL・店舗ID・SNSハンドルに対応する掲載情報から店舗名と地域を探してください。名前だけ似た店やハンドルの連想で特定しないでください。次に店舗名と地域で公式サイトと関連媒体を調べてください。",

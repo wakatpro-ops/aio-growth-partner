@@ -25,4 +25,4 @@
 
 出典除外時に検索ツールが除外ページを参照した場合、その結果は安全側で不採用にする。削除ボタンでURLだけを隠し、情報を残す実装にはしない。検索結果が少ないSNS店舗は自動特定できないことがあり、その場合は未確認の手入力情報として継続できる。
 
-検索には Responses API の `web_search` と `filters.blocked_domains` を使用。既存の保護済みキーとモデルをそのまま使い、新規契約・追加キー発行は行わない。公式仕様: https://developers.openai.com/api/docs/guides/tools-web-search#domain-filtering
+通常の検索は既存の `web_search_preview` を維持し、出典除外時に Responses API の `web_search` と `filters.blocked_domains` を使用。既存の保護済みキーとモデルをそのまま使い、新規契約・追加キー発行は行わない。公式仕様: https://developers.openai.com/api/docs/guides/tools-web-search#domain-filtering
