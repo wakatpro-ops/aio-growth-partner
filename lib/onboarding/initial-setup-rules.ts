@@ -1,3 +1,5 @@
+import { uniqueAdditionalLocations } from "./location-identity.ts";
+
 export type InitialSetupMenuInput = {
   sourceKey: string;
   enabled: boolean;
@@ -132,7 +134,8 @@ export function parseInitialSetupForm(formData: FormData, snapshotId: string, ca
     detection: { ...fallback.detection, source: "applicant" },
     applicantConfirmedAt: new Date().toISOString()
   }, fallback);
-  const additionalLocations = fallback.structure.locations.slice(1, 10).flatMap((location, index) => {
+  const selectedLocations = fallback.structure.locations.slice(1, 10).flatMap((location, index) => {
+    if (operatingModel.structure.mode === "single_store") return [];
     if (formData.get(`location_enabled_${index}`) !== "on") return [];
     const websiteUrl = text(formData, `location_website_${index}`, 2_000);
     if (websiteUrl) {
@@ -153,7 +156,13 @@ export function parseInitialSetupForm(formData: FormData, snapshotId: string, ca
       sourceKey: initialSetupStoreCandidateKey(snapshotId, index)
     }];
   });
-  operatingModel.structure.locations = [operatingModel.structure.locations[0], ...additionalLocations].filter(Boolean) as OperatingLocation[];
+  const primaryLocation: OperatingLocation = {
+    ...fallback.structure.locations[0], name: storeName, address: text(formData, "address", 240), websiteUrl,
+    companyName: fallback.structure.locations[0]?.companyName ?? "",
+    brandName: fallback.structure.locations[0]?.brandName ?? "", source: "applicant"
+  };
+  const additionalLocations = uniqueAdditionalLocations(primaryLocation, selectedLocations);
+  operatingModel.structure.locations = [primaryLocation, ...additionalLocations];
 
   return {
     storeName,

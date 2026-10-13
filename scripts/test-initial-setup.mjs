@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { sameStoreLocation, uniqueAdditionalLocations, locationUrl } from "../lib/onboarding/location-identity.ts";
+import { normalizeOperatingModel } from "../lib/applications/operating-model.ts";
 import {
   initialSetupCandidateKey,
   mayConfirmInitialSetup,
@@ -76,4 +78,46 @@ test("候補件数を上限30件に制限する", () => {
     form.set(`menu_unit_price_${index}`, "0");
   }
   assert.equal(parseInitialSetupForm(form, "snapshot-1", 35).menus.length, 30);
+});
+
+const primary = { name: "Amour by mee", address: "巣鴨", websiteUrl: "https://www.instagram.com/amourbymee" };
+const duplicate = { name: "Ａｍｏｕｒ　by mee", address: "", websiteUrl: "https://instagram.com/amourbymee/?igsh=abc&utm_source=qr" };
+test("全角・空白・追跡パラメータ・Instagram表示名の違いで自店を再作成しない", () => {
+  assert.equal(sameStoreLocation(primary, duplicate), true);
+  assert.equal(sameStoreLocation(primary, { ...duplicate, name: "Amour by mee｜巣鴨エステ" }), true);
+  assert.deepEqual(uniqueAdditionalLocations(primary, [duplicate, primary]), []);
+});
+test("同ブランド・共通サイトでも住所が異なる支店は残す。同居する別店舗も残す", () => {
+  assert.equal(sameStoreLocation(primary, { ...primary, address: "新宿" }), false);
+  assert.equal(sameStoreLocation({ name: "店舗A", address: "同一ビル", websiteUrl: "https://example.com" }, { name: "店舗B", address: "同一ビル", websiteUrl: "https://example.com" }), false);
+  assert.notEqual(locationUrl("https://example.com/store?id=1"), locationUrl("https://example.com/store?id=2"));
+});
+test("候補同士の重複も除外し、空URL同士を一致と扱わない", () => {
+  const branch = { name: "新宿店", address: "新宿", websiteUrl: "" };
+  assert.deepEqual(uniqueAdditionalLocations(primary, [branch, { ...branch }]), [branch]);
+  assert.equal(sameStoreLocation({ name: "A" }, { name: "B" }), false);
+});
+function locationForm(mode, name = duplicate.name, address = duplicate.address, website = duplicate.websiteUrl) {
+  const form = baseForm();
+  form.set("store_name", primary.name); form.set("address", primary.address); form.set("website_url", primary.websiteUrl);
+  form.set("structure_mode", mode); form.set("location_enabled_0", "on");
+  form.set("location_name_0", name); form.set("location_address_0", address); form.set("location_website_0", website);
+  return form;
+}
+const locationModel = normalizeOperatingModel({ structure: { mode: "multi_store", locations: [primary, duplicate] } });
+test("途中で修正した主店舗の名称・URLとも比較し、古いフォームの重複を除外する", () => {
+  const result = parseInitialSetupForm(locationForm("multi_store"), "snapshot", 0, locationModel);
+  assert.equal(result.additionalLocations.length, 0);
+  assert.equal(result.operatingModel.structure.locations.length, 1);
+  assert.equal(result.operatingModel.structure.locations[0].name, primary.name);
+});
+test("単独店舗なら改変された選択済みフィールドがあっても追加しない", () => {
+  const result = parseInitialSetupForm(locationForm("single_store", "別支店", "新宿", "https://example.com/branch"), "snapshot", 0, locationModel);
+  assert.equal(result.additionalLocations.length, 0);
+});
+test("複数店舗を選び支店を明示選択した場合だけ追加する", () => {
+  const form = locationForm("multi_store", primary.name, "新宿", primary.websiteUrl);
+  assert.equal(parseInitialSetupForm(form, "snapshot", 0, locationModel).additionalLocations.length, 1);
+  form.delete("location_enabled_0");
+  assert.equal(parseInitialSetupForm(form, "snapshot", 0, locationModel).additionalLocations.length, 0);
 });
