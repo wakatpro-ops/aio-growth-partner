@@ -10,6 +10,7 @@ import type { IndustryTypeKey, Store } from "@/types/domain";
 import { mayConfirmInitialSetup, parseInitialSetupForm, type InitialSetupInput } from "./initial-setup-rules";
 import { normalizeOperatingModel, operatingModelFeatureFlags, type OperatingLocation, type OperatingModel } from "@/lib/applications/operating-model";
 import { getUnifiedImportJob, listUnifiedImportJobs } from "@/lib/unified-import/data";
+import { sameStoreLocation, uniqueAdditionalLocations } from "./location-identity";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -164,11 +165,7 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
     const kind = row.confirmed_record_type ?? row.suggested_record_type;
     if (kind in importCounts && !["ignored", "error"].includes(row.review_status)) importCounts[kind as keyof typeof importCounts] += 1;
   }
-  const additionalLocations = operatingModel.structure.locations.filter((location) => {
-    const sameName = location.name && location.name === store.name;
-    const sameAddress = location.address && location.address === store.address;
-    return !(sameName || sameAddress);
-  }).slice(0, 9);
+  const additionalLocations = uniqueAdditionalLocations({ name: store.name, address: store.address, websiteUrl: store.website_url }, operatingModel.structure.locations).slice(0, 9);
   operatingModel.structure.locations = [{
     name: store.name,
     address: store.address ?? "",
@@ -241,11 +238,7 @@ export async function saveInitialSetupDraft(storeId: string, formData: FormData)
   const extracted = record(snapshotContent.extracted_profile);
   const candidateCount = strings(extracted.services).length;
   const fallback = normalizeOperatingModel(snapshotContent.operating_model ?? store.operating_model);
-  const additionalLocations = fallback.structure.locations.filter((location) => {
-    const sameName = location.name && location.name === store.name;
-    const sameAddress = location.address && location.address === store.address;
-    return !(sameName || sameAddress);
-  }).slice(0, 9);
+  const additionalLocations = uniqueAdditionalLocations({ name: store.name, address: store.address, websiteUrl: store.website_url }, fallback.structure.locations).slice(0, 9);
   fallback.structure.locations = [{
     name: store.name,
     address: store.address ?? "",
@@ -303,11 +296,7 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
   const candidateCount = strings(extracted.services).length;
   const snapshotContent = record(snapshot.content);
   const setupModel = normalizeOperatingModel(snapshotContent.operating_model ?? store.operating_model);
-  const setupAdditionalLocations = setupModel.structure.locations.filter((location) => {
-    const sameName = location.name && location.name === store.name;
-    const sameAddress = location.address && location.address === store.address;
-    return !(sameName || sameAddress);
-  }).slice(0, 9);
+  const setupAdditionalLocations = uniqueAdditionalLocations({ name: store.name, address: store.address, websiteUrl: store.website_url }, setupModel.structure.locations).slice(0, 9);
   setupModel.structure.locations = [{
     name: store.name,
     address: store.address ?? "",
@@ -322,6 +311,20 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
   const industry = getIndustryConfig(normalizedIndustry);
   if (input.menus.some((menu) => menu.enabled && menu.taxRate === 8) && !["restaurant", "retail"].includes(normalizedIndustry)) {
     throw new Error("8%の軽減税率は対象となる業種・商品だけに設定できます。");
+  }
+
+  // Include archived records: setup is never a restore operation. Validate
+  // before claiming the snapshot or changing the primary store/menu records.
+  const { data: organizationStores, error: organizationStoresError } = await supabase.from("stores")
+    .select("id, name, address, website_url, onboarding_source_key, archived_at")
+    .eq("organization_id", store.organization_id);
+  if (organizationStoresError || !organizationStores) throw new Error("登録済みの店舗を確認できません。時間をおいて再度お試しください。");
+  for (const location of input.additionalLocations) {
+    const conflict = organizationStores.find((existing) =>
+      existing.onboarding_source_key === location.sourceKey
+      || sameStoreLocation(location, { name: existing.name, address: existing.address, websiteUrl: existing.website_url }));
+    if (conflict?.archived_at) throw new Error(`「${location.name}」は削除済みです。追加対象から外してください。戻す場合は「削除済み」から元に戻してください。`);
+    if (conflict && conflict.onboarding_source_key !== location.sourceKey) throw new Error(`「${location.name}」は登録済みの店舗と重複しています。追加対象から外してください。別支店なら住所・URLを確認してください。`);
   }
 
   const selectedMenus = input.menus.filter((menu) => menu.enabled);
@@ -531,20 +534,27 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
         archived_at: null,
         archived_by: null,
         updated_at: now
-      }, { onConflict: "organization_id,onboarding_source_key" }).select("id").single();
-      if (addedStoreError || !addedStore) throw new Error(`追加店舗「${location.name}」を作成できませんでした: ${addedStoreError?.message ?? "unknown"}`);
+      }, { onConflict: "organization_id,onboarding_source_key", ignoreDuplicates: true }).select("id").maybeSingle();
+      if (addedStoreError) throw new Error(`追加店舗「${location.name}」を作成できませんでした: ${addedStoreError.message}`);
+      // A retry may find a record inserted before a later step failed. Never
+      // overwrite or unarchive that record with stale setup data.
+      const { data: persistedStore, error: persistedStoreError } = await supabase.from("stores")
+        .select("id, archived_at").eq("organization_id", store.organization_id)
+        .eq("onboarding_source_key", location.sourceKey).single();
+      if (persistedStoreError || !persistedStore || persistedStore.archived_at) throw new Error(`追加店舗「${location.name}」は確認できないか削除済みです。店舗一覧を確認してください。`);
+      const additionalStoreId = addedStore?.id ?? persistedStore.id;
       const { error: addedInvoiceError } = await supabase.from("invoice_number_sequences").upsert({
         organization_id: store.organization_id,
-        store_id: addedStore.id,
+        store_id: additionalStoreId,
         prefix: normalizedIndustry === "auto_repair" ? "INV-AUTO" : "INV",
         next_number: 1,
         qualified_invoice_issuer_name: location.companyName || input.invoiceIssuerName,
         updated_at: now
-      }, { onConflict: "store_id" });
+      }, { onConflict: "store_id", ignoreDuplicates: true });
       if (addedInvoiceError) throw new Error(`追加店舗「${location.name}」の請求書設定を作成できませんでした: ${addedInvoiceError.message}`);
       const { error: addedSnapshotError } = await supabase.from("onboarding_snapshots").upsert({
         organization_id: store.organization_id,
-        store_id: addedStore.id,
+        store_id: additionalStoreId,
         application_id: snapshot.application_id,
         snapshot_type: "application_intake",
         title: "複数店舗候補から作成した初期設定下書き",
@@ -557,7 +567,7 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
         status: "active",
         confirmation_status: "pending",
         updated_at: now
-      }, { onConflict: "store_id,snapshot_type" });
+      }, { onConflict: "store_id,snapshot_type", ignoreDuplicates: true });
       if (addedSnapshotError) throw new Error(`追加店舗「${location.name}」の初期設定下書きを作成できませんでした: ${addedSnapshotError.message}`);
     }
 
