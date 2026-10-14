@@ -13,31 +13,45 @@ type Props = {
 
 export function ApplicationProgress({ application, reviewAction, paymentAction, activateAction, resumeAction, inviteEmailStatus }: Props) {
   const flow = applicationWorkflow(application);
-  return <section className="card application-progress" aria-labelledby="application-progress-title">
-    <div className="section-heading"><div><p className="eyebrow">申込の確認と利用開始</p><h2 id="application-progress-title">{application.store_name}</h2><p>{application.contact_name} 様 · {application.email}</p></div><span className="badge">{flow.label}</span></div>
+  const activeStep = flow.stage === "review"
+    ? { action: reviewAction, name: "review_confirmed", confirmation: "店舗・申込者の連絡先・管理権限を確認しました" }
+    : flow.stage === "payment"
+      ? { action: paymentAction, name: "payment_confirmed", confirmation: "契約・請求内容と入金を確認しました" }
+      : flow.stage === "activate"
+        ? { action: activateAction, name: "activation_confirmed", confirmation: "この申込の利用開始と招待メール送信を承認します" }
+        : null;
+
+  const stepsAndAction = <>
     <ol className="application-steps" aria-label="確認の進み具合">
-      {flow.steps.map(step => <li key={step.key} data-done={step.done} aria-current={flow.stage === step.key ? "step" : undefined}>
-        <span className="application-step-icon" aria-hidden="true">{step.done ? "✓" : step.skipped ? "―" : "□"}</span>
-        <div><strong>{step.label}</strong><p>{step.detail}</p></div>
+      {flow.steps.map((step, index) => <li key={step.key} data-done={step.done} aria-current={flow.stage === step.key ? "step" : undefined}>
+        {activeStep && flow.stage === step.key ? <label className="application-step-check">
+          <input type="checkbox" name={activeStep.name} value="yes" required />
+          <span><strong>{step.label}</strong><span className="application-step-detail">{activeStep.confirmation}</span><span className="application-step-hint">チェック後、下のボタンで確定</span></span>
+        </label> : <>
+          <span className="application-step-icon" aria-hidden="true">{step.done ? "✓" : step.skipped ? "―" : index + 1}</span>
+          <div><strong>{step.label}</strong><p>{step.detail}</p>{!step.done && !step.skipped && <span className="application-step-hint">前の確認が終わると進めます</span>}</div>
+        </>}
       </li>)}
     </ol>
-    {flow.stage === "review" && <form action={reviewAction} className="application-next-action">
-      <h3>次は、申込内容の確認です</h3>
-      <p>下の申込内容を確認してください。確認後、詳細診断を見られるようにして案内メールを送ります。まだアカウントは発行しません。</p>
+    {flow.stage === "review" && <div className="application-next-action">
+      <h3>申込内容を確認したら、診断案内を送ります</h3>
+      <p>下の申込内容を確認し、上の「申込内容の確認」にチェックしてください。ボタンを押すと、詳細診断を見られるようにして案内メールを送ります。</p>
       <input type="hidden" name="intake_review_status" value="approved" />
-      <label className="application-confirm"><input type="checkbox" name="review_confirmed" value="yes" required />店舗・申込者の連絡先・管理権限を確認しました</label>
       <PendingSubmitButton pendingLabel="確認結果を保存・送信しています...">申込内容を確認して診断案内を送る</PendingSubmitButton>
-    </form>}
-    {flow.stage === "payment" && <form action={paymentAction} className="application-next-action">
-      <h3>次は、入金の確認です</h3><p>契約・請求内容と実際の振込を確認してから記録してください。この操作では請求や決済、メール送信は行いません。</p>
-      <label className="application-confirm"><input type="checkbox" name="payment_confirmed" value="yes" required />契約・請求内容と入金を確認しました</label>
+    </div>}
+    {flow.stage === "payment" && <div className="application-next-action">
+      <h3>入金を確認したら、記録します</h3><p>契約・請求内容と実際の振込を確認し、上の「入金の確認」にチェックしてください。ボタンを押すと入金確認を記録します。</p>
       <PendingSubmitButton pendingLabel="入金確認を記録しています...">入金確認を記録する</PendingSubmitButton>
-    </form>}
-    {flow.stage === "activate" && <form action={activateAction} className="application-next-action">
-      <h3>利用開始を承認できます</h3><p>承認・アカウント準備・招待メール送信をまとめて行います。送信先：{application.invite_email || application.email}</p>
-      <label className="application-confirm"><input type="checkbox" name="activation_confirmed" value="yes" required />この申込の利用開始と招待メール送信を承認します</label>
+    </div>}
+    {flow.stage === "activate" && <div className="application-next-action">
+      <h3>利用開始を承認できます</h3><p>上の「利用開始の承認」にチェックしてください。ボタンを押すと、承認・アカウント準備・招待メール送信をまとめて行います。送信先：{application.invite_email || application.email}</p>
       <PendingSubmitButton pendingLabel="利用開始を準備しています...">利用開始を承認して招待メールを送る</PendingSubmitButton>
-    </form>}
+    </div>}
+  </>;
+
+  return <section className="card application-progress" aria-labelledby="application-progress-title">
+    <div className="section-heading"><div><p className="eyebrow">申込の確認と利用開始</p><h2 id="application-progress-title">{application.store_name}</h2><p>{application.contact_name} 様 · {application.email}</p></div><span className="badge">{flow.label}</span></div>
+    {activeStep ? <form action={activeStep.action}>{stepsAndAction}</form> : stepsAndAction}
     {flow.stage === "complete" && <div className="application-next-action"><h3>承認は完了しています</h3><p>承認をやり直す必要はありません。ログイン案内の再送や履歴は、下の「案内メール・送信履歴」で確認できます。</p>
       <p>{inviteEmailStatus === "sent" ? "招待メール：送信済み（受信・ログイン完了を示すものではありません）" : inviteEmailStatus === "failed" || inviteEmailStatus === "skipped" ? "招待メール：未送信・送信失敗。案内メール・送信履歴から再送してください。" : "招待メールの送信結果は履歴を確認してください。"}</p>
       <Link className="button secondary" href={`/stores/${application.store_id || application.approved_store_id}`}>店舗画面を確認する</Link>

@@ -5799,9 +5799,15 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
 .application-steps { list-style: none; padding: 0; margin: 20px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .application-steps li { display: flex; align-items: flex-start; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; }
 .application-steps li[data-done="true"] { background: #edf7f1; }
-.application-steps li[aria-current="step"] { border: 2px solid #247a62; }
+.application-steps li[aria-current="step"] { border: 2px solid #247a62; padding: 0; }
 .application-steps p { margin: 6px 0 0; font-size: 13px; color: #5b6c65; }
-.application-step-icon { flex: 0 0 24px; font-size: 22px; line-height: 1.2; color: #247a62; }
+.application-step-icon { flex: 0 0 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: #edf3ef; font-size: 15px; line-height: 1; color: #247a62; }
+.application-step-check { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 16px; cursor: pointer; border-radius: 10px; }
+.application-step-check:hover { background: #f1faf5; }
+.application-step-check:focus-within { outline: 2px solid #247a62; outline-offset: 3px; }
+.application-step-check input[type="checkbox"] { width: 24px; height: 24px; flex: 0 0 24px; margin: 0; accent-color: #247a62; cursor: pointer; }
+.application-step-detail { display: block; margin-top: 6px; font-size: 13px; color: #5b6c65; }
+.application-step-hint { display: block; margin-top: 8px; font-size: 12px; color: #5b6c65; }
 .application-next-action { border-top: 1px solid var(--border); padding-top: 18px; }
 .application-confirm { display: flex; align-items: flex-start; gap: 10px; padding: 14px 0; font-weight: 600; }
 .application-confirm input[type="checkbox"] { flex: 0 0 20px; width: 20px; height: 20px; margin: 2px 0 0; }

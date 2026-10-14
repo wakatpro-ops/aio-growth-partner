@@ -169,7 +169,18 @@ try {
       assert.equal(await page.locator(".application-progress button:visible").count(), buttons);
       assert.equal(await page.locator('select[name="approval_status"],select[name="status"],select[name="payment_status"]').count(), 0);
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), label + " overflow " + width);
-      if (buttons) assert.equal(await page.locator(".application-progress form").evaluate(el => el.checkValidity()), false);
+      if (buttons) {
+        const checkbox = page.locator(".application-steps input[type=checkbox]");
+        assert.equal(await checkbox.count(), 1);
+        assert.equal(await page.locator(".application-progress form").evaluate(el => el.checkValidity()), false);
+        // The visible step card itself must toggle the checkbox with pointer and keyboard.
+        await page.locator(".application-step-check").click();
+        assert(await checkbox.isChecked());
+        assert.equal(await page.locator(".application-progress form").evaluate(el => el.checkValidity()), true);
+        assert.equal(await page.locator(".application-progress form").evaluate(el => [...new FormData(el).keys()].filter(key => key.endsWith("_confirmed")).length), 1);
+        await checkbox.press("Space");
+        assert.equal(await checkbox.isChecked(), false);
+      }
       if (label === "complete" || label === "review") await page.screenshot({ path: join(artifacts, `${label}-${width}.png`) });
       await page.locator(".application-detail > details").evaluateAll(els => els.forEach(el => el.open = true));
       assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), label + " expanded overflow " + width);
