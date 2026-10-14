@@ -26,7 +26,7 @@ export default async function AdminApplicationsPage({ searchParams }: { searchPa
         const flow = applicationWorkflow(application);
         return <article className="card application-list-row" key={application.id}>
           <div><p className="muted">{new Date(application.created_at).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo" })} 申込</p><h2>{application.store_name}</h2><p>{application.contact_name} 様</p><p className="muted">{application.email}</p></div>
-          <div><span className="badge">{flow.label}</span><ul className="application-list-steps" aria-label="確認の進み具合">{flow.steps.map(step => <li key={step.key}>{step.done ? "✓" : step.skipped ? "―" : "□"} {step.label}：{step.done ? "完了" : step.skipped ? step.detail : "未完了"}</li>)}</ul></div>
+          <div><span className="badge">{flow.label}</span><ul className="application-list-steps" aria-label="確認の進み具合">{flow.steps.map((step, index) => <li key={step.key}>{step.done ? "✓" : step.skipped ? "―" : index + 1} {step.label}：{step.done ? "完了" : step.skipped ? step.detail : "未完了"}</li>)}</ul></div>
           <div className="application-list-actions"><Link className="button secondary" href={`/admin/applications/${application.id}`}>{["complete", "stopped", "archived", "inconsistent"].includes(flow.stage) ? "内容・履歴を確認" : flow.label}</Link>
             {showArchived ? <form action={restoreApplicationAction.bind(null, application.id)}><PendingSubmitButton className="button secondary">元に戻す</PendingSubmitButton></form> : <details><summary>その他</summary><form action={archiveApplicationAction.bind(null, application.id)}><ConfirmSubmitButton message={`「${application.store_name}」の申込を削除済みへ移します。履歴・店舗・ユーザーは保持し、元に戻せます。`}>削除</ConfirmSubmitButton></form></details>}
           </div>
