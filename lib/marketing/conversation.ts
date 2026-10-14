@@ -8,6 +8,7 @@ import { getChatModelOptions, getOpenAiModel } from "@/lib/openai/models";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { chooseOffer, offersFor, type Conversation } from "./conversation-rules";
 import type { Store } from "@/types/domain";
+import { INSTAGRAM_LOGIN_PROVIDER, instagramLoginAllowed, preferredPublishingAccount, publishingAccountConnected, type PublishingAccount } from "@/lib/instagram/policy";
 
 export class ConversationError extends Error { constructor(message: string, public status = 409) { super(message); } }
 function db() { const client = createSupabaseAdminClient(); if (!client) throw new Error("unavailable"); return client; }
@@ -22,7 +23,7 @@ export async function readConversation(store: Store, actor: string) {
     client.from("marketing_conversations").select("revision,state").eq("store_id", store.id).eq("user_id", actor).maybeSingle(),
     scoped("google_oauth_connections", "id,status"),
     scoped("google_business_locations", "id,google_oauth_connection_id,is_selected").is("archived_at", null).eq("is_selected", true),
-    scoped("external_channel_accounts", "channel,connection_status,token_expires_at").eq("channel", "instagram"),
+    scoped("external_channel_accounts", "id,organization_id,store_id,channel,external_provider,external_account_id,connection_status,token_expires_at,scopes").eq("channel", "instagram"),
     scoped("growth_actions", "id,priority,recommended_date").is("archived_at", null).in("status", ["drafted", "pending_approval", "approved"]).limit(1000),
     getReviewSummary(store.id).then(data => ({ data, error: null })),
     scoped("items", "id,name,description").is("archived_at", null).eq("status", "active").eq("availability", "available").order("name").limit(20)
@@ -32,13 +33,13 @@ export async function readConversation(store: Store, actor: string) {
   // PostgREST dynamic select typing is not a schema contract; select only these public fields.
   const connections = results[1].data as unknown as { id: string; status: string }[];
   const locations = results[2].data as unknown as { id: string; google_oauth_connection_id: string }[];
-  const instagram = results[3].data as unknown as { connection_status: string; token_expires_at: string | null }[];
+  const instagram = preferredPublishingAccount(results[3].data as unknown as PublishingAccount[], "instagram");
   const reviews = results[5].data;
   const pending = results[4].data as unknown as { priority: string; recommended_date: string | null }[];
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tokyo" });
   const facts = {
     google: locations.some(location => connections.some(connection => connection.id === location.google_oauth_connection_id && connection.status === "connected")),
-    instagram: instagram.some(account => account.connection_status === "connected" && (!account.token_expires_at || Date.parse(account.token_expires_at) > Date.now())),
+    instagram: publishingAccountConnected(instagram) && (instagram?.external_provider !== INSTAGRAM_LOGIN_PROVIDER || instagramLoginAllowed(store.id)),
     unanswered: reviews.unanswered,
     pending: results[4].data?.length ?? 0,
     urgent: pending.filter(action => action.priority === "high" || (action.recommended_date && action.recommended_date <= today)).length,
