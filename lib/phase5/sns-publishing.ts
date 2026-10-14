@@ -7,6 +7,9 @@ import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import { constrainCaption, detectImageType, SNS_CHANNELS, type SnsChannel } from "@/lib/phase5/sns-rules";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
+import { assertPublishingConnection, INSTAGRAM_LOGIN_PROVIDER, instagramLoginAllowed, preferredPublishingAccount, publishingAccountReady, publishingConnectionSnapshot, type PublishingAccount } from "@/lib/instagram/policy";
+import { decryptInstagramToken } from "@/lib/instagram/secrets";
+import { instagramClient, refreshInstagramAccount } from "@/lib/instagram/service";
 
 const demos: Record<string, { organizationId: string; storeId: string }> = {
   "store-general-demo": { organizationId: "00000000-0000-4000-8000-000000000001", storeId: "00000000-0000-4000-8000-000000000101" },
@@ -113,7 +116,7 @@ export async function getMetaConnectionState(storeId: string) {
   if (oauth?.access_token_encrypted && (!oauth.token_expires_at || Date.parse(oauth.token_expires_at) > Date.now())) {
     try { candidates = (await getMetaPages(decryptMetaToken(oauth.access_token_encrypted))).map((item) => ({ id: item.id, name: item.name, instagramId: item.instagramId })); } catch { candidates = []; }
   }
-  const { data: accounts } = await supabase.from("external_channel_accounts").select("id,channel,external_account_id,account_name,connection_status,token_expires_at,error_message").eq("store_id", resolved.storeId).in("channel", ["instagram", "facebook"]);
+  const { data: accounts } = await supabase.from("external_channel_accounts").select("id,channel,external_account_id,account_name,connection_status,token_expires_at,error_message").eq("store_id", resolved.storeId).eq("external_provider", "meta").in("channel", ["instagram", "facebook"]);
   return { envReady: Boolean(process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_REDIRECT_URI && metaSecret()), oauthConnected: Boolean(oauth?.access_token_encrypted && oauth.connection_status !== "disconnected"), candidates, accounts: accounts ?? [] };
 }
 
@@ -282,16 +285,17 @@ export async function queueSnsPublish(storeId: string, actionId: string, jobId: 
   const scheduledAt = scheduledRaw ? new Date(scheduledRaw) : new Date();
   if (Number.isNaN(scheduledAt.getTime())) throw new Error("予約日時を確認してください。");
   const provider = channel === "instagram" || channel === "facebook" ? "meta" : `manual_${channel}`;
-  const accountQuery = supabase.from("external_channel_accounts").select("id,connection_status,external_account_id,access_token_encrypted,token_expires_at").eq("store_id", resolved.storeId).eq("channel", channel);
-  const { data: account } = provider === "meta" ? await accountQuery.eq("external_provider", "meta").maybeSingle() : { data: null };
-  const directReady = provider === "meta" && account?.connection_status === "connected" && account.access_token_encrypted && (!account.token_expires_at || Date.parse(account.token_expires_at) > Date.now());
+  const { data: accounts, error: accountError } = provider === "meta" ? await supabase.from("external_channel_accounts").select("*").eq("store_id", resolved.storeId).eq("organization_id", resolved.organizationId).eq("channel", channel).in("external_provider", ["meta", INSTAGRAM_LOGIN_PROVIDER]) : { data: [], error: null };
+  if (accountError) throw new Error("投稿先の接続状況を確認できませんでした。");
+  const account = preferredPublishingAccount((accounts ?? []) as PublishingAccount[], channel);
+  const directReady = provider === "meta" && publishingAccountReady(account) && (account?.external_provider !== INSTAGRAM_LOGIN_PROVIDER || instagramLoginAllowed(resolved.storeId));
   const idempotencyKey = crypto.createHash("sha256").update(`${job.id}:${channel}:${scheduledAt.toISOString()}:${caption.full_text}`).digest("hex");
   const { data: existing } = await supabase.from("external_publish_jobs").select("id,status").eq("store_id", resolved.storeId).eq("provider", provider).eq("idempotency_key", idempotencyKey).maybeSingle();
   if (existing) return { jobId: String(existing.id), status: String(existing.status), duplicate: true };
   const status = directReady ? (scheduledAt.getTime() <= Date.now() ? "ready" : "scheduled") : "manual_required";
   const { data, error } = await supabase.from("external_publish_jobs").insert({ organization_id: resolved.organizationId, store_id: resolved.storeId, growth_action_id: actionId,
     channel, provider, target_id: account?.external_account_id ?? null, status, scheduled_at: scheduledAt.toISOString(), idempotency_key: idempotencyKey,
-    payload_json: { image_caption_job_id: job.id, media_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://app.aioboost.jp"}/api/sns/media/${job.public_token}`, caption: caption.full_text, manual_fallback: !directReady },
+    payload_json: { image_caption_job_id: job.id, media_url: `${process.env.NEXT_PUBLIC_APP_URL || "https://app.aioboost.jp"}/api/sns/media/${job.public_token}`, caption: caption.full_text, manual_fallback: !directReady, ...publishingConnectionSnapshot(account) },
     response_json: directReady ? {} : { manual: true, reason: provider === "meta" ? "Metaアカウント未接続または認証期限切れ" : "この媒体は手動公開対応" } }).select("id,status").single();
   if (error) throw new Error(`投稿予定を保存できませんでした: ${error.message}`);
   await logAuditEvent({ storeId, actionType: "sns_publish_queued", targetType: "external_publish_job", targetId: data.id, message: directReady ? "SNS投稿を予約しました。" : "手動投稿用の本文と画像を準備しました。", metadata: { channel, status } });
@@ -316,7 +320,8 @@ function decryptMetaToken(value: string) {
   return Buffer.concat([decipher.update(Buffer.from(encryptedValue, "base64")), decipher.final()]).toString("utf8");
 }
 
-async function metaRequest(path: string, token: string, fields: Record<string, string>) {
+async function metaRequest(path: string, token: string, fields: Record<string, string>, directInstagram = false) {
+  if (directInstagram) return instagramClient().post(path, token, fields);
   const body = new URLSearchParams({ ...fields, access_token: token });
   const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/${path}`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" });
   const payload = await response.json() as Record<string, unknown>;
@@ -327,7 +332,8 @@ async function metaRequest(path: string, token: string, fields: Record<string, s
   return payload;
 }
 
-async function metaGet(path: string, token: string, fields: string) {
+async function metaGet(path: string, token: string, fields: string, directInstagram = false) {
+  if (directInstagram) return instagramClient().get(path, token, fields);
   const query = new URLSearchParams({ fields, access_token: token });
   const response = await fetch(`https://graph.facebook.com/${process.env.META_GRAPH_VERSION || "v23.0"}/${path}?${query}`, { cache: "no-store" });
   const payload = await response.json() as Record<string, unknown>;
@@ -335,9 +341,9 @@ async function metaGet(path: string, token: string, fields: string) {
   return payload;
 }
 
-async function waitForInstagramContainer(containerId: string, token: string) {
+async function waitForInstagramContainer(containerId: string, token: string, directInstagram = false) {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const state = await metaGet(containerId, token, "status_code,status");
+    const state = await metaGet(containerId, token, "status_code,status", directInstagram);
     const status = String(state.status_code ?? state.status ?? "IN_PROGRESS");
     if (status === "FINISHED") return;
     if (["ERROR", "EXPIRED"].includes(status)) throw new Error(`Instagram画像の準備に失敗しました（${status}）。`);
@@ -346,37 +352,93 @@ async function waitForInstagramContainer(containerId: string, token: string) {
   throw new Error("Instagram画像の準備が時間内に完了しませんでした。もう一度お試しください。");
 }
 
+export async function retryOwnedSnsPublishJob(storeId: string, actionId: string, jobId: string) {
+  const resolved = await context(storeId);
+  await requireEditor(resolved.organizationId, resolved.publicStoreId);
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("公開処理を開始できません。");
+  const { data: job, error } = await supabase.from("external_publish_jobs").select("id,status")
+    .eq("organization_id", resolved.organizationId).eq("store_id", resolved.storeId).eq("growth_action_id", actionId).eq("id", jobId).maybeSingle();
+  if (error || !job) throw new Error("この店舗の投稿が見つかりません。");
+  if (!["ready", "retry_wait"].includes(job.status)) throw new Error("この投稿は再実行できません。履歴と公開状況を確認してください。");
+  return executeSnsPublishJob(jobId);
+}
+
 export async function executeSnsPublishJob(jobId: string) {
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("公開処理を開始できません。");
   const { data: job } = await supabase.from("external_publish_jobs").select("*").eq("id", jobId).maybeSingle();
   if (!job) throw new Error("公開ジョブが見つかりません。");
-  if (["sent", "manual_required"].includes(job.status)) return { jobId, status: job.status };
+  if (["sent", "manual_required", "unknown", "sending"].includes(job.status)) return { jobId, status: job.status };
   if (job.scheduled_at && Date.parse(job.scheduled_at) > Date.now()) return { jobId, status: "scheduled" };
   if (job.next_retry_at && Date.parse(job.next_retry_at) > Date.now()) return { jobId, status: "retry_wait" };
-  const { data: account } = await supabase.from("external_channel_accounts").select("*").eq("store_id", job.store_id).eq("channel", job.channel).eq("external_provider", "meta").eq("connection_status", "connected").maybeSingle();
-  if (!account?.access_token_encrypted || !account.external_account_id) throw new Error("Metaアカウントが未接続です。手動投稿をご利用ください。");
-  if (account.token_expires_at && Date.parse(account.token_expires_at) <= Date.now()) throw new Error("Meta認証の期限が切れました。再接続してください。");
-  const token = decryptMetaToken(account.access_token_encrypted);
-  const payload = job.payload_json as { media_url?: string; caption?: string };
+  const payload = (job.payload_json ?? {}) as Record<string, unknown> & { media_url?: string; caption?: string };
+  const connectionProvider = String(payload.connection_provider ?? "meta");
+  if (!["meta", INSTAGRAM_LOGIN_PROVIDER].includes(connectionProvider) || (connectionProvider === INSTAGRAM_LOGIN_PROVIDER && job.channel !== "instagram")) throw new Error("投稿先の接続方式を確認してください。");
+  const { data: savedAccount, error: accountError } = await supabase.from("external_channel_accounts").select("*").eq("organization_id", job.organization_id).eq("store_id", job.store_id).eq("channel", job.channel).eq("external_provider", connectionProvider).maybeSingle();
+  if (accountError) throw new Error("投稿先を確認できませんでした。再試行を待ちます。");
+  const directInstagram = connectionProvider === INSTAGRAM_LOGIN_PROVIDER;
+  let account = savedAccount as PublishingAccount;
+  try {
+    if (!publishingAccountReady(account)) throw new Error("投稿先の認証が切れたか、接続が解除されています。再接続して投稿を準備し直してください。");
+    assertPublishingConnection(account, payload, job.target_id);
+    if (directInstagram && !instagramLoginAllowed(String(job.store_id))) throw new Error("Instagram直接接続は審査準備中です。手動投稿をご利用ください。");
+    if (directInstagram) {
+      const { data: authorized, error } = await supabase.rpc("validate_instagram_publish_connection", { p_store: account.store_id, p_account: account.id, p_generation: account.metadata?.connection_generation });
+      if (error || authorized !== true) throw new Error("Instagram接続の操作者・店舗の権限が変更されています。接続を確認して投稿を準備し直してください。");
+    }
+  } catch (error) {
+    await supabase.from("external_publish_jobs").update({ status: "manual_required", next_retry_at: null, error_message: error instanceof Error ? error.message : "投稿先を再確認してください。", updated_at: new Date().toISOString() }).eq("id", job.id).in("status", ["ready", "scheduled", "retry_wait"]);
+    throw error;
+  }
+  if (directInstagram && account.token_expires_at && Date.parse(account.token_expires_at) - Date.now() < 7 * 86_400_000) account = await refreshInstagramAccount(account);
+  const token = directInstagram ? decryptInstagramToken(account.access_token_encrypted!, account.organization_id, account.store_id) : decryptMetaToken(account.access_token_encrypted!);
   if (!payload.media_url || !payload.caption) throw new Error("公開する画像または本文がありません。");
-  await supabase.from("external_publish_jobs").update({ status: "sending", attempt_count: Number(job.attempt_count ?? 0) + 1, last_attempt_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", job.id);
+  const { data: claimed, error: claimError } = await supabase.from("external_publish_jobs").update({ status: "sending", attempt_count: Number(job.attempt_count ?? 0) + 1, last_attempt_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", job.id).in("status", ["ready", "scheduled", "retry_wait"]).select("id").maybeSingle();
+  if (claimError) throw new Error("投稿処理を開始できませんでした。");
+  if (!claimed) return { jobId, status: "in_progress" };
+  let publishAttempted = false;
   try {
     let response: Record<string, unknown>;
     if (job.channel === "instagram") {
-      const container = await metaRequest(`${account.external_account_id}/media`, token, { image_url: payload.media_url, caption: payload.caption });
-      await waitForInstagramContainer(String(container.id ?? ""), token);
-      response = await metaRequest(`${account.external_account_id}/media_publish`, token, { creation_id: String(container.id ?? "") });
+      let containerId = directInstagram ? String(payload.instagram_container_id ?? "") : "";
+      if (!containerId) {
+        const container = await metaRequest(`${account.external_account_id}/media`, token, { image_url: payload.media_url, caption: payload.caption }, directInstagram);
+        containerId = String(container.id ?? "");
+        if (!/^\d+$/u.test(containerId)) throw new Error("Instagramの投稿準備を確認できませんでした。");
+        if (directInstagram) {
+          const { error } = await supabase.from("external_publish_jobs").update({ payload_json: { ...payload, instagram_container_id: containerId }, updated_at: new Date().toISOString() }).eq("id", job.id).eq("status", "sending");
+          if (error) throw new Error("Instagramの投稿準備を保存できませんでした。公開は開始していません。");
+        }
+      }
+      await waitForInstagramContainer(containerId, token, directInstagram);
+      if (directInstagram) {
+        // Container preparation may take a minute; do not publish after a mid-flight disconnect or role revocation.
+        const { data: stillAuthorized, error: authorizationError } = await supabase.rpc("validate_instagram_publish_connection", { p_store: account.store_id, p_account: account.id, p_generation: account.metadata?.connection_generation });
+        if (authorizationError || stillAuthorized !== true || !instagramLoginAllowed(String(job.store_id))) throw new Error("Instagramの接続または権限が変更されました。公開は開始していません。");
+        const { error } = await supabase.from("external_publish_jobs").update({ payload_json: { ...payload, instagram_container_id: containerId, publish_attempt_started_at: new Date().toISOString() }, updated_at: new Date().toISOString() }).eq("id", job.id).eq("status", "sending");
+        if (error) throw new Error("Instagramの公開開始を記録できませんでした。公開は開始していません。");
+        publishAttempted = true;
+      }
+      response = await metaRequest(`${account.external_account_id}/media_publish`, token, { creation_id: containerId }, directInstagram);
     } else if (job.channel === "facebook") {
       response = await metaRequest(`${account.external_account_id}/photos`, token, { url: payload.media_url, caption: payload.caption, published: "true" });
     } else throw new Error("この媒体は手動公開に対応しています。");
     const externalId = String(response.post_id ?? response.id ?? "");
-    const details = externalId ? await metaGet(externalId, token, "permalink_url,permalink") : {};
+    // Permalink lookup failure after publishing is not a publish failure; never post twice for that reason.
+    let details: Record<string, unknown> = {};
+    try { if (externalId) details = await metaGet(externalId, token, directInstagram ? "permalink" : "permalink_url,permalink", directInstagram); } catch { /* Keep the successful external post ID. */ }
     const publicUrl = String(details.permalink_url ?? details.permalink ?? "") || (job.channel === "facebook" && externalId ? `https://www.facebook.com/${externalId.replace("_", "/posts/")}` : null);
-    await supabase.from("external_publish_jobs").update({ status: "sent", target_id: externalId || account.external_account_id, sent_at: new Date().toISOString(), error_message: null, next_retry_at: null, response_json: { external_post_id: externalId, public_url: publicUrl }, updated_at: new Date().toISOString() }).eq("id", job.id);
+    const { error: sentError } = await supabase.from("external_publish_jobs").update({ status: "sent", target_id: externalId || account.external_account_id, sent_at: new Date().toISOString(), error_message: null, next_retry_at: null, response_json: { external_post_id: externalId, public_url: publicUrl }, updated_at: new Date().toISOString() }).eq("id", job.id);
+    if (sentError) throw new Error("公開結果を保存できませんでした。投稿先で公開状況を確認してください。");
     await supabase.from("growth_actions").update({ status: "done", external_provider: "meta", external_account_id: account.external_account_id, external_post_id: externalId || null, external_status: "sent", published_at: new Date().toISOString(), failed_reason: null, updated_at: new Date().toISOString() }).eq("id", job.growth_action_id).eq("store_id", job.store_id);
     return { jobId, status: "sent", externalId, publicUrl };
   } catch (error) {
+    if (directInstagram && publishAttempted) {
+      const message = "Instagramへの公開結果を確定できませんでした。二重投稿を防ぐため自動再試行を止めています。Instagramで公開済みか確認してください。";
+      await supabase.from("external_publish_jobs").update({ status: "unknown", error_message: message, next_retry_at: null, updated_at: new Date().toISOString() }).eq("id", job.id).eq("status", "sending");
+      throw new Error(message);
+    }
     const message = error instanceof Error ? error.message : "Meta APIへの公開に失敗しました。";
     const attempts = Number(job.attempt_count ?? 0) + 1;
     const retryable = attempts < 4;

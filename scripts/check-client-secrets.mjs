@@ -11,7 +11,9 @@ const forbidden = [
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
   "STRIPE_TOKEN_ENCRYPTION_KEY",
-  "FREEE_CLIENT_SECRET"
+  "FREEE_CLIENT_SECRET",
+  "INSTAGRAM_APP_SECRET",
+  "INSTAGRAM_TOKEN_ENCRYPTION_KEY"
 ];
 const allowedFiles = new Set([
   "lib/supabase/admin.ts",

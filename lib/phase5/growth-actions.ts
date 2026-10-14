@@ -765,6 +765,7 @@ export async function upsertExternalChannelAccount(storeId: string, formData: Fo
   const resolved = await ensureDemoPersistence(supabase, store);
   const channel = normalizeChannel(formData.get("channel"));
   const externalProvider = String(formData.get("external_provider") ?? providerFor(channel) ?? "manual");
+  if (["meta", "instagram_login"].includes(externalProvider)) throw new Error("Instagram・Facebookは専用の接続ボタンから設定してください。接続済みの情報をメモで上書きすることはできません。");
   const { error } = await supabase.from("external_channel_accounts").upsert({
     organization_id: resolved.organizationId,
     store_id: resolved.storeId,

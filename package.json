@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:instagram-login": "node scripts/test-instagram-login.mjs && node scripts/test-instagram-publishing.mjs",
+    "test:staging:instagram-login": "node scripts/test-instagram-login-staging.mjs --staging-synthetic-live",
     "test:airregi": "node scripts/test-airregi-foundation.mjs",
     "test:staging:airregi": "node scripts/test-airregi-staging.mjs --staging-synthetic-live",
     "test:admin-applications": "node --experimental-strip-types scripts/test-admin-application-workflow.mjs",

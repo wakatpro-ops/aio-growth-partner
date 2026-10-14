@@ -16,7 +16,7 @@ test("generation failure preserves answers, stale finish cannot overwrite done, 
   const db = {
     from(table) {
       const query = { single: false, select() { return this; }, eq() { return this; }, is() { return this; }, in() { return this; }, limit() { return this; }, order() { return this; }, maybeSingle() { this.single = true; return this; },
-        then(resolve) { return Promise.resolve(resolve({ error: failRead ? { code: "offline" } : null, data: table === "marketing_conversations" ? structuredClone(session) : table === "external_channel_accounts" ? [{ connection_status: "connected", token_expires_at: null }] : table === "growth_actions" && this.single && session.state.step === "done" ? { id: session.state.actionId } : [] })); }
+        then(resolve) { return Promise.resolve(resolve({ error: failRead ? { code: "offline" } : null, data: table === "marketing_conversations" ? structuredClone(session) : table === "external_channel_accounts" ? [{ id: "account", organization_id: "org", store_id: store.id, channel: "instagram", external_provider: "meta", external_account_id: "1784", connection_status: "connected", token_expires_at: null }] : table === "growth_actions" && this.single && session.state.step === "done" ? { id: session.state.actionId } : [] })); }
       }; return query;
     },
     async rpc(name, args) {
@@ -34,6 +34,7 @@ test("generation failure preserves answers, stale finish cannot overwrite done, 
     "server-only": {}, "@/lib/supabase/admin": { createSupabaseAdminClient: () => db },
     "@/lib/feature-flags/resolve-feature-flags": { resolveFeatureFlags: () => ({}), isFeatureEnabled: () => true },
     "./conversation-rules": rules,
+    "@/lib/instagram/policy": load("lib/instagram/policy.ts", {}),
     "./reviews": { getReviewSummary: async () => ({ connected: false, unanswered: 0, locationIds: [] }) },
     "./review-guidance": load("lib/marketing/review-guidance.ts", {}),
     "@/lib/openai/models": { getOpenAiModel: () => "test", getChatModelOptions: () => ({}) },

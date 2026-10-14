@@ -23,9 +23,9 @@ export default function DataDeletionPage() {
         <ol className="compact-list">
           <li>AIO boostへログインし、対象店舗を開きます。</li>
           <li>「外部チャネル設定」を開きます。</li>
-          <li>「Meta連携を解除」を押し、確認画面で解除します。</li>
+          <li>Instagram直接接続は「Instagramの接続を解除」、Facebook経由の接続は「Facebook経由の連携を解除」を押し、確認画面で解除します。</li>
         </ol>
-        <p>解除すると、Meta側の権限取消を試みたうえで、AIO boostに保存されたMetaアクセストークンを削除します。</p>
+        <p>選択した方式の保存済み認証情報を削除し、接続・投稿の履歴は保持します。Instagram直接接続の解除はこの店舗だけに適用し、Facebook連携や他店舗の接続を変更しません。Instagram上でもアプリのアクセス権を取り消す場合は、Instagramの設定から「アプリとウェブサイト」でAIO boostを選択してください。Facebook経由の解除では、Meta側の権限取消も試みます。</p>
       </section>
 
       <section className="card legal-card">

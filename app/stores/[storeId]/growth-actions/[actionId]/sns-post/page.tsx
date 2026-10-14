@@ -122,7 +122,7 @@ export default async function SnsManualPostPage({
       {statusParams.deleted ? <p className="notice success">画像を削除しました。公開履歴の証跡は保持しています。</p> : null}
       {statusParams.queued ? <p className="notice success">投稿処理を受け付けました。未接続の媒体は手動投稿用として保存しました。</p> : null}
       {statusParams.retried ? <p className="notice success">投稿を再実行しました。</p> : null}
-      {error ? <p className="notice danger">{decodeURIComponent(error)}</p> : null}
+      {error ? <p className="notice danger">{error}</p> : null}
 
       <section className="card">
         <div className="grid cols-3">
@@ -136,7 +136,7 @@ export default async function SnsManualPostPage({
             <input value={action.recommended_date ?? "-"} readOnly />
           </label>
         </div>
-        <p className="notice">Instagram・FacebookはMeta接続済みなら承認後に直接投稿できます。X・LINE、未接続・認証期限切れの場合は、画像と媒体別本文を保存して手動投稿へ切り替えます。</p>
+        <p className="notice">利用可能なInstagram・Facebook接続があれば、内容を承認して投稿できます。Instagram直接接続は審査準備中のため対象店舗のみです。X・LINE、未接続・認証期限切れの場合は手動投稿用に保存します。</p>
       </section>
 
       <section className="card" id="sns-media">
@@ -189,7 +189,11 @@ export default async function SnsManualPostPage({
       })}
 
       <section className="card" id="publish-history"><h2>投稿履歴と再実行</h2><div className="table-wrap"><table className="table"><thead><tr><th>媒体</th><th>状態</th><th>予定／実行</th><th>公開先</th><th>エラー</th><th>操作</th></tr></thead><tbody>
-        {publishJobs.map((job) => { const response = job.response_json && typeof job.response_json === "object" ? job.response_json as { public_url?: string; reason?: string } : {}; return <tr key={job.id}><td>{job.channel}</td><td><span className="badge">{job.status === "sent" ? "公開済み" : job.status === "scheduled" ? "予約済み" : job.status === "manual_required" ? "手動投稿が必要" : job.status === "failed" ? "失敗" : job.status === "retry_wait" ? "再試行待ち" : job.status}</span></td><td>{job.sent_at ?? job.scheduled_at ?? "-"}</td><td>{response.public_url ? <a href={response.public_url} target="_blank" rel="noreferrer">公開ページを開く</a> : job.target_id ?? "-"}</td><td>{job.error_message ?? response.reason ?? "-"}</td><td>{["failed", "retry_wait", "ready"].includes(job.status) ? <form action={retrySnsPublishAction.bind(null, store.id, action.id, String(job.id))}><PendingSubmitButton className="button secondary" pendingLabel="再実行しています...">再実行</PendingSubmitButton></form> : "-"}</td></tr>; })}
+        {publishJobs.map((job) => {
+          const response = job.response_json && typeof job.response_json === "object" ? job.response_json as { public_url?: string; reason?: string } : {};
+          const status = ({ sent: "公開済み", scheduled: "予約済み", manual_required: "手動投稿が必要", failed: "失敗", retry_wait: "再試行待ち", ready: "投稿準備済み", sending: "公開処理中", unknown: "公開状況の確認が必要" } as Record<string, string>)[job.status] ?? job.status;
+          return <tr key={job.id}><td>{job.channel}</td><td><span className="badge">{status}</span></td><td>{job.sent_at ?? job.scheduled_at ?? "-"}</td><td>{response.public_url ? <a href={response.public_url} target="_blank" rel="noreferrer">公開ページを開く</a> : job.target_id ?? "-"}</td><td>{job.error_message ?? response.reason ?? "-"}</td><td>{["retry_wait", "ready"].includes(job.status) ? <form action={retrySnsPublishAction.bind(null, store.id, action.id, String(job.id))}><PendingSubmitButton className="button secondary" pendingLabel="再実行しています...">再実行</PendingSubmitButton></form> : "-"}</td></tr>;
+        })}
         {publishJobs.length === 0 ? <tr><td colSpan={6}>投稿履歴はまだありません。</td></tr> : null}
       </tbody></table></div></section>
 

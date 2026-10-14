@@ -28,7 +28,7 @@ import {
   upsertExternalChannelAccount
 } from "@/lib/phase5/growth-actions";
 import type { GrowthActionStatus } from "@/types/phase5";
-import { approveSnsMedia, archiveSnsMedia, disconnectMeta, executeSnsPublishJob, publishMetaReviewTest, queueSnsPublish, selectMetaPage, uploadSnsMedia } from "@/lib/phase5/sns-publishing";
+import { approveSnsMedia, archiveSnsMedia, disconnectMeta, executeSnsPublishJob, retryOwnedSnsPublishJob, publishMetaReviewTest, queueSnsPublish, selectMetaPage, uploadSnsMedia } from "@/lib/phase5/sns-publishing";
 
 function errorRedirect(path: string, error: unknown): never {
   const message = error instanceof Error ? error.message : "処理に失敗しました。";
@@ -164,7 +164,7 @@ export async function queueSnsPublishAction(storeId: string, actionId: string, j
 export async function retrySnsPublishAction(storeId: string, actionId: string, jobId: string) {
   await requireStoreActionWriteAccess(storeId);
   const path = `/stores/${storeId}/growth-actions/${actionId}/sns-post`;
-  try { await executeSnsPublishJob(jobId); revalidatePath(path); }
+  try { await retryOwnedSnsPublishJob(storeId, actionId, jobId); revalidatePath(path); }
   catch (error) { errorRedirect(path, error); }
   redirect(`${path}?retried=1#publish-history`);
 }
