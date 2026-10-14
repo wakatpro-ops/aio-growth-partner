@@ -5794,3 +5794,32 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
   .import-clarification-fields .grid { grid-template-columns:minmax(0,1fr); }
   .import-clarification-question { padding:14px; }
 }
+/* Operator review: one next action, evidence retained in disclosures. */
+.application-progress, .application-detail, .application-list { min-width: 0; overflow-wrap: anywhere; }
+.application-steps { list-style: none; padding: 0; margin: 20px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.application-steps li { display: flex; align-items: flex-start; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; }
+.application-steps li[data-done="true"] { background: #edf7f1; }
+.application-steps li[aria-current="step"] { border: 2px solid #247a62; }
+.application-steps p { margin: 6px 0 0; font-size: 13px; color: #5b6c65; }
+.application-step-icon { flex: 0 0 24px; font-size: 22px; line-height: 1.2; color: #247a62; }
+.application-next-action { border-top: 1px solid var(--border); padding-top: 18px; }
+.application-confirm { display: flex; align-items: flex-start; gap: 10px; padding: 14px 0; font-weight: 600; }
+.application-confirm input[type="checkbox"] { flex: 0 0 20px; width: 20px; height: 20px; margin: 2px 0 0; }
+.application-detail > details { margin-top: 16px; }
+.application-detail > .grid { align-items: start; margin-top: 16px; }
+.application-detail details[open] > summary { margin-bottom: 20px; }
+.application-detail .table { table-layout: fixed; }
+.application-detail .table th, .application-detail .table td { overflow-wrap: anywhere; white-space: normal; }
+.application-detail .copy-box { max-width: 100%; }
+.application-list { display: grid; gap: 14px; margin-top: 20px; }
+.application-list-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(160px, .7fr); align-items: center; gap: 24px; }
+.application-list-row h2 { font-size: 20px; }
+.application-list-row p { margin: 5px 0; }
+.application-list-steps { padding: 0; list-style: none; font-size: 13px; line-height: 1.8; }
+.application-list-actions { display: grid; gap: 14px; }
+.application-list-actions summary { cursor: pointer; color: #5b6c65; }
+@media (max-width: 850px) {
+  .application-steps, .application-list-row { grid-template-columns: minmax(0, 1fr); }
+  .application-list-row { gap: 14px; }
+  .application-progress .button, .application-detail .button { max-width: 100%; white-space: normal; text-align: center; }
+}
