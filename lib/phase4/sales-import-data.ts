@@ -659,7 +659,9 @@ function buildSalesSummaryRows(
   items: Array<Record<string, unknown>>
 ) {
   const summaries = new Map<string, Record<string, unknown>>();
+  const voidIds = new Set(transactions.filter(transaction => (transaction.source_metadata as Record<string, unknown> | null)?.air_regi_state === "void").map(transaction => String(transaction.id)));
   for (const transaction of transactions) {
+    if ((transaction.source_metadata as Record<string, unknown> | null)?.air_regi_state === "void") continue;
     const date = String(transaction.business_date);
     const month = date.slice(0, 7);
     const payment = String(transaction.payment_method ?? "未設定");
@@ -696,6 +698,7 @@ function buildSalesSummaryRows(
   }
 
   for (const item of items) {
+    if (voidIds.has(String(item.sales_transaction_id))) continue;
     const name = String(item.item_name ?? "未設定");
     const key = `item:${name}`;
     const current = summaries.get(key) ?? {
@@ -776,7 +779,7 @@ export async function getSalesReport(storeId: string): Promise<SalesReport> {
   const resolved = await resolveStoreForRead(supabase, storeId);
   const [{ data, error: summaryError }, { data: transactionRows, count: storedTransactionCount, error: transactionError }] = await Promise.all([
     supabase.from("normalized_sales_summaries").select("*").eq("store_id", resolved.storeId),
-    supabase.from("sales_transactions").select("organization_id", { count: "exact" }).eq("store_id", resolved.storeId).limit(1)
+    supabase.from("sales_transactions").select("organization_id", { count: "exact" }).eq("store_id", resolved.storeId).or("source_metadata->>air_regi_state.is.null,source_metadata->>air_regi_state.neq.void").limit(1)
   ]);
   if (summaryError || transactionError) {
     throw new Error(`売上レポートを取得できませんでした: ${summaryError?.message ?? transactionError?.message}`);

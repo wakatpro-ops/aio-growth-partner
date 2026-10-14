@@ -1,6 +1,6 @@
 import type { AiArea, AiPage } from "./context-rules";
 
-export const contextVersion = "2026-10-05.1";
+export const contextVersion = "2026-10-14.1";
 // Versioned, code-reviewed product knowledge. Store/email text cannot override it.
 const pages: Record<AiArea, { label: string; guidance: string; suggestions: string[] }> = {
   home: { label: "店舗トップ", guidance: "今日やること、売上、在庫、口コミ、SNS下書きを横断して確認する。運営データ確認度は接続・登録範囲であり経営成績ではない。", suggestions: ["今日、先に確認することは？", "今の売上を教えて", "確認できていない情報は？"] },
@@ -20,6 +20,7 @@ const pages: Record<AiArea, { label: string; guidance: string; suggestions: stri
 
 export function pageKnowledge(page: AiPage) {
   const entry = pages[page.area];
+  if (/\/settings\/integrations\/airregi(?:\/|$)/u.test(page.pathname)) return { ...pages.settings, label: "Airレジ連携の準備", guidance: `${pages.settings.guidance} Airレジ公式APIの利用条件と仕様の確認待ち。現在は実接続・自動取込を利用できない。APIキーやAirIDパスワードを入力・会話に貼るよう案内しない。売上同期のAIOb内部基盤の検証完了は、実際のAirレジ接続完了を意味しない。メニュー全件・勤怠・完全リアルタイムは未確認。店舗オーナーが開発に同席する必要はなく、利用可能になってから本人が自分の店舗の接続先を確認する。`, suggestions: ["いつから接続できますか？", "今のレジはそのまま使える？", "店舗ごとに接続できる？"] };
   if (page.area === "imports" && page.importJobId) return { ...entry, label: "選択したファイルの取込確認", guidance: `${entry.guidance} import_detailはURLで選択した一つの未削除ジョブ。表番号は画面の順番。issueGroups/nextQuestionの未解決事項を種類ごとにまとめ、一度に一つだけ尋ねる。年月・調整額・支払先などは利用者の意図を確認し、推測で補完しない。「修正案を見る」で提案を作り、専用の承認操作で修正案を採用し、その後の取り込み確定で初めて本データへ反映する。hasPendingProposal=trueは未承認の案があるだけで、適用・取り込み済みではない。acceptedResolutionCountは修正案の承認数で、反映済み行数ではない。heldは後で確認する保留であり削除・無視・反映済みと区別。解消できない範囲は保留し、確認できた表だけ先に進める。新しいファイルへ移動したら以前の質問・回答を流用しない。会話だけで回答保存・承認・確定はできず、専用操作へ案内する。restricted/unavailableなら個別ファイルの内容を知らないと伝える。`, suggestions: ["このファイルで最初に確認することは？", "保留と反映済みは何行？", "修正案を確認して進めるには？"] };
   if (/\/bookings\/(line|migration|integrations|settings)(?:\/|$)/u.test(page.pathname)) return { ...pages.settings, label: "予約の設定・連携", guidance: `${pages.settings.guidance} 予約内容・担当や設備・LINE予約・既存予約の移行・外部サービス連携を設定する領域。メール転送による予約の集約はAI受信箱。API利用可否は媒体の契約・審査による。既存の外部サービスを自動で停止・移行完了しない。`, suggestions: ["予約メールで連携するには？", "既存LINE予約から移行するには？", "連携前に確認することは？"] };
   if (page.area === "inventory" && page.tab === "analysis") return { ...entry, label: "商品の売れ方・参考利益", suggestions: ["この期間によく売れている商品は？", "参考利益と実際の利益の違いは？", "商品に紐付いていない売上は？"] };

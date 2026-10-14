@@ -70,7 +70,7 @@ async function customers(store: Store, page: AiPage): Promise<AiSection> {
 
 async function sales(db: Db, store: Store): Promise<AiSection> {
   return section("sales", "売上", async () => {
-    const transactions = await rows<{ business_date: string; gross_amount: number }>(db, store, "sales_transactions", "id,business_date,gross_amount");
+    const transactions = await rows<{ business_date: string; gross_amount: number; source_metadata?: { air_regi_state?: string } }>(db, store, "sales_transactions", "id,business_date,gross_amount,source_metadata");
     const facts = salesFacts(transactions);
     return { state: facts.count ? "ready" : "empty", summary: facts.latest ? `最新の登録月（${facts.latest.month}）の売上は${facts.latest.amount.toLocaleString("ja-JP")}円です。` : "売上データはまだ登録されていません。", truncated: facts.monthly.length > 24, data: { ...facts, monthly: facts.monthly.slice(-24), scope: "取り込み済み全取引。日付のない期間・利益・経費は取得していない。", currency: "JPY" } };
   });

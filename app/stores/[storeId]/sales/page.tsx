@@ -26,7 +26,7 @@ export default async function SalesPage({ params }: { params: Promise<{ storeId:
       <PageHeader
         eyebrow={industry.name}
         title="売上データ"
-        description="CSV / Excelから取り込んだ外部売上データを表示します。"
+        description="取り込んだ売上明細と、その修正・取消を確認します。"
         action={<Link className="button" href={`/stores/${store.id}/sales-hub#reports`}>売上・レポートへ</Link>}
       />
       <StoreBusinessNav store={store} />
@@ -54,7 +54,7 @@ export default async function SalesPage({ params }: { params: Promise<{ storeId:
               return (
                 <tr key={transaction.id}>
                   <td>{new Date(transaction.business_date).toLocaleDateString("ja-JP")}</td>
-                  <td>{item?.item_name ?? "-"}</td>
+                  <td>{item?.item_name ?? "-"}{transaction.source_metadata?.air_regi_state === "void" ? <span className="badge">取消済み</span> : transaction.source_metadata?.air_regi_state === "refund" ? <span className="badge">返金</span> : null}</td>
                   <td>{item?.quantity ?? "-"}</td>
                   <td>{formatCurrency(transaction.gross_amount)}</td>
                   <td>{transaction.payment_method ?? "-"}</td>

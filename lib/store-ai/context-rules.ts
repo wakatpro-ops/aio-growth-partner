@@ -46,9 +46,10 @@ export function bookingFacts<T extends { status: string; archived_at?: string | 
     pendingCount: bookings.filter(row => row.status === "pending").length };
 }
 
-export function salesFacts(rows: Array<{ business_date: string; gross_amount: number | string }>) {
+export function salesFacts(rows: Array<{ business_date: string; gross_amount: number | string; source_metadata?: { air_regi_state?: string } }>) {
+  const effective = rows.filter(row => row.source_metadata?.air_regi_state !== "void");
   const months = new Map<string, { month: string; amount: number; count: number }>();
-  for (const row of rows) {
+  for (const row of effective) {
     const month = row.business_date.slice(0, 7), amount = Number(row.gross_amount);
     if (!Number.isFinite(amount)) throw new Error("invalid_amount");
     const current = months.get(month) ?? { month, amount: 0, count: 0 };
@@ -56,7 +57,7 @@ export function salesFacts(rows: Array<{ business_date: string; gross_amount: nu
   }
   const monthly = [...months.values()].sort((a, b) => a.month.localeCompare(b.month));
   const total = monthly.reduce((sum, row) => sum + row.amount, 0);
-  return { total, count: rows.length, average: rows.length ? Math.round(total / rows.length) : null, monthly, latest: monthly.at(-1) ?? null };
+  return { total, count: effective.length, average: effective.length ? Math.round(total / effective.length) : null, monthly, latest: monthly.at(-1) ?? null };
 }
 
 export function contextGreeting(label: string, sections: AiSection[]) {
