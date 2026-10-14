@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:admin-applications": "node --experimental-strip-types scripts/test-admin-application-workflow.mjs",
     "test:sales-conversation": "node --experimental-strip-types --test tests/unit/sales-conversation.test.mjs",
     "test:staging:sales-conversation": "node scripts/test-sales-conversation-staging.mjs --staging-synthetic-live",
     "test:marketing-aio": "node scripts/test-marketing-aio-integration.mjs",

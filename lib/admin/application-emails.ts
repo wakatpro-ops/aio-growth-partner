@@ -407,7 +407,7 @@ export async function sendApplicationGuideEmailAction(applicationId: string, for
   if (!supabase) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("メール送信の準備に失敗しました。")}`);
 
   const { data: application, error } = await supabase.from("applications").select("*").eq("id", applicationId).maybeSingle();
-  if (error || !application) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("申込情報を取得できませんでした。")}`);
+  if (error || !application || application.archived_at) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("送信できる申込情報を確認できませんでした。")}`);
 
   const base = applicationGuideEmail(application as SalesApplication, templateKey);
   const subject = subjectOverride || base.subject;

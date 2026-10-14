@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/layout/app-shell";
+import { ApplicationProgress } from "@/components/admin/application-progress";
+import { applicationWorkflow } from "@/lib/admin/application-workflow";
+import { ConfirmSubmitButton } from "@/components/ui/confirm-submit-button";
 import { PageHeader } from "@/components/ui/page-header";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import {
@@ -14,39 +17,17 @@ import {
 import {
   accountStatusLabels,
   applicantStoreRelationshipLabels,
-  applicationStatuses,
-  applicationStatusLabel,
-  approvalStatusLabels,
-  billingStatusLabels,
   getApplication,
   intakeReviewStatusLabels,
   loginGuideTemplate,
-  paymentStatusLabels,
-  prepareApplicationAccountAction,
+  approveApplicationStartAction,
+  recordApplicationPaymentAction,
+  resendApplicationInviteAction,
+  resumeApplicationReviewAction,
   updateApplicationIntakeReviewAction,
   updateApplicationSalesAction
 } from "@/lib/admin/applications";
 import { normalizeOperatingModel } from "@/lib/applications/operating-model";
-
-const billingStatuses = [
-  ["not_issued", "未発行"],
-  ["issued", "請求書発行済み"],
-  ["paid", "入金確認済み"],
-  ["canceled", "取消"]
-] as const;
-
-const paymentStatuses = [
-  ["unpaid", "未入金"],
-  ["pending", "確認中"],
-  ["paid", "入金確認済み"],
-  ["canceled", "取消"]
-] as const;
-
-const approvalStatuses = [
-  ["pending", "未承認"],
-  ["approved", "承認済み"],
-  ["rejected", "見送り"]
-] as const;
 
 function displayValue(value: unknown, fallback = "-") {
   if (value === null || value === undefined || value === "") return fallback;
@@ -55,14 +36,15 @@ function displayValue(value: unknown, fallback = "-") {
 }
 
 function dateTimeLocalValue(value: unknown) {
-  return typeof value === "string" ? value.slice(0, 16) : "";
+  if (typeof value !== "string" || !Number.isFinite(Date.parse(value))) return "";
+  return new Date(Date.parse(value) + 9 * 60 * 60 * 1000).toISOString().slice(0, 16);
 }
 
 function formatDateTime(value: unknown) {
   if (typeof value !== "string" || value.length === 0) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString("ja-JP");
+  return date.toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" });
 }
 
 function listFromUnknown(value: unknown) {
@@ -157,11 +139,7 @@ export default async function AdminApplicationDetailPage({
   const { application, logs, emailLogs } = await getApplication(applicationId);
   if (!application) notFound();
 
-  const canPrepareAccount = (
-    application.status === "payment_confirmed" ||
-    application.status === "approved" ||
-    application.payment_status === "paid"
-  );
+  const workflow = applicationWorkflow(application);
   const guide = loginGuideTemplate(application);
   const enrichment = applicationEnrichment(application);
   const inviteInfo = applicationInviteInfo(application);
@@ -173,24 +151,25 @@ export default async function AdminApplicationDetailPage({
   return (
     <AppShell>
       <PageHeader
-        title="申込詳細"
-        description="営業メモ、請求状況、入金確認、承認、利用開始準備を管理します。"
+        title="申込を確認"
+        description="内容を確認し、入金確認後に利用開始を承認します。次に必要な操作だけを表示します。"
         action={<Link className="button secondary" href="/admin/applications">一覧へ戻る</Link>}
       />
       {query.saved ? <p className="notice success">申込情報を保存しました。</p> : null}
-      {query.prepared ? <p className="notice success">招待リンクを発行し、利用開始メールを送信しました。</p> : null}
+      {query.prepared ? <p className="notice success">利用開始の準備が完了しました。メールの送信結果は下の案内をご確認ください。</p> : null}
       {query.reviewed ? <p className="notice success">詳細診断の事前審査を更新しました。</p> : null}
       {query.email === "sent" ? <p className="notice success">案内メールを送信しました。</p> : null}
       {query.email === "failed" ? <p className="notice danger">メール送信に失敗しました。送信履歴で詳細を確認してください。</p> : null}
-      {query.error ? <p className="notice danger">{decodeURIComponent(query.error)}</p> : null}
+      {query.error ? <p className="notice danger">{query.error}</p> : null}
 
-      <section className="grid cols-4">
-        <article className="card"><p className="muted">営業</p><div className="metric">{applicationStatusLabel[application.status] ?? application.status}</div></article>
-        <article className="card"><p className="muted">請求</p><div className="metric">{billingStatusLabels[application.billing_status ?? "not_issued"] ?? "未発行"}</div></article>
-        <article className="card"><p className="muted">入金</p><div className="metric">{paymentStatusLabels[application.payment_status ?? "unpaid"] ?? "未入金"}</div></article>
-        <article className="card"><p className="muted">承認</p><div className="metric">{approvalStatusLabels[application.approval_status ?? "pending"] ?? "未承認"}</div></article>
-      </section>
-
+      <ApplicationProgress application={application}
+        reviewAction={updateApplicationIntakeReviewAction.bind(null, application.id)}
+        paymentAction={recordApplicationPaymentAction.bind(null, application.id)}
+        activateAction={approveApplicationStartAction.bind(null, application.id)}
+        resumeAction={resumeApplicationReviewAction.bind(null, application.id)}
+        inviteEmailStatus={emailLogs.find(log => log.template_key === "account_invite")?.status}
+      />
+      <div className="application-detail">
       <section className="grid cols-2">
         <article className="card">
           <h2>申込内容</h2>
@@ -210,8 +189,8 @@ export default async function AdminApplicationDetailPage({
             </tbody>
           </table>
         </article>
-        <article className="card">
-          <h2>利用開始準備</h2>
+        <details className="card disclosure">
+          <summary>発行情報・招待リンクを確認</summary>
           <table className="table compact">
             <tbody>
               <tr><th>組織</th><td>{displayValue(application.organization_id, "未作成")}</td></tr>
@@ -231,7 +210,7 @@ export default async function AdminApplicationDetailPage({
           {inviteInfo.url ? (
             <div className="mini-card">
               <h3>発行済み招待リンク</h3>
-              <p className="muted">申込者へ送信済みの初回パスワード設定リンクです。必要な場合のみ再案内に使ってください。</p>
+              <p className="muted">発行済みの初回パスワード設定リンクです。送信結果はメール履歴を確認してください。</p>
               <textarea className="copy-box" readOnly value={inviteInfo.url} />
               <table className="table compact">
                 <tbody>
@@ -242,19 +221,12 @@ export default async function AdminApplicationDetailPage({
               </table>
             </div>
           ) : null}
-          <form action={prepareApplicationAccountAction.bind(null, application.id)}>
-            <PendingSubmitButton pendingLabel="招待リンクを発行しています..." disabled={!canPrepareAccount}>
-              招待リンクを発行して利用開始メール送信
-            </PendingSubmitButton>
-          </form>
-          {!canPrepareAccount ? <p className="muted">入金確認済みにしてから実行してください。</p> : null}
-        </article>
+        </details>
       </section>
 
       {application.source_analysis_id ? (
-        <section className="card">
-          <p className="eyebrow">詳細診断を開放する前の確認</p>
-          <h2>株式会社 Navi Lifeによる事前審査</h2>
+        <details className="card disclosure">
+          <summary>申込確認の結果・追加確認・見送り</summary>
           <p>店舗URL、申込者との関係、連絡先、管理権限の同意を確認してください。この承認は詳細診断の閲覧許可であり、契約・請求・アカウント発行の承認ではありません。</p>
           <div className="notice">
             現在の状態: <strong>{intakeReviewStatusLabels[application.intake_review_status ?? "pending"] ?? application.intake_review_status}</strong>
@@ -274,12 +246,11 @@ export default async function AdminApplicationDetailPage({
               <p className="notice">このリンクは申込者専用です。第三者へ共有しないでください。</p>
             </div>
           ) : null}
-          <form className="form" action={updateApplicationIntakeReviewAction.bind(null, application.id)}>
+          {!["complete", "inconsistent", "archived"].includes(workflow.stage) && <form className="form" action={updateApplicationIntakeReviewAction.bind(null, application.id)}>
             <div className="field">
-              <label htmlFor="intake_review_status">事前審査の状態</label>
-              <select id="intake_review_status" name="intake_review_status" defaultValue={application.intake_review_status ?? "pending"}>
+              <label htmlFor="intake_review_status">追加対応</label>
+              <select id="intake_review_status" name="intake_review_status" defaultValue="pending">
                 <option value="pending">確認待ち</option>
-                <option value="approved">承認して詳細診断を案内</option>
                 <option value="changes_requested">追加確認を依頼</option>
                 <option value="rejected">見送り</option>
               </select>
@@ -288,12 +259,13 @@ export default async function AdminApplicationDetailPage({
               <label htmlFor="intake_review_note">申込者への案内・確認事項</label>
               <textarea id="intake_review_note" name="intake_review_note" defaultValue={application.intake_review_note ?? ""} placeholder="追加確認・見送りの場合は理由を入力してください。承認時は任意です。" />
             </div>
-            <p className="muted">承認・追加確認・見送りを保存すると、確認済みメールアドレスへ結果を送信します。</p>
-            <PendingSubmitButton pendingLabel="事前審査を保存しています...">事前審査を保存してメール送信</PendingSubmitButton>
-          </form>
-        </section>
+            <p className="muted">追加確認・見送りは申込者へメールを送信します。「確認待ち」に戻す場合はメールを送りません。</p>
+            <ConfirmSubmitButton className="button secondary" message="確認結果を更新します。追加確認・見送りの場合は申込者にメールを送信します。続けますか？">確認結果を更新する</ConfirmSubmitButton>
+          </form>}
+        </details>
       ) : null}
 
+      <details className="card disclosure"><summary>店舗情報・URL・AIの整理結果</summary>
       {application.source_analysis_id ? (
         <section className="card">
           <p className="eyebrow">申込者が確認したAI下書き</p>
@@ -406,55 +378,28 @@ export default async function AdminApplicationDetailPage({
         ) : null}
       </section>
 
-      <section className="card">
-        <h2>営業・請求・入金・承認ステータス</h2>
+      </details>
+      <details className="card disclosure">
+        <summary>営業メモ・請求情報を編集</summary>
+        <p className="muted">ここではメモだけを保存します。審査・入金・承認の状態は、上の手順で進めます。</p>
         <form className="form-grid" action={updateApplicationSalesAction.bind(null, application.id)}>
           <div className="grid cols-2">
-            <div className="field">
-              <label htmlFor="status">申込ステータス</label>
-              <select id="status" name="status" defaultValue={application.status}>
-                {applicationStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="scheduled_demo_at">説明予定日時</label>
-              <input id="scheduled_demo_at" name="scheduled_demo_at" type="datetime-local" defaultValue={dateTimeLocalValue(application.scheduled_demo_at)} />
-            </div>
-            <div className="field">
-              <label htmlFor="billing_status">請求状況</label>
-              <select id="billing_status" name="billing_status" defaultValue={application.billing_status ?? "not_issued"}>
-                {billingStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="billing_amount">請求金額メモ</label>
-              <input id="billing_amount" name="billing_amount" type="number" defaultValue={application.billing_amount == null ? "" : String(application.billing_amount)} placeholder="例: 30000" />
-            </div>
-            <div className="field">
-              <label htmlFor="payment_status">入金状況</label>
-              <select id="payment_status" name="payment_status" defaultValue={application.payment_status ?? "unpaid"}>
-                {paymentStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="approval_status">承認状況</label>
-              <select id="approval_status" name="approval_status" defaultValue={application.approval_status ?? "pending"}>
-                {approvalStatuses.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-              </select>
-            </div>
+            <div className="field"><label htmlFor="billing_status">請求書の発行状況</label><select id="billing_status" name="billing_status" defaultValue={application.billing_status ?? "not_issued"} disabled={application.billing_status === "paid"}><option value="not_issued">未発行</option><option value="issued">発行済み</option><option value="canceled">取消</option>{application.billing_status === "paid" && <option value="paid">入金確認済み</option>}</select></div>
+            <div className="field"><label htmlFor="scheduled_demo_at">説明予定日時（日本時間）</label><input id="scheduled_demo_at" name="scheduled_demo_at" type="datetime-local" defaultValue={dateTimeLocalValue(application.scheduled_demo_at)} /></div>
+            <div className="field"><label htmlFor="billing_amount">請求金額メモ（円）</label><input id="billing_amount" name="billing_amount" type="number" min="0" defaultValue={application.billing_amount ?? ""} /></div>
           </div>
-          <div className="field">
-            <label htmlFor="billing_memo">請求・入金メモ</label>
-            <textarea id="billing_memo" name="billing_memo" defaultValue={application.billing_memo ?? ""} placeholder="請求書番号、入金予定日、請求書ベース運用のメモなど" />
-          </div>
-          <div className="field">
-            <label htmlFor="sales_notes">営業メモ</label>
-            <textarea id="sales_notes" name="sales_notes" defaultValue={application.sales_notes ?? ""} placeholder="説明内容、懸念点、次回対応、見送り理由など" />
-          </div>
-          <PendingSubmitButton pendingLabel="申込情報を保存しています...">保存</PendingSubmitButton>
+          <div className="field"><label htmlFor="billing_memo">請求・入金メモ</label><textarea id="billing_memo" name="billing_memo" defaultValue={application.billing_memo ?? ""} placeholder="請求書番号、発行日、入金予定日など" /></div>
+          <div className="field"><label htmlFor="sales_notes">営業メモ</label><textarea id="sales_notes" name="sales_notes" defaultValue={application.sales_notes ?? ""} /></div>
+          <PendingSubmitButton pendingLabel="メモを保存しています..." disabled={Boolean(application.archived_at)}>メモを保存する</PendingSubmitButton>
         </form>
-      </section>
+      </details>
 
+      <details className="card disclosure" id="application-emails" open={query.email === "failed"}>
+        <summary>案内メール・送信履歴</summary>
+        {workflow.stage === "complete" && <form action={resendApplicationInviteAction.bind(null, application.id)} className="notice">
+          <p>招待リンクが期限切れ、またはメールが届かない場合だけ再送してください。店舗・権限・初期設定は変更しません。送信先：{application.invite_email || application.email}</p>
+          <ConfirmSubmitButton className="button secondary" message="新しい招待リンクを発行し、申込者へ再送します。以前のリンクは使えなくなる場合があります。再送しますか？">招待メールを再送する</ConfirmSubmitButton>
+        </form>}
       <section className="grid cols-2">
         <article className="card">
           <h2>ログイン案内テンプレート</h2>
@@ -509,7 +454,7 @@ export default async function AdminApplicationDetailPage({
               <label htmlFor="body">本文</label>
               <textarea id="body" name="body" className="copy-box" placeholder="空欄の場合は選択したテンプレート本文を使います。送信前に右側のテンプレート確認を見て、必要な場合だけ調整してください。" />
             </div>
-            <PendingSubmitButton pendingLabel="案内メールを送信しています...">案内メールを送信</PendingSubmitButton>
+            <PendingSubmitButton pendingLabel="案内メールを送信しています..." disabled={Boolean(application.archived_at)}>案内メールを送信</PendingSubmitButton>
           </form>
         </article>
         <article className="card">
@@ -560,8 +505,8 @@ export default async function AdminApplicationDetailPage({
         {emailLogs.length === 0 ? <p className="empty">まだメール送信履歴はありません。</p> : null}
       </section>
 
-      <section className="card">
-        <h2>対応履歴</h2>
+      </details>
+      <details className="card disclosure"><summary>対応履歴</summary>
         <table className="table">
           <thead>
             <tr>
@@ -583,7 +528,8 @@ export default async function AdminApplicationDetailPage({
           </tbody>
         </table>
         {logs.length === 0 ? <p className="empty">まだ対応履歴はありません。</p> : null}
-      </section>
+      </details>
+      </div>
     </AppShell>
   );
 }

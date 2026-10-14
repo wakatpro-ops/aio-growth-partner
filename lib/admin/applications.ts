@@ -1,4 +1,5 @@
 import "server-only";
+import { applicationWorkflow } from "@/lib/admin/application-workflow";
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -154,16 +155,6 @@ export type ApplicationActivityLog = {
 function text(value: FormDataEntryValue | null) {
   const result = String(value ?? "").trim();
   return result.length > 0 ? result : null;
-}
-
-function statusTimestamp(status: string) {
-  const now = new Date().toISOString();
-  return {
-    demo_completed_at: status === "demo_completed" ? now : undefined,
-    invoice_issued_at: status === "invoice_issued" ? now : undefined,
-    payment_confirmed_at: status === "payment_confirmed" ? now : undefined,
-    approved_at: status === "approved" ? now : undefined
-  };
 }
 
 function listFromJson(value: unknown) {
@@ -408,40 +399,28 @@ export async function updateApplicationSalesAction(applicationId: string, formDa
   const supabase = createSupabaseAdminClient();
   if (!supabase) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("Supabase環境変数が未設定です。")}`);
 
-  const current = await supabase.from("applications").select("status").eq("id", applicationId).maybeSingle();
-  const previousStatus = String(current.data?.status ?? "new");
-  const nextStatus = String(formData.get("status") ?? previousStatus);
-  const billingStatus = String(formData.get("billing_status") ?? "not_issued");
-  const paymentStatus = String(formData.get("payment_status") ?? "unpaid");
-  const approvalStatus = nextStatus === "approved" ? "approved" : String(formData.get("approval_status") ?? "pending");
-
-  const updatePayload = {
-    status: nextStatus,
-    sales_notes: text(formData.get("sales_notes")),
-    scheduled_demo_at: text(formData.get("scheduled_demo_at")),
-    billing_status: billingStatus,
-    billing_amount: Number(formData.get("billing_amount") || 0) || null,
-    billing_memo: text(formData.get("billing_memo")),
-    payment_status: paymentStatus,
-    approval_status: approvalStatus,
-    approved_by: approvalStatus === "approved" ? access.userId : null,
-    updated_at: new Date().toISOString(),
-    ...statusTimestamp(nextStatus)
-  };
-
-  const { error } = await supabase.from("applications").update(updatePayload).eq("id", applicationId);
-  if (error) {
-    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(error.message)}`);
+  const { data: current, error: readError } = await supabase.from("applications").select("*").eq("id", applicationId).maybeSingle();
+  if (readError || !current || current.archived_at) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("操作できる申込を確認できません。")}`);
+  const schedule = text(formData.get("scheduled_demo_at"));
+  const amount = Number(formData.get("billing_amount") || 0);
+  if (!Number.isFinite(amount) || amount < 0 || (schedule && !Number.isFinite(Date.parse(schedule + "+09:00")))) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("日時・請求金額を確認してください。")}`);
   }
-
-  await insertApplicationLog(
-    applicationId,
-    "sales_status_updated",
-    `申込ステータスを「${applicationStatusLabel[previousStatus] ?? previousStatus}」から「${applicationStatusLabel[nextStatus] ?? nextStatus}」へ更新しました。`,
-    previousStatus,
-    nextStatus,
-    { billing_status: billingStatus, payment_status: paymentStatus, approval_status: approvalStatus }
-  );
+  // Memo saves cannot approve, mark paid, or reset an already-issued account.
+  const billingStatus = String(formData.get("billing_status") ?? current.billing_status ?? "not_issued");
+  if (!["not_issued", "issued", "canceled", "paid"].includes(billingStatus) || (billingStatus === "paid" && current.billing_status !== "paid")) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("入金の確認は上の手順から記録してください。")}`);
+  }
+  const { error } = await supabase.from("applications").update({
+    sales_notes: text(formData.get("sales_notes")),
+    billing_status: current.billing_status === "paid" ? "paid" : billingStatus,
+    scheduled_demo_at: schedule ? new Date(schedule + "+09:00").toISOString() : null,
+    billing_amount: text(formData.get("billing_amount")) === null ? null : amount,
+    billing_memo: text(formData.get("billing_memo")),
+    updated_at: new Date().toISOString()
+  }).eq("id", applicationId).is("archived_at", null);
+  if (error) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(error.message)}`);
+  await insertApplicationLog(applicationId, "sales_notes_updated", "営業メモ・請求情報を更新しました。承認・入金状態は変更していません。", current.status, current.status, { actor_user_id: access.userId });
 
   revalidatePath("/admin/applications");
   revalidatePath(`/admin/applications/${applicationId}`);
@@ -465,6 +444,12 @@ export async function updateApplicationIntakeReviewAction(applicationId: string,
   const { data: application, error: fetchError } = await supabase.from("applications").select("*").eq("id", applicationId).maybeSingle();
   if (fetchError || !application || !application.source_analysis_id || application.intake_review_status === "not_required") {
     redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("URL診断からの事前審査対象申込を確認できません。")}`);
+  }
+  if (application.archived_at || applicationWorkflow(application).issued) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("削除済み・発行済みの申込は再審査できません。")}`);
+  }
+  if (nextStatus === "approved" && (formData.get("review_confirmed") !== "yes" || applicationWorkflow(application).stage !== "review")) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("申込内容を確認し、最新の画面から操作してください。")}`);
   }
   const reviewedAt = new Date().toISOString();
   let detailUrl: string | undefined;
@@ -508,9 +493,58 @@ export async function updateApplicationIntakeReviewAction(applicationId: string,
   redirect(`/admin/applications/${applicationId}?reviewed=1&email=${emailResult ? (emailResult.ok ? "sent" : "failed") : "not_sent"}`);
 }
 
-export async function prepareApplicationAccountAction(applicationId: string) {
+export async function recordApplicationPaymentAction(applicationId: string, formData: FormData) {
   "use server";
+  await requirePlatformAdmin();
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("接続設定を確認してください。");
+  const { data: application, error } = await supabase.from("applications").select("*").eq("id", applicationId).maybeSingle();
+  if (error || !application || applicationWorkflow(application).stage !== "payment" || formData.get("payment_confirmed") !== "yes") {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("入金実績を確認し、最新の画面から操作してください。")}`);
+  }
+  const now = new Date().toISOString();
+  let update = supabase.from("applications").update({ payment_status: "paid", billing_status: "paid", status: "payment_confirmed", payment_confirmed_at: now, updated_at: now }).eq("id", applicationId).is("archived_at", null);
+  update = application.updated_at ? update.eq("updated_at", application.updated_at) : update.is("updated_at", null);
+  const result = await update.select("id").maybeSingle();
+  if (result.error || !result.data) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("状態が変わったため保存しませんでした。画面を更新して確認してください。")}`);
+  await insertApplicationLog(applicationId, "payment_confirmed", "契約・請求内容と入金の確認を記録しました。", application.status, "payment_confirmed");
+  revalidatePath("/admin/applications");
+  revalidatePath(`/admin/applications/${applicationId}`);
+  redirect(`/admin/applications/${applicationId}?saved=1`);
+}
 
+export async function approveApplicationStartAction(applicationId: string, formData: FormData) {
+  "use server";
+  await requirePlatformAdmin();
+  if (formData.get("activation_confirmed") !== "yes") {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("利用開始とメール送信の確認が必要です。")}`);
+  }
+  return prepareApplicationAccountAction(applicationId);
+}
+
+export async function resumeApplicationReviewAction(applicationId: string, formData: FormData) {
+  "use server";
+  await requirePlatformAdmin();
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("接続設定を確認してください。");
+  const { data: application, error } = await supabase.from("applications").select("*").eq("id", applicationId).maybeSingle();
+  if (error || !application || applicationWorkflow(application).stage !== "stopped" || applicationWorkflow(application).issued || formData.get("resume_confirmed") !== "yes") {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("確認を再開できる未発行の申込を確認してください。")}`);
+  }
+  const { error: updateError } = await supabase.from("applications").update({
+    status: applicationWorkflow(application).paid ? "payment_confirmed" : "new",
+    approval_status: "pending",
+    intake_review_status: applicationWorkflow(application).reviewRequired ? "pending" : application.intake_review_status,
+    updated_at: new Date().toISOString()
+  }).eq("id", applicationId).is("archived_at", null);
+  if (updateError) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent(updateError.message)}`);
+  await insertApplicationLog(applicationId, "review_resumed", "見送りから確認を再開しました。メール送信・利用開始の承認は行っていません。", application.status, "pending");
+  revalidatePath("/admin/applications");
+  revalidatePath(`/admin/applications/${applicationId}`);
+  redirect(`/admin/applications/${applicationId}?saved=1`);
+}
+
+async function prepareApplicationAccountAction(applicationId: string) {
   await requirePlatformAdmin();
   const supabase = createSupabaseAdminClient();
   if (!supabase) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("Supabase環境変数が未設定です。")}`);
@@ -525,8 +559,8 @@ export async function prepareApplicationAccountAction(applicationId: string) {
     redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("申込情報を取得できませんでした。")}`);
   }
 
-  if (application.payment_status !== "paid" && application.status !== "payment_confirmed" && application.status !== "approved") {
-    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("入金確認後に承認してください。")}`);
+  if (applicationWorkflow(application).stage !== "activate") {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("申込確認・入金確認を完了し、未発行の申込だけ承認できます。最新の画面を確認してください。")}`);
   }
 
   const industryTypeKey: IndustryTypeKey = normalizeIndustryTypeKey(
@@ -753,6 +787,43 @@ export async function prepareApplicationAccountAction(applicationId: string) {
   revalidatePath("/admin/applications");
   revalidatePath(`/admin/applications/${applicationId}`);
   redirect(`/admin/applications/${applicationId}?prepared=1&email=${emailResult.ok ? "sent" : "failed"}`);
+}
+
+export async function resendApplicationInviteAction(applicationId: string) {
+  "use server";
+  await requirePlatformAdmin();
+  const supabase = createSupabaseAdminClient();
+  if (!supabase) throw new Error("接続設定を確認してください。");
+  const { data: application, error } = await supabase.from("applications").select("*").eq("id", applicationId).maybeSingle();
+  if (error || !application || applicationWorkflow(application).stage !== "complete") {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("再送できる発行済みの申込を確認できません。")}`);
+  }
+  const checklist = recordFromJson(application.admin_checklist);
+  const invite = recordFromJson(checklist.invite);
+  if (typeof invite.issued_at === "string" && Date.now() - Date.parse(invite.issued_at) < 60_000) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("直前に発行済みです。1分ほど待ってから再送してください。")}`);
+  }
+  const storeId = application.store_id || application.approved_store_id;
+  const email = application.invite_email || application.email;
+  const redirectTo = passwordSetupRedirectUrl(storeId);
+  const userId = application.invited_user_id || application.approved_user_id;
+  const user = await supabase.auth.admin.getUserById(userId);
+  if (user.error || user.data.user?.email?.toLowerCase() !== email.toLowerCase()) {
+    redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("発行済みユーザーと送信先が一致しないため再送を停止しました。")}`);
+  }
+  // Recovery only: resending must never create another user or rewrite metadata.
+  const generated = await supabase.auth.admin.generateLink({ type: "recovery", email, options: { redirectTo } });
+  const actionLink = buildScannerSafeInviteUrl({ appUrl: productionAppUrl, result: generated, redirectTo });
+  if (generated.error || !actionLink) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("招待リンクを再発行できませんでした。")}`);
+  const result = await supabase.from("applications").update({
+    admin_checklist: { ...checklist, invite: { ...invite, last_url: actionLink, issued_at: new Date().toISOString(), sent_to: email, mode: "password_setup", redirect_to: redirectTo } },
+    updated_at: new Date().toISOString()
+  }).eq("id", applicationId).is("archived_at", null);
+  if (result.error) redirect(`/admin/applications/${applicationId}?error=${encodeURIComponent("再発行情報を保存できませんでした。")}`);
+  const sent = await sendApplicationInviteEmail(applicationId, application, actionLink);
+  await insertApplicationLog(applicationId, "invite_email_resent", "店舗・権限・初期設定を変更せず、招待メールを再送しました。", application.status, application.status, { email_status: sent.status });
+  revalidatePath(`/admin/applications/${applicationId}`);
+  redirect(`/admin/applications/${applicationId}?email=${sent.ok ? "sent" : "failed"}`);
 }
 
 export function loginGuideTemplate(application: SalesApplication) {
