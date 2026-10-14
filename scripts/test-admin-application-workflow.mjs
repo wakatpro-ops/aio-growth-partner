@@ -31,7 +31,8 @@ for (const [app, stage] of [
   [{ ...paid, status: "declined" }, "stopped"]
 ]) assert.equal(workflow.applicationWorkflow(app).stage, stage);
 
-let state, forbidden = false, sent = 0;
+let state, forbidden = false, sent = 0, sendOK = true;
+const authCalls = [];
 const db = { from(table) {
   let op = "select", payload, single = false;
   const filters = [];
@@ -51,7 +52,8 @@ const db = { from(table) {
     }
   }; return q;
 }, auth: { admin: {
-  async generateLink() { return { data: { user: { id: "new-user" } }, error: null }; },
+  async generateLink(args) { authCalls.push(args); return { data: { user: { id: "new-user" } }, error: null }; },
+  async getUserById() { return { data: { user: { email: base.email } }, error: null }; },
   async updateUserById() { return { error: null }; }
 } } };
 const load = (path, overrides = {}) => {
@@ -66,7 +68,7 @@ const load = (path, overrides = {}) => {
     if (name.endsWith("operating-model")) return model;
     if (name.endsWith("auth/server")) return { async requirePlatformAdmin() { if (forbidden) throw new Error("FORBIDDEN"); return { userId: "admin" }; } };
     if (name.endsWith("supabase/admin")) return { createSupabaseAdminClient: () => db };
-    if (name.endsWith("application-emails")) return { async sendApplicationInviteEmail() { sent++; return { ok: true, status: "sent" }; }, async sendIntakeReviewOutcomeEmail() { sent++; return { ok: true, status: "sent" }; } };
+    if (name.endsWith("application-emails")) return { async sendApplicationInviteEmail() { sent++; return { ok: sendOK, status: sendOK ? "sent" : "failed" }; }, async sendIntakeReviewOutcomeEmail() { sent++; return { ok: sendOK, status: sendOK ? "sent" : "failed" }; } };
     if (name.endsWith("operator-review-token")) return { createOperatorReviewToken: () => "synthetic-token" };
     if (name === "@/config/industries") return { getIndustryConfig: () => ({ defaultFeatureFlags: {} }) };
     if (name.endsWith("applications/options")) return { normalizeIndustryTypeKey: () => "general_store" };
@@ -76,7 +78,7 @@ const load = (path, overrides = {}) => {
   return mod.exports;
 };
 const actions = load("lib/admin/applications.ts");
-const reset = app => { state = { applications: [structuredClone(app)], application_activity_logs: [] }; sent = 0; forbidden = false; };
+const reset = app => { state = { applications: [structuredClone(app)], application_activity_logs: [] }; sent = 0; forbidden = false; sendOK = true; authCalls.length = 0; };
 const form = data => { const f = new FormData(); Object.entries(data).forEach(([k,v]) => f.set(k,v)); return f; };
 const redirected = (fn, pattern) => assert.rejects(fn, pattern);
 reset(done);
@@ -119,7 +121,25 @@ assert.equal(state.organizations.length, 1);
 await redirected(() => actions.approveApplicationStartAction("synthetic", form({ activation_confirmed: "yes" })), /error=/);
 assert.equal(sent, 1);
 assert.equal(state.stores.length, 1);
-
+reset(paid); sendOK = false;
+await redirected(() => actions.approveApplicationStartAction("synthetic", form({ activation_confirmed: "yes" })), /prepared=1&email=failed/);
+assert.equal(state.applications[0].status, "account_issued");
+reset(done);
+await redirected(() => actions.resendApplicationInviteAction("synthetic"), /email=sent/);
+assert.equal(authCalls[0].type, "recovery");
+assert.equal(state.stores, undefined);
+assert.equal(state.organization_members, undefined);
+assert.equal(state.applications[0].onboarding_status, done.onboarding_status);
+await redirected(() => actions.resendApplicationInviteAction("synthetic"), /error=/);
+assert.equal(sent, 1);
+reset({ ...done, invite_email: "different@example.invalid" });
+await redirected(() => actions.resendApplicationInviteAction("synthetic"), /error=/);
+assert.equal(sent, 0);
+reset({ ...paid, status: "declined", approval_status: "rejected" });
+await redirected(() => actions.resumeApplicationReviewAction("synthetic", form({ resume_confirmed: "yes" })), /saved=1/);
+assert.equal(workflow.applicationWorkflow(state.applications[0]).stage, "review");
+assert.equal(state.applications[0].payment_status, "paid");
+assert.equal(sent, 0);
 // Render complete pages with real markup and styles, replacing only external boundaries.
 const common = {
   "next/link": { default: ({ children, ...props }) => React.createElement("a", props, children) },

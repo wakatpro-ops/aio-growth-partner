@@ -454,7 +454,7 @@ export default async function AdminApplicationDetailPage({
               <label htmlFor="body">本文</label>
               <textarea id="body" name="body" className="copy-box" placeholder="空欄の場合は選択したテンプレート本文を使います。送信前に右側のテンプレート確認を見て、必要な場合だけ調整してください。" />
             </div>
-            <PendingSubmitButton pendingLabel="案内メールを送信しています...">案内メールを送信</PendingSubmitButton>
+            <PendingSubmitButton pendingLabel="案内メールを送信しています..." disabled={Boolean(application.archived_at)}>案内メールを送信</PendingSubmitButton>
           </form>
         </article>
         <article className="card">
