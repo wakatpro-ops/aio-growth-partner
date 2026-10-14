@@ -6,11 +6,13 @@ import { getIndustryConfig } from "@/config/industries";
 import { getStoreAccountingIntegration, getStorePaymentIntegration } from "@/lib/phase6/compliance-data";
 import { integrationStatusLabels, labelFor } from "@/lib/status-labels";
 import { getStore } from "@/lib/stores";
+import { canManageOrganization } from "@/lib/auth/server";
 
 export default async function StoreIntegrationsPage({ params }: { params: Promise<{ storeId: string }> }) {
   const { storeId } = await params;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
+  const mayConnectPOS = await canManageOrganization(store.organization_id);
   const [stripe, freee] = await Promise.all([
     getStorePaymentIntegration(store.id, "stripe"),
     getStoreAccountingIntegration(store.id, "freee")
@@ -26,6 +28,12 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
       <StoreBusinessNav store={store} />
       <p className="notice success">外部連携情報を整えると、AIOが請求・入金・会計・集客導線をひとつの店舗データとして扱いやすくなります。</p>
       <section className="grid cols-3">
+        {mayConnectPOS ? <article className="card">
+          <h3>Airレジ売上連携</h3>
+          <p>今のレジを使い続けながら、売上を自動で取り込む連携を準備しています。</p>
+          <p><span className="badge">接続準備中</span></p>
+          <Link className="button secondary" href={`/stores/${store.id}/settings/integrations/airregi`}>準備状況を確認</Link>
+        </article> : null}
         <article className="card">
           <h3>予約サービス連携</h3>
           <p>STORES 予約、RESERVA、minimoなど8媒体のAPI・提携条件と、この店舗の申請状況を確認します。</p>
