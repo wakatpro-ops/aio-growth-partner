@@ -1,4 +1,5 @@
 import "server-only";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { randomUUID } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createMeteredOpenAI } from "@/lib/ai-usage/meter";
@@ -22,7 +23,7 @@ export async function readAioConversation(store: Store, actor: string) {
     client.from("aio_conversations").select("revision,state").eq("store_id", store.id).eq("user_id", actor).maybeSingle(),
     scoped("aio_goals", "target_questions").maybeSingle(),
     scoped("aio_improvement_tasks", "id,title,due_date,publication_status").is("archived_at", null).in("status", ["not_started", "in_progress", "on_hold"]).order("due_date", { ascending: true, nullsFirst: false }).order("created_at").limit(100),
-    scoped("items", "id,name,description").is("archived_at", null).eq("status", "active").eq("availability", "available").order("name").limit(20),
+    scoped("items", "id,name,description,unit_price,metadata").is("archived_at", null).eq("status", "active").eq("availability", "available").order("name").limit(100),
     getStoreAiReadiness(store, true)
   ]);
   if ([session, goals, tasks, items].some(result => result.error)) throw new Error("context_unavailable");
@@ -42,7 +43,7 @@ export async function readAioConversation(store: Store, actor: string) {
   return { revision: saved?.revision ?? 0, state, offers,
     offer: chooseOffer(offers, state.deferred, Date.now(), `${actor}:${store.id}:${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tokyo" })}`),
     targetQuestions: targetQuestions.slice(0, 3).map(question => question.slice(0, 160)),
-    items: (items.data as unknown as { id: string; name: string; description: string | null }[]).map(item => ({ id: item.id, name: item.name.slice(0,160), description: item.description?.slice(0,500) ?? "" })),
+    items: (items.data as unknown as { id: string; name: string; description: string | null; unit_price: number; metadata: Record<string, unknown> }[]).filter(item => !catalogueNeedsReview(item)).slice(0, 20).map(item => ({ id: item.id, name: item.name.slice(0,160), description: item.description?.slice(0,500) ?? "" })),
     actionAvailable, observedAt: new Date().toISOString() };
 }
 export async function advanceAioConversation(store: Store, actor: string, command: { revision: number; action: string; value?: string; itemId?: string }) {

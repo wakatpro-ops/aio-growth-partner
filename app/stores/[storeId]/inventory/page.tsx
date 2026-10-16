@@ -19,7 +19,7 @@ export default async function InventoryPage({params,searchParams}:{params:Promis
   const {store,permissions}=await menuContext(storeId);
   const tab=query.tab==="stock"?"stock":query.tab==="analysis"?"analysis":"menu";
   if(tab==="analysis") await menuContext(storeId,"manager");
-  const items=await listBusinessItems(storeId,1000), labels=menuTabs(store.industry_type_key);
+  const items=await listBusinessItems(storeId,1000,tab==="menu"), labels=menuTabs(store.industry_type_key);
   const unregistered = items.length === 0 ? await registeredDataCount(storeId, "items") === 0 : false;
   const base=`/stores/${storeId}/inventory`;
   const stocks=tab==="stock"?await listInventoryStocks(storeId):[];

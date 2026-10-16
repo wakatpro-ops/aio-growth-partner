@@ -1,4 +1,5 @@
 import "server-only";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { getReviewSummary } from "@/lib/marketing/reviews";
 import { googleReviewIntegrationAvailable, reviewGuidance } from "@/lib/marketing/review-guidance";
 import { resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
@@ -79,18 +80,20 @@ async function sales(db: Db, store: Store): Promise<AiSection> {
 async function inventory(db: Db, store: Store, page: AiPage, manager: boolean): Promise<AiSection> {
   if (page.tab === "analysis" && !manager) return { key: "inventory", label: "在庫・利益分析", state: "restricted", summary: "原価・利益分析は店長以上の権限で確認できます。" };
   return section("inventory", "商品・在庫", async () => {
-    const [items, stocks, performance] = await Promise.all([
-      rows<Pick<BusinessItem, "id" | "name" | "unit" | "unit_price" | "cost_price" | "tax_rate" | "metadata" | "is_stock_managed" | "status" | "availability">>(db, store, "items", `id,name,unit,unit_price,is_stock_managed,status,availability${manager ? ",cost_price,tax_rate,metadata" : ""}`, true),
+    const [allItems, stocks, performance] = await Promise.all([
+      rows<Pick<BusinessItem, "id" | "name" | "unit" | "unit_price" | "cost_price" | "tax_rate" | "metadata" | "is_stock_managed" | "status" | "availability">>(db, store, "items", `id,name,unit,unit_price,is_stock_managed,status,availability,metadata${manager ? ",cost_price,tax_rate" : ""}`, true),
       rows<InventoryStock>(db, store, "inventory_stocks", "id,item_id,quantity,reserved_quantity,reorder_point,updated_at"),
       page.tab === "analysis" && manager ? menuSales(store.id, [30, 90, 365].includes(Number(page.query.days)) ? Number(page.query.days) : 30) : null
     ]);
+    const items = allItems.filter(item => !catalogueNeedsReview(item));
+    const pendingCount = allItems.length - items.length;
     const totals = new Map<string, { quantity: number; amount: number }>();
     for (const row of performance?.rows ?? []) { if (!row.item_id) continue; const current = totals.get(row.item_id) ?? { quantity: 0, amount: 0 }; current.quantity += Number(row.quantity); current.amount += Number(row.total_amount); totals.set(row.item_id, current); }
     const stockById = new Map(stocks.map(row => [row.item_id, row]));
     const products = items.map(item => { const stock = stockById.get(item.id); return { name: item.name.slice(0, 160), unit: item.unit, price: item.unit_price, ...(manager ? { registeredCost: item.cost_price, referenceMargin: item.cost_price > 0 && item.unit_price > 0 ? Math.round((item.metadata?.tax_inclusion === "exclusive" ? item.unit_price : item.unit_price / (1 + item.tax_rate / 100)) - item.cost_price) : null } : {}), ...(performance ? { sales: totals.get(item.id) ?? null } : {}), status: item.status, availability: item.availability, stockManaged: item.is_stock_managed, available: stock ? Number(stock.quantity) - Number(stock.reserved_quantity) : null, reorderPoint: stock?.reorder_point ?? null, updatedAt: stock?.updated_at ?? null }; });
     const low = products.filter(p => p.stockManaged && p.available !== null && Number(p.reorderPoint) > 0 && p.available <= Number(p.reorderPoint));
     const missing = products.filter(p => p.stockManaged && p.available === null).length;
-    return { state: products.length ? "ready" : "empty", summary: performance ? `${performance.start}〜${performance.until}の取り込み済み商品明細は${performance.rows.length}件です。` : `商品は${items.length}件、発注目安以下は${low.length}件です。${missing ? `在庫未登録が${missing}件あります。` : ""}`, truncated: products.length > 50 || low.length > 50, data: { count: items.length, lowCount: low.length, missingStockCount: missing, low: low.slice(0, 50), products: products.slice(0, 50), ...(performance ? { period: { from: performance.start, to: performance.until }, unlinkedSales: performance.rows.filter(row => !row.item_id).length } : {}), note: "現在の登録単価・在庫。参考利益は現在の税抜単価−登録原価であり期間実利益ではない。商品紐付け・取り込み不足の可能性がある。" } };
+    return { state: products.length || pendingCount ? "ready" : "empty", summary: pendingCount ? `利用できる商品は${items.length}件です。別に${pendingCount}件の候補が商品名・価格の確認待ちです。メニュー画面で確認してください。` : performance ? `${performance.start}〜${performance.until}の取り込み済み商品明細は${performance.rows.length}件です。` : `商品は${items.length}件、発注目安以下は${low.length}件です。${missing ? `在庫未登録が${missing}件あります。` : ""}`, truncated: products.length > 50 || low.length > 50, data: { count: items.length, pendingCatalogueCount: pendingCount, lowCount: low.length, missingStockCount: missing, low: low.slice(0, 50), products: products.slice(0, 50), ...(performance ? { period: { from: performance.start, to: performance.until }, unlinkedSales: performance.rows.filter(row => !row.item_id).length } : {}), note: "未確認の候補は販売中の商品や0円商品ではない。商品名と価格を店長以上が確認するまで下書き・利益計算に使わない。現在の登録単価・在庫。参考利益は現在の税抜単価−登録原価であり期間実利益ではない。商品紐付け・取り込み不足の可能性がある。" } };
   });
 }
 

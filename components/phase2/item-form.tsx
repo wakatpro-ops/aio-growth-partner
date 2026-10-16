@@ -2,6 +2,7 @@
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { BusinessItem } from "@/types/phase2";
 import type { IndustryTypeKey } from "@/types/domain";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 
 export function ItemForm({
   action,
@@ -16,10 +17,11 @@ export function ItemForm({
 }) {
   const showReducedTaxRate = industryTypeKey === "restaurant" || industryTypeKey === "retail";
   const taxInclusion = item?.metadata?.tax_inclusion === "exclusive" ? "exclusive" : "inclusive";
+  const pending = Boolean(item && catalogueNeedsReview(item));
   return (
     <form className="card form" action={action} onSubmit={event=>{
       const values=new FormData(event.currentTarget);
-      if(item && (Number(values.get("unit_price"))!==item.unit_price || String(values.get("tax_inclusion"))!==taxInclusion || Number(values.get("tax_rate"))!==item.tax_rate) && !window.confirm(`販売価格を変更します。現在 ${item.unit_price}円（${taxInclusion==="exclusive"?"税抜":"税込"}）→ ${values.get("unit_price")}円（${values.get("tax_inclusion")==="exclusive"?"税抜":"税込"}）。AIO boost内のみで、外部POSには反映されません。`)) event.preventDefault();
+      if(item && (pending || Number(values.get("unit_price"))!==item.unit_price || String(values.get("tax_inclusion"))!==taxInclusion || Number(values.get("tax_rate"))!==item.tax_rate) && !window.confirm(`販売価格を変更します。現在 ${pending?"価格未設定":`${item.unit_price}円（${taxInclusion==="exclusive"?"税抜":"税込"}）`} → ${values.get("unit_price")}円（${values.get("tax_inclusion")==="exclusive"?"税抜":"税込"}）。AIO boost内のみで、外部POSには反映されません。`)) event.preventDefault();
     }}>
       <label className="field">写真（任意・後から追加できます）<input type="file" name="item_photo" accept="image/jpeg,image/png,image/webp"/><small>JPG・PNG・WebP、3MBまで。公開してよい商品写真を選んでください。</small></label>
       {item?.metadata.image_url?<label className="check-row"><input type="checkbox" name="remove_photo"/>登録済みの写真を外す</label>:null}
@@ -46,7 +48,7 @@ export function ItemForm({
         </div>
         <div className="field">
           <label htmlFor="unit_price">販売単価</label>
-          <input id="unit_price" name="unit_price" type="number" min="0" step="1" defaultValue={item?.unit_price ?? 0} />
+          <input id="unit_price" name="unit_price" type="number" min="0" step="1" required placeholder="価格を入力" defaultValue={pending ? "" : item?.unit_price ?? ""} />
         </div>
         <div className="field">
           <label htmlFor="cost_price">原価（税抜・1単位あたり）</label>
@@ -96,7 +98,8 @@ export function ItemForm({
           </div>
         </div>
       ) : null}
-      <PendingSubmitButton pendingLabel="入力内容を保存しています...">{item ? "変更を保存" : "登録して一覧へ"}</PendingSubmitButton>
+      {pending ? <section className="notice"><p>公開情報から作られた候補のため、商品名・価格は未確認です。実際に提供している商品名と価格（税込／税抜）に直してください。無料の場合だけ0円を入力します。</p><label className="check-row"><input type="checkbox" name="catalogue_confirmed" required />この名称と価格を商品として使うことを確認しました</label></section> : null}
+      <PendingSubmitButton pendingLabel="入力内容を保存しています...">{pending ? "確認して商品に反映" : item ? "変更を保存" : "登録して一覧へ"}</PendingSubmitButton>
     </form>
   );
 }

@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { chromium } from "@playwright/test";
 import ts from "typescript";
 import { normalizeOperatingModel } from "../lib/applications/operating-model.ts";
+import * as menuCandidates from "../lib/onboarding/menu-candidates.ts";
 
 const require = createRequire(import.meta.url);
 const source = readFileSync("app/onboarding/setup-review/initial-setup-review-form.tsx", "utf8");
@@ -18,6 +19,7 @@ new Function("require", "module", "exports", compiled)(name => {
   if (name === "./actions") return { confirmInitialSetupAction() {}, saveInitialSetupDraftAction() {} };
   if (name === "next/link") return { default: ({ children, ...props }) => React.createElement("a", props, children) };
   if (name.includes("pending-submit-button")) return { PendingSubmitButton: ({ pendingLabel, children, ...props }) => React.createElement("button", { ...props, "data-pending-label": pendingLabel }, children) };
+  if (name.includes("menu-candidates")) return menuCandidates;
   return require(name);
 }, mod, mod.exports);
 const branch = { name: "デモサロン 新宿支店", address: "東京都新宿区新宿1丁目", websiteUrl: "https://example.invalid/shinjuku", companyName: "デモ法人", brandName: "デモサロン" };

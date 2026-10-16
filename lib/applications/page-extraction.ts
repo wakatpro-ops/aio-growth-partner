@@ -1,5 +1,7 @@
 import type { IndustryTypeKey } from "@/types/domain";
 import type { PublicPageSnapshot } from "@/lib/applications/url-safety";
+import { extractPublicMenus, menuPageMatchesStore } from "./menu-extraction.ts";
+import type { PublicMenuCandidate } from "../onboarding/menu-candidates.ts";
 
 export type EvidenceOrigin = "published" | "inferred" | "missing" | "user_provided";
 
@@ -13,6 +15,7 @@ export type ExtractedStoreProfile = {
   opening_hours: string;
   description: string;
   services: string[];
+  menu_candidates?: PublicMenuCandidate[];
   strengths: string[];
   target_customers: string[];
   social_urls: string[];
@@ -276,6 +279,7 @@ export function extractStoreProfile(pages: PublicPageSnapshot[]): ExtractedStore
     opening_hours: openingHours,
     description,
     services,
+    menu_candidates: extractPublicMenus(pages.filter(page => menuPageMatchesStore(page, { store_name: storeName, address, phone }))),
     strengths: [],
     target_customers: [],
     social_urls: socialUrls,

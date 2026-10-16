@@ -5,9 +5,9 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 const require = createRequire(import.meta.url);
 function load(file, mocks) {
-  const module = { exports: {} };
-  new Function("require", "module", "exports", ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(name => name in mocks ? mocks[name] : require(name), module, module.exports);
-  return module.exports;
+  const loaded = { exports: {} };
+  new Function("require", "module", "exports", ts.transpileModule(readFileSync(file, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText)(name => name in mocks ? mocks[name] : require(name), loaded, loaded.exports);
+  return loaded.exports;
 }
 function fixture() {
   const store = { id: "s", organization_id: "o" };

@@ -2,6 +2,7 @@ import "server-only";
 import { menuContext } from "@/lib/menu-workbench";
 import { menuPhotoMetadata } from "@/lib/menu-photo";
 import { validateMenuItem } from "@/lib/menu-workbench-rules";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { canEditStore } from "@/lib/auth/server";
 import { setStoreEntityArchived } from "@/lib/archive-management";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -278,19 +279,22 @@ async function seedAutoRepairDemoRows(
   });
 }
 
-export async function listBusinessItems(storeId: string, limit = 80): Promise<BusinessItem[]> {
+export async function listBusinessItems(storeId: string, limit = 80, includePending = false): Promise<BusinessItem[]> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) {
     return demoItems.filter((item) => item.store_id === storeId || storeId.startsWith("demo"));
   }
 
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false }).limit(limit);
-  if (error || !data) {
-    throw new Error("商品データを取得できませんでした。");
+  const result: BusinessItem[] = [];
+  const pageSize = Math.min(1000, Math.max(100, limit));
+  for (let offset = 0; offset < 100_000; offset += pageSize) {
+    const { data, error } = await supabase.from("items").select("*").eq("store_id", resolved.storeId).is("archived_at", null).order("created_at", { ascending: false }).order("id").range(offset, offset + pageSize - 1);
+    if (error || !data) throw new Error("商品データを取得できませんでした。");
+    result.push(...(data as BusinessItem[]).filter(item => includePending || !catalogueNeedsReview(item)));
+    if (result.length >= limit || data.length < pageSize) return result.slice(0, limit);
   }
-
-  return data as BusinessItem[];
+  throw new Error("商品が多いため、一覧を絞り込んでください。");
 }
 
 export async function getBusinessItem(storeId: string, itemId: string): Promise<BusinessItem | null> {
@@ -317,7 +321,7 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
   const resolved = await resolveStoreForRead(supabase, storeId);
   const { data, error } = await supabase
     .from("inventory_stocks")
-    .select("*, item:items!inner(name, sku, unit, item_type)")
+    .select("*, item:items!inner(name, sku, unit, item_type, unit_price, metadata)")
     .eq("store_id", resolved.storeId)
     .is("item.archived_at", null)
     .order("updated_at", { ascending: false });
@@ -325,7 +329,7 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
     throw new Error("在庫データを取得できませんでした。");
   }
 
-  return data as InventoryStock[];
+  return (data as unknown as Array<InventoryStock & { item: Pick<BusinessItem, "name" | "sku" | "unit" | "item_type" | "unit_price" | "metadata"> }>).filter(stock => stock.item && !catalogueNeedsReview(stock.item)).map(({ item, ...stock }) => ({ ...stock, item: { name: item.name, sku: item.sku, unit: item.unit, item_type: item.item_type } }));
 }
 
 export async function listCustomers(storeId: string, limit = 80): Promise<Customer[]> {
@@ -450,8 +454,12 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
   const supabase = createSupabaseAdminClient();
   if (!supabase) return;
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const { data: currentItem, error: readError } = await supabase.from("items").select("metadata").eq("store_id", resolved.storeId).eq("id", itemId).is("archived_at",null).maybeSingle();
+  const { data: currentItem, error: readError } = await supabase.from("items").select("metadata,unit_price").eq("store_id", resolved.storeId).eq("id", itemId).is("archived_at",null).maybeSingle();
   if(readError||!currentItem) throw new Error("商品が見つからないか、取得できませんでした。開き直してください。");
+  const pending = catalogueNeedsReview(currentItem);
+  if (pending && formData.get("catalogue_confirmed") !== "on") throw new Error("この名称と価格を商品として使用することを確認してください。");
+  const metadata = await menuPhotoMetadata(storeId,formData,(currentItem.metadata as Record<string, unknown> | null)??{});
+  if (pending) Object.assign(metadata, { price_confirmed: true, catalogue_review_required: false, catalogue_validation_version: 1 });
 
   const { error } = await supabase
     .from("items")
@@ -464,7 +472,7 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
       unit_price: asNumber(formData.get("unit_price")),
       cost_price: asNumber(formData.get("cost_price")),
       tax_rate: asNumber(formData.get("tax_rate"), 10),
-      metadata: await menuPhotoMetadata(storeId,formData,(currentItem?.metadata as Record<string, unknown> | null)??{}),
+      metadata,
       is_stock_managed: formData.get("is_stock_managed") === "on",
       status: String(formData.get("status") ?? "active"),
       updated_at: new Date().toISOString()
@@ -472,6 +480,7 @@ export async function updateItemFromForm(storeId: string, itemId: string, formDa
     .eq("store_id", resolved.storeId)
     .eq("id", itemId).is("archived_at",null);
   if(error) throw new Error("商品を更新できませんでした。");
+  await logAuditEvent({ storeId, actionType: pending ? "item_catalogue_confirmed" : "item_updated", targetType: "item", targetId: itemId, message: pending ? "商品名・価格・税区分を確認し、商品として利用できる状態にしました。" : "商品情報を更新しました。" });
 }
 
 export async function deleteItem(storeId: string, itemId: string) {

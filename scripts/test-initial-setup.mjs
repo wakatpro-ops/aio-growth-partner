@@ -21,6 +21,7 @@ function baseForm() {
   form.set("invoice_registration_number", "T1234567890123");
   form.set("invoice_prefix", "SALON");
   form.set("menu_enabled_0", "on");
+  form.set("menu_confirmed_0", "on");
   form.set("menu_name_0", "ハーブピーリング");
   form.set("menu_type_0", "service");
   form.set("menu_unit_price_0", "12000");
@@ -77,6 +78,7 @@ test("候補件数を上限30件に制限する", () => {
     form.set(`menu_name_${index}`, `候補${index}`);
     form.set(`menu_unit_price_${index}`, "0");
   }
+  form.set("menu_free_confirmed_0", "on");
   assert.equal(parseInitialSetupForm(form, "snapshot-1", 35).menus.length, 30);
 });
 

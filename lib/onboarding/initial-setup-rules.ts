@@ -1,13 +1,16 @@
 import { uniqueAdditionalLocations } from "./location-identity.ts";
+import { setupMenuReady } from "./menu-candidates.ts";
 
 export type InitialSetupMenuInput = {
   sourceKey: string;
   enabled: boolean;
   name: string;
   itemType: "product" | "part" | "service";
-  unitPrice: number;
+  unitPrice: number | null;
+  confirmed: boolean;
+  freeConfirmed: boolean;
   taxRate: 0 | 8 | 10;
-  taxInclusion: "inclusive" | "exclusive";
+  taxInclusion: "inclusive" | "exclusive" | "unknown";
 };
 
 export type InitialSetupInput = {
@@ -40,11 +43,12 @@ function text(formData: FormData, key: string, max: number) {
 }
 
 function money(formData: FormData, key: string) {
-  const value = Number(formData.get(key) ?? 0);
-  if (!Number.isFinite(value) || value < 0 || value > 100_000_000) {
+  if (!String(formData.get(key) ?? "").trim()) return null;
+  const value = Number(formData.get(key));
+  if (!Number.isSafeInteger(value) || value < 0 || value > 100_000_000) {
     throw new Error("メニューの金額は0円以上で入力してください。");
   }
-  return Math.round(value);
+  return value;
 }
 
 export function mayConfirmInitialSetup(access: InitialSetupAccess | null, organizationId: string) {
@@ -67,7 +71,7 @@ export function initialSetupStoreCandidateKey(snapshotId: string, index: number)
   return `initial-store:${snapshotId}:${index}`;
 }
 
-export function parseInitialSetupForm(formData: FormData, snapshotId: string, candidateCount: number, fallbackOperatingModel?: unknown): InitialSetupInput {
+export function parseInitialSetupForm(formData: FormData, snapshotId: string, candidateCount: number, fallbackOperatingModel?: unknown, draftOnly = false): InitialSetupInput {
   if (formData.get("final_confirmation") !== "on") {
     throw new Error("内容を確認し、正式データへの反映に同意してください。");
   }
@@ -107,17 +111,21 @@ export function parseInitialSetupForm(formData: FormData, snapshotId: string, ca
     const rawTaxInclusion = text(formData, `menu_tax_inclusion_${index}`, 20);
     const taxInclusion = taxInclusions.has(rawTaxInclusion)
       ? rawTaxInclusion as InitialSetupMenuInput["taxInclusion"]
-      : "inclusive";
+      : "unknown";
     if (enabled && !name) throw new Error("登録するメニュー候補の名称を入力してください。");
-    menus.push({
+    const menu: InitialSetupMenuInput = {
       sourceKey: initialSetupCandidateKey(snapshotId, index),
       enabled,
       name,
       itemType,
       unitPrice: money(formData, `menu_unit_price_${index}`),
+      confirmed: formData.get(`menu_confirmed_${index}`) === "on",
+      freeConfirmed: formData.get(`menu_free_confirmed_${index}`) === "on",
       taxRate,
       taxInclusion
-    });
+    };
+    if (enabled && !draftOnly && !setupMenuReady(menu)) throw new Error(`「${name}」の名称・価格・税込／税抜を確認してください。0円の場合は無料の確認も必要です。後で登録する場合は選択を外してください。`);
+    menus.push(menu);
   }
 
   const fallback = normalizeOperatingModel(fallbackOperatingModel);

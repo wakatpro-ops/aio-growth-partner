@@ -5603,6 +5603,8 @@ main .menu-photo-card { padding:0; overflow:hidden; display:flex; flex-direction
 .menu-card-body h2 { font-size:20px; line-height:1.4; margin:0; overflow-wrap:anywhere; }
 .menu-price { font-size:23px; font-weight:700; margin:0; }
 .menu-price small { font-size:13px; font-weight:400; }
+.menu-source-evidence { display:block; margin-top:6px; overflow-wrap:anywhere; color:var(--muted); }
+.menu-state-needs_review { background:#fff5db; color:#795700; }
 .menu-card-body summary,.menu-document summary { min-height:48px; cursor:pointer; padding:12px 0; }
 .menu-card-body form { display:grid; gap:12px; }
 .menu-state-sold_out { background:#fff1dd; color:#805000; }

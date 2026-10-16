@@ -7,6 +7,7 @@ import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resol
 import { chooseOffer } from "@/lib/marketing/conversation-rules";
 import { calculateMoney, draftText, salesOffers, type SalesConversation, type SalesCommand } from "./conversation-rules";
 import type { Store } from "@/types/domain";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 export class SalesConversationError extends Error { constructor(message: string, public status = 409) { super(message); } }
 function db() { const client = createSupabaseAdminClient(); if (!client) throw new Error("unavailable"); return client; }
 export async function readSalesConversation(store: Store, actor: string) {
@@ -14,7 +15,7 @@ export async function readSalesConversation(store: Store, actor: string) {
   const scoped = (table: string, columns: string) => client.from(table).select(columns).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null);
   const [session, items, customers, estimates, invoices, sales] = await Promise.all([
     client.from("sales_conversations").select("revision,state").eq("store_id", store.id).eq("user_id", actor).maybeSingle(),
-    scoped("items", "id,name,unit_price,tax_rate,updated_at").eq("status", "active").eq("availability", "available").order("name").limit(100),
+    scoped("items", "id,name,unit_price,tax_rate,updated_at,metadata").eq("status", "active").eq("availability", "available").order("name").limit(100),
     scoped("customers", "id,name,company_name").order("name").limit(100),
     client.from("estimates").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null).eq("status", "draft"),
     client.from("invoices").select("id", { count: "exact", head: true }).eq("store_id", store.id).eq("organization_id", store.organization_id).is("archived_at", null).eq("status", "draft"),
@@ -31,7 +32,7 @@ export async function readSalesConversation(store: Store, actor: string) {
     if (result.error) throw new Error("context_unavailable"); actionAvailable = Boolean(result.data);
   }
   return { revision: saved?.revision ?? 0, state, offers, offer: chooseOffer(offers, state.deferred, Date.now(), `${actor}:${store.id}:${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tokyo" })}`),
-    items: items.data as unknown as { id: string; name: string; unit_price: number; tax_rate: number; updated_at: string }[],
+    items: (items.data as unknown as { id: string; name: string; unit_price: number; tax_rate: number; updated_at: string; metadata: Record<string, unknown> }[]).filter(item => !catalogueNeedsReview(item)).map(({ metadata, ...item }) => { void metadata; return item; }),
     customers: customers.data as unknown as { id: string; name: string; company_name: string | null }[],
     reducedTax: ["restaurant", "retail"].includes(store.industry_type_key), actionAvailable, observedAt: new Date().toISOString() };
 }

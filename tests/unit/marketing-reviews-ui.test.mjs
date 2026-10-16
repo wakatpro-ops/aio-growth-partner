@@ -28,9 +28,9 @@ async function render({ edit = true, failed = false, status = "draft", published
     "@/lib/stores": { getStore: async () => store },
     "../../growth-actions/actions": Object.fromEntries(["approveGoogleReviewReplyAction", "publishGoogleReviewReplyAction", "saveGoogleReviewReplyDraftAction", "syncGoogleBusinessReviewsAction"].map(key => [key, () => {}]))
   };
-  const module = { exports: {} };
-  new Function("require", "module", "exports", ts.transpileModule(readFileSync("app/stores/[storeId]/marketing/reviews/page.tsx", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText)(name => mocks[name] ?? require(name), module, module.exports);
-  return renderToStaticMarkup(await module.exports.default({ params: Promise.resolve({ storeId: store.id }), searchParams: Promise.resolve({}) }));
+  const loaded = { exports: {} };
+  new Function("require", "module", "exports", ts.transpileModule(readFileSync("app/stores/[storeId]/marketing/reviews/page.tsx", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText)(name => mocks[name] ?? require(name), loaded, loaded.exports);
+  return renderToStaticMarkup(await loaded.exports.default({ params: Promise.resolve({ storeId: store.id }), searchParams: Promise.resolve({}) }));
 }
 test("tools default closed, pending badge visible, 20-row pagination retained", async () => {
   const html = await render();

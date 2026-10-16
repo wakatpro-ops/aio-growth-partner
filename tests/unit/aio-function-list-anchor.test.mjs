@@ -19,12 +19,12 @@ test("folded tools open on Next links, repeated same hash and initial bookmarks"
     removeEventListener: name => listeners.delete(name)
   };
   const document = { ...events, getElementById: id => id === "review-tools" ? target : null };
-  const module = { exports: {} };
+  const loaded = { exports: {} };
   const js = ts.transpileModule(readFileSync("components/marketing/aio-function-list.tsx", "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX } }).outputText;
   new Function("require", "module", "exports", "window", "document", "Element", js)(name => name === "react" ? {
     useRef: () => ({ current: details }), useEffect: callback => { effect = callback; }
-  } : { jsx: () => null, jsxs: () => null }, module, module.exports, { ...events, location }, document, Element);
-  module.exports.AioFunctionList({ children: null, alerts: 0 });
+  } : { jsx: () => null, jsxs: () => null }, loaded, loaded.exports, { ...events, location }, document, Element);
+  loaded.exports.AioFunctionList({ children: null, alerts: 0 });
   const cleanup = effect();
   assert(details.open); assert.equal(scrolled, 1);
   const click = href => listeners.get("click")({ button: 0, target: new Element(href) });

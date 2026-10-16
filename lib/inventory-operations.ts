@@ -1,4 +1,5 @@
 import "server-only";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { menuContext } from "@/lib/menu-workbench";
 
 import { getCurrentUserAccess } from "@/lib/auth/server";
@@ -182,8 +183,9 @@ export async function addOrderItemFromForm(storeId: string, orderId: string, for
   if (["completed", "invoiced", "cancelled"].includes(order.status)) throw new Error("完了・請求化・取消済みの受注明細は変更できません。");
   const itemId = text(formData.get("item_id"), 36);
   const { data: item } = itemId
-    ? await supabase.from("items").select("id, name, unit, unit_price").eq("store_id", store.id).eq("id", itemId).is("archived_at", null).maybeSingle()
+    ? await supabase.from("items").select("id, name, unit, unit_price, metadata").eq("store_id", store.id).eq("id", itemId).is("archived_at", null).maybeSingle()
     : { data: null };
+  if (item && catalogueNeedsReview(item)) throw new Error("商品名と価格が未確認です。メニュー画面で確認してから選んでください。");
   const description = text(formData.get("description"), 500) ?? item?.name ?? null;
   const quantity = number(formData.get("quantity"));
   const unitPrice = number(formData.get("unit_price")) || Number(item?.unit_price ?? 0);

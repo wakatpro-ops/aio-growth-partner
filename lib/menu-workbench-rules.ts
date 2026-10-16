@@ -1,10 +1,12 @@
+import { catalogueNeedsReview } from "./onboarding/menu-candidates.ts";
+
 export type MenuAccess = { accountActive: boolean; isPlatformAdmin: boolean; organizationRoles: Record<string, string>; storeRoles: Record<string, string> };
 export function menuPermissions(access: MenuAccess | null, organizationId: string, storeId: string) {
   const roles = access ? [access.organizationRoles[organizationId], access.storeRoles[storeId]] : [];
   const manager = Boolean(access?.accountActive && (access.isPlatformAdmin || roles.some(role => role === "org_owner" || role === "store_manager")));
   return { manager, operate: manager || Boolean(access?.accountActive && roles.includes("staff")) };
 }
-export const availabilityLabels = { available: "販売中", sold_out: "売り切れ", paused: "お休み" } as const;
+export const availabilityLabels = { available: "販売中", sold_out: "売り切れ", paused: "お休み", needs_review: "要確認" } as const;
 export type Availability = keyof typeof availabilityLabels;
 export function menuTabs(industry: string) {
   if (industry === "restaurant") return ["メニュー", "食材・仕入", "売れ方・利益"];
@@ -13,7 +15,8 @@ export function menuTabs(industry: string) {
   if (industry === "auto_repair") return ["サービス・部品", "部品・仕入", "売れ方・利益"];
   return ["商品・サービス", "資材・仕入", "売れ方・利益"];
 }
-export function itemAvailability(item: { status: string; availability?: string }) : Availability {
+export function itemAvailability(item: { status: string; availability?: string; unit_price?: number; metadata?: Record<string, unknown> }) : Availability {
+  if (catalogueNeedsReview(item)) return "needs_review";
   if (item.status !== "active") return "paused";
   return item.availability === "sold_out" ? "sold_out" : "available";
 }
@@ -26,6 +29,7 @@ export function itemPhoto(metadata: Record<string, unknown>) {
 }
 export type StockDocumentLine = { item_id: string; name: string; quantity: number; unit: string; unit_price?: number };
 export function validateMenuItem(form: FormData) {
+  if (!String(form.get("unit_price") ?? "").trim()) throw new Error("販売価格を入力してください。価格不明は0円ではありません。");
   if(!String(form.get("name")??"").trim()||String(form.get("name")).length>200) throw new Error("商品名を200文字以内で入力してください。");
   if(!String(form.get("unit")??"").trim()||String(form.get("unit")).length>30) throw new Error("単位を30文字以内で入力してください。");
   for(const key of ["unit_price","cost_price","quantity","reorder_point"]) {

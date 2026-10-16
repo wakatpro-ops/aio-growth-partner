@@ -1,4 +1,5 @@
 import "server-only";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { createHash } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
 import { applyImportedSaleInventory } from "@/lib/inventory-operations";
@@ -437,7 +438,9 @@ export async function saveMappingsFromForm(storeId: string, importJobId: string,
 }
 
 async function prepareImportItemMatches(supabase: SupabaseClient, job: DataImportJob, rows: NormalizedSalesPreviewRow[]) {
-  const { data: items } = await supabase.from("items").select("id, name, sku, is_stock_managed").eq("store_id", job.store_id).is("archived_at", null);
+  const { data: allItems, error: itemError } = await supabase.from("items").select("id, name, sku, is_stock_managed, unit_price, metadata").eq("store_id", job.store_id).is("archived_at", null);
+  if (itemError) throw new Error("商品候補を確認できませんでした。");
+  const items = (allItems ?? []).filter(item => !catalogueNeedsReview(item));
   const unique = new Map<string, { name: string; code: string | null }>();
   for (const row of rows) {
     if (!row.item_name) continue;
@@ -480,8 +483,9 @@ export async function saveImportItemMatchesFromForm(storeId: string, importJobId
   if (!detail) throw new Error("取り込みジョブが見つかりません。");
   const supabase = createSupabaseAdminClient();
   if (!supabase) throw new Error("Supabase環境変数が未設定です。");
-  const { data: validItems } = await supabase.from("items").select("id").eq("store_id", detail.job.store_id).is("archived_at", null);
-  const validIds = new Set((validItems ?? []).map((item) => String(item.id)));
+  const { data: validItems, error: itemError } = await supabase.from("items").select("id, unit_price, metadata").eq("store_id", detail.job.store_id).is("archived_at", null);
+  if (itemError) throw new Error("商品を確認できませんでした。");
+  const validIds = new Set((validItems ?? []).filter(item => !catalogueNeedsReview(item)).map((item) => String(item.id)));
   for (const match of detail.itemMatches) {
     const choice = String(formData.get(`item_match_${match.id}`) ?? "");
     if (!choice) throw new Error("すべての商品について、登録済み商品か『在庫連動しない』を選択してください。");
@@ -537,9 +541,10 @@ export async function executeImportJob(storeId: string, importJobId: string, opt
   let errorRows = 0;
   const matchByKey = new Map(detail.itemMatches.map((match) => [match.source_item_key, match]));
   const confirmedIds = detail.itemMatches.map((match) => match.confirmed_item_id).filter(Boolean) as string[];
-  const { data: matchedItems } = confirmedIds.length > 0
-    ? await supabase.from("items").select("id, is_stock_managed").eq("store_id", detail.job.store_id).in("id", confirmedIds)
-    : { data: [] };
+  const { data: matchedItems, error: itemError } = confirmedIds.length > 0
+    ? await supabase.from("items").select("id, is_stock_managed, unit_price, metadata").eq("store_id", detail.job.store_id).is("archived_at", null).in("id", confirmedIds)
+    : { data: [], error: null };
+  if (itemError || new Set((matchedItems ?? []).map(item => item.id)).size !== new Set(confirmedIds).size || matchedItems?.some(item => catalogueNeedsReview(item))) throw new Error("選択した商品が削除済み、または名称・価格が未確認です。商品との紐付けを確認してください。");
   const stockManagedIds = new Set((matchedItems ?? []).filter((item) => item.is_stock_managed).map((item) => String(item.id)));
 
   for (const group of groupNormalizedSalesRows(normalizedRows)) {
