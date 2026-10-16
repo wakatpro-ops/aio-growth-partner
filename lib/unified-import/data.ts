@@ -1,4 +1,5 @@
 import "server-only";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 
 import { createHash, randomUUID } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
@@ -522,12 +523,12 @@ async function findItem(supabase: SupabaseClient, storeId: string, data: Record<
   const sku = valueText(data.item_code ?? data.sku, 200);
   const name = valueText(data.item_name ?? data.name, 500);
   if (sku) {
-    const { data: item } = await supabase.from("items").select("id, is_stock_managed").eq("store_id", storeId).eq("sku", sku).is("archived_at", null).maybeSingle();
-    if (item) return item;
+    const { data: item } = await supabase.from("items").select("id, is_stock_managed, unit_price, metadata").eq("store_id", storeId).eq("sku", sku).is("archived_at", null).maybeSingle();
+    if (item && !catalogueNeedsReview(item)) return item;
   }
   if (name) {
-    const { data: item } = await supabase.from("items").select("id, is_stock_managed").eq("store_id", storeId).ilike("name", name).is("archived_at", null).limit(1).maybeSingle();
-    if (item) return item;
+    const { data: item } = await supabase.from("items").select("id, is_stock_managed, unit_price, metadata").eq("store_id", storeId).ilike("name", name).is("archived_at", null).limit(1).maybeSingle();
+    if (item && !catalogueNeedsReview(item)) return item;
   }
   return null;
 }

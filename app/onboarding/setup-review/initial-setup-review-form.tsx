@@ -5,6 +5,7 @@ import { useActionState, useMemo, useRef, useState } from "react";
 import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import type { InitialSetupReview } from "@/lib/onboarding/initial-setup";
 import { confirmInitialSetupAction, saveInitialSetupDraftAction, type InitialSetupActionState } from "./actions";
+import { setupMenuReady } from "@/lib/onboarding/menu-candidates";
 
 const initialState: InitialSetupActionState = { ok: false, message: "" };
 const systemLabels: Record<string, string> = { sales: "売上", reservations: "予約", customers: "顧客", inventory: "在庫", accounting: "会計" };
@@ -13,7 +14,7 @@ const reservationLabels: Record<string, string> = { external: "既存の予約�
 const structureLabels: Record<string, string> = { single_store: "1法人・1ブランド・1店舗", multi_store: "同じ法人・ブランドで複数店舗", multi_brand: "同じ法人で複数ブランド・店舗", multi_company: "複数法人" };
 const registerLabels: Record<string, string> = { external_pos: "既存のPOS・レジを使う", file_import: "CSV・Excelで売上を取り込む", simple_register: "AIO boost簡易レジ（準備中）", not_needed: "レジは使わない", undecided: "後で決める" };
 
-type MenuDraft = { index: number; enabled: boolean; name: string; itemType: "product" | "part" | "service"; unitPrice: number; taxRate: 0 | 8 | 10; taxInclusion: "inclusive" | "exclusive" };
+type MenuDraft = InitialSetupReview["menus"][number] & { enabled: boolean; confirmed: boolean; freeConfirmed: boolean };
 type StoreDraft = { name: string; industry: string; address: string; phone: string; website: string; description: string };
 type InvoiceDraft = { issuerName: string; registrationNumber: string; prefix: string };
 
@@ -43,17 +44,22 @@ export function InitialSetupReviewForm({ review }: { review: InitialSetupReview 
     enabled: false
   })));
   const [store, setStore] = useState<StoreDraft>({ name: draft?.storeName ?? review.store.name, industry: draft?.industryTypeKey ?? review.store.industry_type_key, address: draft?.address ?? review.store.address ?? "", phone: draft?.phone ?? review.store.phone ?? "", website: draft?.websiteUrl ?? review.store.website_url ?? "", description: draft?.description ?? review.store.description ?? "" });
-  const [menus, setMenus] = useState<MenuDraft[]>(() => review.menus.map((menu, index) => ({ ...menu, ...(draft?.menus[index] ?? {}), enabled: draft?.menus[index]?.enabled ?? true })));
+  const [menus, setMenus] = useState<MenuDraft[]>(() => review.menus.map((menu, index) => {
+    const saved = draft?.menus[index];
+    // Old drafts enabled all descriptions with zero prices. They are not confirmations.
+    return { ...menu, ...(saved?.confirmed ? saved : {}), confirmed: saved?.confirmed === true,
+      freeConfirmed: saved?.freeConfirmed === true, enabled: Boolean(saved?.enabled && saved.confirmed) };
+  }));
   const [invoice, setInvoice] = useState<InvoiceDraft>({ issuerName: draft?.invoiceIssuerName ?? review.invoice.issuerName, registrationNumber: draft?.invoiceRegistrationNumber ?? review.invoice.registrationNumber, prefix: draft?.invoicePrefix ?? review.invoice.prefix });
   const [finalConfirmed, setFinalConfirmed] = useState(false);
   const selectedPreset = review.industryPresets[store.industry] ?? { dashboardCards: [], recommendedFeatures: [] };
-  const selectedMenus = menus.filter((menu) => menu.enabled);
+  const selectedMenus = menus.filter((menu) => menu.enabled && setupMenuReady(menu));
   const detectedReservationSystems = review.operatingModel.systems.reservations.serviceNames;
   const questionCount = 7;
 
   const preparedItems = useMemo(() => [
     `店舗情報を${review.preparedSummary.storeFieldCount}項目準備しました`,
-    review.preparedSummary.menuCount ? `メニュー・サービスを${review.preparedSummary.menuCount}件抽出しました` : "メニューは利用開始後に追加できます",
+    review.preparedSummary.menuCount ? `メニュー・店舗の特徴の候補を${review.preparedSummary.menuCount}件準備しました` : "メニューは利用開始後に追加できます",
     `店舗に合う主な機能を${review.preparedSummary.featureCount}件選びました`,
     review.preparedSummary.externalSystemCount ? `利用中の外部システムを${review.preparedSummary.externalSystemCount}種類確認しました` : "既存システムと衝突しない設定を準備しました",
     review.preparedSummary.additionalLocationCount ? `追加店舗候補を${review.preparedSummary.additionalLocationCount}件確認しました` : "現在は1店舗として準備しています"
@@ -100,7 +106,7 @@ export function InitialSetupReviewForm({ review }: { review: InitialSetupReview 
       {Object.entries(sharing).map(([key, value]) => <input key={key} type="hidden" name={`sharing_${key}`} value={value} />)}
       {locations.map((location, index) => <span key={`${location.name}-${index}`} className="setup-hidden-data">{location.enabled ? <input type="hidden" name={`location_enabled_${index}`} value="on" /> : null}<input type="hidden" name={`location_name_${index}`} value={location.name} /><input type="hidden" name={`location_brand_${index}`} value={location.brandName} /><input type="hidden" name={`location_company_${index}`} value={location.companyName} /><input type="hidden" name={`location_address_${index}`} value={location.address} /><input type="hidden" name={`location_website_${index}`} value={location.websiteUrl} /></span>)}
       <input type="hidden" name="store_name" value={store.name} /><input type="hidden" name="industry_type_key" value={store.industry} /><input type="hidden" name="address" value={store.address} /><input type="hidden" name="phone" value={store.phone} /><input type="hidden" name="website_url" value={store.website} /><input type="hidden" name="description" value={store.description} />
-      {menus.map((menu, index) => <span key={menu.index} className="setup-hidden-data">{menu.enabled ? <input type="hidden" name={`menu_enabled_${index}`} value="on" /> : null}<input type="hidden" name={`menu_name_${index}`} value={menu.name} /><input type="hidden" name={`menu_type_${index}`} value={menu.itemType} /><input type="hidden" name={`menu_unit_price_${index}`} value={menu.unitPrice} /><input type="hidden" name={`menu_tax_rate_${index}`} value={menu.taxRate} /><input type="hidden" name={`menu_tax_inclusion_${index}`} value={menu.taxInclusion} /></span>)}
+      {menus.map((menu, index) => <span key={menu.index} className="setup-hidden-data">{menu.enabled ? <input type="hidden" name={`menu_enabled_${index}`} value="on" /> : null}{menu.confirmed ? <input type="hidden" name={`menu_confirmed_${index}`} value="on" /> : null}{menu.freeConfirmed ? <input type="hidden" name={`menu_free_confirmed_${index}`} value="on" /> : null}<input type="hidden" name={`menu_name_${index}`} value={menu.name} /><input type="hidden" name={`menu_type_${index}`} value={menu.itemType} /><input type="hidden" name={`menu_unit_price_${index}`} value={menu.unitPrice ?? ""} /><input type="hidden" name={`menu_tax_rate_${index}`} value={menu.taxRate} /><input type="hidden" name={`menu_tax_inclusion_${index}`} value={menu.taxInclusion} /></span>)}
       <input type="hidden" name="invoice_issuer_name" value={invoice.issuerName} /><input type="hidden" name="invoice_registration_number" value={invoice.registrationNumber} /><input type="hidden" name="invoice_prefix" value={invoice.prefix} />
       {finalConfirmed ? <input type="hidden" name="final_confirmation" value="on" /> : null}
 
@@ -116,7 +122,7 @@ export function InitialSetupReviewForm({ review }: { review: InitialSetupReview 
             {currentStep === 3 ? <RegisterQuestion mode={registerMode} onChoose={(value) => choose(setRegisterMode, value)} /> : null}
             {currentStep === 4 ? <StoreQuestion review={review} value={store} onChange={setStore} onNext={() => goTo(5)} /> : null}
             {currentStep === 5 ? <DataImportQuestion review={review} onManual={() => goTo(6)} onLater={() => skip("data_import")} /> : null}
-            {currentStep === 6 ? <MenuQuestion menus={menus} importedCount={review.dataImport.counts.item} showEditor={showMenuEditor} onToggleEditor={() => setShowMenuEditor((visible) => !visible)} onMenuChange={setMenu} onAcceptAll={() => { setMenus((items) => items.map((menu) => ({ ...menu, enabled: true }))); goTo(7); }} onNext={() => goTo(7)} /> : null}
+            {currentStep === 6 ? <MenuQuestion menus={menus} importedCount={review.dataImport.counts.item} showEditor={showMenuEditor} onToggleEditor={() => setShowMenuEditor((visible) => !visible)} onMenuChange={setMenu} onNext={() => goTo(7)} /> : null}
             {currentStep === 7 ? <InvoiceQuestion value={invoice} onChange={setInvoice} onNext={() => goTo(8)} /> : null}
             {currentStep === 8 ? <FinalSummary structureMode={structureMode} systemAuthorities={systemAuthorities} setSystemAuthorities={setSystemAuthorities} registerMode={registerMode} serviceMode={serviceMode} setServiceMode={setServiceMode} sharing={sharing} setSharing={setSharing} locations={locations} setLocation={setLocation} store={store} dataImport={review.dataImport} selectedMenuCount={selectedMenus.length} featureCount={selectedPreset.recommendedFeatures.length} skippedCount={skipped.length} confirmed={finalConfirmed} setConfirmed={setFinalConfirmed} /> : null}
           </div>
@@ -157,8 +163,32 @@ function DataImportQuestion({ review, onManual, onLater }: { review: InitialSetu
   return <><div className="setup-bubble ai"><p>現在使っているメニュー表、商品一覧、在庫表、売上表、顧客一覧はありますか？</p><small>CSV・Excel・PDFをアップロードすると、AIが売上・経費・顧客・商品・在庫へ整理します。分からない項目だけ質問し、確認するまで正式保存しません。</small></div>{review.dataImport.jobId ? <p className="notice">途中まで解析したファイルがあります。続きから確認できます。</p> : null}<div className="setup-choice-grid"><Link className="setup-choice" href={review.dataImport.jobId ? `/stores/${review.store.id}/data-imports/ai/${review.dataImport.jobId}?onboarding=1` : `/stores/${review.store.id}/data-imports/ai?onboarding=1`}><span>1</span>{review.dataImport.jobId ? "解析の続きを確認する" : "ファイルを取り込む"}</Link><button className="setup-choice" type="button" onClick={onManual}><span>2</span>手入力で進める</button><button className="setup-choice" type="button" onClick={onLater}><span>3</span>後で取り込む</button></div></>;
 }
 
-function MenuQuestion({ menus, importedCount, showEditor, onToggleEditor, onMenuChange, onAcceptAll, onNext }: { menus: MenuDraft[]; importedCount: number; showEditor: boolean; onToggleEditor: () => void; onMenuChange: (index: number, patch: Partial<MenuDraft>) => void; onAcceptAll: () => void; onNext: () => void }) {
-  return <><div className="setup-bubble ai"><p>{menus.length ? `公開情報からメニュー・サービスを${menus.length}件準備しました。` : "公開ページからメニューを十分に確認できませんでした。"}</p><small>{importedCount ? `ファイルから取り込んだ商品・メニュー${importedCount}件は保存済みです。同じ名前の候補は重複登録しません。` : "利用開始時に登録する内容だけを選べます。価格が不明な項目は0円のまま登録し、後から変更できます。"}</small></div>{menus.length ? <><ul className="setup-menu-preview">{menus.slice(0, 5).map((menu) => <li key={menu.index}><span>{menu.enabled ? "登録予定" : "後で確認"}</span><strong>{menu.name}</strong></li>)}</ul>{menus.length > 5 ? <p className="muted">ほか{menus.length - 5}件</p> : null}<div className="setup-choice-grid"><button className="setup-choice" type="button" onClick={onAcceptAll}><span>1</span>すべて登録して進む</button><button className="setup-choice" type="button" onClick={onToggleEditor}><span>2</span>内容を確認・編集する</button></div>{showEditor ? <div className="setup-menu-editor">{menus.map((menu, index) => <article className={menu.enabled ? "static-card" : "static-card setup-candidate-excluded"} key={menu.index}><label className="check-row"><input type="checkbox" checked={menu.enabled} onChange={(event) => onMenuChange(index, { enabled: event.target.checked })} />{menu.enabled ? "登録する" : "後で確認する"}</label><div className="grid cols-3"><label className="field">名称<input id={`menu_name_editor_${index}`} value={menu.name} onChange={(event) => onMenuChange(index, { name: event.target.value })} /></label><label className="field">価格<input id={`menu_unit_price_editor_${index}`} type="number" min="0" value={menu.unitPrice} onChange={(event) => onMenuChange(index, { unitPrice: Number(event.target.value) || 0 })} /></label><label className="field">価格表示<select value={menu.taxInclusion} onChange={(event) => onMenuChange(index, { taxInclusion: event.target.value as MenuDraft["taxInclusion"] })}><option value="inclusive">税込（内税）</option><option value="exclusive">税抜（外税）</option></select></label></div></article>)}<button className="button" type="button" onClick={onNext}>選んだメニューで進む</button></div> : null}</> : <button className="button" type="button" onClick={onNext}>利用開始後にメニューを登録する</button>}</>;
+function MenuQuestion({ menus, importedCount, showEditor, onToggleEditor, onMenuChange, onNext }: { menus: MenuDraft[]; importedCount: number; showEditor: boolean; onToggleEditor: () => void; onMenuChange: (index: number, patch: Partial<MenuDraft>) => void; onNext: () => void }) {
+  const invalid = menus.some(menu => menu.enabled && !setupMenuReady(menu));
+  return <>
+    <div className="setup-bubble ai"><p>商品名と価格を確認して、使うメニューだけ登録しましょう。</p><small>「ランチ」「個室利用」などは店舗の特徴の候補です。商品名とは限りません。価格不明は0円にせず、登録を保留します。後から追加しても大丈夫です。</small>{importedCount ? <small>ファイルから取り込んだ{importedCount}件は保存済みです。同じ名前は重複登録しません。</small> : null}</div>
+    {menus.length ? <>
+      <ul className="setup-menu-preview">{menus.slice(0, 5).map(menu => <li key={menu.index}><span>{menu.enabled && setupMenuReady(menu) ? "登録予定" : menu.kind === "overview" ? "店舗の特徴・要確認" : "商品候補・要確認"}</span><strong>{menu.name}</strong><small>{menu.unitPrice === null ? "価格未設定" : `${menu.unitPrice.toLocaleString("ja-JP")}円`}</small></li>)}</ul>
+      {menus.length > 5 ? <p className="muted">ほか{menus.length - 5}件</p> : null}
+      <button className="button secondary" type="button" onClick={onToggleEditor}>{showEditor ? "編集欄を閉じる" : "内容を確認・編集する"}</button>
+      {showEditor ? <div className="setup-menu-editor">{menus.map((menu, index) => {
+        const edit = (patch: Partial<MenuDraft>) => onMenuChange(index, { ...patch, enabled: false, confirmed: false });
+        return <article className="static-card" key={menu.index}>
+          <p className="eyebrow">{menu.kind === "menu" ? menu.sourceAccess === "search" ? "検索情報の商品候補・出典と内容を確認してください" : "公開ページの商品候補" : "店舗の特徴からの候補・商品か確認してください"}</p>
+          {menu.sourceUrl ? <p><a href={menu.sourceUrl} target="_blank" rel="noreferrer">出典を確認 ↗</a><small className="menu-source-evidence">{menu.evidence}</small></p> : null}
+          <div className="grid cols-3">
+            <label className="field">商品・メニュー名<input id={`menu_name_editor_${index}`} value={menu.name} onChange={event => edit({ name: event.target.value })} /></label>
+            <label className="field">価格（円）<input id={`menu_unit_price_editor_${index}`} type="number" min="0" step="1" placeholder="価格未設定" value={menu.unitPrice ?? ""} onChange={event => edit({ unitPrice: event.target.value === "" ? null : Number(event.target.value), freeConfirmed: false })} /></label>
+            <label className="field">価格表示<select value={menu.taxInclusion} onChange={event => edit({ taxInclusion: event.target.value as MenuDraft["taxInclusion"] })}><option value="unknown">確認してください</option><option value="inclusive">税込（内税）</option><option value="exclusive">税抜（外税）</option></select></label>
+          </div>
+          {menu.unitPrice === 0 ? <label className="check-row"><input type="checkbox" checked={menu.freeConfirmed} onChange={event => edit({ freeConfirmed: event.target.checked })} />無料のメニューであることを確認しました</label> : null}
+          <label className="check-row"><input type="checkbox" checked={menu.enabled} disabled={!setupMenuReady({ ...menu, confirmed: true })} onChange={event => onMenuChange(index, { enabled: event.target.checked, confirmed: event.target.checked })} />この名称と価格を確認して登録する</label>
+        </article>;
+      })}</div> : null}
+      {invalid ? <p className="notice danger">登録するメニューの価格と税区分を確認してください。</p> : null}
+      <p><button className="button" type="button" disabled={invalid} onClick={onNext}>{menus.some(menu => menu.enabled) ? "確認したメニューで進む" : "今は登録せず進む"}</button></p>
+    </> : <button className="button" type="button" onClick={onNext}>利用開始後にメニューを登録する</button>}
+  </>;
 }
 
 function InvoiceQuestion({ value, onChange, onNext }: { value: InvoiceDraft; onChange: (value: InvoiceDraft) => void; onNext: () => void }) {

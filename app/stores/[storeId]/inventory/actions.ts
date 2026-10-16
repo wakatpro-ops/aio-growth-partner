@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { menuContext } from "@/lib/menu-workbench";
 import { parseStockLines } from "@/lib/menu-workbench-rules";
 import { createReceiptFromForm } from "@/lib/phase6/expense-receipts";
+import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 
 function refresh(storeId: string) {
   revalidatePath(`/stores/${storeId}/inventory`);
@@ -11,6 +12,9 @@ function refresh(storeId: string) {
 }
 export async function setAvailabilityAction(storeId: string, itemId: string, form: FormData) {
   const { db,access } = await menuContext(storeId,"operate");
+  const { data: item, error: itemError } = await db.from("items").select("unit_price,metadata").eq("store_id",storeId).eq("id",itemId).is("archived_at",null).maybeSingle();
+  if (itemError || !item) throw new Error("商品を確認できませんでした。");
+  if (catalogueNeedsReview(item)) redirect(`/stores/${storeId}/inventory?error=${encodeURIComponent("商品名と価格を確認してから販売状態を変更してください。")}`);
   const { error } = await db.rpc("set_menu_availability",{ p_actor:access.userId,p_store:storeId,p_item:itemId,p_value:String(form.get("availability")) });
   if (error) redirect(`/stores/${storeId}/inventory?error=${encodeURIComponent(error.message)}`);
   refresh(storeId);

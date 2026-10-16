@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import * as rules from "../lib/onboarding/initial-setup-rules.ts";
 import * as identity from "../lib/onboarding/location-identity.ts";
 import * as models from "../lib/applications/operating-model.ts";
+import * as menuCandidates from "../lib/onboarding/menu-candidates.ts";
 
 const live = process.argv.includes("--staging");
 let db, state, store, snapshotId, org, ownerId, role = "org_owner";
@@ -58,6 +59,7 @@ new Function("require", "module", "exports", compiled)(name => {
   if (name === "server-only") return {};
   if (name.endsWith("location-identity")) return identity;
   if (name.endsWith("initial-setup-rules")) return rules;
+  if (name.endsWith("menu-candidates")) return menuCandidates;
   if (name.endsWith("operating-model")) return models;
   if (name === "@/config/industries") return { getIndustryConfig: () => ({ defaultFeatureFlags: {}, dashboardCards: [] }) };
   if (name === "@/lib/applications/options") return { normalizeIndustryTypeKey: v => v };
@@ -125,6 +127,28 @@ try {
     assert.equal((await stores()).length, 1);
   }
   console.log(`PASS permissions (${live ? "synthetic staging DB" : "in memory"})`);
+
+  form = await seed();
+  const candidate = { name: "架空の野菜セット", unitPrice: 1200, taxInclusion: "inclusive", sourceUrl: "https://example.invalid/menu", sourceAccess: "page", evidence: "架空の野菜セット 1200円（税込）" };
+  check(await db.from("onboarding_snapshots").update({ content: { operating_model: store.operating_model, extracted_profile: { services: ["ランチ", "個室利用"], menu_candidates: [candidate] } } }).eq("id", snapshotId));
+  form.set("structure_mode", "single_store");
+  form.set("menu_enabled_0", "on"); form.set("menu_name_0", candidate.name);
+  form.set("menu_unit_price_0", ""); form.set("menu_tax_inclusion_0", "inclusive");
+  await assert.rejects(serverModule.exports.confirmInitialSetup(store.id, form), /確認/);
+  assert.equal(check(await db.from("items").select("id").eq("store_id", store.id)).length, 0);
+  assert.equal(check(await db.from("onboarding_snapshots").select("confirmation_status").eq("id", snapshotId).single()).confirmation_status, "pending");
+  form.set("menu_unit_price_0", "1200"); form.set("menu_confirmed_0", "on");
+  const result = await serverModule.exports.confirmInitialSetup(store.id, form);
+  assert.equal(result.selectedMenuCount, 1);
+  const catalogue = check(await db.from("items").select("*").eq("store_id", store.id));
+  assert.equal(catalogue.length, 1); assert.equal(catalogue[0].unit_price, 1200);
+  assert.equal(catalogue[0].metadata.price_confirmed, true);
+  assert.equal(catalogue[0].metadata.source_url, candidate.sourceUrl);
+  assert.equal(catalogue[0].metadata.source_evidence, candidate.evidence);
+  assert.deepEqual(check(await db.from("stores").select("profile_data").eq("id", store.id).single()).profile_data.services, ["ランチ", "個室利用"]);
+  assert.equal((await serverModule.exports.confirmInitialSetup(store.id, form)).alreadyCompleted, true);
+  assert.equal(check(await db.from("items").select("id").eq("store_id", store.id)).length, 1);
+  console.log("PASS price unknown blocked before writes; one explicit item with source evidence, descriptions preserved, replay idempotent");
 } finally {
   if (live) {
     // These random IDs were created by this run; never touch real stores.

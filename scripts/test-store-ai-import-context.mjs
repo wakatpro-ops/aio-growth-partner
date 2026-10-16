@@ -34,7 +34,8 @@ function source(path){path=resolve(path);if(cache.has(path))return cache.get(pat
   new Function("require","module","exports",js)(specifier=>{
     if(Object.hasOwn(mocks,specifier))return mocks[specifier];
     if(specifier==="./readiness")return {getStoreAiReadiness:never};
-    return source(specifier.startsWith("@/")?`${specifier.slice(2)}.ts`:resolve(dirname(path),`${specifier}.ts`));
+    const filename = specifier.endsWith(".ts") ? specifier : `${specifier}.ts`;
+    return source(specifier.startsWith("@/") ? filename.slice(2) : resolve(dirname(path), filename));
   },loaded,loaded.exports);return loaded.exports;}
 const {loadStoreAiContext}=source("lib/store-ai/context.ts");
 const {publicContext}=source("lib/store-ai/context-rules.ts");

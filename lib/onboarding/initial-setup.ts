@@ -11,17 +11,11 @@ import { mayConfirmInitialSetup, parseInitialSetupForm, type InitialSetupInput }
 import { normalizeOperatingModel, operatingModelFeatureFlags, type OperatingLocation, type OperatingModel } from "@/lib/applications/operating-model";
 import { getUnifiedImportJob, listUnifiedImportJobs } from "@/lib/unified-import/data";
 import { sameStoreLocation, uniqueAdditionalLocations } from "./location-identity";
+import { setupMenuCandidates, type SetupMenuCandidate } from "./menu-candidates";
 
 type JsonRecord = Record<string, unknown>;
 
-export type InitialSetupMenuCandidate = {
-  index: number;
-  name: string;
-  itemType: "service";
-  unitPrice: number;
-  taxRate: 10;
-  taxInclusion: "inclusive";
-};
+export type InitialSetupMenuCandidate = SetupMenuCandidate;
 
 export type InitialSetupReview = {
   store: Store;
@@ -151,7 +145,6 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
   const aiRecommendedFeatures = Array.isArray(aiDashboardPlan.recommended_modules)
     ? aiDashboardPlan.recommended_modules.map((item) => String(record(item).label ?? "").trim()).filter(Boolean).slice(0, 20)
     : [];
-  const services = strings(extracted.services);
   const evidenceSourceUrls = safeSourceUrls(
     content.reference_urls,
     extracted.source_urls,
@@ -190,7 +183,7 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
     confirmationStatus: ["pending", "applying", "completed"].includes(String(snapshot.confirmation_status))
       ? snapshot.confirmation_status as InitialSetupReview["confirmationStatus"]
       : "pending",
-    menus: services.map((name, index) => ({ index, name, itemType: "service", unitPrice: 0, taxRate: 10, taxInclusion: "inclusive" })),
+    menus: setupMenuCandidates(extracted),
     invoice: {
       issuerName: String(invoice?.qualified_invoice_issuer_name ?? store.name),
       registrationNumber: String(invoice?.registration_number ?? ""),
@@ -204,7 +197,7 @@ export async function getInitialSetupReview(storeId: string): Promise<InitialSet
     evidenceSources: evidenceSourceUrls.map((url) => ({ url, label: sourceLabel(url) })),
     preparedSummary: {
       storeFieldCount: [store.name, store.address, store.phone, store.website_url, store.description].filter(Boolean).length,
-      menuCount: services.length,
+      menuCount: setupMenuCandidates(extracted).length,
       featureCount: new Set([...aiRecommendedFeatures, ...(industryPresets[store.industry_type_key]?.recommendedFeatures ?? [])]).size,
       externalSystemCount: Object.values(operatingModel.systems).filter((system) => system.serviceNames.length > 0).length,
       additionalLocationCount: additionalLocations.length
@@ -236,7 +229,7 @@ export async function saveInitialSetupDraft(storeId: string, formData: FormData)
 
   const snapshotContent = record(snapshot.content);
   const extracted = record(snapshotContent.extracted_profile);
-  const candidateCount = strings(extracted.services).length;
+  const candidateCount = setupMenuCandidates(extracted).length;
   const fallback = normalizeOperatingModel(snapshotContent.operating_model ?? store.operating_model);
   const additionalLocations = uniqueAdditionalLocations({ name: store.name, address: store.address, websiteUrl: store.website_url }, fallback.structure.locations).slice(0, 9);
   fallback.structure.locations = [{
@@ -250,7 +243,7 @@ export async function saveInitialSetupDraft(storeId: string, formData: FormData)
   const safeForm = new FormData();
   for (const [key, value] of formData.entries()) safeForm.append(key, value);
   safeForm.set("final_confirmation", "on");
-  const draft = parseInitialSetupForm(safeForm, String(snapshot.id), candidateCount, fallback);
+  const draft = parseInitialSetupForm(safeForm, String(snapshot.id), candidateCount, fallback, true);
   const now = new Date().toISOString();
   const { error: saveError } = await supabase.from("onboarding_snapshots").update({
     confirmation_payload: {
@@ -293,7 +286,8 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
   }
 
   const extracted = record(record(snapshot.content).extracted_profile);
-  const candidateCount = strings(extracted.services).length;
+  const candidates = setupMenuCandidates(extracted);
+  const candidateCount = candidates.length;
   const snapshotContent = record(snapshot.content);
   const setupModel = normalizeOperatingModel(snapshotContent.operating_model ?? store.operating_model);
   const setupAdditionalLocations = uniqueAdditionalLocations({ name: store.name, address: store.address, websiteUrl: store.website_url }, setupModel.structure.locations).slice(0, 9);
@@ -344,6 +338,7 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       prefix: input.invoicePrefix
     },
     menus: input.menus,
+    catalogue_validation_version: 1,
     dashboard: {
       ...record(record(store.profile_data).dashboard_plan),
       industry_type_key: normalizedIndustry,
@@ -380,7 +375,7 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
       operating_model: input.operatingModel,
       profile_data: {
         ...currentProfile,
-        services: selectedMenus.map((menu) => menu.name),
+        services: strings(currentProfile.services).length ? strings(currentProfile.services) : strings(extracted.services),
         onboarding_status: "completed",
         initial_setup_confirmed_at: now,
         initial_setup_confirmed_by: access.userId,
@@ -431,6 +426,12 @@ export async function confirmInitialSetup(storeId: string, formData: FormData): 
         metadata: {
           tax_inclusion: menu.taxInclusion,
           initial_setup_candidate: true,
+          price_confirmed: true,
+          catalogue_review_required: false,
+          catalogue_validation_version: 1,
+          source_url: candidates[Number(menu.sourceKey.split(":").at(-1))]?.sourceUrl || null,
+          source_evidence: candidates[Number(menu.sourceKey.split(":").at(-1))]?.evidence || null,
+          source_access: candidates[Number(menu.sourceKey.split(":").at(-1))]?.sourceAccess || null,
           source_snapshot_id: snapshot.id,
           confirmed_by: access.userId
         },

@@ -18,6 +18,7 @@
     "test:customer-workbench": "node --experimental-strip-types --test tests/unit/customer-workbench.test.mjs",
     "test:staging:customer-workbench": "node scripts/test-customer-workbench-staging.mjs",
     "test:menu-workbench": "node --experimental-strip-types --test tests/unit/menu-workbench.test.mjs",
+    "test:onboarding-menu": "node --experimental-strip-types --test tests/unit/onboarding-menu-evidence.test.mjs && npm run test:initial-setup",
     "test:staging:menu-workbench": "node scripts/test-menu-workbench-staging.mjs",
     "dev": "next dev",
     "build": "next build",
