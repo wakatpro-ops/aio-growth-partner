@@ -321,7 +321,7 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
   const resolved = await resolveStoreForRead(supabase, storeId);
   const { data, error } = await supabase
     .from("inventory_stocks")
-    .select("*, item:items!inner(name, sku, unit, item_type)")
+    .select("*, item:items!inner(name, sku, unit, item_type, unit_price, metadata)")
     .eq("store_id", resolved.storeId)
     .is("item.archived_at", null)
     .order("updated_at", { ascending: false });
@@ -329,7 +329,7 @@ export async function listInventoryStocks(storeId: string): Promise<InventorySto
     throw new Error("在庫データを取得できませんでした。");
   }
 
-  return data as InventoryStock[];
+  return (data as unknown as Array<InventoryStock & { item: Pick<BusinessItem, "name" | "sku" | "unit" | "item_type" | "unit_price" | "metadata"> }>).filter(stock => stock.item && !catalogueNeedsReview(stock.item)).map(({ item, ...stock }) => ({ ...stock, item: { name: item.name, sku: item.sku, unit: item.unit, item_type: item.item_type } }));
 }
 
 export async function listCustomers(storeId: string, limit = 80): Promise<Customer[]> {

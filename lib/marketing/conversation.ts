@@ -27,7 +27,7 @@ export async function readConversation(store: Store, actor: string) {
     scoped("external_channel_accounts", "id,organization_id,store_id,channel,external_provider,external_account_id,connection_status,token_expires_at,scopes").eq("channel", "instagram"),
     scoped("growth_actions", "id,priority,recommended_date").is("archived_at", null).in("status", ["drafted", "pending_approval", "approved"]).limit(1000),
     getReviewSummary(store.id).then(data => ({ data, error: null })),
-    scoped("items", "id,name,description,unit_price,metadata").is("archived_at", null).eq("status", "active").eq("availability", "available").order("name").limit(20)
+    scoped("items", "id,name,description,unit_price,metadata").is("archived_at", null).eq("status", "active").eq("availability", "available").order("name").limit(100)
   ]);
   if (results.some(result => result.error)) throw new Error("context_unavailable");
   const session = results[0].data as { revision: number; state: Conversation } | null;
@@ -57,7 +57,7 @@ export async function readConversation(store: Store, actor: string) {
   const offers = offersFor(store.id, facts);
   return { revision: session?.revision ?? 0, state, offers,
     offer: chooseOffer(offers, state.deferred, Date.now(), `${actor}:${store.id}:${new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Tokyo" })}`),
-    items: (results[6].data as unknown as { id: string; name: string; description: string | null; unit_price: number; metadata: Record<string, unknown> }[]).filter(item => !catalogueNeedsReview(item)).map(item => ({ id: item.id, name: item.name.slice(0, 160), description: item.description?.slice(0, 500) ?? "" })),
+    items: (results[6].data as unknown as { id: string; name: string; description: string | null; unit_price: number; metadata: Record<string, unknown> }[]).filter(item => !catalogueNeedsReview(item)).slice(0, 20).map(item => ({ id: item.id, name: item.name.slice(0, 160), description: item.description?.slice(0, 500) ?? "" })),
     actionAvailable, observedAt: new Date().toISOString() };
 }
 

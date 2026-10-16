@@ -14,10 +14,11 @@ test("generation failure preserves answers, stale finish cannot overwrite done, 
   const store = { id: "00000000-0000-4000-8000-000000000001", organization_id: "org", name: "SYNTHETIC", industry_type_key: "restaurant" };
   let session = { revision: 3, state: { step: "confirm", brief: { channel: "instagram", subject: "コーヒー", details: "香りを紹介" } } };
   let failRead = false, failProvider = true, commitThenLoseResponse = false, providerCalls = 0;
+  const catalogue = [{ id: "pending", name: "ランチ", unit_price: 0, metadata: { initial_setup_candidate: true } }, { id: "free", name: "無料案内", unit_price: 0, metadata: {} }, { id: "valid", name: "コーヒー", unit_price: 500, metadata: {} }];
   const db = {
     from(table) {
       const query = { single: false, select() { return this; }, eq() { return this; }, is() { return this; }, in() { return this; }, limit() { return this; }, order() { return this; }, maybeSingle() { this.single = true; return this; },
-        then(resolve) { return Promise.resolve(resolve({ error: failRead ? { code: "offline" } : null, data: table === "marketing_conversations" ? structuredClone(session) : table === "external_channel_accounts" ? [{ id: "account", organization_id: "org", store_id: store.id, channel: "instagram", external_provider: "meta", external_account_id: "1784", connection_status: "connected", token_expires_at: null }] : table === "growth_actions" && this.single && session.state.step === "done" ? { id: session.state.actionId } : [] })); }
+        then(resolve) { return Promise.resolve(resolve({ error: failRead ? { code: "offline" } : null, data: table === "marketing_conversations" ? structuredClone(session) : table === "items" ? catalogue : table === "external_channel_accounts" ? [{ id: "account", organization_id: "org", store_id: store.id, channel: "instagram", external_provider: "meta", external_account_id: "1784", connection_status: "connected", token_expires_at: null }] : table === "growth_actions" && this.single && session.state.step === "done" ? { id: session.state.actionId } : [] })); }
       }; return query;
     },
     async rpc(name, args) {
@@ -43,6 +44,7 @@ test("generation failure preserves answers, stale finish cannot overwrite done, 
   });
   const prior = process.env.OPENAI_API_KEY; process.env.OPENAI_API_KEY = "synthetic-no-network";
   try {
+    assert.deepEqual((await readConversation(store, "actor")).items.map(item => item.id), ["free", "valid"]);
     await assert.rejects(() => advanceConversation(store, "actor", { revision: 3, action: "generate" }), /入力は保存/);
     assert.equal(session.state.step, "confirm"); assert.equal(session.state.brief.details, "香りを紹介");
     failProvider = false; commitThenLoseResponse = true;
