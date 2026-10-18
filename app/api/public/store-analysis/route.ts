@@ -9,7 +9,7 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 const requestSchema = z.object({
   source_url: z.string().trim().min(3).max(2_000),

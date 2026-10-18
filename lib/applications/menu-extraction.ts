@@ -21,7 +21,8 @@ export function extractPublicMenus(pages: Page[]): PublicMenuCandidate[] {
   const candidates: PublicMenuCandidate[] = [];
   const add = (name: string, unitPrice: number | null, evidence: string, page: Page, taxInclusion = tax(evidence)) => {
     name = clean(name);
-    if (name.length < 2 || name.length > 160 || /営業時間|電話|送料|合計|平均予算|予算|クーポン|ポイント|最低注文|最低利用/u.test(name)) return;
+    if (name.length < 2 || name.length > 160 || /営業時間|電話|送料|合計|平均予算|予算|クーポン|ポイント|最低注文|最低利用/u.test(name)
+      || /^(?:メニュー|料理|冷前菜|温前菜|フライフード|逸品|デザート|ドリンク|料金一覧)$/u.test(name)) return;
     if (unitPrice === null) return;
     candidates.push({ name, unitPrice, taxInclusion, sourceUrl: page.url, sourceAccess: "page", evidence: clean(evidence).slice(0, 600) });
   };
@@ -57,6 +58,19 @@ export function extractPublicMenus(pages: Page[]): PublicMenuCandidate[] {
       ...Array.from(page.html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/giu), match => match[1]),
       ...Array.from(page.html.matchAll(/<dt\b[^>]*>([\s\S]*?)<\/dt>\s*<dd\b[^>]*>([\s\S]*?)<\/dd>/giu), match => `${match[1]}<br>${match[2]}`)
     ];
+    // Common shop portals pair an h3/h4 product heading with a short price block,
+    // not a table. Stop at the next heading so a category cannot steal its child's price.
+    const headings = [...page.html.matchAll(/<h([3-6])\b[^>]*>([\s\S]*?)<\/h\1>/giu)].slice(0, 200);
+    for (let index = 0; index < headings.length; index += 1) {
+      const heading = headings[index];
+      const start = heading.index! + heading[0].length;
+      const end = headings[index + 1]?.index ?? page.html.length;
+      if (end - start > 1_600) continue;
+      const text = clean(`${heading[2]} ${page.html.slice(start, end)}`).normalize("NFKC");
+      const prices = [...text.matchAll(/(?:[¥￥]\s*([\d,]+)|([\d,]+)\s*円)/gu)];
+      if (prices.length !== 1 || /[〜～~]|\d\s*[-–]\s*\d|より|から|時価|各種|平均|予算|目安/u.test(text)) continue;
+      add(heading[2], money(prices[0][1] ?? prices[0][2]), text, page);
+    }
     for (const pair of pairs.slice(0, 200)) {
       const text = clean(pair).normalize("NFKC");
       const prices = [...text.matchAll(/(?:[¥￥]\s*([\d,]+)|([\d,]+)\s*円)/gu)];

@@ -7,6 +7,7 @@ import { PendingSubmitButton } from "@/components/ui/pending-submit-button";
 import { APPLY_PREVIEW_STORAGE_KEY, APPLY_SOURCE_STORAGE_KEY } from "../apply-form";
 import { IdentityCorrection } from "../identity-correction";
 import { SourceSelection } from "../source-selection";
+import { PublicMenuCandidates } from "@/components/onboarding/public-menu-candidates";
 
 type PreviewPayload = {
   analysis_token: string;
@@ -18,6 +19,8 @@ type PreviewPayload = {
     identity_method?: string;
     excluded_sources?: string[];
     services?: string[];
+    menu_candidates?: Array<{ name: string; unitPrice: number | null; taxInclusion: "inclusive" | "exclusive" | "unknown"; sourceUrl: string; sourceAccess?: "page" | "search" }>;
+    menu_discovery_status?: string;
     business_summary: string;
     identification: { confidence: "high" | "medium" | "low"; label: string; reason: string };
     research_status: "cross_checked" | "input_only";
@@ -173,6 +176,7 @@ export function DiagnosisClient() {
         <p className="muted">参照ページの掲載は、写真や全メニューの取得完了を意味しません。写真の自動取り込みはこの簡易診断では行っていません。</p>
         <p><strong>読み取れたメニュー・サービス：</strong>{preview.diagnosis.services?.length ? preview.diagnosis.services.join("、") : "未取得（承認後に追加できます）"}</p>
       </section>
+      <PublicMenuCandidates menus={preview.diagnosis.menu_candidates ?? []} status={preview.diagnosis.menu_discovery_status} />
       <section className="card expected-outcomes-card">
         <div><p className="step-label">AIO boostを導入すると</p><h2>{preview.diagnosis.identity_method === "self_reported" ? "情報を追加すると、こんなことができます" : "この店舗には、こんな改善が期待できます"}</h2><p>{preview.diagnosis.identity_method === "self_reported" ? "一般的な活用例です。店舗情報の確認後、お店に合わせて具体化します。" : "公開情報から考えられる活用例です。効果を保証するものではなく、承認後の詳細診断で店舗に合わせて具体化します。"}</p></div>
         <ol className="expected-outcomes-list">

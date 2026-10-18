@@ -8,7 +8,7 @@ import { APPLY_EXCLUDED_STORAGE_KEY, APPLY_HINT_STORAGE_KEY, APPLY_PREVIEW_STORA
 const progressSteps = [
   "公開ページを確認しています",
   "店舗情報を整理しています",
-  "他の公開情報と照合しています",
+  "メニュー・料金の公開ページも調べています",
   "診断結果を作成しています"
 ];
 

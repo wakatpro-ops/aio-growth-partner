@@ -153,11 +153,12 @@ export async function validatePublicUrl(url: URL, lookupFn: LookupFn = defaultLo
   return url;
 }
 
-function pinnedNodeResponse(url: URL, target: LookupAddress) {
+function pinnedNodeResponse(url: URL, target: LookupAddress, signal: AbortSignal) {
   return new Promise<Response>((resolve, reject) => {
     const requestFn = url.protocol === "https:" ? httpsRequest : httpRequest;
     const request = requestFn(url, {
       method: "GET",
+      signal,
       headers: {
         accept: "text/html,application/xhtml+xml",
         "user-agent": "AIOBoostStoreAnalyzer/1.0 (+https://aioboost.jp/)"
@@ -203,7 +204,16 @@ function pinnedNodeResponse(url: URL, target: LookupAddress) {
   });
 }
 
-async function readLimitedHtml(response: Response) {
+function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(signal.reason);
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(signal.reason);
+    signal.addEventListener("abort", abort, { once: true });
+    promise.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
+}
+
+async function readLimitedHtml(response: Response, signal: AbortSignal) {
   const declaredLength = Number(response.headers.get("content-length") ?? "0");
   if (declaredLength > MAX_STORE_PAGE_BYTES) throw new PublicUrlError("response_too_large", "ページの情報量が多すぎます。");
   const contentType = (response.headers.get("content-type") ?? "").toLowerCase();
@@ -216,7 +226,10 @@ async function readLimitedHtml(response: Response) {
   const chunks: Uint8Array[] = [];
   let total = 0;
   while (true) {
-    const { done, value } = await reader.read();
+    const { done, value } = await abortable(reader.read(), signal).catch(error => {
+      void reader.cancel().catch(() => undefined);
+      throw error;
+    });
     if (done) break;
     total += value.byteLength;
     if (total > MAX_STORE_PAGE_BYTES) {
@@ -248,39 +261,51 @@ function pageTitle(html: string) {
   return html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/iu)?.[1]?.replace(/<[^>]+>/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 240) ?? "";
 }
 
-async function fetchSinglePage(rawUrl: string, fetchFn: FetchFn | null, lookupFn: LookupFn) {
-  let current = normalizePublicUrl(rawUrl);
-  for (let redirect = 0; redirect <= MAX_STORE_REDIRECTS; redirect += 1) {
-    const addresses = await validatedAddresses(current, lookupFn);
-    const response = fetchFn
-      ? await fetchFn(current, {
-          method: "GET",
-          redirect: "manual",
-          signal: AbortSignal.timeout(STORE_FETCH_TIMEOUT_MS),
-          headers: {
-            accept: "text/html,application/xhtml+xml",
-            "user-agent": "AIOBoostStoreAnalyzer/1.0 (+https://aioboost.jp/)"
-          }
-        })
-      : await pinnedNodeResponse(current, addresses[0]);
-    if ([301, 302, 303, 307, 308].includes(response.status)) {
-      const location = response.headers.get("location");
-      if (!location) throw new PublicUrlError("invalid_redirect", "ページの移動先を確認できませんでした。");
-      current = new URL(location, current);
-      continue;
+async function fetchSinglePage(rawUrl: string, fetchFn: FetchFn | null, lookupFn: LookupFn, timeoutMs = STORE_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new PublicUrlError("fetch_timeout", "ページの確認に時間がかかっています。")), Math.min(STORE_FETCH_TIMEOUT_MS, Math.max(1, timeoutMs)));
+  const signal = controller.signal;
+  try {
+    let current = normalizePublicUrl(rawUrl);
+    for (let redirect = 0; redirect <= MAX_STORE_REDIRECTS; redirect += 1) {
+      const addresses = await abortable(validatedAddresses(current, lookupFn), signal);
+      const response = fetchFn
+        ? await abortable(fetchFn(current, {
+            method: "GET",
+            redirect: "manual",
+            signal,
+            headers: {
+              accept: "text/html,application/xhtml+xml",
+              "user-agent": "AIOBoostStoreAnalyzer/1.0 (+https://aioboost.jp/)"
+            }
+          }), signal)
+        : await abortable(pinnedNodeResponse(current, addresses[0], signal), signal);
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get("location");
+        if (!location) throw new PublicUrlError("invalid_redirect", "ページの移動先を確認できませんでした。");
+        current = new URL(location, current);
+        continue;
+      }
+      if (!response.ok) throw new PublicUrlError(`http_${response.status}`, "ページを取得できませんでした。");
+      if (isLoginPage(current)) throw new PublicUrlError("login_required", "このページはログインが必要なため、店舗の公開情報を取得できませんでした。");
+      const html = await readLimitedHtml(response, signal);
+      if (isLoginPage(current, pageTitle(html))) throw new PublicUrlError("login_required", "店舗情報ではなくログイン・アクセス確認画面が表示されました。");
+      return {
+        url: current.toString(),
+        title: pageTitle(html),
+        description: metaContent(html, "description") || metaContent(html, "og:description"),
+        html
+      } satisfies PublicPageSnapshot;
     }
-    if (!response.ok) throw new PublicUrlError(`http_${response.status}`, "ページを取得できませんでした。");
-    if (isLoginPage(current)) throw new PublicUrlError("login_required", "このページはログインが必要なため、店舗の公開情報を取得できませんでした。");
-    const html = await readLimitedHtml(response);
-    if (isLoginPage(current, pageTitle(html))) throw new PublicUrlError("login_required", "店舗情報ではなくログイン・アクセス確認画面が表示されました。");
-    return {
-      url: current.toString(),
-      title: pageTitle(html),
-      description: metaContent(html, "description") || metaContent(html, "og:description"),
-      html
-    } satisfies PublicPageSnapshot;
+    throw new PublicUrlError("too_many_redirects", "ページの移動回数が多すぎます。");
+  } finally {
+    clearTimeout(timer);
   }
-  throw new PublicUrlError("too_many_redirects", "ページの移動回数が多すぎます。");
+}
+
+/** One explicitly discovered page, with the same DNS/redirect/body protections and a total deadline. */
+export async function fetchPublicStorePage(sourceUrl: string, dependencies: { fetchFn?: FetchFn; lookupFn?: LookupFn; timeoutMs?: number } = {}) {
+  return fetchSinglePage(sourceUrl, dependencies.fetchFn ?? null, dependencies.lookupFn ?? defaultLookup, dependencies.timeoutMs);
 }
 
 function decodeBasicEntities(value: string) {
