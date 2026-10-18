@@ -22,6 +22,7 @@ import type { ClarifyingQuestion, ExtractedStoreProfile, ReadinessItem } from "@
 import { fetchPublicStorePage, type PublicSiteFetchResult } from "@/lib/applications/url-safety";
 import { searchedMenuCandidates } from "./menu-extraction";
 import { discoverStoreMenus, mergePublicMenuCandidates, publicMenuUrl, type MenuDiscoverySummary, type MenuResearchResult } from "./menu-discovery";
+import { storeIdentityTimeoutMs, STORE_IDENTITY_REQUEST_MAX_MS } from "./store-analysis-budget";
 import type { IndustryTypeKey } from "@/types/domain";
 
 export type StoreAnalysisResult = {
@@ -312,7 +313,7 @@ function crossSourceResponseFormat() {
   };
 }
 
-async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicSiteFetchResult, extracted: ExtractedStoreProfile, storeHint = "", areaHint = "", excluded: string[] = []) {
+async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicSiteFetchResult, extracted: ExtractedStoreProfile, storeHint: string, areaHint: string, excluded: string[], timeoutMs: number) {
   // Keep the established search path for discovery; domain filters require the
   // current web_search tool when rebuilding without a rejected source.
   const searchTool = excluded.length ? "web_search" : "web_search_preview";
@@ -379,7 +380,7 @@ async function requestAiAnalysis(client: OpenAI, model: string, fetched: PublicS
           PAGE_METADATA: pageEvidence,
           SEARCH_QUERY_HINT: [storeHint || extracted.store_name, areaHint || extracted.address, extracted.phone].filter(Boolean).join(" ")
         })
-  });
+  }, { timeout: timeoutMs, maxRetries: 0 });
   if (!response.output_text?.trim()) {
     console.warn(`[store-analysis] Empty AI response: status=${response.status}, reason=${response.incomplete_details?.reason ?? "none"}`);
   }
@@ -447,17 +448,20 @@ export async function analyzeFetchedStoreSite(fetched: PublicSiteFetchResult, st
     return { ...normalized, operatingModelDraft: buildOperatingModelDraft(extracted), ai: { status: "fallback", model: null, errorCode: "missing_openai_api_key" } };
   }
 
-  const client = createMeteredOpenAI({ feature: "public_url_analysis" }, { apiKey: process.env.OPENAI_API_KEY, timeout: 35_000, maxRetries: 0 });
+  const client = createMeteredOpenAI({ feature: "public_url_analysis" }, { apiKey: process.env.OPENAI_API_KEY, timeout: STORE_IDENTITY_REQUEST_MAX_MS, maxRetries: 0 });
+  const identityStartedAt = Date.now();
   let lastCode = "openai_api_error";
   let lastModel: string | null = null;
   let calls = 0;
   models: for (const model of modelCandidates()) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const timeoutMs = storeIdentityTimeoutMs(identityStartedAt);
+      if (!timeoutMs) break models;
       if (calls >= 2) break models;
       calls += 1;
       lastModel = model;
       try {
-        const normalized = normalizeAiResult(await requestAiAnalysis(client, model, fetched, extracted, storeHint, areaHint, excluded), extracted, fallback, fetched, storeHint, areaHint, excluded);
+        const normalized = normalizeAiResult(await requestAiAnalysis(client, model, fetched, extracted, storeHint, areaHint, excluded, timeoutMs), extracted, fallback, fetched, storeHint, areaHint, excluded);
         const discovery = await discoverStoreMenus({ store: normalized.profile, sourceUrl: fetched.sourceUrl,
           pages: fetched.pages, sources: [...normalized.diagnosis.checked_sources,
             ...normalized.profile.source_urls.map(url => ({ url, label: "検索で確認したページ", kind: "other" as const, access: "search" as const }))],
