@@ -15,6 +15,7 @@ const approvedResult = readFileSync("app/apply/result/page.tsx", "utf8");
 const handoff = readFileSync("lib/admin/applications.ts", "utf8");
 const applicantEmail = readFileSync("lib/applications/applicant-email.ts", "utf8");
 const uniqueEmailMigration = readFileSync("supabase/migrations/202608230005_unique_active_application_email.sql", "utf8");
+const storeAnalysis = readFileSync("lib/applications/store-analysis.ts", "utf8");
 
 for (const sql of [migration, schema]) {
   assert.match(sql, /create table if not exists public\.public_store_analyses/u);
@@ -32,6 +33,7 @@ assert.match(analysisRoute, /hashPublicAnalysisToken/u);
 assert.match(applicationRoute, /converted_application_id/u);
 assert.match(applicationRoute, /already_submitted/u);
 assert.match(analysisRoute, /publicAnalysisPreview/u);
+assert.match(storeAnalysis, /if \(calls >= 2\) break models;\s*calls \+= 1;\s*lastModel = model;/u, "failure metadata must report an attempted model, not an uncalled fallback after the call budget was exhausted");
 assert.match(analysisRoute, /profile: preview\.profile/u);
 assert.match(analysisRoute, /diagnosis: preview\.diagnosis/u);
 assert.match(reviewMigration, /verification_code_hash/u);

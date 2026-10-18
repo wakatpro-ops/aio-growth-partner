@@ -112,9 +112,44 @@ test("価格の競合は一方に決めず価格未確認へ戻す・同価格�
   assert.equal(mergePublicMenuCandidates([[a], [{ ...a, taxInclusion: "exclusive" }]])[0].taxInclusion, "unknown");
 });
 
-test("正規商品候補が既にあるときは再調査をせず・既存候補を消さない", async () => {
-  const found = await discoverStoreMenus(input({ menus: [menu()] }), { research: async () => assert.fail("No repeated AI"), fetchPage: async () => assert.fail("No repeated fetch") });
+test("本文取得済みの商品候補が既にあるときは再調査をせず・既存候補を消さない", async () => {
+  const found = await discoverStoreMenus(input({ menus: [{ ...menu(), sourceAccess: "page" }] }), { research: async () => assert.fail("No repeated AI"), fetchPage: async () => assert.fail("No repeated fetch") });
   assert.equal(found.menus.length, 1); assert.equal(found.summary.searched, false);
+});
+
+test("検索に残った404/410の古い価格で調査を終了しない・同じ死んだ出典を再採用しない", async () => {
+  for (const code of ["http_404", "http_410"]) {
+    const found = await discoverStoreMenus(input({ menus: [menu()] }), {
+      fetchPage: async () => { throw new PublicUrlError(code, "gone"); },
+      research: async () => researchResult()
+    });
+    assert.equal(found.summary.searched, true); assert.equal(found.summary.pricedCount, 0);
+    assert.equal(found.menus[0].unitPrice, null); assert.match(found.menus[0].evidence, /再確認/u);
+  }
+});
+
+test("古い検索ページが404でも、既に確認された現行の料理URLへ進んで本文の価格を取得する", async () => {
+  const stale = "https://closed.example/";
+  let calls = 0;
+  const found = await discoverStoreMenus(input({ sources: [source(root), source(food)], menus: [menu(stale, 900)] }), {
+    fetchPage: async url => { calls++; if (url === stale) throw new PublicUrlError("http_404", "gone"); assert.equal(url, food); return page(); },
+    research: async () => assert.fail("Known menu URL avoids extra AI")
+  });
+  assert.equal(calls, 2); assert.equal(found.summary.searched, false);
+  assert.equal(found.menus[0].unitPrice, 1200); assert.equal(found.menus[0].sourceAccess, "page");
+});
+
+test("検索価格の出典が403なら閉鎖と誤判定しない・確認前の検索候補として保持する", async () => {
+  const found = await discoverStoreMenus(input({ menus: [menu()] }), { fetchPage: refuseRead, research: async () => assert.fail("No extra AI for a valid search price") });
+  assert.equal(found.menus[0].unitPrice, 1200); assert.equal(found.menus[0].sourceAccess, "search");
+  assert.equal(found.summary.searched, false);
+});
+
+test("検索で確認済みの料理URLは、商品0件でも追加AIより先に本文を読む", async () => {
+  const found = await discoverStoreMenus(input({ sources: [source(root), source(food)] }), {
+    fetchPage: async url => { assert.equal(url, food); return page(); }, research: async () => assert.fail("No extra AI")
+  });
+  assert.equal(found.summary.pagesRead, 1); assert.equal(found.menus[0].unitPrice, 1200);
 });
 
 test("追加調査がタイムアウトしても既存の未価格候補と元の店舗情報を保持", async () => {
