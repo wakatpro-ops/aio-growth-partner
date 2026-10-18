@@ -1,6 +1,6 @@
 import { isIP } from "node:net";
 import { identityTextMatches, listingKey, sourceDomain, sourceIsExcluded, type DiagnosisSource } from "./public-diagnosis.ts";
-import { isBlockedAddress, normalizePublicUrl, type PublicPageSnapshot } from "./url-safety.ts";
+import { isBlockedAddress, normalizePublicUrl, PublicUrlError, type PublicPageSnapshot } from "./url-safety.ts";
 import { extractPublicMenus, menuPageMatchesStore, searchedMenuCandidates } from "./menu-extraction.ts";
 import type { PublicMenuCandidate } from "../onboarding/menu-candidates.ts";
 
@@ -14,6 +14,9 @@ type Dependencies = {
   now?: () => number;
 };
 const menuSignal = /menu|food|drink|lunch|dinner|course|service|price|product|メニュー|料理|コース|施術|料金|商品/iu;
+const menuPathSignal = (value: string) => {
+  try { return menuSignal.test(decodeURI(new URL(value).pathname)); } catch { return false; }
+};
 const textKey = (text: string) => text.normalize("NFKC").toLowerCase().replace(/\s/gu, "");
 const stripHtml = (html: string) => html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/giu, " ").replace(/<[^>]*>/gu, " ");
 const escapeHtml = (text: string) => text.replace(/&/gu, "&amp;").replace(/</gu, "&lt;").replace(/>/gu, "&gt;");
@@ -134,6 +137,7 @@ export async function discoverStoreMenus(input: Input, dependencies: Dependencie
     && !conflictsWithKnownListing(menu.sourceUrl, references))]);
   const sources: DiagnosisSource[] = [];
   const attempted = new Set(input.pages.map(page => listingKey(page.url)));
+  const unavailable = new Set<string>();
   let searched = false, pagesRead = 0, reads = 0, failed = false;
   const pricedCount = () => menus.filter(menu => menu.unitPrice !== null).length;
   const read = async (urls: string[], stopOnPrice: boolean) => {
@@ -147,19 +151,35 @@ export async function discoverStoreMenus(input: Input, dependencies: Dependencie
         const final = publicMenuUrl(page.url, input.excluded);
         if (!final || !pageMatches(page, input, references)) continue;
         pagesRead += 1;
-        menus = mergePublicMenuCandidates([menus, extractPublicMenus([page])]);
+        menus = mergePublicMenuCandidates([extractPublicMenus([page]), menus]);
         sources.push({ url: final, label: page.title || "メニュー・料金", kind: "other", access: "page" });
-      } catch { failed = true; /* Respect 403/login/timeouts; keep the existing diagnosis. */ }
+      } catch (error) {
+        failed = true;
+        if (error instanceof PublicUrlError && ["http_404", "http_410"].includes(error.code)) {
+          // Search indexes can retain closed pages. Their old prices must not
+          // short-circuit a current menu investigation or become usable prices.
+          unavailable.add(listingKey(url));
+          menus = menus.map(menu => listingKey(menu.sourceUrl) === listingKey(url)
+            ? { ...menu, unitPrice: null, taxInclusion: "unknown", evidence: `掲載ページが見つからないため価格は再確認が必要です。${menu.evidence}`.slice(0, 600) }
+            : menu);
+        }
+        /* Respect 403/login/timeouts; inaccessible does not mean the page is gone. */
+      }
     }
   };
-  if (!pricedCount()) await read(discoverLinkedMenuUrls(input.pages, references, input.excluded), true);
+  if (!menus.some(menu => menu.unitPrice !== null && menu.sourceAccess === "page")) {
+    const searchedPricePages = [...new Set(menus.filter(menu => menu.unitPrice !== null && menu.sourceAccess === "search").map(menu => menu.sourceUrl))].slice(0, 2);
+    const knownMenuPages = input.sources.map(source => publicMenuUrl(source.url, input.excluded))
+      .filter(url => url && menuPathSignal(url));
+    await read([...searchedPricePages, ...knownMenuPages, ...discoverLinkedMenuUrls(input.pages, references, input.excluded)], false);
+  }
   if (!pricedCount() && now() < deadline - 1_000) {
     searched = true;
     try {
       const result = await dependencies.research(Math.min(35_000, deadline - now()));
       // Reject the complete extra investigation if an excluded source contaminated it.
       if (result.sources.some(source => sourceIsExcluded(source.url, input.excluded))) throw new Error("excluded_source_used");
-      const accepted = researchedPages(result, input);
+      const accepted = researchedPages(result, input).filter(source => !unavailable.has(listingKey(source.url)));
       menus = mergePublicMenuCandidates([menus, searchedMenuCandidates(result.menu_candidates, accepted)]);
       sources.push(...accepted);
       // Prefer real page evidence when available; search-only evidence stays unconfirmed.

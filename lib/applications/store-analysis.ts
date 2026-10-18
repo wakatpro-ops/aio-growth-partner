@@ -449,10 +449,10 @@ export async function analyzeFetchedStoreSite(fetched: PublicSiteFetchResult, st
   let lastModel: string | null = null;
   let calls = 0;
   models: for (const model of modelCandidates()) {
-    lastModel = model;
     for (let attempt = 0; attempt < 2; attempt += 1) {
       if (calls >= 2) break models;
       calls += 1;
+      lastModel = model;
       try {
         const normalized = normalizeAiResult(await requestAiAnalysis(client, model, fetched, extracted, storeHint, areaHint, excluded), extracted, fallback, fetched, storeHint, areaHint, excluded);
         const discovery = await discoverStoreMenus({ store: normalized.profile, sourceUrl: fetched.sourceUrl,
