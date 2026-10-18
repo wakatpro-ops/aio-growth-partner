@@ -3978,6 +3978,41 @@ p {
   text-decoration: underline;
 }
 
+.public-menu-candidate-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.public-menu-candidate-list li {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  min-width: 0;
+  padding: 16px;
+}
+
+.public-menu-candidate-list li > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 20px;
+  margin-bottom: 8px;
+}
+
+.public-menu-candidate-list strong,
+.public-menu-candidate-list a {
+  overflow-wrap: anywhere;
+}
+
+.public-menu-candidate-list a {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
 .expected-outcomes-list {
   display: grid;
   gap: 14px;

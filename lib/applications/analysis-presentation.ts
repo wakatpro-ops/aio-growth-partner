@@ -1,3 +1,6 @@
+import { setupMenuCandidates } from "../onboarding/menu-candidates.ts";
+import { publicMenuUrl } from "./menu-discovery.ts";
+
 function recordValue(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
@@ -24,6 +27,9 @@ export function publicAnalysisPreview(input: { profile: unknown; diagnosis: unkn
       identity_method: String(diagnosis.identity_method ?? "direct"),
       excluded_sources: listValue(diagnosis.excluded_sources),
       services: listValue(profile.services).slice(0, 12),
+      menu_candidates: setupMenuCandidates(profile).filter(menu => menu.kind === "menu" && publicMenuUrl(menu.sourceUrl))
+        .map(({ name, unitPrice, taxInclusion, sourceUrl, sourceAccess }) => ({ name, unitPrice, taxInclusion, sourceUrl, sourceAccess })),
+      menu_discovery_status: String(recordValue(diagnosis.menu_discovery).status ?? "not_found"),
       business_summary: String(diagnosis.business_summary ?? ""),
       identification: {
         confidence: ["high", "medium"].includes(String(identification.confidence)) ? String(identification.confidence) : "low",

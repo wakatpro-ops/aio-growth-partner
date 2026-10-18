@@ -9,7 +9,10 @@ catch { console.error("Could not load the existing staging connection. CLI outpu
 const secret=keys.find(k=>k.name==="aio_staging_vercel"&&k.type==="secret")?.api_key, anon=keys.find(k=>k.type==="publishable")?.api_key;
 assert(secret&&anon);
 const isolated={NEXT_PUBLIC_SUPABASE_URL:`https://${ref}.supabase.co`,NEXT_PUBLIC_SUPABASE_ANON_KEY:anon,SUPABASE_SERVICE_ROLE_KEY:secret,APP_BASE_URL:"https://staging.aioboost.jp",NEXT_PUBLIC_APP_URL:"https://staging.aioboost.jp",
-  SENDGRID_API_KEY:"",STRIPE_SECRET_KEY:"",GOOGLE_CLIENT_SECRET:"",META_APP_SECRET:"",LINE_CHANNEL_ACCESS_TOKEN:"",FREEE_CLIENT_SECRET:"",CRON_SECRET:"",INBOUND_EMAIL_WEBHOOK_SECRET:""};
+  SENDGRID_API_KEY:"",STRIPE_SECRET_KEY:"",STRIPE_WEBHOOK_SECRET:"",STRIPE_TOKEN_ENCRYPTION_KEY:"",
+  GOOGLE_CLIENT_SECRET:"",GOOGLE_TOKEN_ENCRYPTION_KEY:"",META_APP_SECRET:"",SNS_TOKEN_ENCRYPTION_KEY:"",
+  INSTAGRAM_APP_SECRET:"",INSTAGRAM_TOKEN_ENCRYPTION_KEY:"",INSTAGRAM_LOGIN_ENABLED:"false",INSTAGRAM_ADVANCED_ACCESS_APPROVED:"false",INSTAGRAM_LOGIN_TEST_STORE_IDS:"",
+  LINE_CHANNEL_SECRET:"",LINE_CHANNEL_ACCESS_TOKEN:"",FREEE_CLIENT_SECRET:"",FREEE_TOKEN_ENCRYPTION_KEY:"",CRON_SECRET:"",INBOUND_EMAIL_WEBHOOK_SECRET:""};
 const args=["deploy","--target","preview","--yes","--project","prj_b7InveOcjuUuMhxEWllhRtU7eT3M","--scope","wakatpro-3797s-projects"];
 for(const key of Object.keys(isolated))args.push("--env",key,"--build-env",key);
 const child=spawn("vercel",args,{env:{...process.env,...isolated,VERCEL_PROJECT_ID:"prj_b7InveOcjuUuMhxEWllhRtU7eT3M",VERCEL_ORG_ID:"team_wlpBR7pDkaVGzgmdp9CUO9BI"},stdio:"inherit"});
