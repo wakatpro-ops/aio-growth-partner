@@ -21,8 +21,21 @@ const secret = keys.find(key => key.name === "aio_staging_vercel" && key.type ==
 assert(secret);
 const db = createClient(`https://${ref}.supabase.co`, secret, { auth: { persistSession: false, autoRefreshToken: false } });
 let analysisId;
+const startedAt = new Date().toISOString();
 try {
   const body = JSON.parse(cli("vercel", ["curl", "/api/public/store-analysis", "--deployment", base, "--", "--silent", "--show-error", "--max-time", "185", "--request", "POST", "--header", "Content-Type: application/json", "--data", JSON.stringify({ source_url: source, store_hint: process.env.AIO_MENU_TEST_NAME ?? "", area_hint: process.env.AIO_MENU_TEST_AREA ?? "" })], { ...process.env, VERCEL_PROJECT_ID: "prj_b7InveOcjuUuMhxEWllhRtU7eT3M", VERCEL_ORG_ID: "team_wlpBR7pDkaVGzgmdp9CUO9BI" }, 195000));
+  if (!body.ok) {
+    // Failed public responses intentionally have no token. Clean up only a single,
+    // unconverted failed cache row matching this exact source and request interval.
+    // Ambiguous concurrent rows are retained instead of guessing ownership.
+    const { data: failed } = await db.from("public_store_analyses").select("id,ai_error_code")
+      .eq("source_url", source).eq("status", "failed").is("converted_application_id", null)
+      .gte("created_at", startedAt).lte("created_at", new Date().toISOString()).limit(2);
+    if (failed?.length === 1) {
+      analysisId = failed[0].id;
+      console.log(JSON.stringify({ failedBeforeMenuVerification: String(failed[0].ai_error_code ?? "unknown").replace(/[^a-z0-9_]/gu, "").slice(0, 80) }));
+    }
+  }
   assert(body.ok && body.analysis_token, `Public analysis did not complete: ${body.code ?? "unknown"}`);
   const hash = createHash("sha256").update(body.analysis_token).digest("hex");
   const { data, error } = await db.from("public_store_analyses").select("id,ai_status,ai_model,ai_error_code,extracted_profile,fetch_summary,converted_application_id,analysis_result").eq("public_token_hash", hash).single();

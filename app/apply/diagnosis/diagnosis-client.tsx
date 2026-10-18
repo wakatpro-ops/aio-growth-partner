@@ -174,7 +174,7 @@ export function DiagnosisClient() {
         <div><p className="step-label">診断の参考にした公開情報</p><h2>{preview.diagnosis.checked_sources.length}件の参照ページ</h2><p>「ページ本文を取得」と「検索で参照」を区別しています。別のお店など、誤った出典は「× 除外」で外して診断を作り直せます。</p></div>
         <SourceSelection sources={preview.diagnosis.checked_sources} excluded={preview.diagnosis.excluded_sources} storeName={preview.profile.store_name} area={preview.profile.address} disabled={correcting || ["sending_code", "verifying", "submitting"].includes(stage)} onEditingChange={editing => { setEditingSources(editing); if (editing) { setStage("form"); setDraft(null); setError(""); } }} />
         <p className="muted">参照ページの掲載は、写真や全メニューの取得完了を意味しません。写真の自動取り込みはこの簡易診断では行っていません。</p>
-        <p><strong>読み取れたメニュー・サービス：</strong>{preview.diagnosis.services?.length ? preview.diagnosis.services.join("、") : "未取得（承認後に追加できます）"}</p>
+        <p><strong>読み取れた店舗の特徴・提供分野：</strong>{preview.diagnosis.services?.length ? preview.diagnosis.services.join("、") : "未取得（承認後に追加できます）"}</p>
       </section>
       <PublicMenuCandidates menus={preview.diagnosis.menu_candidates ?? []} status={preview.diagnosis.menu_discovery_status} />
       <section className="card expected-outcomes-card">
