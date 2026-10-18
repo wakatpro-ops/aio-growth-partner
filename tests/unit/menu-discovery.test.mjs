@@ -152,6 +152,29 @@ test("検索で確認済みの料理URLは、商品0件でも追加AIより先�
   assert.equal(found.summary.pagesRead, 1); assert.equal(found.menus[0].unitPrice, 1200);
 });
 
+test("口コミの過去の支払額は商品価格にしない・店舗トップの実リンクから料理へ進む", async () => {
+  const review = `${root}dtlrvwlst/B000001/`;
+  const landing = "https://www.hotpepper.jp/strJ001234567/";
+  const foodUrl = `${landing}food/`;
+  const requested = [];
+  const found = await discoverStoreMenus(input({ sources: [source(root), source(landing)], menus: [menu(review, 660)] }), {
+    fetchPage: async url => { requested.push(url); return url === landing ? { ...page(url), html: `<h1>${store.store_name}</h1><a href="${foodUrl}">料理メニュー</a><footer>${store.address}</footer>` } : page(foodUrl); },
+    research: async () => assert.fail("Follow observed menu link before AI")
+  });
+  assert.equal(publicMenuUrl(review), "");
+  assert.deepEqual(requested, [landing, foodUrl]);
+  assert.equal(found.menus[0].unitPrice, 1200); assert.equal(found.menus[0].sourceUrl, foodUrl);
+});
+
+test("別店舗へ移動するランディングは、その先のメニューリンクも辿らない", async () => {
+  const landing = "https://www.hotpepper.jp/strJ001234567/";
+  const found = await discoverStoreMenus(input({ sources: [source(root), source(landing)] }), {
+    fetchPage: async () => ({ url: landing, title: "別の店", description: "", html: '<a href="food/">メニュー</a><p>長野県長野市</p>' }),
+    research: async () => ({ menu_pages: [], menu_candidates: [], sources: [] })
+  });
+  assert.equal(found.summary.pagesRead, 0); assert.equal(found.menus.length, 0);
+});
+
 test("追加調査がタイムアウトしても既存の未価格候補と元の店舗情報を保持", async () => {
   const original = input({ menus: [menu(food, null)] });
   const found = await discoverStoreMenus(original, { research: async () => { throw Error("timeout"); }, fetchPage: refuseRead });

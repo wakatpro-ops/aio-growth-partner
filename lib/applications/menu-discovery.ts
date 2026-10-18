@@ -28,6 +28,8 @@ export function publicMenuUrl(value: string, excluded: string[] = []) {
     if (url.username || url.password || (url.port && !["80", "443"].includes(url.port)) || host === "localhost"
       || /\.(?:local|localhost|internal)$/iu.test(host) || (isIP(host) && isBlockedAddress(host)) || sourceIsExcluded(url.toString(), excluded)) return "";
     if (/\/(?:login|accounts?|signin|checkout|cart|admin|reserve|reservation|booking)(?:\/|$)/iu.test(url.pathname)) return "";
+    // A customer's past order/payment is not the store's menu price.
+    if (/\/(?:dtlrvwlst|reviews?|kuchikomi)(?:\/|$)/iu.test(url.pathname)) return "";
     return url.toString();
   } catch { return ""; }
 }
@@ -141,7 +143,8 @@ export async function discoverStoreMenus(input: Input, dependencies: Dependencie
   let searched = false, pagesRead = 0, reads = 0, failed = false;
   const pricedCount = () => menus.filter(menu => menu.unitPrice !== null).length;
   const read = async (urls: string[], stopOnPrice: boolean) => {
-    for (const raw of [...new Set(urls)]) {
+    const queue = [...new Set(urls)];
+    for (const raw of queue) {
       if (reads >= 3 || now() >= deadline || (stopOnPrice && pricedCount())) break;
       const url = publicMenuUrl(raw, input.excluded);
       if (!url || attempted.has(listingKey(url)) || conflictsWithKnownListing(url, references)) continue;
@@ -153,6 +156,9 @@ export async function discoverStoreMenus(input: Input, dependencies: Dependencie
         pagesRead += 1;
         menus = mergePublicMenuCandidates([extractPublicMenus([page]), menus]);
         sources.push({ url: final, label: page.title || "メニュー・料金", kind: "other", access: "page" });
+        // A verified landing page can expose the real menu link even when the
+        // submitted portal was blocked. Still share the same three-read budget.
+        queue.push(...discoverLinkedMenuUrls([page], references, input.excluded));
       } catch (error) {
         failed = true;
         if (error instanceof PublicUrlError && ["http_404", "http_410"].includes(error.code)) {
@@ -171,7 +177,12 @@ export async function discoverStoreMenus(input: Input, dependencies: Dependencie
     const searchedPricePages = [...new Set(menus.filter(menu => menu.unitPrice !== null && menu.sourceAccess === "search").map(menu => menu.sourceUrl))].slice(0, 2);
     const knownMenuPages = input.sources.map(source => publicMenuUrl(source.url, input.excluded))
       .filter(url => url && menuPathSignal(url));
-    await read([...searchedPricePages, ...knownMenuPages, ...discoverLinkedMenuUrls(input.pages, references, input.excluded)], false);
+    const linkedMenus = discoverLinkedMenuUrls(input.pages, references, input.excluded);
+    const landingPages = knownMenuPages.length || linkedMenus.length ? [] : input.sources
+      .filter(source => ["official", "portal"].includes(source.kind) && listingKey(source.url) !== listingKey(input.sourceUrl))
+      .sort((a, b) => Number(b.kind === "official") - Number(a.kind === "official"))
+      .map(source => publicMenuUrl(source.url, input.excluded)).filter(Boolean).slice(0, 1);
+    await read([...searchedPricePages, ...knownMenuPages, ...linkedMenus, ...landingPages], false);
   }
   if (!pricedCount() && now() < deadline - 1_000) {
     searched = true;
