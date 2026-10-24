@@ -137,7 +137,7 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
     getGoogleIntegrationState(store.id),
     socialImages(store.id)
   ]);
-  const sales = settledValue(salesResult, { totalSales: 0, transactionCount: 0, averageTransactionAmount: 0, daily: [], monthly: [], items: [], paymentMethods: [] });
+  const sales = settledValue(salesResult, { itemBreakdownIncomplete: false, totalSales: 0, transactionCount: 0, averageTransactionAmount: 0, daily: [], monthly: [], items: [], paymentMethods: [] });
   const stocks = settledValue(stocksResult, []);
   const inventoryAlerts = settledValue(alertsResult, []);
   const growthActions = settledValue(growthResult, []);

@@ -6,6 +6,7 @@ import { DonutChart, HorizontalBarChart } from "@/components/ui/data-visuals";
 import { getIndustryConfig } from "@/config/industries";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import { getSalesReport } from "@/lib/phase4/sales-import-data";
+import { itemAmountDifference } from "@/lib/pos/item-coverage";
 import { getStore } from "@/lib/stores";
 import { registeredDataCount } from "@/lib/customer-workbench";
 import { DataPreview } from "@/components/ui/data-preview";
@@ -200,19 +201,20 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
       {report ? <>
           <div className="visual-grid cols-2">
             <HorizontalBarChart
-              title="売上上位の商品・メニュー"
+              title={report.itemBreakdownIncomplete ? "商品別明細（返金・調整の未配分あり）" : "売上上位の商品・メニュー"}
               data={report.items.map((item) => ({ label: item.label, value: item.amount, displayValue: formatCurrency(item.amount), detail: `${(item.quantity ?? 0).toLocaleString("ja-JP")}件` }))}
               emptyMessage="商品・メニュー別に分類できる売上データがありません。"
             />
-            <DonutChart
+            {report.paymentMethods.some(item => item.amount < 0) ? <article className="card"><h3>支払方法の割合</h3><p>返金・調整によりマイナスの区分があるため、割合は表示していません。下の「支払方法別売上」で金額を確認できます。</p><p className="muted">返金元の支払方法が取得できない場合は「未設定」として区別します。</p></article> : <DonutChart
               title="支払方法の割合"
               centerLabel="売上合計"
               centerValue={formatCurrency(report.totalSales)}
               data={report.paymentMethods.map((item) => ({ label: paymentLabel(item.label), value: item.amount, displayValue: formatCurrency(item.amount) }))}
               emptyMessage="支払方法を判別できる売上データがありません。"
-            />
+            />}
           </div>
           <p className="visual-guidance">グラフは取り込んだ実データだけを表示しています。未設定が多い場合は、次回の取り込みで支払方法の列を指定すると内訳が分かりやすくなります。</p>
+          {report.itemBreakdownIncomplete ? <p className="notice">商品別に割り振れない返金・調整などがあります{itemAmountDifference(report.totalSales, report.items.map(item => item.amount)) !== 0 ? `（差額 ${formatCurrency(itemAmountDifference(report.totalSales, report.items.map(item => item.amount)))}）` : ""}。売上合計には反映済みです。商品別のグラフ・表は分類できた明細だけのため、合計売上や確定した売れ筋順位とは区別してください。</p> : null}
         </> : null}
 
       <section className="sales-hub-actions">

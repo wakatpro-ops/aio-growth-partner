@@ -135,7 +135,7 @@ export type SalesTransactionListRow = {
   payment_method: string | null;
   created_at: string;
   import_job_id: string | null;
-  source_metadata?: { air_regi_state?: "sale" | "refund" | "void" };
+  source_metadata?: { air_regi_state?: "sale" | "refund" | "void"; square_pos_state?: "sale" | "refund" | "void" };
   data_source?: { name: string; provider_key: ImportProviderKey } | null;
   items?: Array<{
     item_name: string;
@@ -145,6 +145,7 @@ export type SalesTransactionListRow = {
 };
 
 export type SalesReport = {
+  itemBreakdownIncomplete: boolean;
   totalSales: number;
   transactionCount: number;
   averageTransactionAmount: number;
@@ -155,6 +156,8 @@ export type SalesReport = {
 };
 
 export type SalesAnalysisSummary = {
+  itemCoverage?: { complete: boolean; incompleteTransactionCount: number; unallocatedAmount: number };
+  itemComparisonAvailable?: boolean;
   targetMonth: string;
   totalSales: number;
   previousMonthSales: number;
