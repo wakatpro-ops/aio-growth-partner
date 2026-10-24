@@ -27,6 +27,8 @@ Sandboxはステージング専用、明示した架空店舗UUIDの許可リス
 5. 店舗オーナーが「設定→外部連携→Square」から許可し、AIOb店舗とSquare店舗を選択・確認する。接続直後には自動で店舗を決めない。
 6. テスト売上の取り込み・再試行・訂正・停止・再接続を実際のSandboxで確認してから、本番の設定へ進む。
 
+SandboxのOAuth試験は、デフォルトの全権限テストアカウントを流用せず、自動権限付与を無効にした日本のテスト加盟店を作り、そのSandbox Dashboardを開いてから行う。Sandboxは `session=true`、Productionは明示的に再認証する `session=false` とする（[公式の環境別制約](https://developer.squareup.com/docs/oauth-api/walkthrough)）。
+
 ## 安全性とライフサイクル
 
 - オーナー／有効な運営管理者だけが接続操作可能。DBでも所属・有効状態を再確認する。スタッフ・店長・別法人は不可。

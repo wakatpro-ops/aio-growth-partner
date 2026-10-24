@@ -31,7 +31,9 @@ export function squareAuthorizationUrl(environment: SquareEnvironment, appId: st
   if (!(environment === "sandbox" ? /^sandbox-sq0idb-[A-Za-z0-9_-]+$/u : /^sq0idp-[A-Za-z0-9_-]+$/u).test(appId)) throw new Error("Squareアプリと利用環境を確認してください。");
   squareStateHash(state);
   const url = new URL("/oauth2/authorize", squareHost(environment));
-  url.search = new URLSearchParams({ client_id: appId, redirect_uri: squareRedirect(redirect), response_type: "code", scope: SQUARE_SCOPES.join(" "), state, session: "false" }).toString();
+  // Sandbox requires the seller-dashboard session; production explicitly asks
+  // the seller to authenticate instead of silently reusing a different account.
+  url.search = new URLSearchParams({ client_id: appId, redirect_uri: squareRedirect(redirect), response_type: "code", scope: SQUARE_SCOPES.join(" "), state, session: environment === "sandbox" ? "true" : "false" }).toString();
   return url.href;
 }
 export function squareAllowed(storeId: string, env: NodeJS.ProcessEnv = process.env) {

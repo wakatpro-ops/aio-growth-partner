@@ -27,6 +27,8 @@ const authorization = new URL(policy.squareAuthorizationUrl('sandbox','sandbox-s
 assert.equal(authorization.hostname,'connect.squareupsandbox.com');
 assert.equal(authorization.searchParams.get('scope'),'MERCHANT_PROFILE_READ ORDERS_READ');
 assert.equal(authorization.searchParams.get('redirect_uri'),callback);
+assert.equal(authorization.searchParams.get('session'),'true','Sandbox requires an active seller-dashboard session');
+assert.equal(new URL(policy.squareAuthorizationUrl('production','sq0idp-synthetic','https://app.aioboost.jp/api/square/oauth/callback',state)).searchParams.get('session'),'false','production must request explicit seller sign-in');
 assert.equal(policy.verifySquareState(state,state),policy.squareStateHash(state));
 for (const [a,b] of [[null,state],[state,'y'.repeat(43)],['あ'.repeat(43),state],[state,'あ'.repeat(43)]]) assert.throws(()=>policy.verifySquareState(a,b));
 for (const bad of ['https://evil.invalid/other','http://staging.aioboost.jp/api/square/oauth/callback',callback+'?key=bad']) assert.throws(()=>policy.squareRedirect(bad));
@@ -41,6 +43,19 @@ assert.equal(databaseReads,0,'disabled integration must not read a database');
 await assert.rejects(()=>service.runSquareSync(''),'empty action argument must not run the global worker');
 await assert.rejects(()=>service.runSquareSync(null),'null action argument must not run the global worker');
 process.env.SQUARE_TOKEN_ENCRYPTION_KEY='synthetic-only-key-not-real-32-characters';
+{
+  const values={SQUARE_LOGIN_ENABLED:'true',SQUARE_ENVIRONMENT:'sandbox',SQUARE_APPLICATION_ID:'sandbox-sq0idb-synthetic',SQUARE_APP_SECRET:'sandbox-sq0csb-synthetic',SQUARE_REDIRECT_URI:callback,NEXT_PUBLIC_APP_URL:'https://staging.aioboost.jp'};
+  const previous=Object.fromEntries(Object.keys(values).map(key=>[key,process.env[key]]));
+  try {
+    Object.assign(process.env,values);
+    assert(service.getSquareConfig(),'complete Sandbox configuration must be ready');
+    process.env.NEXT_PUBLIC_APP_URL='https://app.aioboost.jp';
+    assert.equal(service.getSquareConfig(),null,'different application origin must fail closed');
+    process.env.NEXT_PUBLIC_APP_URL=values.NEXT_PUBLIC_APP_URL;
+    process.env.SQUARE_APP_SECRET='sq0csp-wrong-environment';
+    assert.equal(service.getSquareConfig(),null,'production secret must not be used in Sandbox');
+  } finally { for(const [key,value] of Object.entries(previous)) { if(value===undefined) delete process.env[key]; else process.env[key]=value; } }
+}
 const tokens={accessToken:'synthetic-access',refreshToken:'synthetic-refresh',merchantId:'merchant',expiresAt:new Date(Date.now()+30*86400_000).toISOString()};
 const encrypted=secrets.encryptSquareTokens(tokens,'org','synthetic');
 assert(!encrypted.includes(tokens.accessToken));
