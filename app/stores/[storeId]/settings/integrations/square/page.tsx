@@ -14,7 +14,7 @@ export default async function SquareSettingsPage({ params, searchParams }: {
 }) {
   const { storeId } = await params, query = await searchParams, store = await getStore(storeId);
   if (!await canManageOrganization(store.organization_id)) redirect("/forbidden");
-  const { connection, ready, pending, environment, organizationName } = await getSquareSettings(storeId, query.pending);
+  const { connection, ready, hasCredentials, pending, environment, organizationName } = await getSquareSettings(storeId, query.pending);
   const messages: Record<string, string> = {
     connected: "この店舗へのSquare連携を設定しました。売上の初回取り込みを開始できます。",
     synced: "Squareの差分を確認し、取得できた売上を反映しました。",
@@ -53,13 +53,13 @@ export default async function SquareSettingsPage({ params, searchParams }: {
       <h2>この店舗の接続</h2>
       <dl className="definition-list">
         <div><dt>Square店舗</dt><dd>{connection.external_store_name}</dd></div>
-        <div><dt>状態</dt><dd>{!ready ? "保存済み・同期は無効" : connection.status === "active" ? connection.cursor ? "初回・差分取り込み中" : "自動同期中" : connection.status === "error" ? "再試行待ち" : "停止中"}</dd></div>
+        <div><dt>状態</dt><dd>{!ready ? "保存済み・同期は無効" : !hasCredentials ? "再接続が必要" : connection.status === "active" ? connection.cursor ? "初回・差分取り込み中" : "自動同期中" : connection.status === "error" ? "再試行待ち" : "停止中"}</dd></div>
         <div><dt>最終取り込み</dt><dd>{connection.last_success_at ? new Date(connection.last_success_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "まだ取り込んでいません"}</dd></div>
       </dl>
       {connection.last_error_code ? <p className="notice danger">{connection.last_error_code === "square_reconnect_required" || connection.last_error_code === "authorization_revoked" ? "接続を許可したアカウントの権限・有効期限を確認して、Squareを再接続してください。" : "Squareの同期で確認が必要です。未確認のデータは反映せず、前回までの売上を保持しています。"}</p> : null}
       <div className="actions-row">
-        {ready && ["active", "error"].includes(connection.status) ? <form action={syncSquareAction.bind(null, storeId)}><PendingSubmitButton>売上を取り込む</PendingSubmitButton></form> : null}
-        {["active", "error"].includes(connection.status) ? <form action={transitionSquareAction.bind(null, storeId, connection.id, "pause", connection.revision)}><PendingSubmitButton className="button secondary">自動同期を停止</PendingSubmitButton></form> : ready ? <form action={transitionSquareAction.bind(null, storeId, connection.id, "resume", connection.revision)}><PendingSubmitButton>自動同期を再開</PendingSubmitButton></form> : null}
+        {ready && hasCredentials && ["active", "error"].includes(connection.status) ? <form action={syncSquareAction.bind(null, storeId)}><PendingSubmitButton>売上を取り込む</PendingSubmitButton></form> : null}
+        {["active", "error"].includes(connection.status) ? <form action={transitionSquareAction.bind(null, storeId, connection.id, "pause", connection.revision)}><PendingSubmitButton className="button secondary">自動同期を停止</PendingSubmitButton></form> : ready && hasCredentials ? <form action={transitionSquareAction.bind(null, storeId, connection.id, "resume", connection.revision)}><PendingSubmitButton>自動同期を再開</PendingSubmitButton></form> : null}
         <form action={transitionSquareAction.bind(null, storeId, connection.id, "archive", connection.revision)}><ConfirmSubmitButton message="Square接続を削除済みに移し、AIOb内の接続情報を消去します。取り込んだ売上と同期履歴は残ります。Squareアプリ全体の許可は解除しません。よろしいですか？">接続を削除</ConfirmSubmitButton></form>
         <Link className="button secondary" href={`/stores/${storeId}/sales-hub`}>売上を確認</Link>
       </div>

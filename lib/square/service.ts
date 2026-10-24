@@ -47,11 +47,13 @@ const viewFields = "id,external_store_name,environment,status,revision,last_succ
 export type SquareConnectionView = { id: string; external_store_name: string; environment: SquareEnvironment; status: string; revision: number; last_success_at: string | null; last_error_code: string | null; archived_at: string | null; cursor: string | null };
 export async function getSquareSettings(storeId: string, pendingId?: string) {
   const { db, access, store } = await ownerContext(storeId);
-  const [result, organization] = await Promise.all([
+  const [result, organization, credentialPresence] = await Promise.all([
     db.from("square_pos_connections").select(viewFields).eq("store_id", storeId).maybeSingle(),
-    db.from("organizations").select("name").eq("id", store.organization_id).single()
+    db.from("organizations").select("name").eq("id", store.organization_id).single(),
+    // Expose only presence, not the encrypted credential itself, to the view.
+    db.from("square_pos_connections").select("id", { count: "exact", head: true }).eq("store_id", storeId).not("encrypted_credentials", "is", null)
   ]);
-  if (result.error || organization.error || !organization.data?.name) throw new Error("Squareの設定を取得できません。時間をおいてお試しください。");
+  if (result.error || organization.error || credentialPresence.error || !organization.data?.name) throw new Error("Squareの設定を取得できません。時間をおいてお試しください。");
   const config = getSquareConfig();
   let pending = null;
   if (pendingId && uuid.safeParse(pendingId).success && config && squareAllowed(storeId)) {
@@ -61,7 +63,7 @@ export async function getSquareSettings(storeId: string, pendingId?: string) {
     if (response.error) throw new Error("接続先の確認情報を取得できません。");
     if (response.data) pending = { id: response.data.id as string, locations: z.array(squareLocationSchema).parse(response.data.locations) };
   }
-  return { connection: result.data as SquareConnectionView | null, organizationName: organization.data.name as string, ready: Boolean(config && squareAllowed(storeId)), environment: config?.environment, pending };
+  return { connection: result.data as SquareConnectionView | null, hasCredentials: credentialPresence.count === 1, organizationName: organization.data.name as string, ready: Boolean(config && squareAllowed(storeId)), environment: config?.environment, pending };
 }
 export async function beginSquareConnection(storeId: string, origin: string) {
   const config = configFor(storeId);
