@@ -1,4 +1,5 @@
 import "server-only";
+import { EFFECTIVE_POS_SALES_FILTER, posTransactionState } from "../pos/transaction-state";
 import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { createHash } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
@@ -664,9 +665,9 @@ function buildSalesSummaryRows(
   items: Array<Record<string, unknown>>
 ) {
   const summaries = new Map<string, Record<string, unknown>>();
-  const voidIds = new Set(transactions.filter(transaction => (transaction.source_metadata as Record<string, unknown> | null)?.air_regi_state === "void").map(transaction => String(transaction.id)));
+  const voidIds = new Set(transactions.filter(transaction => posTransactionState(transaction.source_metadata) === "void").map(transaction => String(transaction.id)));
   for (const transaction of transactions) {
-    if ((transaction.source_metadata as Record<string, unknown> | null)?.air_regi_state === "void") continue;
+    if (posTransactionState(transaction.source_metadata) === "void") continue;
     const date = String(transaction.business_date);
     const month = date.slice(0, 7);
     const payment = String(transaction.payment_method ?? "未設定");
@@ -784,7 +785,7 @@ export async function getSalesReport(storeId: string): Promise<SalesReport> {
   const resolved = await resolveStoreForRead(supabase, storeId);
   const [{ data, error: summaryError }, { data: transactionRows, count: storedTransactionCount, error: transactionError }] = await Promise.all([
     supabase.from("normalized_sales_summaries").select("*").eq("store_id", resolved.storeId),
-    supabase.from("sales_transactions").select("organization_id", { count: "exact" }).eq("store_id", resolved.storeId).or("source_metadata->>air_regi_state.is.null,source_metadata->>air_regi_state.neq.void").limit(1)
+    supabase.from("sales_transactions").select("organization_id", { count: "exact" }).eq("store_id", resolved.storeId).or(EFFECTIVE_POS_SALES_FILTER).limit(1)
   ]);
   if (summaryError || transactionError) {
     throw new Error(`売上レポートを取得できませんでした: ${summaryError?.message ?? transactionError?.message}`);

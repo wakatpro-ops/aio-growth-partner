@@ -1,4 +1,5 @@
 import "server-only";
+import { EFFECTIVE_POS_SALES_FILTER } from "../pos/transaction-state";
 import { generateWithAi } from "@/lib/openai/generate";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
@@ -110,6 +111,7 @@ async function fetchTransactions(supabase: SupabaseClient, storeId: string, mont
     .from("sales_transactions")
     .select("*, items:sales_transaction_items(item_name, category_name, quantity, unit_price, total_amount)")
     .eq("store_id", storeId)
+    .or(EFFECTIVE_POS_SALES_FILTER)
     .gte("business_date", start)
     .lt("business_date", end)
     .order("business_date", { ascending: true });

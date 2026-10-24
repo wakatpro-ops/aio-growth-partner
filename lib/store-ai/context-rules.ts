@@ -46,8 +46,8 @@ export function bookingFacts<T extends { status: string; archived_at?: string | 
     pendingCount: bookings.filter(row => row.status === "pending").length };
 }
 
-export function salesFacts(rows: Array<{ business_date: string; gross_amount: number | string; source_metadata?: { air_regi_state?: string } }>) {
-  const effective = rows.filter(row => row.source_metadata?.air_regi_state !== "void");
+export function salesFacts(rows: Array<{ business_date: string; gross_amount: number | string; source_metadata?: { air_regi_state?: string; square_pos_state?: string } }>) {
+  const effective = rows.filter(row => row.source_metadata?.air_regi_state !== "void" && row.source_metadata?.square_pos_state !== "void");
   const months = new Map<string, { month: string; amount: number; count: number }>();
   for (const row of effective) {
     const month = row.business_date.slice(0, 7), amount = Number(row.gross_amount);

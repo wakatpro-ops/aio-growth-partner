@@ -1,4 +1,5 @@
 import "server-only";
+import { EFFECTIVE_POS_SALES_FILTER } from "../pos/transaction-state";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import { syncOrderInventory } from "@/lib/inventory-operations";
@@ -641,7 +642,7 @@ export async function getSubsidyImpactReport(storeId: string) {
   const resolved = await resolveStore(supabase, storeId);
   const [invoices, sales, payments, aiLogs, pdfIssues, exports, googleJobs] = await Promise.all([
     supabase.from("invoices").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId).is("archived_at", null),
-    supabase.from("sales_transactions").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
+    supabase.from("sales_transactions").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId).or(EFFECTIVE_POS_SALES_FILTER),
     supabase.from("payments").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
     supabase.from("ai_generation_logs").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
     supabase.from("invoice_pdf_issues").select("id", { count: "exact", head: true }).eq("store_id", resolved.storeId),
@@ -708,6 +709,7 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
       .from("sales_transactions")
       .select("*")
       .eq("store_id", resolved.storeId)
+      .or(EFFECTIVE_POS_SALES_FILTER)
       .order("business_date", { ascending: false })
       .limit(1000),
     supabase

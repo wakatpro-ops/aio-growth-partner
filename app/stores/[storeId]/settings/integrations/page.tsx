@@ -29,6 +29,11 @@ export default async function StoreIntegrationsPage({ params }: { params: Promis
       <p className="notice success">外部連携情報を整えると、AIOが請求・入金・会計・集客導線をひとつの店舗データとして扱いやすくなります。</p>
       <section className="grid cols-3">
         {mayConnectPOS ? <article className="card">
+          <h3>Square売上連携</h3>
+          <p>Squareの店舗を確認し、完了した売上と返品・返金を読み取り専用で取り込みます。</p>
+          <Link className="button secondary" href={`/stores/${store.id}/settings/integrations/square`}>Squareの接続を確認</Link>
+        </article> : null}
+        {mayConnectPOS ? <article className="card">
           <h3>Airレジ売上連携</h3>
           <p>今のレジを使い続けながら、売上を自動で取り込む連携を準備しています。</p>
           <p><span className="badge">接続準備中</span></p>
