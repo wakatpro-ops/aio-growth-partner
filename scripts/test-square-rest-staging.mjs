@@ -19,6 +19,8 @@ try {
   assert(filter);
   const result=await db.from('sales_transactions').select('id',{count:'exact'}).eq('store_id',randomUUID()).or(filter).limit(1);
   assert(!result.error,'PostgREST financial-state filter must parse'); assert.equal(result.count,0);
+  const coverage=await db.from('sales_transactions').select('id,items:sales_transaction_items!left(id)',{count:'exact',head:true}).eq('store_id',randomUUID()).eq('channel','square_pos').is('items',null).or(filter);
+  assert(!coverage.error,'PostgREST missing-item anti-join must parse'); assert.equal(coverage.count,0);
   const allowed=await db.rpc('square_pos_owner_allowed',{p_actor:randomUUID(),p_store:randomUUID()});
   assert(!allowed.error && allowed.data===false,'New RPC must be visible in the service schema cache and reject an unknown actor');
   for(const table of ['square_pos_connections','square_pos_transaction_versions','square_pos_oauth_sessions']) {

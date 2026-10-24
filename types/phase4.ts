@@ -145,6 +145,7 @@ export type SalesTransactionListRow = {
 };
 
 export type SalesReport = {
+  itemBreakdownIncomplete: boolean;
   totalSales: number;
   transactionCount: number;
   averageTransactionAmount: number;
@@ -155,6 +156,8 @@ export type SalesReport = {
 };
 
 export type SalesAnalysisSummary = {
+  itemCoverage?: { complete: boolean; incompleteTransactionCount: number; unallocatedAmount: number };
+  itemComparisonAvailable?: boolean;
   targetMonth: string;
   totalSales: number;
   previousMonthSales: number;

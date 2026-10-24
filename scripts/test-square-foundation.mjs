@@ -21,6 +21,7 @@ function load(file) {
 }
 const policy = load('lib/square/policy.ts'), clientModule = load('lib/square/client.ts');
 const secrets = load('lib/square/secrets.ts'), normalizer = load('lib/square/normalize.ts');
+const coverage = load('lib/pos/item-coverage.ts');
 const service = load('lib/square/service.ts'), ai = load('lib/store-ai/context-rules.ts');
 const state = 'x'.repeat(43), callback = 'https://staging.aioboost.jp/api/square/oauth/callback';
 const authorization = new URL(policy.squareAuthorizationUrl('sandbox','sandbox-sq0idb-synthetic',callback,state));
@@ -87,6 +88,15 @@ assert.deepEqual(normalizer.normalizeSquareOrder(refund,'location').items,[],'do
 const exchange={...refund,net_amounts:{total_money:money(500),tax_money:money(45),discount_money:money(0)}};
 assert.equal(normalizer.normalizeSquareOrder(exchange,'location').kind,'sale');
 assert.equal(normalizer.normalizeSquareOrder(exchange,'location').amountMinor,500);
+// Shape observed in official Sandbox: custom cash refunds are separate return
+// orders, lack total_money/line_items, and carry zero allocated tax.
+const cashRefund = normalizer.normalizeSquareOrder({id:'cash-return',location_id:'location',state:'COMPLETED',updated_at:updated,closed_at:updated,returns:[{source_order_id:'order1'}],net_amounts:{total_money:money(-550),tax_money:money(0),discount_money:money(0)}},'location');
+assert.equal(cashRefund.kind,'refund'); assert.equal(cashRefund.amountMinor,550); assert.equal(cashRefund.taxMinor,0); assert.deepEqual(cashRefund.items,[]);
+assert.equal(coverage.itemAmountDifference(550,[2200,1100]),-2750);
+assert.equal(coverage.inspectItemCoverage([{gross_amount:1100,items:[{total_amount:1100}]}]).complete,true);
+assert.deepEqual(coverage.inspectItemCoverage([{gross_amount:1100,items:[{total_amount:1100}]},{gross_amount:-550,items:[]}]),{complete:false,incompleteTransactionCount:1,unallocatedAmount:-550});
+assert.equal(coverage.inspectItemCoverage([{gross_amount:550,items:[]},{gross_amount:-550,items:[]}]).complete,false,'opposite unallocated amounts must not falsely certify item-level completeness');
+assert.equal(coverage.inspectItemCoverage([{gross_amount:0,items:[],source_metadata:{square_pos_state:'sale'}}]).complete,false,'a zero-net exchange may still have unknown product allocations');
 const now=Date.now(), window=normalizer.squareSyncWindow(null,null,now);
 assert.equal(Date.parse(window.start),now-90*86400_000);
 assert.equal(Date.parse(window.end),now-60_000);

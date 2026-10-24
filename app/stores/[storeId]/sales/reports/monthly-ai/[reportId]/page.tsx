@@ -133,6 +133,7 @@ export default async function SalesAiReportDetailPage({ params }: { params: Prom
 
         <ListSection title="業態別の改善提案" rows={ai.industry_advice} />
 
+        {summary.itemCoverage?.complete === false ? <p className="notice">商品別に割り振れない返金・調整があります。売上合計には反映済みですが、商品ランキングは保留しています。</p> : null}
         <div className="grid cols-2">
           <RankingTable title="商品・サービス別ランキング" rows={summary.topItems} quantity />
           <RankingTable title="支払方法別集計" rows={summary.paymentMethods} />
