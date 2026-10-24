@@ -7,7 +7,7 @@ import { getStore } from "@/lib/stores";
 import { SquareClient, squareLocationSchema } from "./client";
 import { decryptSquareTokens, encryptSquareTokens } from "./secrets";
 import { normalizeSquareOrder, squareSyncWindow } from "./normalize";
-import { squareAllowed, squareAuthorizationUrl, squareEnvironment, squareRedirect, squareStateHash, SQUARE_SPEC, type SquareEnvironment } from "./policy";
+import { squareAllowed, squareAuthorizationUrl, squareEnvironment, squareRedirect, squareStateHash, squareOAuthStep, SQUARE_SPEC, type SquareEnvironment } from "./policy";
 import { transactionSchema } from "../airregi/contracts";
 
 type Database = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
@@ -80,12 +80,17 @@ export async function completeSquareConnection(stateHash: string, code: string, 
   if (consumed.error || !consumed.data) throw new Error("invalid_oauth");
   const session = z.object({ id: uuid, store_id: uuid, organization_id: uuid }).parse(consumed.data);
   configFor(session.store_id);
-  const tokens = await config.client.exchange(code, config.redirect);
-  const locations = await config.client.locations(tokens);
-  if (!locations.length) throw new Error("Squareに日本円・日本時間の有効な店舗がありません。");
-  const ciphertext = encryptSquareTokens(tokens, session.organization_id, session.store_id);
-  const staged = await db.rpc("stage_square_pos_oauth", { p_actor: access.userId, p_id: session.id, p_ciphertext: ciphertext, p_merchant: tokens.merchantId, p_locations: locations, p_expires: tokens.expiresAt });
-  if (staged.error) throw new Error("invalid_oauth");
+  const tokens = await squareOAuthStep("exchange", () => config.client.exchange(code, config.redirect));
+  const locations = await squareOAuthStep("locations", async () => {
+    const rows = await config.client.locations(tokens);
+    if (!rows.length) throw new Error("no_eligible_locations");
+    return rows;
+  });
+  const ciphertext = await squareOAuthStep("encryption", () => encryptSquareTokens(tokens, session.organization_id, session.store_id));
+  await squareOAuthStep("persistence", async () => {
+    const staged = await db.rpc("stage_square_pos_oauth", { p_actor: access.userId, p_id: session.id, p_ciphertext: ciphertext, p_merchant: tokens.merchantId, p_locations: locations, p_expires: tokens.expiresAt });
+    if (staged.error) throw new Error("database_rejected");
+  });
   return { storeId: session.store_id, pendingId: session.id };
 }
 export async function confirmSquareConnection(storeId: string, pendingId: string, locationId: string) {

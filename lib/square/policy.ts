@@ -6,6 +6,19 @@ export const SQUARE_SCOPES = ["MERCHANT_PROFILE_READ", "ORDERS_READ"] as const;
 export const SQUARE_COOKIE = "aio_square_oauth_state";
 export const SQUARE_TTL = 15 * 60;
 export type SquareEnvironment = "sandbox" | "production";
+export type SquareOAuthStage = "exchange" | "locations" | "encryption" | "persistence";
+export class SquareOAuthFailure extends Error {
+  readonly reason: string;
+  constructor(readonly stage: SquareOAuthStage, error: unknown) {
+    super("square_oauth_failed");
+    const allowed = ["square_reconnect_required", "square_rate_limited", "square_unavailable", "invalid_provider_data", "store_mismatch", "square_response_too_large", "no_eligible_locations", "database_rejected"];
+    const message = error instanceof Error ? error.message : "";
+    this.reason = allowed.includes(message) ? message : "invalid_provider_data";
+  }
+}
+export async function squareOAuthStep<T>(stage: SquareOAuthStage, operation: () => T | Promise<T>): Promise<T> {
+  try { return await operation(); } catch (error) { throw new SquareOAuthFailure(stage, error); }
+}
 export function squareEnvironment(value: string | undefined): SquareEnvironment {
   if (value !== "sandbox" && value !== "production") throw new Error("Squareの利用環境を設定してください。");
   return value;

@@ -34,6 +34,11 @@ for (const [a,b] of [[null,state],[state,'y'.repeat(43)],['あ'.repeat(43),state
 for (const bad of ['https://evil.invalid/other','http://staging.aioboost.jp/api/square/oauth/callback',callback+'?key=bad']) assert.throws(()=>policy.squareRedirect(bad));
 assert.throws(()=>policy.squareAuthorizationUrl('production','sandbox-sq0idb-synthetic',callback,state));
 assert.throws(()=>policy.squareAuthorizationUrl('sandbox','sq0idp-synthetic',callback,state));
+const privateFailure=await policy.squareOAuthStep('exchange',()=>{throw new Error('private provider body synthetic-access');}).catch(error=>error);
+assert.equal(privateFailure.stage,'exchange');
+assert.equal(privateFailure.reason,'invalid_provider_data');
+assert(!JSON.stringify(privateFailure).includes('synthetic-access'));
+assert.equal((await policy.squareOAuthStep('locations',()=>{throw new Error('square_reconnect_required');}).catch(error=>error)).reason,'square_reconnect_required');
 assert.equal(policy.squareAllowed('synthetic',{SQUARE_LOGIN_ENABLED:'true',SQUARE_ENVIRONMENT:'sandbox',SQUARE_GENERAL_ACCESS:'true'}),false);
 assert.equal(policy.squareAllowed('synthetic',{SQUARE_LOGIN_ENABLED:'true',SQUARE_ENVIRONMENT:'sandbox',SQUARE_TEST_STORE_IDS:'synthetic'}),true);
 assert.equal(policy.squareAllowed('synthetic',{SQUARE_LOGIN_ENABLED:'true',SQUARE_TEST_STORE_IDS:'synthetic'}),false);
