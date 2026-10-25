@@ -1,4 +1,6 @@
 import "server-only";
+import { EFFECTIVE_POS_SALES_FILTER, posTransactionState } from "../pos/transaction-state";
+import { itemAmountDifference } from "../pos/item-coverage";
 import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { createHash } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
@@ -664,9 +666,9 @@ function buildSalesSummaryRows(
   items: Array<Record<string, unknown>>
 ) {
   const summaries = new Map<string, Record<string, unknown>>();
-  const voidIds = new Set(transactions.filter(transaction => (transaction.source_metadata as Record<string, unknown> | null)?.air_regi_state === "void").map(transaction => String(transaction.id)));
+  const voidIds = new Set(transactions.filter(transaction => posTransactionState(transaction.source_metadata) === "void").map(transaction => String(transaction.id)));
   for (const transaction of transactions) {
-    if ((transaction.source_metadata as Record<string, unknown> | null)?.air_regi_state === "void") continue;
+    if (posTransactionState(transaction.source_metadata) === "void") continue;
     const date = String(transaction.business_date);
     const month = date.slice(0, 7);
     const payment = String(transaction.payment_method ?? "未設定");
@@ -768,6 +770,7 @@ export async function listSalesTransactions(storeId: string): Promise<SalesTrans
 
 function emptyReport(): SalesReport {
   return {
+    itemBreakdownIncomplete: false,
     totalSales: 0,
     transactionCount: 0,
     averageTransactionAmount: 0,
@@ -782,12 +785,16 @@ export async function getSalesReport(storeId: string): Promise<SalesReport> {
   const supabase = createSupabaseAdminClient();
   if (!supabase) return emptyReport();
   const resolved = await resolveStoreForRead(supabase, storeId);
-  const [{ data, error: summaryError }, { data: transactionRows, count: storedTransactionCount, error: transactionError }] = await Promise.all([
+  const [{ data, error: summaryError }, { data: transactionRows, count: storedTransactionCount, error: transactionError }, { count: unallocatedSquareCount, error: coverageError }] = await Promise.all([
     supabase.from("normalized_sales_summaries").select("*").eq("store_id", resolved.storeId),
-    supabase.from("sales_transactions").select("organization_id", { count: "exact" }).eq("store_id", resolved.storeId).or("source_metadata->>air_regi_state.is.null,source_metadata->>air_regi_state.neq.void").limit(1)
+    supabase.from("sales_transactions").select("organization_id", { count: "exact" }).eq("store_id", resolved.storeId).or(EFFECTIVE_POS_SALES_FILTER).limit(1),
+    // Count missing allocations, even if opposite return/exchange amounts net
+    // to zero. A head count avoids fetching an unbounded transaction history.
+    supabase.from("sales_transactions").select("id,items:sales_transaction_items!left(id)", { count: "exact", head: true })
+      .eq("store_id", resolved.storeId).eq("channel", "square_pos").is("items", null).or(EFFECTIVE_POS_SALES_FILTER)
   ]);
-  if (summaryError || transactionError) {
-    throw new Error(`売上レポートを取得できませんでした: ${summaryError?.message ?? transactionError?.message}`);
+  if (summaryError || transactionError || coverageError) {
+    throw new Error(`売上レポートを取得できませんでした: ${summaryError?.message ?? transactionError?.message ?? coverageError?.message}`);
   }
   let summaries = data ?? [];
   const summarizedTransactionCount = summaries
@@ -826,6 +833,7 @@ export async function getSalesReport(storeId: string): Promise<SalesReport> {
   const transactionCount = monthly.reduce((sum, row) => sum + Number(row.transaction_count ?? 0), 0);
 
   return {
+    itemBreakdownIncomplete: (unallocatedSquareCount ?? 0) > 0 || itemAmountDifference(totalSales, summaries.filter(row => row.summary_type === "item").map(row => Number(row.gross_amount ?? 0))) !== 0,
     totalSales,
     transactionCount,
     averageTransactionAmount: transactionCount > 0 ? totalSales / transactionCount : 0,

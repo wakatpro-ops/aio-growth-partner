@@ -1,0 +1,171 @@
+// Actual TypeScript modules; deterministic synthetic provider responses only.
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, resolve } from 'node:path';
+import ts from 'typescript';
+const require = createRequire(import.meta.url), cache = new Map();
+let databaseReads = 0;
+function load(file) {
+  file = resolve(file);
+  if (cache.has(file)) return cache.get(file);
+  const mod = { exports: {} }; cache.set(file, mod.exports);
+  const code = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  new Function('require','module','exports',code)(name => {
+    if (name === 'server-only') return {};
+    if (name === '@/lib/supabase/admin') return {createSupabaseAdminClient() {databaseReads++; throw new Error('unexpected database read');}};
+    if (name === '@/lib/auth/server' || name === '@/lib/stores') return {};
+    return name.startsWith('.') ? load(resolve(dirname(file),name+'.ts')) : require(name);
+  }, mod, mod.exports);
+  cache.set(file,mod.exports); return mod.exports;
+}
+const policy = load('lib/square/policy.ts'), clientModule = load('lib/square/client.ts');
+const secrets = load('lib/square/secrets.ts'), normalizer = load('lib/square/normalize.ts');
+const coverage = load('lib/pos/item-coverage.ts');
+const service = load('lib/square/service.ts'), ai = load('lib/store-ai/context-rules.ts');
+const state = 'x'.repeat(43), callback = 'https://staging.aioboost.jp/api/square/oauth/callback';
+const authorization = new URL(policy.squareAuthorizationUrl('sandbox','sandbox-sq0idb-synthetic',callback,state));
+assert.equal(authorization.hostname,'connect.squareupsandbox.com');
+assert.equal(authorization.searchParams.get('scope'),'MERCHANT_PROFILE_READ ORDERS_READ');
+assert.equal(authorization.searchParams.get('redirect_uri'),callback);
+assert.equal(authorization.searchParams.get('session'),'true','Sandbox requires an active seller-dashboard session');
+assert.equal(new URL(policy.squareAuthorizationUrl('production','sq0idp-synthetic','https://app.aioboost.jp/api/square/oauth/callback',state)).searchParams.get('session'),'false','production must request explicit seller sign-in');
+assert.equal(policy.verifySquareState(state,state),policy.squareStateHash(state));
+for (const [a,b] of [[null,state],[state,'y'.repeat(43)],['あ'.repeat(43),state],[state,'あ'.repeat(43)]]) assert.throws(()=>policy.verifySquareState(a,b));
+for (const bad of ['https://evil.invalid/other','http://staging.aioboost.jp/api/square/oauth/callback',callback+'?key=bad']) assert.throws(()=>policy.squareRedirect(bad));
+assert.throws(()=>policy.squareAuthorizationUrl('production','sandbox-sq0idb-synthetic',callback,state));
+assert.throws(()=>policy.squareAuthorizationUrl('sandbox','sq0idp-synthetic',callback,state));
+const privateFailure=await policy.squareOAuthStep('exchange',()=>{throw new Error('private provider body synthetic-access');}).catch(error=>error);
+assert.equal(privateFailure.stage,'exchange');
+assert.equal(privateFailure.reason,'invalid_provider_data');
+assert(!JSON.stringify(privateFailure).includes('synthetic-access'));
+assert.equal((await policy.squareOAuthStep('locations',()=>{throw new Error('square_reconnect_required');}).catch(error=>error)).reason,'square_reconnect_required');
+assert.equal(policy.squareAllowed('synthetic',{SQUARE_LOGIN_ENABLED:'true',SQUARE_ENVIRONMENT:'sandbox',SQUARE_GENERAL_ACCESS:'true'}),false);
+assert.equal(policy.squareAllowed('synthetic',{SQUARE_LOGIN_ENABLED:'true',SQUARE_ENVIRONMENT:'sandbox',SQUARE_TEST_STORE_IDS:'synthetic'}),true);
+assert.equal(policy.squareAllowed('synthetic',{SQUARE_LOGIN_ENABLED:'true',SQUARE_TEST_STORE_IDS:'synthetic'}),false);
+delete process.env.SQUARE_LOGIN_ENABLED;
+assert.deepEqual(await service.runSquareSync(),{status:'disabled',synced:0,failed:0});
+assert.equal(databaseReads,0,'disabled integration must not read a database');
+await assert.rejects(()=>service.runSquareSync(''),'empty action argument must not run the global worker');
+await assert.rejects(()=>service.runSquareSync(null),'null action argument must not run the global worker');
+process.env.SQUARE_TOKEN_ENCRYPTION_KEY='synthetic-only-key-not-real-32-characters';
+{
+  const values={SQUARE_LOGIN_ENABLED:'true',SQUARE_ENVIRONMENT:'sandbox',SQUARE_APPLICATION_ID:'sandbox-sq0idb-synthetic',SQUARE_APP_SECRET:'sandbox-sq0csb-synthetic',SQUARE_REDIRECT_URI:callback,NEXT_PUBLIC_APP_URL:'https://staging.aioboost.jp'};
+  const previous=Object.fromEntries(Object.keys(values).map(key=>[key,process.env[key]]));
+  try {
+    Object.assign(process.env,values);
+    assert(service.getSquareConfig(),'complete Sandbox configuration must be ready');
+    process.env.NEXT_PUBLIC_APP_URL='https://app.aioboost.jp';
+    assert.equal(service.getSquareConfig(),null,'different application origin must fail closed');
+    process.env.NEXT_PUBLIC_APP_URL=values.NEXT_PUBLIC_APP_URL;
+    process.env.SQUARE_APP_SECRET='sq0csp-wrong-environment';
+    assert.equal(service.getSquareConfig(),null,'production secret must not be used in Sandbox');
+  } finally { for(const [key,value] of Object.entries(previous)) { if(value===undefined) delete process.env[key]; else process.env[key]=value; } }
+}
+const tokens={accessToken:'synthetic-access',refreshToken:'synthetic-refresh',merchantId:'merchant',expiresAt:new Date(Date.now()+30*86400_000).toISOString()};
+const encrypted=secrets.encryptSquareTokens(tokens,'org','synthetic');
+assert(!encrypted.includes(tokens.accessToken));
+assert.deepEqual(secrets.decryptSquareTokens(encrypted,'org','synthetic'),tokens);
+assert.throws(()=>secrets.decryptSquareTokens(encrypted,'other','synthetic'));
+assert.throws(()=>secrets.decryptSquareTokens(encrypted,'org','other'));
+assert.throws(()=>secrets.decryptSquareTokens(encrypted.slice(0,-8)+'tampered','org','synthetic'));
+const money=amount=>({amount,currency:'JPY'});
+const updated=new Date(Date.now()-120_000).toISOString();
+const sale={id:'order1',location_id:'location',state:'COMPLETED',updated_at:updated,closed_at:'2026-10-24T01:00:00+09:00',total_money:money(1100),total_tax_money:money(100),total_discount_money:money(0),tenders:[{type:'CASH'}],line_items:[{uid:'line1',name:'架空定食',quantity:'1',base_price_money:money(1000),total_money:money(1100),total_tax_money:money(100)}]};
+assert.equal(normalizer.normalizeSquareOrder(sale,'location').businessDate,'2026-10-24');
+assert.equal(normalizer.normalizeSquareOrder(sale,'location').paymentMethod,'現金');
+assert.equal(normalizer.normalizeSquareOrder({...sale,state:'CANCELED'},'location').kind,'void');
+assert.equal(normalizer.normalizeSquareOrder({...sale,state:'OPEN'},'location'),null);
+assert.throws(()=>normalizer.normalizeSquareOrder({...sale,state:'UNKNOWN'},'location'));
+assert.throws(()=>normalizer.normalizeSquareOrder(sale,'other'));
+assert.throws(()=>normalizer.normalizeSquareOrder({...sale,total_money:{amount:1100,currency:'USD'}},'location'));
+assert.throws(()=>normalizer.normalizeSquareOrder({...sale,total_tax_money:money(1101)},'location'));
+assert.throws(()=>normalizer.normalizeSquareOrder({...sale,returns:[{}]},'location'));
+const refund={...sale,id:'return1',returns:[{source_order_id:'order1'}],net_amounts:{total_money:money(-1100),tax_money:money(-100),discount_money:money(0)},refunds:[{amount_money:money(1100)}]};
+assert.equal(normalizer.normalizeSquareOrder(refund,'location').kind,'refund');
+assert.equal(normalizer.normalizeSquareOrder(refund,'location').amountMinor,1100,'do not subtract refund and returns twice');
+assert.deepEqual(normalizer.normalizeSquareOrder(refund,'location').items,[],'do not invent product allocations for custom refunds');
+const exchange={...refund,net_amounts:{total_money:money(500),tax_money:money(45),discount_money:money(0)}};
+assert.equal(normalizer.normalizeSquareOrder(exchange,'location').kind,'sale');
+assert.equal(normalizer.normalizeSquareOrder(exchange,'location').amountMinor,500);
+// Shape observed in official Sandbox: custom cash refunds are separate return
+// orders, lack total_money/line_items, and carry zero allocated tax.
+const cashRefund = normalizer.normalizeSquareOrder({id:'cash-return',location_id:'location',state:'COMPLETED',updated_at:updated,closed_at:updated,returns:[{source_order_id:'order1'}],net_amounts:{total_money:money(-550),tax_money:money(0),discount_money:money(0)}},'location');
+assert.equal(cashRefund.kind,'refund'); assert.equal(cashRefund.amountMinor,550); assert.equal(cashRefund.taxMinor,0); assert.deepEqual(cashRefund.items,[]);
+assert.equal(coverage.itemAmountDifference(550,[2200,1100]),-2750);
+assert.equal(coverage.inspectItemCoverage([{gross_amount:1100,items:[{total_amount:1100}]}]).complete,true);
+assert.deepEqual(coverage.inspectItemCoverage([{gross_amount:1100,items:[{total_amount:1100}]},{gross_amount:-550,items:[]}]),{complete:false,incompleteTransactionCount:1,unallocatedAmount:-550});
+assert.equal(coverage.inspectItemCoverage([{gross_amount:550,items:[]},{gross_amount:-550,items:[]}]).complete,false,'opposite unallocated amounts must not falsely certify item-level completeness');
+assert.equal(coverage.inspectItemCoverage([{gross_amount:0,items:[],source_metadata:{square_pos_state:'sale'}}]).complete,false,'a zero-net exchange may still have unknown product allocations');
+const now=Date.now(), window=normalizer.squareSyncWindow(null,null,now);
+assert.equal(Date.parse(window.start),now-90*86400_000);
+assert.equal(Date.parse(window.end),now-60_000);
+const cursor=JSON.stringify({...window,cursor:'opaque'});
+assert.deepEqual(normalizer.squareSyncWindow(null,cursor,now),{start:window.start,end:window.end,cursor:'opaque'});
+assert.throws(()=>normalizer.squareSyncWindow(null,JSON.stringify({start:window.end,end:window.start,cursor:'bad'}),now));
+assert.equal(ai.salesFacts([{business_date:'2026-10-24',gross_amount:100},{business_date:'2026-10-24',gross_amount:0,source_metadata:{square_pos_state:'void'}}]).count,1);
+const location={id:'location',merchant_id:'merchant',name:'架空テスト店舗',country:'JP',currency:'JPY',timezone:'Asia/Tokyo',status:'ACTIVE'};
+const requests=[];
+const fetcher=async(url,options)=>{requests.push({url,options}); return Response.json(url.endsWith('/v2/locations')?{locations:[location]}:url.endsWith('/oauth2/token')?{access_token:tokens.accessToken,refresh_token:tokens.refreshToken,expires_at:tokens.expiresAt,merchant_id:tokens.merchantId}:{orders:[sale]});};
+const client=new clientModule.SquareClient('sandbox','sandbox-sq0idb-synthetic','synthetic-secret',fetcher);
+await client.exchange('synthetic-code',callback);
+assert.equal((await client.locations(tokens))[0].id,'location');
+await client.orders(tokens,'location',window.start,window.end);
+assert(requests.every(x=>x.url.startsWith('https://connect.squareupsandbox.com/')));
+assert(requests.every(x=>x.options.redirect==='error' && x.options.cache==='no-store' && x.options.headers['Square-Version']==='2026-09-16'));
+assert.equal(JSON.parse(requests.at(-1).options.body).limit,100);
+await assert.rejects(()=>new clientModule.SquareClient('sandbox','id','secret',async()=>new Response('private provider message',{status:401})).locations(tokens),/square_reconnect_required/);
+await assert.rejects(()=>new clientModule.SquareClient('sandbox','id','secret',async()=>new Response('private provider message',{status:429})).locations(tokens),/square_rate_limited/);
+await assert.rejects(()=>new clientModule.SquareClient('sandbox','id','secret',async()=>Response.json({locations:[{...location,merchant_id:'other'}]})).locations(tokens),/store_mismatch/);
+process.env.SQUARE_LOGIN_ENABLED='true'; process.env.SQUARE_ENVIRONMENT='sandbox'; process.env.SQUARE_TEST_STORE_IDS='synthetic';
+let applied,failed;
+const connection={id:'c',organization_id:'org',store_id:'synthetic',environment:'sandbox',merchant_id:'merchant',location_id:'location',external_store_id:'sandbox:merchant:location',encrypted_credentials:encrypted,lease_id:'lease',cursor:null,watermark:null};
+const db={rpc:async(name,args)=>{
+  if(name==='claim_square_pos_sync') return {data:connection,error:null};
+  if(name==='apply_square_pos_page'){applied=args; return {data:{changed:1,has_more:false},error:null};}
+  if(name==='fail_square_pos_sync'){failed=args.p_code; return {error:null};}
+  throw new Error('unexpected rpc');
+}};
+const config={environment:'sandbox',client};
+assert.equal((await service.syncSquareConnection(db,config,'c')).status,'synced');
+assert.equal(applied.p_transactions[0].sourceId,'order1');
+assert.equal(applied.p_external,'sandbox:merchant:location');
+assert.equal(applied.p_cursor,null); assert(applied.p_watermark);
+applied=null;
+const wrong={...config,client:{locations:async()=>[location],orders:async()=>({orders:[{...sale,location_id:'other'}]})}};
+assert.equal((await service.syncSquareConnection(db,wrong,'c')).status,'error'); assert.equal(failed,'store_mismatch'); assert.equal(applied,null);
+const broken={...config,client:{locations:async()=>{throw new Error('private key synthetic-secret');}}};
+await service.syncSquareConnection(db,broken,'c'); assert.equal(failed,'invalid_provider_data');
+assert(!JSON.stringify(applied).includes('synthetic-secret'));
+// A page checkpoint never advances until the final page of the fixed window.
+const paged={...config,client:{locations:async()=>[location],orders:async()=>({orders:[sale],cursor:'next-page'})}};
+assert.equal((await service.syncSquareConnection(db,paged,'c')).status,'synced');
+assert.equal(applied.p_watermark,null); assert.equal(JSON.parse(applied.p_cursor).cursor,'next-page');
+connection.cursor=applied.p_cursor; applied=null;
+assert.equal((await service.syncSquareConnection(db,paged,'c')).status,'error');
+assert.equal(applied,null,'a repeated cursor must not checkpoint');
+connection.cursor=null;
+// Refresh is saved with compare-and-swap on the current sync lease, before use.
+const almostExpired={...tokens,expiresAt:new Date(Date.now()+86400_000).toISOString()};
+connection.encrypted_credentials=secrets.encryptSquareTokens(almostExpired,'org','synthetic');
+let refreshedArguments;
+const refreshing={...config,client:{refresh:async()=>tokens,locations:async()=>[location],orders:async()=>({orders:[sale]})}};
+const refreshingDb={rpc:async(name,args)=>{
+  if(name==='refresh_square_pos_credentials'){refreshedArguments=args;return {data:true,error:null};}
+  return db.rpc(name,args);
+}};
+assert.equal((await service.syncSquareConnection(refreshingDb,refreshing,'c')).status,'synced');
+assert.equal(refreshedArguments.p_previous,connection.encrypted_credentials);
+assert.equal(refreshedArguments.p_lease,'lease');
+const lostLeaseDb={rpc:async(name,args)=>name==='refresh_square_pos_credentials'?{data:false,error:null}:db.rpc(name,args)};
+applied=null;
+assert.equal((await service.syncSquareConnection(lostLeaseDb,refreshing,'c')).status,'error');
+assert.equal(failed,'square_reconnect_required'); assert.equal(applied,null);
+await assert.rejects(()=>new clientModule.SquareClient('sandbox','id','secret',async()=>new Response(new Uint8Array(2*1024*1024+1))).locations(tokens),/square_response_too_large/);
+const migration=readFileSync('supabase/migrations/202610240001_square_pos.sql','utf8');
+assert(migration.includes('observed_revision<>coalesce(v_revision,0)'));
+assert(migration.includes('s.actor_id is distinct from p_actor'));
+assert(migration.includes('pending_ciphertext=null'));
+assert(migration.includes('environment||\':\'||merchant_id||\':\'||location_id'));
+assert(!migration.includes('grant execute on function public.save_square_pos_connection'));
+console.log('PASS Square: OAuth state/environment/read-only scopes; tenant-bound encryption; sale/refund/exchange/void; fixed cursors; bounded official REST; token errors; isolated and idempotent projection inputs; disabled-by-default gate.');

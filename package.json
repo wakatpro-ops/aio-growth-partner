@@ -21,6 +21,7 @@
     "test:onboarding-menu": "node --experimental-strip-types --test tests/unit/onboarding-menu-evidence.test.mjs && npm run test:initial-setup",
     "test:menu-discovery": "node --experimental-strip-types --test tests/unit/menu-discovery.test.mjs",
     "test:staging:menu-workbench": "node scripts/test-menu-workbench-staging.mjs",
+    "test:square": "node scripts/test-square-foundation.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",

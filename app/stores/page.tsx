@@ -9,7 +9,7 @@ import { isDemoStore, storeDataModeDescription, storeDataModeLabel } from "@/lib
 import { listStores } from "@/lib/stores";
 import { archiveStoreAction, restoreStoreAction } from "./actions";
 
-export default async function StoresPage({ searchParams }: { searchParams: Promise<{ view?: string; archived?: string; restored?: string }> }) {
+export default async function StoresPage({ searchParams }: { searchParams: Promise<{ view?: string; archived?: string; restored?: string; square_error?: string }> }) {
   const query = await searchParams;
   const showArchived = query.view === "archived";
   const access = await getCurrentUserAccess();
@@ -28,6 +28,7 @@ export default async function StoresPage({ searchParams }: { searchParams: Promi
       />
       {query.archived ? <p className="notice success">店舗を削除しました。関連データは保持され、必要なら元に戻せます。</p> : null}
       {query.restored ? <p className="notice success">店舗を元に戻しました。</p> : null}
+      {query.square_error ? <p className="notice danger" role="alert">Square接続を完了できませんでした。接続がキャンセルされたか、有効期限・権限・運営側の設定の確認が必要です。店舗を選び、「設定→外部連携→Square」から再度お試しください。売上は変更していません。</p> : null}
       {access.isPlatformAdmin ? (
         <p className="notice success">管理者として表示しています。一般ユーザーには、自分が所属する店舗だけが表示されます。</p>
       ) : null}

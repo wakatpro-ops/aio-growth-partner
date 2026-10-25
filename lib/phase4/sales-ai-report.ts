@@ -1,4 +1,6 @@
 import "server-only";
+import { EFFECTIVE_POS_SALES_FILTER } from "../pos/transaction-state";
+import { inspectItemCoverage } from "../pos/item-coverage";
 import { generateWithAi } from "@/lib/openai/generate";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
@@ -29,6 +31,7 @@ type TransactionRow = {
   payment_method: string | null;
   source_row_hash: string;
   external_transaction_id: string | null;
+  source_metadata?: { square_pos_state?: string };
   items?: Array<{
     item_name: string;
     category_name: string | null;
@@ -110,6 +113,7 @@ async function fetchTransactions(supabase: SupabaseClient, storeId: string, mont
     .from("sales_transactions")
     .select("*, items:sales_transaction_items(item_name, category_name, quantity, unit_price, total_amount)")
     .eq("store_id", storeId)
+    .or(EFFECTIVE_POS_SALES_FILTER)
     .gte("business_date", start)
     .lt("business_date", end)
     .order("business_date", { ascending: true });
@@ -129,6 +133,8 @@ export async function buildSalesAnalysis(storeId: string, targetMonth: string) {
   const totalSales = sumTransactions(currentRows);
   const previousMonthSales = sumTransactions(previousRows);
   const transactionCount = currentRows.length;
+  const itemCoverage = inspectItemCoverage(currentRows);
+  const itemComparisonAvailable = itemCoverage.complete && inspectItemCoverage(previousRows).complete;
 
   const itemRows = currentRows.flatMap((row) => (row.items ?? []).map((item) => ({
     label: item.item_name || "未設定",
@@ -140,13 +146,13 @@ export async function buildSalesAnalysis(storeId: string, targetMonth: string) {
     amount: Number(item.total_amount ?? 0)
   })));
 
-  const topItems = makeBucket(itemRows, (row) => row.amount, (current, row) => { current.quantity += row.quantity; })
+  const topItems = makeBucket(itemCoverage.complete ? itemRows : [], (row) => row.amount, (current, row) => { current.quantity += row.quantity; })
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 10)
     .map((row) => ({ label: row.label, amount: row.amount, quantity: row.quantity }));
   const previousItems = makeBucket(previousItemRows, (row) => row.amount);
   const previousItemMap = new Map(previousItems.map((row) => [row.label, row.amount]));
-  const itemChanges = topItems.map((item) => ({
+  const itemChanges = (itemComparisonAvailable ? topItems : []).map((item) => ({
     label: item.label,
     currentAmount: item.amount,
     previousAmount: previousItemMap.get(item.label) ?? 0,
@@ -154,6 +160,8 @@ export async function buildSalesAnalysis(storeId: string, targetMonth: string) {
   }));
 
   const summary: SalesAnalysisSummary = {
+    itemCoverage,
+    itemComparisonAvailable,
     targetMonth,
     totalSales,
     previousMonthSales,
@@ -253,11 +261,16 @@ export async function createSalesAiReport(storeId: string, targetMonth: string) 
     input: {
       target_month: targetMonth,
       summary,
+      item_analysis_policy: "商品別未配分がある月はランキング・売れ筋を断定しない。商品別比較が利用不可なら商品の増減を断定しない。売上合計は商品明細の合計に置き換えない。",
       anomalies,
       expected_output_keys: ["title", "good_points", "cautions", "growth_items", "promotion_ideas", "inventory_notes", "next_actions", "industry_advice", "ai_reasoning"]
     }
   });
   const aiResult = normalizeAiResult(ai.output, store);
+  if (summary.itemCoverage?.complete === false) {
+    aiResult.cautions.unshift("商品別に割り振れない返金・調整があります。売上合計には反映済みですが、商品ランキングは保留しています。");
+    aiResult.growth_items = ["商品別の返金・調整を確認してから、売れ筋を判断しましょう。"];
+  }
 
   const { data: report, error } = await supabase
     .from("sales_ai_reports")
