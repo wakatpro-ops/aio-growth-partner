@@ -16,8 +16,11 @@ for (const component of ["DonutChart", "HorizontalBarChart", "StatusBar", "ItemT
 }
 assert.match(sales, /売上上位の商品・メニュー/u);
 assert.match(sales, /支払方法の割合/u);
-assert.match(sales, /className="sales-overview-hero"/u);
-assert.ok(sales.indexOf("<SalesTrendChart") < sales.indexOf("sales-kpi-stack"));
+// The shared KPIs now precede both the sales and accounting tab panels.
+assert.match(sales, /<SalesHubTabs/u);
+assert.match(sales, /className="sales-kpi-strip"/u);
+assert.ok(sales.indexOf('className="sales-kpi-strip"') < sales.indexOf("<SalesTrendChart"));
+assert.match(sales, /accounting=\{<AccountingOverview/u);
 assert.match(inventory, /残量を確認/u);
 assert.match(inventory, /stock.quantity.*stock.reserved_quantity/u);
 assert.ok(inventory.indexOf('className="menu-card-grid"') < inventory.indexOf('在庫の変動履歴'));
