@@ -17,6 +17,8 @@ const expect = (condition, message) => {
 };
 
 expect(hub.includes("getSalesReport"), "sales-hub must load the sales report data");
+expect(hub.includes("SalesHubTabs") && hub.includes("AccountingOverview") && hub.includes("getAccountingOverview"), "sales/accounting tabs must use source-backed accounting");
+expect(hub.includes('className="sales-kpi-strip"'), "sales KPIs must be shared above both panels");
 for (const label of ["合計売上", "取引件数", "平均取引額", "日別売上", "月別売上", "商品別売上", "支払方法別売上"]) {
   expect(hub.includes(label), `sales-hub is missing ${label}`);
 }
