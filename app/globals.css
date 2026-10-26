@@ -553,6 +553,41 @@ p {
   margin-top: 16px;
 }
 
+/* Gap-managed layouts own spacing between their children. The normal-flow
+   sibling margins above must not offset the second card in a row or double
+   the row gap on small screens. Keep this selector at the same specificity
+   as .card + .card, without resetting margins on nested card contents. */
+:is(
+  .grid,
+  .stack,
+  .form,
+  .legal-document,
+  .application-list,
+  .setup-answer-form,
+  .setup-final-summary,
+  .external-booking-grid,
+  .external-booking-start,
+  .booking-settings-grid,
+  .line-migration-workspace,
+  .customer-card-list,
+  .visual-section,
+  .inventory-visual-grid,
+  .menu-card-grid,
+  .menu-analysis-grid,
+  .aio-specialist-overview,
+  .subsection,
+  .print-actions,
+  .sales-kpi-strip,
+  .visual-grid,
+  .sales-report-section,
+  .booking-form-section,
+  .document-editor,
+  .accounting-visual-grid,
+  .import-clarification-fields
+) > :is(.card, .grid) {
+  margin-top: 0;
+}
+
 .metric {
   color: var(--ink);
   font-size: 30px;

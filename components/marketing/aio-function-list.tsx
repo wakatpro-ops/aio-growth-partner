@@ -24,5 +24,5 @@ export function AioFunctionList({ children, alerts, badge }: { children: ReactNo
     document.addEventListener("click", onClick, true);
     return () => { window.removeEventListener("hashchange", onHashChange); document.removeEventListener("click", onClick, true); };
   }, []);
-  return <details ref={ref} className="aio-function-list"><summary>機能一覧{badge || alerts > 0 ? <span className="badge">{badge ?? `確認事項 ${alerts}件`}</span> : null}</summary><div>{children}</div></details>;
+  return <details ref={ref} className="aio-function-list"><summary>機能一覧{badge || alerts > 0 ? <span className="badge">{badge ?? `確認事項 ${alerts}件`}</span> : null}</summary><div className="stack">{children}</div></details>;
 }
