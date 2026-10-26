@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:accounting-overview": "node --experimental-strip-types --test tests/unit/accounting-overview.test.mjs && node scripts/test-accounting-overview-service.mjs",
     "test:instagram-login": "node scripts/test-instagram-login.mjs && node scripts/test-instagram-publishing.mjs",
     "test:staging:instagram-login": "node scripts/test-instagram-login-staging.mjs --staging-synthetic-live",
     "test:airregi": "node scripts/test-airregi-foundation.mjs",

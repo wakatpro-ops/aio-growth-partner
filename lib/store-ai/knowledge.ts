@@ -1,6 +1,6 @@
 import type { AiArea, AiPage } from "./context-rules";
 
-export const contextVersion = "2026-10-24.1";
+export const contextVersion = "2026-10-26.1";
 // Versioned, code-reviewed product knowledge. Store/email text cannot override it.
 const pages: Record<AiArea, { label: string; guidance: string; suggestions: string[] }> = {
   home: { label: "店舗トップ", guidance: "今日やること、売上、在庫、口コミ、SNS下書きを横断して確認する。運営データ確認度は接続・登録範囲であり経営成績ではない。", suggestions: ["今日、先に確認することは？", "今の売上を教えて", "確認できていない情報は？"] },
@@ -20,6 +20,7 @@ const pages: Record<AiArea, { label: string; guidance: string; suggestions: stri
 
 export function pageKnowledge(page: AiPage) {
   const entry = pages[page.area];
+  if (page.area === "sales" && page.tab === "accounting") return { ...entry, label: "経理・月次経費", guidance: `${entry.guidance} 売上・経理の経理タブでは、選択月の登録経費の明細と分類別内訳を表示。初期は経費がある最新月、登録なしなら当月。上段の売上3指標は全期間で月次経費とは期間が違う。確認待ちを含む経費候補であり、承認済み会計や支払済みとは断定しない。重複候補・日付/金額不明は集計外。負額がある月は割合を描かず分類別金額を表示。経理データは店長以上のみで、支払先や原本は会話に取得しない。`, suggestions: ["この月の経費の内訳を教えて", "確認待ちの経費は何件？", "経費の伝票を確認したい"] };
   if (/\/settings\/integrations\/airregi(?:\/|$)/u.test(page.pathname)) return { ...pages.settings, label: "Airレジ連携の準備", guidance: `${pages.settings.guidance} Airレジ公式APIの利用条件と仕様の確認待ち。現在は実接続・自動取込を利用できない。APIキーやAirIDパスワードを入力・会話に貼るよう案内しない。売上同期のAIOb内部基盤の検証完了は、実際のAirレジ接続完了を意味しない。メニュー全件・勤怠・完全リアルタイムは未確認。店舗オーナーが開発に同席する必要はなく、利用可能になってから本人が自分の店舗の接続先を確認する。`, suggestions: ["いつから接続できますか？", "今のレジはそのまま使える？", "店舗ごとに接続できる？"] };
   if (/\/settings\/integrations\/square(?:\/|$)/u.test(page.pathname)) return { ...pages.settings, label: "Square売上連携", guidance: `${pages.settings.guidance} Squareはオーナーが公式OAuthで許可し、AIOb店舗とSquare店舗を選択・確認して読み取り専用で接続する。Squareのパスワード・APIキーをAIObや会話に貼らせない。初回90日、以後は更新注文を定期同期する設計で、完全リアルタイムではない。接続・最終取り込みの実状態を取得できなければ接続済みと断言しない。Sandboxは指定テスト店舗の架空データ専用。本番の利用可否は画面の準備状態を確認する。商品マスター・在庫数・勤怠同期、決済・返金の実行は未対応。停止・削除しても既存売上は残り、元に戻しただけでは再開せず再接続が必要。`, suggestions: ["どの店舗につながりますか？", "売上はいつ反映されますか？", "取り込める内容を教えて"] };
   if (page.area === "imports" && page.importJobId) return { ...entry, label: "選択したファイルの取込確認", guidance: `${entry.guidance} import_detailはURLで選択した一つの未削除ジョブ。表番号は画面の順番。issueGroups/nextQuestionの未解決事項を種類ごとにまとめ、一度に一つだけ尋ねる。年月・調整額・支払先などは利用者の意図を確認し、推測で補完しない。「修正案を見る」で提案を作り、専用の承認操作で修正案を採用し、その後の取り込み確定で初めて本データへ反映する。hasPendingProposal=trueは未承認の案があるだけで、適用・取り込み済みではない。acceptedResolutionCountは修正案の承認数で、反映済み行数ではない。heldは後で確認する保留であり削除・無視・反映済みと区別。解消できない範囲は保留し、確認できた表だけ先に進める。新しいファイルへ移動したら以前の質問・回答を流用しない。会話だけで回答保存・承認・確定はできず、専用操作へ案内する。restricted/unavailableなら個別ファイルの内容を知らないと伝える。`, suggestions: ["このファイルで最初に確認することは？", "保留と反映済みは何行？", "修正案を確認して進めるには？"] };

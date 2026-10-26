@@ -24,7 +24,7 @@ const db={from(table){let fields="",filters=[],range=null,single=false;const que
   }catch(error){reject(error);}}
 };return query;}};
 const never=()=>{throw new Error("Unexpected out-of-scope read");};
-const mocks={"server-only":{},"@/lib/auth/server":{getCurrentUserAccess:async()=>access()},"@/lib/supabase/admin":{createSupabaseAdminClient:()=>db},
+const mocks={"server-only":{},"@/lib/accounting/overview":{getAccountingOverview:never},"@/lib/auth/server":{getCurrentUserAccess:async()=>access()},"@/lib/supabase/admin":{createSupabaseAdminClient:()=>db},
   "@/lib/marketing/reviews":{getReviewSummary:never},"@/lib/feature-flags/resolve-feature-flags":{resolveFeatureFlags:never},
   "@/lib/bookings":{getBooking:never,listBookings:never,listCalendarBookings:never},"@/lib/bookings/constants":{bookingStatusLabels:{},bookingSourceLabels:{}},
   "@/lib/customer-workbench":{readCustomerWorkbench:never},"@/lib/customer-crm":{customerMatchesSegment:never},"@/lib/menu-workbench":{menuSales:never}};
@@ -73,3 +73,14 @@ const disconnected=await loadStoreAiContext(store,`${base}/marketing/reviews`);
 assert(disconnected.greeting.includes("接続と対象店舗"));
 assert(disconnected.links.some(link=>link.href===`${base}/settings/google`));
 console.log("Store AI review context: disabled features never offer connection links; enabled disconnected stores retain guidance.");
+
+mocks["@/lib/accounting/overview"].getAccountingOverview=async()=>({state:"ready",undatedCount:2,report:{month:"2026-10",total:24000,count:3,pendingCount:1,duplicateCount:1,invalidCount:0,hasNegative:false,breakdown:Array.from({length:24},(_,i)=>({label:`分類${i}`,amount:1000})),entries:[{vendor_name:"PRIVATE_VENDOR",storage_path:"PRIVATE_SOURCE"}]}});
+const accounting=await loadStoreAiContext(store,`${base}/sales-hub`,"tab=accounting&month=2026-10");
+assert.equal(accounting.pageLabel,"経理・月次経費");
+assert.equal(accounting.sections[0].key,"accounting");
+assert.equal(accounting.sections[0].data.categories.length,20);
+assert.equal(accounting.sections[0].truncated,true);
+assert(accounting.greeting.includes("24,000円")&&accounting.greeting.includes("確認待ち1件"));
+assert(!JSON.stringify(accounting).includes("PRIVATE"));
+assert(accounting.guidance.includes("全期間")&&accounting.guidance.includes("確認待ち"));
+console.log("Store AI accounting context: selected month, draft status, sales-period distinction, bounded categories and no raw receipt/vendor data passed.");

@@ -13,6 +13,9 @@ import { DataPreview } from "@/components/ui/data-preview";
 import { canEditStore } from "@/lib/auth/server";
 import { AioFunctionList } from "@/components/marketing/aio-function-list";
 import { StartSalesConversation } from "@/components/sales/sales-assistant";
+import { SalesHubTabs } from "@/components/sales/sales-hub-tabs";
+import { AccountingOverview } from "@/components/sales/accounting-overview";
+import { getAccountingOverview } from "@/lib/accounting/overview";
 
 function formatCurrency(value: number) {
   return `${Math.round(value).toLocaleString("ja-JP")}円`;
@@ -136,16 +139,20 @@ function SummaryTable({
   );
 }
 
-export default async function SalesHubPage({ params }: { params: Promise<{ storeId: string }> }) {
+export default async function SalesHubPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ tab?: string; month?: string }> }) {
   const { storeId } = await params;
+  const query = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const flags = resolveFeatureFlags(store);
   const salesReportsEnabled = isFeatureEnabled(flags, "sales_reports");
   const salesAiReportEnabled = isFeatureEnabled(flags, "sales_ai_report");
-  const report = salesReportsEnabled ? await getSalesReport(store.id) : null;
+  const [report, accounting] = await Promise.all([
+    salesReportsEnabled ? getSalesReport(store.id) : Promise.resolve(null),
+    getAccountingOverview(store.id, query.month)
+  ]);
   const unregistered = report && report.transactionCount === 0 ? await registeredDataCount(store.id, "sales_transactions") === 0 : false;
-  const editable = unregistered ? await canEditStore(store.id, store.organization_id) : false;
+  const editable = await canEditStore(store.id, store.organization_id);
   const groups = [
     { title: "書類・入金", body: "見積から請求、領収・入金確認までをまとめて進めます。", links: [
       [industry.businessLabels.estimate, `/stores/${store.id}/estimates`],
@@ -183,19 +190,21 @@ export default async function SalesHubPage({ params }: { params: Promise<{ store
       />
       <StoreBusinessNav store={store} />
 
-      {report ? (
-        <section className="sales-overview" id="overview">
-          <div className="section-heading"><div><p className="eyebrow">現在の売上</p><h2>売上概要</h2></div><Link className="text-link" href={`/stores/${store.id}/sales`}>取引明細を見る →</Link></div>
-          <div className="sales-overview-hero">
-            {unregistered ? <DataPreview title="売上を取り込むと、お店の変化が見えてきます" description="売上のCSV・Excelを取り込むと、月別の推移やよく売れている商品を確認できます。" importHref={editable ? `/stores/${store.id}/data-imports` : undefined}/> : <SalesTrendChart rows={report.monthly} />}
-            <div className="sales-kpi-stack" aria-label="売上の主要数値">
+      <SalesHubTabs
+        summary={report ? <div className="sales-shared-summary">
+            <p className="sales-summary-scope muted">売上の主要数値・登録済み全期間</p>
+            <div className="sales-kpi-strip" aria-label="売上の主要数値">
               <article className="card"><p className="muted">合計売上</p><div className="metric">{formatCurrency(report.totalSales)}</div></article>
               <article className="card"><p className="muted">取引件数</p><div className="metric">{report.transactionCount.toLocaleString("ja-JP")}件</div></article>
               <article className="card"><p className="muted">平均取引額</p><div className="metric">{formatCurrency(report.averageTransactionAmount)}</div><small>顧客単位の客単価とは区別しています</small></article>
             </div>
-          </div>
-        </section>
-      ) : <p className="notice">この店舗では売上レポートを利用しない設定です。見積・請求などは機能一覧から確認できます。</p>}
+          </div> : <p className="notice">この店舗では売上レポートを利用しない設定です。見積・請求などは機能一覧から確認できます。</p>}
+        sales={report ? <section className="sales-overview" id="overview">
+          <div className="sales-overview-links"><Link className="text-link" href={`/stores/${store.id}/sales`}>取引明細を見る →</Link></div>
+          {unregistered ? <DataPreview title="売上を取り込むと、お店の変化が見えてきます" description="売上のCSV・Excelを取り込むと、月別の推移やよく売れている商品を確認できます。" importHref={editable ? `/stores/${store.id}/data-imports/ai` : undefined}/> : <SalesTrendChart rows={report.monthly} />}
+        </section> : <p className="muted">売上レポートは利用対象外です。</p>}
+        accounting={<AccountingOverview result={accounting} storeId={store.id} editable={editable} />}
+      />
       <div className="sales-guided-entry"><StartSalesConversation/><small>必要なことを順番に確認し、下書きが入った編集画面へ案内します。</small></div>
       <AioFunctionList alerts={0}>
       {report ? <>

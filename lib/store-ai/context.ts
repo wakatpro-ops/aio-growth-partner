@@ -17,6 +17,7 @@ import { getStoreAiReadiness } from "./readiness";
 import { bookingFacts, bookingPeriod, contextGreeting, resolveAiPage, salesFacts, type AiContext, type AiPage, type AiSection } from "./context-rules";
 import { contextVersion, pageKnowledge } from "./knowledge";
 import { importDetailSection, type ImportContextJob, type ImportContextRow } from "./context-import-rules";
+import { getAccountingOverview } from "@/lib/accounting/overview";
 import type { Store } from "@/types/domain";
 import type { BusinessItem, InventoryStock } from "@/types/phase2";
 import type { AioGoal, AioImprovementTask } from "@/types/aio-improvement";
@@ -75,6 +76,15 @@ async function sales(db: Db, store: Store): Promise<AiSection> {
     const facts = salesFacts(transactions);
     return { state: facts.count ? "ready" : "empty", summary: facts.latest ? `最新の登録月（${facts.latest.month}）の売上は${facts.latest.amount.toLocaleString("ja-JP")}円です。` : "売上データはまだ登録されていません。", truncated: facts.monthly.length > 24, data: { ...facts, monthly: facts.monthly.slice(-24), scope: "取り込み済み全取引。日付のない期間・利益・経費は取得していない。", currency: "JPY" } };
   });
+}
+
+async function accounting(store: Store, page: AiPage): Promise<AiSection> {
+  const result = await getAccountingOverview(store.id, page.query.month);
+  if (result.state === "restricted") return { key: "accounting", label: "経理", state: "restricted", summary: "経理の集計は店長以上の権限で確認できます。" };
+  if (result.state === "unavailable") return { key: "accounting", label: "経理", state: "unavailable", summary: "経費を取得できませんでした。未登録や0円とは異なります。" };
+  const facts = result.report;
+  return { key: "accounting", label: "経理", state: facts.count ? "ready" : "empty", summary: `${facts.month}の登録経費は${facts.count}件、税込${facts.total.toLocaleString("ja-JP")}円です。${facts.pendingCount ? `内容の確認待ち${facts.pendingCount}件を含みます。` : ""}`, truncated: facts.breakdown.length > 20,
+    data: { month: facts.month, total: facts.total, count: facts.count, pendingCount: facts.pendingCount, duplicateCount: facts.duplicateCount, invalidCount: facts.invalidCount, hasNegative: facts.hasNegative, categories: facts.breakdown.slice(0, 20), undatedCount: result.undatedCount, scope: "選択月の登録経費。確認待ちを含む。重複候補・日付/金額不明は集計外。上段の売上は全期間で別集計。利益・支払完了や会計送信を意味しない。" } };
 }
 
 async function inventory(db: Db, store: Store, page: AiPage, manager: boolean): Promise<AiSection> {
@@ -169,7 +179,7 @@ export async function loadStoreAiContext(store: Store, pathname: string, search 
   const canEdit = mayEditStore(access, store.id, store.organization_id);
   const db = createSupabaseAdminClient();
   const readers: Partial<Record<typeof page.area, () => Promise<AiSection>>> = {
-    bookings: () => reservations(store, page), customers: () => customers(store, page), sales: () => sales(db!, store), inventory: () => inventory(db!, store, page, manager), reviews: () => reviews(db!, store), aio: () => aio(db!, store, page), marketing: () => marketing(db!, store), imports: () => importDetail(db, store, page, canEdit, manager)
+    bookings: () => reservations(store, page), customers: () => customers(store, page), sales: () => page.tab === "accounting" ? accounting(store, page) : sales(db!, store), inventory: () => inventory(db!, store, page, manager), reviews: () => reviews(db!, store), aio: () => aio(db!, store, page), marketing: () => marketing(db!, store), imports: () => importDetail(db, store, page, canEdit, manager)
   };
   const areas = page.area === "home" ? ["sales", "bookings", "inventory", "reviews", "marketing"] as const : page.area === "marketing" ? ["reviews", "marketing"] as const : [page.area];
   const sections = await Promise.all(areas.map(area => readers[area]).filter((reader): reader is () => Promise<AiSection> => Boolean(reader)).map(reader => reader()));
