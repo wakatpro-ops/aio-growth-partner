@@ -7,15 +7,17 @@ import { getAirRegiAdapter, requireAirRegiAdapter } from "./adapter";
 import type { AirRegiAdapter, AirRegiCredentials } from "./contracts";
 import { encryptAirRegiCredentials, decryptAirRegiCredentials } from "./secrets";
 import { validateAirRegiPage } from "./normalize";
+import { AirRegiBridgeError, airRegiTestStoreIds } from "./bridge";
 
 type Database = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
 export type AirRegiConnectionView = {
   id: string; external_store_name: string; status: string; revision: number;
   last_success_at: string | null; archived_at: string | null; last_error_code: string | null;
+  watermark: string | null; cursor: string | null;
 };
 const uuid = z.string().uuid();
 const identity = z.object({ externalStoreId: z.string().min(1).max(160), name: z.string().min(1).max(300) }).strict();
-const viewFields = "id,external_store_name,status,revision,last_success_at,archived_at,last_error_code";
+const viewFields = "id,external_store_name,status,revision,last_success_at,archived_at,last_error_code,watermark,cursor";
 
 async function ownerContext(storeId: string) {
   uuid.parse(storeId);
@@ -33,13 +35,19 @@ export async function getAirRegiSettings(storeId: string) {
   const { db } = await ownerContext(storeId);
   const { data, error } = await db.from("air_regi_connections").select(viewFields).eq("store_id", storeId).maybeSingle();
   if (error) throw new Error("Airレジ設定を取得できません。時間をおいてお試しください。");
-  return { ready: getAirRegiAdapter() !== null, connection: data as AirRegiConnectionView | null };
+  return { ready: getAirRegiAdapter() !== null && airRegiTestStoreIds().includes(storeId), connection: data as AirRegiConnectionView | null };
 }
 
-/** Not a server action/route. The future verified-adapter UI must confirm the
- * probed identity with the owner before calling this (no automatic binding). */
+export async function probeAirRegi(storeId: string, credentials: AirRegiCredentials) {
+  await ownerContext(storeId); // Authorize before transferring credentials.
+  if (!airRegiTestStoreIds().includes(storeId)) throw new Error("Airレジ接続は検証店舗限定です。");
+  return identity.parse(await requireAirRegiAdapter().probe(credentials, AbortSignal.timeout(20_000)));
+}
+
+/** Re-probe on commit; a client-provided identity is not proof of ownership. */
 export async function connectAirRegi(storeId: string, credentials: AirRegiCredentials, confirmedExternalStoreId: string) {
   const { db, access, store } = await ownerContext(storeId);
+  if (!airRegiTestStoreIds().includes(storeId)) throw new Error("Airレジ接続は検証店舗限定です。");
   const adapter = requireAirRegiAdapter(); // Gate before any credential transfer.
   const ciphertext = encryptAirRegiCredentials(credentials, store.organization_id, storeId);
   const verified = identity.parse(await adapter.probe(credentials, AbortSignal.timeout(20_000)));
@@ -49,6 +57,7 @@ export async function connectAirRegi(storeId: string, credentials: AirRegiCreden
     p_name: verified.name, p_ciphertext: ciphertext, p_spec: adapter.specificationVersion,
     p_interval: adapter.minimumIntervalSeconds
   });
+  if (error?.message.includes("air_regi_existing_sales_review_required")) throw new Error("air_regi_existing_sales_review_required");
   if (error) throw new Error("接続を保存できません。店舗の重複や削除済みの接続を確認してください。");
 }
 
@@ -57,7 +66,10 @@ export async function transitionAirRegi(storeId: string, id: string, action: str
   uuid.parse(id);
   z.enum(["pause", "resume", "archive", "restore"]).parse(action);
   z.number().int().positive().parse(revision);
-  if (action === "resume") requireAirRegiAdapter();
+  if (action === "resume") {
+    requireAirRegiAdapter();
+    if (!airRegiTestStoreIds().includes(storeId)) throw new Error("Airレジ接続は検証店舗限定です。");
+  }
   const { error } = await db.rpc("transition_air_regi_connection", {
     p_actor: access.userId, p_store: storeId, p_id: id, p_action: action, p_revision: revision
   });
@@ -89,7 +101,7 @@ export async function syncAirRegiConnection(db: Database, adapter: AirRegiAdapte
   } catch (error) {
     // Never retain raw provider errors, which can contain keys or customer data.
     const message = error instanceof Error ? error.message : "";
-    const code = message === "store_mismatch" ? "store_mismatch" : ["invalid_provider_data", "cursor_did_not_advance", "watermark_regressed", "watermark_before_last_page", "duplicate_source_id"].includes(message) ? "invalid_provider_data" : "sync_failed";
+    const code = error instanceof AirRegiBridgeError ? error.code : message === "store_mismatch" ? "store_mismatch" : ["invalid_provider_data", "cursor_did_not_advance", "watermark_regressed", "watermark_before_last_page", "duplicate_source_id"].includes(message) ? "invalid_provider_data" : "sync_failed";
     const failed = await db.rpc("fail_air_regi_sync", { p_id: id, p_lease: connection.lease_id, p_code: code });
     if (failed.error) throw new Error("sync_failure_record_failed");
     return { status: "error" as const, code };
@@ -98,11 +110,12 @@ export async function syncAirRegiConnection(db: Database, adapter: AirRegiAdapte
 
 export async function runAirRegiSync() {
   const adapter = getAirRegiAdapter();
-  if (!adapter) return { status: "awaiting_specification", synced: 0 }; // No DB or secret reads.
+  const allowed = airRegiTestStoreIds();
+  if (!adapter || !allowed.length) return { status: "awaiting_connection_setup", synced: 0 }; // No DB or secret reads.
   const db = createSupabaseAdminClient();
   if (!db) throw new Error("sync_database_unavailable");
   const { data, error } = await db.from("air_regi_connections").select("id")
-    .is("archived_at", null).in("status", ["active", "error"]).lte("next_sync_at", new Date().toISOString()).order("next_sync_at").limit(2);
+    .is("archived_at", null).in("store_id", allowed).in("status", ["active", "error"]).lte("next_sync_at", new Date().toISOString()).order("next_sync_at").limit(2);
   if (error) throw new Error("sync_connections_unavailable");
   const results = [];
   for (const connection of data ?? []) results.push(await syncAirRegiConnection(db, adapter, connection.id));

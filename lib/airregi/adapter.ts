@@ -1,16 +1,15 @@
 import "server-only";
 import type { AirRegiAdapter } from "./contracts";
+import { createAirRegiBridge } from "./bridge";
 
-/** No guessed URL/header, no production mock, no user-controlled outbound URL.
- * Replace only after Recruit supplies an official specification and test access.
- */
+/** No direct provider call from a shared/dynamic egress deployment. */
 export function getAirRegiAdapter(): AirRegiAdapter | null {
-  return null;
+  return createAirRegiBridge();
 }
 
 export function requireAirRegiAdapter() {
   const adapter = getAirRegiAdapter();
-  if (!adapter) throw new Error("Airレジ連携は提供元のAPI仕様確認待ちです。");
+  if (!adapter) throw new Error("Airレジ連携は接続環境の準備中です。");
   if (!adapter.specificationVersion || !Number.isInteger(adapter.minimumIntervalSeconds) || adapter.minimumIntervalSeconds < 60) {
     throw new Error("Airレジの同期設定を確認できません。");
   }

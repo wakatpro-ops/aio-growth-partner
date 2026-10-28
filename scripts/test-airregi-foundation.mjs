@@ -61,7 +61,7 @@ assert.throws(()=>secrets.decryptAirRegiCredentials(cipher,'org-1','store-2'));
 assert.throws(()=>secrets.decryptAirRegiCredentials(cipher.slice(0,-8)+'tampered','org-1','store-1'));
 assert.equal(adapter.getAirRegiAdapter(),null);
 assert.throws(()=>adapter.requireAirRegiAdapter());
-assert.deepEqual(await service.runAirRegiSync(),{status:'awaiting_specification',synced:0});
+assert.deepEqual(await service.runAirRegiSync(),{status:'awaiting_connection_setup',synced:0});
 assert.equal(databaseReads,0);
 assert.equal(aiRules.salesFacts([{business_date:'2026-10-13',gross_amount:1100},{business_date:'2026-10-13',gross_amount:0,source_metadata:{air_regi_state:'void'}}]).count,1,'AI must not count cancelled receipts');
 assert.match(aiKnowledge.pageKnowledge({area:'settings',pathname:'/stores/synthetic/settings/integrations/airregi'}).guidance,/実接続・自動取込を利用できない/);
