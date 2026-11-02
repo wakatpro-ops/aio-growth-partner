@@ -26,6 +26,6 @@ export async function syncSquareAction(storeId: string) {
     const result = await runSquareSync(storeId);
     if (result.failed) throw new Error("sync_failed");
     if (result.synced) done = "synced";
-  } catch { redirect(`${path(storeId)}?error=1`); }
+  } catch { redirect(`${path(storeId)}?error=sync`); }
   finish(storeId, done);
 }

@@ -44,8 +44,8 @@ async function ownerContext(storeId: string) {
   if (allowed.error || allowed.data !== true) throw new Error("店舗オーナーの権限が必要です。");
   return { store, access, db };
 }
-const viewFields = "id,external_store_name,environment,status,revision,last_success_at,last_error_code,archived_at,cursor";
-export type SquareConnectionView = { id: string; external_store_name: string; environment: SquareEnvironment; status: string; revision: number; last_success_at: string | null; last_error_code: string | null; archived_at: string | null; cursor: string | null };
+const viewFields = "id,external_store_name,environment,status,revision,last_success_at,last_error_code,next_sync_at,archived_at,cursor";
+export type SquareConnectionView = { id: string; external_store_name: string; environment: SquareEnvironment; status: string; revision: number; last_success_at: string | null; last_error_code: string | null; next_sync_at: string; archived_at: string | null; cursor: string | null };
 export async function getSquareSettings(storeId: string, pendingId?: string) {
   const { db, access, store } = await ownerContext(storeId);
   const [result, organization, credentialPresence] = await Promise.all([
