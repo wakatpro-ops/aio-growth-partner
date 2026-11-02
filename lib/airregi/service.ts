@@ -35,7 +35,10 @@ export async function getAirRegiSettings(storeId: string) {
   const { db } = await ownerContext(storeId);
   const { data, error } = await db.from("air_regi_connections").select(viewFields).eq("store_id", storeId).maybeSingle();
   if (error) throw new Error("Airレジ設定を取得できません。時間をおいてお試しください。");
-  return { ready: getAirRegiAdapter() !== null && airRegiTestStoreIds().includes(storeId), connection: data as AirRegiConnectionView | null };
+  const coverage = await db.from("sales_transactions").select("id", { count: "exact", head: true }).eq("store_id", storeId).eq("channel", "air_regi")
+    .eq("source_metadata->>financial_details_status", "unconfirmed");
+  if (coverage.error) throw new Error("Airレジの税額確認状況を取得できません。");
+  return { ready: getAirRegiAdapter() !== null && airRegiTestStoreIds().includes(storeId), connection: data as AirRegiConnectionView | null, unconfirmedCount: coverage.count ?? 0 };
 }
 
 export async function probeAirRegi(storeId: string, credentials: AirRegiCredentials) {
@@ -92,7 +95,7 @@ export async function syncAirRegiConnection(db: Database, adapter: AirRegiAdapte
     const credentials = decryptAirRegiCredentials(connection.encrypted_credentials, connection.organization_id, connection.store_id);
     const input = await adapter.readPage({ credentials, externalStoreId: connection.external_store_id, cursor: connection.cursor, watermark: connection.watermark, signal: AbortSignal.timeout(20_000) });
     const page = validateAirRegiPage(input, connection.external_store_id, connection.cursor, connection.watermark);
-    const result = await db.rpc("apply_air_regi_page", {
+    const result = await db.rpc("apply_air_regi_page_v2", {
       p_id: id, p_lease: connection.lease_id, p_external: page.externalStoreId,
       p_transactions: page.transactions, p_cursor: page.nextCursor, p_watermark: page.watermark
     });

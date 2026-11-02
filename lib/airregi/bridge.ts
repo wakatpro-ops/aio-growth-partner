@@ -5,7 +5,7 @@ import type { AirRegiAdapter } from "./contracts";
 // The provider-specific wire adapter stays in a private, fixed-egress worker.
 // Only AIOb's existing canonical representation crosses this boundary.
 const identity = z.object({ externalStoreId: z.string().min(1).max(160), name: z.string().min(1).max(300) }).strict();
-const protocolVersion = "aiob-pos-v1";
+const protocolVersion = "aiob-pos-v2";
 export function airRegiTestStoreIds() {
   const values = (process.env.AIRREGI_TEST_STORE_IDS ?? "").split(",").map(value => value.trim()).filter(Boolean);
   if (values.length > 20 || values.some(value => !z.string().uuid().safeParse(value).success)) return [];
@@ -68,7 +68,7 @@ export function createAirRegiBridge(): AirRegiAdapter | null {
     }
   }
   return {
-    specificationVersion: "airregi-private-bridge-v1",
+    specificationVersion: "airregi-private-bridge-v2",
     minimumIntervalSeconds: 300,
     async probe(credentials, signal) { return identity.parse(await call("probe", { credentials }, signal)); },
     async readPage(input) {

@@ -16,7 +16,7 @@ export default async function AirRegiSettingsPage({ params, searchParams }: {
   const { storeId } = await params;
   const store = await getStore(storeId);
   if (!await canManageOrganization(store.organization_id)) redirect("/forbidden");
-  const { connection, ready } = await getAirRegiSettings(storeId);
+  const { connection, ready, unconfirmedCount } = await getAirRegiSettings(storeId);
   const { done, error } = await searchParams;
   const success: Record<string, string> = {
     connect: "Airレジの接続を保存しました。売上は順に取り込みます。",
@@ -48,6 +48,7 @@ export default async function AirRegiSettingsPage({ params, searchParams }: {
     {ready && !connection?.archived_at ? connection?.status === "active" ? <details className="card"><summary>接続情報を更新する</summary><AirRegiConnectForm key={storeId} storeId={storeId} storeName={store.name} action={connectAirRegiAction} /></details> : <section className="card"><AirRegiConnectForm key={storeId} storeId={storeId} storeName={store.name} action={connectAirRegiAction} /></section> : null}
     {connection && !connection.archived_at ? <section className="card">
       <h2>この店舗の接続</h2>
+      {unconfirmedCount > 0 ? <p role="status" className="notice">税額の確認待ちが{unconfirmedCount}件あります。税込売上は反映済みです。税額・税抜金額・値引きは推測せず未確認とし、会計ソフト用の出力は保留しています。</p> : null}
       {connection.last_error_code ? <p role="alert" className="notice danger">{syncErrors[connection.last_error_code] ?? "取り込みを確認できませんでした。売上履歴は残っています。時間をおいても直らない場合はAIOb運営へお問い合わせください。"}</p> : null}
       <dl className="definition-list">
         <div><dt>Airレジ店舗</dt><dd>{connection.external_store_name}</dd></div>

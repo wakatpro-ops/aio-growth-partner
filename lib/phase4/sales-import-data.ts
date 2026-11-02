@@ -1,6 +1,7 @@
 import "server-only";
 import { EFFECTIVE_POS_SALES_FILTER, posTransactionState } from "../pos/transaction-state";
 import { itemAmountDifference } from "../pos/item-coverage";
+import { addKnownFinancialAmount, financialDetailsUnconfirmed } from "../pos/financial-details";
 import { catalogueNeedsReview } from "@/lib/onboarding/menu-candidates";
 import { createHash } from "node:crypto";
 import { getCurrentUserAccess } from "@/lib/auth/server";
@@ -697,9 +698,11 @@ function buildSalesSummaryRows(
       };
       current.transaction_count = Number(current.transaction_count) + 1;
       current.gross_amount = Number(current.gross_amount) + amount;
-      current.discount_amount = Number(current.discount_amount) + Number(transaction.discount_amount ?? 0);
-      current.tax_amount = Number(current.tax_amount) + Number(transaction.tax_amount ?? 0);
-      current.net_amount = Number(current.net_amount) + Number(transaction.net_amount ?? 0);
+      current.discount_amount = addKnownFinancialAmount(current.discount_amount, transaction.discount_amount);
+      current.tax_amount = addKnownFinancialAmount(current.tax_amount, transaction.tax_amount);
+      current.net_amount = addKnownFinancialAmount(current.net_amount, transaction.net_amount);
+      const metadata = current.metadata as Record<string, unknown>;
+      metadata.financial_details_unconfirmed_count = Number(metadata.financial_details_unconfirmed_count ?? 0) + Number(financialDetailsUnconfirmed(transaction.source_metadata));
       summaries.set(key, current);
     }
   }
@@ -834,6 +837,7 @@ export async function getSalesReport(storeId: string): Promise<SalesReport> {
 
   return {
     itemBreakdownIncomplete: (unallocatedSquareCount ?? 0) > 0 || itemAmountDifference(totalSales, summaries.filter(row => row.summary_type === "item").map(row => Number(row.gross_amount ?? 0))) !== 0,
+    financialDetailsUnconfirmedCount: monthly.reduce((sum, row) => sum + Number((row.metadata as Record<string, unknown> | undefined)?.financial_details_unconfirmed_count ?? 0), 0),
     totalSales,
     transactionCount,
     averageTransactionAmount: transactionCount > 0 ? totalSales / transactionCount : 0,

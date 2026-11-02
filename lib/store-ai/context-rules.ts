@@ -46,7 +46,7 @@ export function bookingFacts<T extends { status: string; archived_at?: string | 
     pendingCount: bookings.filter(row => row.status === "pending").length };
 }
 
-export function salesFacts(rows: Array<{ business_date: string; gross_amount: number | string; source_metadata?: { air_regi_state?: string; square_pos_state?: string } }>) {
+export function salesFacts(rows: Array<{ business_date: string; gross_amount: number | string; source_metadata?: { air_regi_state?: string; square_pos_state?: string; financial_details_status?: string } }>) {
   const effective = rows.filter(row => row.source_metadata?.air_regi_state !== "void" && row.source_metadata?.square_pos_state !== "void");
   const months = new Map<string, { month: string; amount: number; count: number }>();
   for (const row of effective) {
@@ -57,7 +57,9 @@ export function salesFacts(rows: Array<{ business_date: string; gross_amount: nu
   }
   const monthly = [...months.values()].sort((a, b) => a.month.localeCompare(b.month));
   const total = monthly.reduce((sum, row) => sum + row.amount, 0);
-  return { total, count: effective.length, average: effective.length ? Math.round(total / effective.length) : null, monthly, latest: monthly.at(-1) ?? null };
+  const financialDetailsUnconfirmedCount = effective.filter(row => row.source_metadata?.financial_details_status === "unconfirmed").length;
+  return { total, count: effective.length, average: effective.length ? Math.round(total / effective.length) : null, monthly, latest: monthly.at(-1) ?? null,
+    ...(financialDetailsUnconfirmedCount ? { financialDetailsUnconfirmedCount, financialDetailsNote: "税込売上は反映済み。税額・税抜金額・値引きは未確認です。税込額から推測で税額や利益を計算しないでください。" } : {}) };
 }
 
 export function contextGreeting(label: string, sections: AiSection[]) {

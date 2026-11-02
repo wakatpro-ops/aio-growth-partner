@@ -188,6 +188,7 @@ export default async function SalesHubPage({ params, searchParams }: { params: P
         description="お店の変化をひと目で。書類や次の操作は、AIと一緒に準備できます。"
         action={<Link className="button" href={`/stores/${store.id}/data-imports/ai`}>売上・経費データを取り込む</Link>}
       />
+      {report && (report.financialDetailsUnconfirmedCount ?? 0) > 0 ? <p className="notice" role="status">税額の確認待ちが{report.financialDetailsUnconfirmedCount}件あります。税込売上はグラフに反映済みです。税額・税抜金額・値引きは未確認のため、会計ソフト用の出力は保留しています。</p> : null}
       <StoreBusinessNav store={store} />
 
       <SalesHubTabs

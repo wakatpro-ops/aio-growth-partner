@@ -19,9 +19,9 @@ function shortMessage(value: unknown) {
   return value.length > 120 ? `${value.slice(0, 120)}...` : value;
 }
 
-export default async function AccountingExportsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ freeeSent?: string; freeeFailed?: string }> }) {
+export default async function AccountingExportsPage({ params, searchParams }: { params: Promise<{ storeId: string }>; searchParams: Promise<{ freeeSent?: string; freeeFailed?: string; exportBlocked?: string }> }) {
   const { storeId } = await params;
-  const { freeeSent, freeeFailed } = await searchParams;
+  const { freeeSent, freeeFailed, exportBlocked } = await searchParams;
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const [invoices, exports, jobs, freee] = await Promise.all([
@@ -48,6 +48,8 @@ export default async function AccountingExportsPage({ params, searchParams }: { 
         )}
       />
       <StoreBusinessNav store={store} />
+      {exportBlocked === "unconfirmed" ? <p className="notice" role="alert">税額・税抜金額の確認待ちの売上があるため、freee向けCSVは出力していません。税込売上は引き続き確認できます。請求書だけの汎用CSVは利用できます。</p> : null}
+      {exportBlocked === "unavailable" ? <p className="notice" role="alert">売上の税額確認状況を取得できないため、freee向けCSVは出力していません。時間をおいてお試しください。</p> : null}
       {freeeSent ? (
         <p className={Number(freeeFailed ?? 0) > 0 ? "notice" : "notice success"}>
           freeeへ{Number(freeeSent).toLocaleString("ja-JP")}件送信しました。

@@ -32,7 +32,7 @@ const keys=['AIRREGI_ENABLED','AIRREGI_EGRESS_APPROVED','AIRREGI_BRIDGE_URL','AI
 const before=Object.fromEntries(keys.map(k=>[k,process.env[k]])), originalFetch=globalThis.fetch;
 const config={AIRREGI_ENABLED:'true',AIRREGI_EGRESS_APPROVED:'true',AIRREGI_BRIDGE_URL:'https://pos-worker.example.test/v1/air-regi',AIRREGI_BRIDGE_AUTH_SECRET:'synthetic-bridge-secret-'.repeat(3),AIRREGI_TOKEN_ENCRYPTION_KEY:'synthetic-encryption-key-'.repeat(3),AIRREGI_TEST_STORE_IDS:'11111111-1111-4111-8111-111111111111'};
 const credentials={apiKey:'synthetic-key',apiToken:'synthetic-token'},storeId='11111111-1111-4111-8111-111111111111';
-const response=data=>new Response(JSON.stringify({protocolVersion:'aiob-pos-v1',data}),{headers:{'content-type':'application/json'}});
+const response=data=>new Response(JSON.stringify({protocolVersion:'aiob-pos-v2',data}),{headers:{'content-type':'application/json'}});
 try {
   for(const k of keys)delete process.env[k];assert.equal(adapter.getAirRegiAdapter(),null);
   Object.assign(process.env,config);
@@ -47,13 +47,13 @@ try {
   await a.probe(credentials,AbortSignal.timeout(1000));
   assert.equal(requests[0].url,config.AIRREGI_BRIDGE_URL);assert.equal(requests[0].options.redirect,'error');assert.equal(requests[0].options.cache,'no-store');
   assert.equal(requests[0].options.headers.authorization,`Bearer ${config.AIRREGI_BRIDGE_AUTH_SECRET}`);
-  assert.equal(JSON.parse(requests[0].options.body).protocolVersion,'aiob-pos-v1');
+  assert.equal(JSON.parse(requests[0].options.body).protocolVersion,'aiob-pos-v2');
   assert(!requests[0].url.includes(credentials.apiToken));
   for(const factory of [()=>new Response('private html',{headers:{'content-type':'text/html'}}),()=>new Response('private-error',{status:502,headers:{'content-type':'application/json'}}),()=>response('bad identity'),()=>new Response(JSON.stringify({protocolVersion:'wrong',data:{}}),{headers:{'content-type':'application/json'}}),()=>new Response('x'.repeat(2*1024*1024+1),{headers:{'content-type':'application/json'}})]) {
     globalThis.fetch=async()=>factory();
     await assert.rejects(()=>a.probe(credentials,AbortSignal.timeout(1000)));
   }
-  globalThis.fetch=async()=>new Response(JSON.stringify({protocolVersion:'aiob-pos-v1',error:'authentication_required'}),{status:502,headers:{'content-type':'application/json'}});
+  globalThis.fetch=async()=>new Response(JSON.stringify({protocolVersion:'aiob-pos-v2',error:'authentication_required'}),{status:502,headers:{'content-type':'application/json'}});
   await assert.rejects(()=>a.probe(credentials,AbortSignal.timeout(1000)),error=>error instanceof bridge.AirRegiBridgeError&&error.code==='authentication_required');
   globalThis.fetch=async()=>{throw new Error('private upstream '+credentials.apiToken);};
   await assert.rejects(()=>a.probe(credentials,AbortSignal.timeout(1000)),error=>error.message==='sync_failed'&&!JSON.stringify(error).includes(credentials.apiToken));

@@ -56,7 +56,7 @@ export default async function SalesPage({ params }: { params: Promise<{ storeId:
                   <td>{new Date(transaction.business_date).toLocaleDateString("ja-JP")}</td>
                   <td>{item?.item_name ?? "-"}{transaction.source_metadata?.air_regi_state === "void" || transaction.source_metadata?.square_pos_state === "void" ? <span className="badge">取消済み</span> : transaction.source_metadata?.air_regi_state === "refund" || transaction.source_metadata?.square_pos_state === "refund" ? <span className="badge">返金</span> : null}</td>
                   <td>{item?.quantity ?? "-"}</td>
-                  <td>{formatCurrency(transaction.gross_amount)}</td>
+                  <td>{formatCurrency(transaction.gross_amount)}{transaction.source_metadata?.financial_details_status === "unconfirmed" ? <span className="badge">税込売上反映済み・税額確認待ち</span> : null}</td>
                   <td>{transaction.payment_method ?? "-"}</td>
                   <td>{transaction.data_source?.name ?? "-"}</td>
                   <td>{new Date(transaction.created_at).toLocaleString("ja-JP")}</td>
