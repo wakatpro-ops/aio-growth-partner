@@ -9,6 +9,7 @@ import { decryptSquareTokens, encryptSquareTokens } from "./secrets";
 import { normalizeSquareOrder, squareSyncWindow } from "./normalize";
 import { squareAllowed, squareAuthorizationUrl, squareEnvironment, squareRedirect, squareStateHash, squareOAuthStep, SQUARE_SPEC, type SquareEnvironment } from "./policy";
 import { transactionSchema } from "../airregi/contracts";
+import { squareSyncFailure, squareOrderShape, type SquareSyncStage } from "./sync-failure";
 
 type Database = NonNullable<ReturnType<typeof createSupabaseAdminClient>>;
 const uuid = z.string().uuid();
@@ -43,8 +44,8 @@ async function ownerContext(storeId: string) {
   if (allowed.error || allowed.data !== true) throw new Error("店舗オーナーの権限が必要です。");
   return { store, access, db };
 }
-const viewFields = "id,external_store_name,environment,status,revision,last_success_at,last_error_code,archived_at,cursor";
-export type SquareConnectionView = { id: string; external_store_name: string; environment: SquareEnvironment; status: string; revision: number; last_success_at: string | null; last_error_code: string | null; archived_at: string | null; cursor: string | null };
+const viewFields = "id,external_store_name,environment,status,revision,last_success_at,last_error_code,next_sync_at,archived_at,cursor";
+export type SquareConnectionView = { id: string; external_store_name: string; environment: SquareEnvironment; status: string; revision: number; last_success_at: string | null; last_error_code: string | null; next_sync_at: string; archived_at: string | null; cursor: string | null };
 export async function getSquareSettings(storeId: string, pendingId?: string) {
   const { db, access, store } = await ownerContext(storeId);
   const [result, organization, credentialPresence] = await Promise.all([
@@ -126,20 +127,27 @@ export async function syncSquareConnection(db: Database, config: SquareConfig, c
   if (claimed.error) throw new Error("square_claim_failed");
   if (!claimed.data) return { status: "skipped" as const };
   const connection = claimed.data as Claimed;
+  let stage: SquareSyncStage = "credentials";
+  let orderShape: ReturnType<typeof squareOrderShape> | undefined;
   try {
     if (!squareAllowed(connection.store_id) || connection.environment !== config.environment || connection.external_store_id !== `${config.environment}:${connection.merchant_id}:${connection.location_id}`) throw new Error("store_mismatch");
     let tokens = decryptSquareTokens(connection.encrypted_credentials, connection.organization_id, connection.store_id);
     if (tokens.merchantId !== connection.merchant_id) throw new Error("store_mismatch");
     if (Date.parse(tokens.expiresAt) - Date.now() < 7 * 86400_000) {
+      stage = "refresh";
       tokens = await config.client.refresh(tokens);
       const refreshed = await db.rpc("refresh_square_pos_credentials", { p_id: connection.id, p_lease: connection.lease_id, p_previous: connection.encrypted_credentials, p_ciphertext: encryptSquareTokens(tokens, connection.organization_id, connection.store_id), p_expires: tokens.expiresAt });
       if (refreshed.error || refreshed.data !== true) throw new Error("square_reconnect_required");
     }
+    stage = "locations";
     if (!(await config.client.locations(tokens)).some(x => x.id === connection.location_id)) throw new Error("square_reconnect_required");
+    stage = "orders";
     const window = squareSyncWindow(connection.watermark, connection.cursor);
     const input = await config.client.orders(tokens, connection.location_id, window.start, window.end, window.cursor);
     if (input.cursor && input.cursor === window.cursor) throw new Error("invalid_provider_data");
+    stage = "normalize";
     const transactions = input.orders.map(order => {
+      orderShape = squareOrderShape(order);
       // Validate every record, including ignored OPEN orders, before checkpointing.
       const row = z.object({ id, location_id: id, updated_at: z.string().datetime({ offset: true }) }).parse(order);
       if (row.location_id !== connection.location_id) throw new Error("store_mismatch");
@@ -147,12 +155,14 @@ export async function syncSquareConnection(db: Database, config: SquareConfig, c
       return normalizeSquareOrder(order, connection.location_id);
     }).filter((value): value is z.infer<typeof transactionSchema> => value !== null);
     if (new Set(transactions.map(x => x.sourceId)).size !== transactions.length || Buffer.byteLength(JSON.stringify(transactions)) > 2 * 1024 * 1024) throw new Error("invalid_provider_data");
+    stage = "persist";
     const result = await db.rpc("apply_square_pos_page", { p_id: connection.id, p_lease: connection.lease_id, p_external: connection.external_store_id, p_transactions: transactions, p_cursor: input.cursor ? JSON.stringify({ start: window.start, end: window.end, cursor: input.cursor }) : null, p_watermark: input.cursor ? connection.watermark : window.end });
-    if (result.error) throw new Error("sync_failed");
+    if (result.error) throw Object.assign(new Error(result.error.message), { code: result.error.code });
     return { status: "synced" as const, ...(result.data as { changed: number; has_more: boolean }) };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "";
-    const code = ["store_mismatch", "square_unavailable", "square_rate_limited", "square_reconnect_required"].includes(message) ? message : "invalid_provider_data";
+    const failure = squareSyncFailure(stage, error);
+    const code = stage === "persist" ? "sync_failed" : failure.code;
+    console.error("square_sync_failed", { ...failure, connectionId: connection.id, ...(stage === "normalize" ? { orderShape } : {}) });
     const failed = await db.rpc("fail_square_pos_sync", { p_id: connection.id, p_lease: connection.lease_id, p_code: code });
     if (failed.error) throw new Error("square_failure_record_failed");
     return { status: "error" as const, code };

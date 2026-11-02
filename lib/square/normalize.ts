@@ -7,6 +7,13 @@ function money(value: unknown, fallback?: number): number {
   if (value === undefined && fallback !== undefined) return fallback;
   return z.object({ currency: z.literal("JPY"), amount: z.number().int().min(-999_999_999_999).max(999_999_999_999) }).parse(value).amount;
 }
+function lineName(value: unknown): string {
+  // Square's OrderLineItem.name is optional (e.g. a custom-amount POS sale).
+  // This is an explicit unknown label, not an inferred product or a zero-price
+  // substitute. Keep the original line identity, amounts, tax and quantity.
+  if (value == null || (typeof value === "string" && !value.trim())) return "名称未設定（Square）";
+  return z.string().trim().min(1).max(300).parse(value);
+}
 // Signed net amounts are authoritative: never subtract both returns and refunds.
 // Complex return/exchange rows remain financially accurate without invented items.
 export function normalizeSquareOrder(input: unknown, locationId: string) {
@@ -31,7 +38,7 @@ export function normalizeSquareOrder(input: unknown, locationId: string) {
   const paymentMethod = methods.length > 1 ? "複数の支払方法" : ({ CASH: "現金", CARD: "カード", SQUARE_GIFT_CARD: "ギフトカード", OTHER: "その他" }[methods[0]] ?? methods[0] ?? "未設定");
   const lines = z.array(object).max(500).parse(o.line_items ?? []);
   const items = hasReturns || amount < 0 ? [] : lines.map(line => ({
-    sourceItemId: identifier.parse(line.uid), name: z.string().min(1).max(300).parse(line.name), category: null,
+    sourceItemId: identifier.parse(line.uid), name: lineName(line.name), category: null,
     quantity: z.coerce.number().positive().parse(line.quantity), unitPriceMinor: money(line.base_price_money),
     amountMinor: money(line.total_money), taxMinor: money(line.total_tax_money, 0), discountMinor: money(line.total_discount_money, 0)
   }));

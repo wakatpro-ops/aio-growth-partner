@@ -23,6 +23,10 @@ const policy = load('lib/square/policy.ts'), clientModule = load('lib/square/cli
 const secrets = load('lib/square/secrets.ts'), normalizer = load('lib/square/normalize.ts');
 const coverage = load('lib/pos/item-coverage.ts');
 const service = load('lib/square/service.ts'), ai = load('lib/store-ai/context-rules.ts');
+const syncFailure = load('lib/square/sync-failure.ts');
+assert.deepEqual(syncFailure.squareSyncFailure('persist',Object.assign(new Error('conflicting_revision'),{code:'P0001'})),{stage:'persist',code:'invalid_provider_data',databaseCode:'P0001',databaseReason:'conflicting_revision'});
+assert(!JSON.stringify(syncFailure.squareSyncFailure('orders',new Error('private token customer name'))).includes('private token'));
+assert(!JSON.stringify(syncFailure.squareOrderShape({line_items:[{uid:'private:identifier',name:'private customer name'}]})).includes('private'));
 const state = 'x'.repeat(43), callback = 'https://staging.aioboost.jp/api/square/oauth/callback';
 const authorization = new URL(policy.squareAuthorizationUrl('sandbox','sandbox-sq0idb-synthetic',callback,state));
 assert.equal(authorization.hostname,'connect.squareupsandbox.com');
@@ -74,6 +78,19 @@ const updated=new Date(Date.now()-120_000).toISOString();
 const sale={id:'order1',location_id:'location',state:'COMPLETED',updated_at:updated,closed_at:'2026-10-24T01:00:00+09:00',total_money:money(1100),total_tax_money:money(100),total_discount_money:money(0),tenders:[{type:'CASH'}],line_items:[{uid:'line1',name:'架空定食',quantity:'1',base_price_money:money(1000),total_money:money(1100),total_tax_money:money(100)}]};
 assert.equal(normalizer.normalizeSquareOrder(sale,'location').businessDate,'2026-10-24');
 assert.equal(normalizer.normalizeSquareOrder(sale,'location').paymentMethod,'現金');
+// OrderLineItem.name is optional in the official Square API, including real POS
+// custom-amount sales. A missing label must not block the whole import page.
+for (const absent of [undefined,null,'','  ']) {
+  const unnamed=normalizer.normalizeSquareOrder({...sale,line_items:[{...sale.line_items[0],name:absent}]},'location');
+  assert.equal(unnamed.items[0].name,'名称未設定（Square）');
+  assert.equal(unnamed.items[0].sourceItemId,'line1');
+  assert.equal(unnamed.items[0].amountMinor,1100);
+  assert.equal(unnamed.items[0].taxMinor,100);
+  assert.equal(unnamed.amountMinor,1100);
+  assert.equal(unnamed.adjustmentMinor,0);
+}
+assert.throws(()=>normalizer.normalizeSquareOrder({...sale,line_items:[{...sale.line_items[0],name:123}]},'location'),'invalid values are not silently accepted');
+assert.throws(()=>normalizer.normalizeSquareOrder({...sale,line_items:[{...sale.line_items[0],name:undefined,total_money:{amount:1100,currency:'USD'}}]},'location'),'unnamed items still require valid financial data');
 assert.equal(normalizer.normalizeSquareOrder({...sale,state:'CANCELED'},'location').kind,'void');
 assert.equal(normalizer.normalizeSquareOrder({...sale,state:'OPEN'},'location'),null);
 assert.throws(()=>normalizer.normalizeSquareOrder({...sale,state:'UNKNOWN'},'location'));
@@ -131,6 +148,11 @@ assert.equal((await service.syncSquareConnection(db,config,'c')).status,'synced'
 assert.equal(applied.p_transactions[0].sourceId,'order1');
 assert.equal(applied.p_external,'sandbox:merchant:location');
 assert.equal(applied.p_cursor,null); assert(applied.p_watermark);
+const anonymousPage={...config,client:{locations:async()=>[location],orders:async()=>({orders:Array.from({length:100},(_,index)=>({...sale,id:`order${index}`,line_items:[{...sale.line_items[0],name:undefined}]}))})}};
+assert.equal((await service.syncSquareConnection(db,anonymousPage,'c')).status,'synced');
+assert.equal(applied.p_transactions.length,100);
+assert.equal(applied.p_transactions.reduce((total,row)=>total+row.amountMinor,0),110000);
+assert.equal(applied.p_transactions.every(row=>row.items[0].name==='名称未設定（Square）'),true);
 applied=null;
 const wrong={...config,client:{locations:async()=>[location],orders:async()=>({orders:[{...sale,location_id:'other'}]})}};
 assert.equal((await service.syncSquareConnection(db,wrong,'c')).status,'error'); assert.equal(failed,'store_mismatch'); assert.equal(applied,null);

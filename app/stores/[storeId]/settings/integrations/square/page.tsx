@@ -18,7 +18,7 @@ export default async function SquareSettingsPage({ params, searchParams }: {
   const messages: Record<string, string> = {
     connected: "この店舗へのSquare連携を設定しました。売上の初回取り込みを開始できます。",
     synced: "Squareの差分を確認し、取得できた売上を反映しました。",
-    sync_wait: "直前の処理中、または次回同期まで待機中です。1分ほど待ってから確認してください。",
+    sync_wait: "取り込みはまだ実行されていません。処理中、または次回の自動同期まで待機しています。下の接続状態と再試行予定をご確認ください。",
     pause: "自動同期を停止しました。売上履歴は残っています。",
     resume: "自動同期を再開しました。",
     archive: "接続を削除済みに移しました。接続情報を消去し、売上履歴は残しています。",
@@ -28,7 +28,7 @@ export default async function SquareSettingsPage({ params, searchParams }: {
     <PageHeader title="Square売上連携" description="今のSquareを使い続けて、売上をAIObへ。接続する店舗を必ず確認します。" />
     <p><Link href={`/stores/${storeId}/settings/integrations`}>← 外部連携へ戻る</Link></p>
     {query.done && messages[query.done] ? <p className="notice success" role="status">{messages[query.done]}</p> : null}
-    {query.error ? <p className="notice danger" role="alert">{query.error === "overlap" ? "Squareの売上がCSVから取り込み済みです。二重計上を防ぐため接続を保留しました。再接続を繰り返さず、運営へ切替期間をご相談ください。" : "接続先の重複、権限、設定の変更、またはSquareの応答を確認する必要があります。再接続して店舗を確認してください。"}</p> : null}
+    {query.error ? <p className="notice danger" role="alert">{query.error === "overlap" ? "Squareの売上がCSVから取り込み済みです。二重計上を防ぐため接続を保留しました。再接続を繰り返さず、運営へ切替期間をご相談ください。" : query.error === "sync" ? "売上の取り込みを完了できませんでした。下の接続状態をご確認ください。データの確認が必要な場合は、再接続を繰り返す必要はありません。" : "接続の設定を変更できませんでした。権限や接続先を確認し、画面を開き直してください。"}</p> : null}
     {query.pending && !pending ? <p className="notice danger">接続先の確認期限が切れたか、設定が変わりました。もう一度Squareへ接続してください。</p> : null}
     <section className="card">
       <span className="badge">{environment === "sandbox" ? "テスト環境・架空データのみ" : "読み取り専用"}</span>
@@ -55,8 +55,9 @@ export default async function SquareSettingsPage({ params, searchParams }: {
         <div><dt>Square店舗</dt><dd>{connection.external_store_name}</dd></div>
         <div><dt>状態</dt><dd>{!ready ? "保存済み・同期は無効" : !hasCredentials ? "再接続が必要" : connection.status === "active" ? connection.cursor ? "初回・差分取り込み中" : "自動同期中" : connection.status === "error" ? "再試行待ち" : "停止中"}</dd></div>
         <div><dt>最終取り込み</dt><dd>{connection.last_success_at ? new Date(connection.last_success_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "まだ取り込んでいません"}</dd></div>
+        {ready && connection.status === "error" ? <div><dt>次回の自動再試行</dt><dd>{new Date(connection.next_sync_at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}</dd></div> : null}
       </dl>
-      {connection.last_error_code ? <p className="notice danger">{connection.last_error_code === "square_reconnect_required" || connection.last_error_code === "authorization_revoked" ? "接続を許可したアカウントの権限・有効期限を確認して、Squareを再接続してください。" : "Squareの同期で確認が必要です。未確認のデータは反映せず、前回までの売上を保持しています。"}</p> : null}
+      {connection.last_error_code ? <p className="notice danger">{connection.last_error_code === "square_reconnect_required" || connection.last_error_code === "authorization_revoked" ? "接続を許可したアカウントの権限・有効期限を確認して、Squareを再接続してください。" : connection.last_error_code === "square_rate_limited" || connection.last_error_code === "square_unavailable" ? "Squareへの接続が一時的に混み合っているか、応答がありません。時間をおいて自動で再試行します。前回までの売上は保持しています。" : "取得データの変換または保存で確認が必要です。再接続では解決しない場合があるため、運営が原因を確認します。未確認のデータは反映せず、前回までの売上を保持しています。"}</p> : null}
       <div className="actions-row">
         {ready && hasCredentials && ["active", "error"].includes(connection.status) ? <form action={syncSquareAction.bind(null, storeId)}><PendingSubmitButton>売上を取り込む</PendingSubmitButton></form> : null}
         {["active", "error"].includes(connection.status) ? <form action={transitionSquareAction.bind(null, storeId, connection.id, "pause", connection.revision)}><PendingSubmitButton className="button secondary">自動同期を停止</PendingSubmitButton></form> : ready && hasCredentials ? <form action={transitionSquareAction.bind(null, storeId, connection.id, "resume", connection.revision)}><PendingSubmitButton>自動同期を再開</PendingSubmitButton></form> : null}
