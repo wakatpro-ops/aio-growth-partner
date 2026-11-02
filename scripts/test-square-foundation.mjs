@@ -23,6 +23,10 @@ const policy = load('lib/square/policy.ts'), clientModule = load('lib/square/cli
 const secrets = load('lib/square/secrets.ts'), normalizer = load('lib/square/normalize.ts');
 const coverage = load('lib/pos/item-coverage.ts');
 const service = load('lib/square/service.ts'), ai = load('lib/store-ai/context-rules.ts');
+const syncFailure = load('lib/square/sync-failure.ts');
+assert.deepEqual(syncFailure.squareSyncFailure('persist',Object.assign(new Error('conflicting_revision'),{code:'P0001'})),{stage:'persist',code:'invalid_provider_data',databaseCode:'P0001',databaseReason:'conflicting_revision'});
+assert(!JSON.stringify(syncFailure.squareSyncFailure('orders',new Error('private token customer name'))).includes('private token'));
+assert(!JSON.stringify(syncFailure.squareOrderShape({line_items:[{uid:'private:identifier',name:'private customer name'}]})).includes('private'));
 const state = 'x'.repeat(43), callback = 'https://staging.aioboost.jp/api/square/oauth/callback';
 const authorization = new URL(policy.squareAuthorizationUrl('sandbox','sandbox-sq0idb-synthetic',callback,state));
 assert.equal(authorization.hostname,'connect.squareupsandbox.com');
