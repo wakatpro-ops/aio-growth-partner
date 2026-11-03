@@ -9,6 +9,7 @@ import { getGoogleIntegrationState } from "@/lib/phase5/google-integrations";
 import { listGrowthActions } from "@/lib/phase5/growth-actions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
+import { getStoreHomeMetrics } from "@/lib/store-home-metrics";
 import type { IndustryTypeKey, Store } from "@/types/domain";
 import type { GrowthAction } from "@/types/phase5";
 
@@ -21,6 +22,7 @@ export type CommandCenterMetric = {
   href: string;
   available: boolean;
   points: number[];
+  visual?: "bookings" | "rating";
 };
 
 export type CommandCenterTask = {
@@ -129,13 +131,16 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
     reservations: operatingModel.systems.reservations.authority !== "not_managed" && operatingModel.operations.serviceMode !== "not_used",
     customers: operatingModel.systems.customers.authority !== "not_managed"
   };
-  const [salesResult, stocksResult, alertsResult, growthResult, googleResult, imagesResult] = await Promise.allSettled([
-    getSalesReport(store.id),
-    listInventoryStocks(store.id),
-    listInventoryAlerts(store.id),
-    listGrowthActions(store.id),
-    getGoogleIntegrationState(store.id),
-    socialImages(store.id)
+  const [[salesResult, stocksResult, alertsResult, growthResult, googleResult, imagesResult], home] = await Promise.all([
+    Promise.allSettled([
+      getSalesReport(store.id),
+      listInventoryStocks(store.id),
+      listInventoryAlerts(store.id),
+      listGrowthActions(store.id),
+      getGoogleIntegrationState(store.id),
+      socialImages(store.id)
+    ]),
+    getStoreHomeMetrics(store.id)
   ]);
   const sales = settledValue(salesResult, { itemBreakdownIncomplete: false, totalSales: 0, transactionCount: 0, averageTransactionAmount: 0, daily: [], monthly: [], items: [], paymentMethods: [] });
   const stocks = settledValue(stocksResult, []);
@@ -149,8 +154,6 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
   const previousMonth = monthly.at(-2) ?? null;
   const salesChange = currentMonth && previousMonth ? percentChange(currentMonth.amount, previousMonth.amount) : null;
   const daily = [...sales.daily].sort((a, b) => a.label.localeCompare(b.label)).slice(-14);
-  const currentTransactions = currentMonth?.count ?? 0;
-  const averageTransaction = currentTransactions ? (currentMonth?.amount ?? 0) / currentTransactions : 0;
   const lowStocks = stocks.filter((stock) => Number(stock.quantity) <= Number(stock.reorder_point));
   const activeInventoryAlerts = inventoryAlerts.filter((alert) => !["resolved", "done", "archived"].includes(String(alert.status)));
   const unansweredReviews = google.reviews.filter((review) => !review.google_reply_text && review.reply_status !== "published");
@@ -226,12 +229,19 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
     recommendation = "AIで返信下書きを作り、内容を確認してから公開できます。";
   }
 
-  const metrics: CommandCenterMetric[] = [
-    { key: "sales", label: "直近月の売上", value: currentMonth ? yen(currentMonth.amount) : "未取得", change: salesChange, changeLabel: metricChangeLabel(salesChange, "前月比"), href: `/stores/${store.id}/sales-hub#reports`, available: Boolean(currentMonth), points: monthly.slice(-8).map((item) => item.amount) },
-    { key: "transactions", label: store.industry_type_key === "restaurant" ? "取引数" : "取引・会計件数", value: currentMonth ? `${currentTransactions.toLocaleString("ja-JP")}件` : "未取得", change: null, changeLabel: currentMonth?.label ?? "売上データ未取得", href: `/stores/${store.id}/sales-hub`, available: Boolean(currentMonth), points: daily.map((item) => item.count) },
-    { key: "average", label: store.industry_type_key === "restaurant" ? "平均取引額" : "平均取引額", value: currentMonth ? yen(averageTransaction) : "未取得", change: null, changeLabel: "客単価とは区別して表示", href: `/stores/${store.id}/sales-hub#reports`, available: Boolean(currentMonth), points: daily.map((item) => item.count ? item.amount / item.count : 0) },
-    { key: "profit", label: "利益", value: "未取得", change: null, changeLabel: "原価・経費データが必要", href: `/stores/${store.id}/data-imports/ai`, available: false, points: [] }
-  ].filter((metric) => enabledAreas.sales || !["sales", "transactions", "average", "profit"].includes(metric.key));
+  const rating = home.googleRating;
+  const ratingSummary = rating.state === "ready" ? rating.summary : null;
+  const ratingValue = ratingSummary ? ratingSummary.averageRating === null ? "口コミなし" : `${ratingSummary.averageRating.toFixed(1)} / 5`
+    : rating.state === "disconnected" ? "未連携" : rating.state === "not_selected" ? "店舗未選択" : "未取得";
+  const metrics = ([
+    { key: "sales", label: "直近月の売上", value: currentMonth ? yen(currentMonth.amount) : "未取得", change: salesChange, changeLabel: metricChangeLabel(salesChange, "前月比"), href: `/stores/${store.id}/sales-hub`, available: Boolean(currentMonth), points: monthly.slice(-8).map((item) => item.amount) },
+    { key: "bookings", label: "今週の予約", value: home.bookingCount === null ? "未取得" : `${home.bookingCount.toLocaleString("ja-JP")}件`, change: null,
+      changeLabel: home.bookingCount === null ? "予約を取得できませんでした" : `${home.week.days[0].slice(5).replace("-", "/")}〜${home.week.days[6].slice(5).replace("-", "/")}・キャンセルを除く`,
+      href: `/stores/${store.id}/customers?tab=bookings&view=week&date=${home.week.days[0]}`, available: home.bookingCount !== null, points: [], visual: "bookings" },
+    { key: "google-rating", label: "Googleの評価（点数）", value: ratingValue, change: null,
+      changeLabel: ratingSummary ? `口コミ${ratingSummary.totalReviewCount.toLocaleString("ja-JP")}件・最終同期時点` : rating.state === "disconnected" ? "集客・販促からGoogleを接続" : rating.state === "not_selected" ? "集客・販促から店舗を確認" : rating.state === "unavailable" ? "評価を取得できませんでした" : "Google口コミの同期で更新",
+      href: `/stores/${store.id}/marketing`, available: ratingSummary?.averageRating !== null && ratingSummary !== null, points: [], visual: "rating" }
+  ] satisfies CommandCenterMetric[]).filter((metric) => (enabledAreas.sales || metric.key !== "sales") && (enabledAreas.reservations || metric.key !== "bookings"));
 
   const focusLabels = (industryFocus[store.industry_type_key] ?? industryFocus.general_store)
     .filter((label) => enabledAreas.sales || !/(売上|利益|客単価|取引)/.test(label))

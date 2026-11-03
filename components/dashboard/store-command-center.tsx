@@ -69,7 +69,7 @@ export function StoreCommandCenterView({ dashboard }: { dashboard: StoreCommandC
             {dashboard.metrics.map((metric) => (
               <Link className={`command-metric ${metric.available ? "available" : "unavailable"}`} href={metric.href} key={metric.key}>
                 <div><span>{metric.label}</span><strong>{metric.value}</strong><small>{metric.changeLabel}</small></div>
-                <Sparkline points={metric.points} available={metric.available} />
+                {metric.visual ? <span className="command-metric-icon" aria-hidden="true">{metric.visual === "rating" ? "★" : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 2v6m10-6v6M3 11h18M7 15h3m4 0h3m-10 3h3"/></svg>}<span>→</span></span> : <Sparkline points={metric.points} available={metric.available} />}
               </Link>
             ))}
           </section>

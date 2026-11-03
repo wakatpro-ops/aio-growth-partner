@@ -6,6 +6,7 @@ import { buildGooglePreparationPayload, googlePublishTargets, type GooglePublish
 import { logAuditEvent } from "@/lib/phase6/compliance-data";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
+import { googleReviewSummary } from "@/lib/google-review-summary";
 import type { Store } from "@/types/domain";
 import type {
   ExternalIntegrationLog,
@@ -1112,6 +1113,7 @@ export async function syncGoogleBusinessReviews(storeId: string) {
   const parent = googleBusinessParent(location.google_account_name, location.google_location_name);
   let pageToken: string | null = null;
   let count = 0;
+  let reviewSummary: ReturnType<typeof googleReviewSummary> = null;
   for (let page = 0; page < 5; page += 1) {
     const url = new URL(`https://mybusiness.googleapis.com/v4/${parent}/reviews`);
     url.searchParams.set("pageSize", "50");
@@ -1120,6 +1122,7 @@ export async function syncGoogleBusinessReviews(storeId: string) {
     const response = await fetch(url.toString(), { headers: { authorization: `Bearer ${accessToken}` } });
     const result = await response.json() as Record<string, unknown>;
     if (!response.ok) throw new Error(googleBusinessProfileApiErrorDetails(result, "Google口コミを取得できませんでした。").message);
+    if (page === 0) reviewSummary = googleReviewSummary(result, location.google_location_name, new Date().toISOString());
     const reviews = Array.isArray(result.reviews) ? result.reviews.map((item) => asRecord(item)).filter((item) => typeof item.name === "string") : [];
     if (reviews.length) {
       const { error } = await supabase.from("google_business_reviews").upsert(
@@ -1131,6 +1134,11 @@ export async function syncGoogleBusinessReviews(storeId: string) {
     }
     pageToken = typeof result.nextPageToken === "string" ? result.nextPageToken : null;
     if (!pageToken) break;
+  }
+  if (reviewSummary) {
+    const { error } = await supabase.from("google_business_locations").update({ metadata: { ...location.metadata, review_summary: reviewSummary }, updated_at: new Date().toISOString() })
+      .eq("id", location.id).eq("store_id", resolved.storeId).eq("organization_id", resolved.organizationId).is("archived_at", null);
+    if (error) throw new Error("Google評価を保存できませんでした。口コミを再同期してください。");
   }
   await logIntegration(supabase, resolved, "gbp_reviews_synced", "success", `Google口コミを${count}件同期しました。`, { location_id: location.id, reviews_count: count });
   return { count };
