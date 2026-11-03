@@ -2276,6 +2276,10 @@ p {
   font-size: 10px;
 }
 
+.command-metric .command-metric-icon { display:flex; align-items:center; gap:12px; padding-left:4px; font-size:28px; color:var(--ai); }
+.command-metric-icon svg { width:28px; height:28px; }
+.command-metric-icon > span { font-size:18px; color:var(--muted); }
+
 .command-text-link {
   color: #4f48c7;
   font-size: 12px;
