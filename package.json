@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:hub-tabs": "node scripts/test-hub-tabs.mjs",
     "test:home-metrics": "node scripts/test-store-home-metrics.mjs",
     "test:card-layout": "node --test tests/unit/card-layout-spacing.test.mjs",
     "test:accounting-overview": "node --experimental-strip-types --test tests/unit/accounting-overview.test.mjs && node scripts/test-accounting-overview-service.mjs",

@@ -1,0 +1,40 @@
+/* One visual treatment for hub links and in-page tab buttons. */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 6px;
+  border: 1px solid #d9e4df;
+  border-radius: 14px;
+  background: #fff;
+}
+.tabs > :is(a, button) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  flex: 1 1 180px;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #365b50;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+.tabs > :is(a, button):hover { background: #eef5f1; }
+.tabs > :is(a[aria-current="page"], button[aria-selected="true"]) { color: #fff; background: #217b60; }
+.tabs > :is(a, button):focus-visible { outline: 3px solid #138bb8; outline-offset: 2px; }
+.tabs span { font-size: 0.85em; }
+@media (max-width: 600px) {
+  .tabs > :is(a, button) { flex-basis: 120px; padding: 10px 8px; font-size: 14px; }
+}

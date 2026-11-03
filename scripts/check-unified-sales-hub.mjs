@@ -41,7 +41,7 @@ expect(legacy.includes("notFound()"), "legacy report authorization/feature behav
 expect(shell.includes('label: "売上・経理"'), "sidebar label must identify the unified destination");
 expect(shell.includes("/sales-hub"), "sidebar must link to sales-hub");
 expect(!commandCenter.includes("${store.id}/sales/reports`"), "command-center KPI links must not use the legacy report root");
-expect(commandCenter.includes("sales-hub#reports"), "command-center KPI links must use the report section");
+expect(commandCenter.includes('href: `/stores/${store.id}/sales-hub`'), "store-home sales card must use the sales hub (2026-11-03 navigation)");
 expect(dashboard.includes("sales-hub#reports"), "dashboard report link must use the report section");
 
 expect(css.includes(".sales-report-grid"), "unified sales report layout styles are missing");

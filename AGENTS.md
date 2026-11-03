@@ -19,6 +19,8 @@ Demo data must never appear as a real store or business record when a production
 
 ## Store-manager UX definition of done
 
+Navigation terminology update (user request 2026-11-03): use `予約・顧客` (booking first, retaining industry-specific customer terms), superseding the earlier order below. Sales, customer and marketing hub tabs share `components/ui/hub-tabs.module.css`.
+
 For every store-manager-facing screen:
 
 1. Make interactive controls look clickable; do not style static information as a button.
