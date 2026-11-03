@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { isFeatureEnabled, resolveFeatureFlags } from "@/lib/feature-flags/resolve-feature-flags";
 import type { Store } from "@/types/domain";
-import styles from "./marketing-sections.module.css";
+import styles from "@/components/ui/hub-tabs.module.css";
 import { getReviewSummary } from "@/lib/marketing/reviews";
 
 /** Shared hub navigation; never replaces store authorization in the pages/actions. */
@@ -9,7 +9,7 @@ export async function MarketingSections({ store, active }: { store: Store; activ
   const showPromotion = isFeatureEnabled(resolveFeatureFlags(store), "marketing_drafts");
   const reviews = await getReviewSummary(store.id).catch(() => null);
   return (
-    <nav className={styles.sections} aria-label="集客・販促の切り替え">
+    <nav className={styles.tabs} aria-label="集客・販促の切り替え">
       {showPromotion ? <Link href={`/stores/${store.id}/marketing`} aria-current={active === "promotion" ? "page" : undefined}>
         投稿・販促
       </Link> : null}

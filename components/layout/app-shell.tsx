@@ -50,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const visibleNavItems = activeStoreId ? [
     { href: `/stores/${activeStoreId}`, label: "店舗トップ" },
     { href: `/stores/${activeStoreId}/sales-hub`, label: "売上・経理" },
-    { href: `/stores/${activeStoreId}/customers`, label: `${navigationLabels.customer}・予約` },
+    { href: `/stores/${activeStoreId}/customers`, label: `予約・${navigationLabels.customer}` },
     { href: `/stores/${activeStoreId}/marketing`, label: "集客・販促" },
     { href: `/stores/${activeStoreId}/inventory`, label: navigationLabels.product }
   ] : navItems;

@@ -26,7 +26,7 @@ function load(file) {
   const code = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   new Function("require", "module", "exports", code)(name => {
     if (mocks[name]) return mocks[name];
-    if (name.endsWith(".module.css")) return { __esModule: true, default: { sections: "marketing-sections" } };
+    if (name.endsWith(".module.css")) return { __esModule: true, default: { tabs: "hub-tabs" } };
     if (name.startsWith(".")) return load(resolve(dirname(path), `${name}.ts`));
     return require(name);
   }, loaded, loaded.exports);

@@ -2,6 +2,7 @@
 
 import { useRef, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import styles from "@/components/ui/hub-tabs.module.css";
 
 export function SalesHubTabs({ summary, sales, accounting }: { summary: ReactNode; sales: ReactNode; accounting: ReactNode }) {
   const pathname = usePathname();
@@ -14,7 +15,7 @@ export function SalesHubTabs({ summary, sales, accounting }: { summary: ReactNod
     window.history.replaceState(null, "", `${pathname}?${params}`);
   }
   return <div className="sales-hub-workspace">
-    <div className="sales-hub-tabs" role="tablist" aria-label="売上・経理の切り替え">
+    <div className={`${styles.tabs} sales-hub-tabs`} role="tablist" aria-label="売上・経理の切り替え">
       {[["sales", "売上概要"], ["accounting", "経理"]].map(([tab, label], index) => <button key={tab} ref={el => { buttons.current[index] = el; }} type="button" role="tab" id={`sales-hub-tab-${tab}`} aria-controls={`sales-hub-panel-${tab}`} aria-selected={active === tab} tabIndex={active === tab ? 0 : -1} onClick={() => select(tab)} onKeyDown={event => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault();

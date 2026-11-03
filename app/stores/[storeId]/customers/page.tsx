@@ -15,6 +15,7 @@ import { calendarDays, customerWorkLabels, dataState, japanDay, recencyGroup, sh
 import { canEditStore } from "@/lib/auth/server";
 import { getStore } from "@/lib/stores";
 import { archiveStoreEntityAction } from "../archive-actions";
+import { CustomerHubTabs } from "@/components/customers/customer-hub-tabs";
 
 type Query = { tab?: string; view?: string; date?: string; saved?: string; archived?: string; deleted?: string; error?: string; segment?: string; q?: string; group?: string; recency?: string };
 
@@ -49,9 +50,7 @@ export default async function CustomersPage({ params, searchParams }: { params: 
 
   return <AppShell>
     <PageHeader eyebrow={industry.name} title={`予約・${industry.businessLabels.customer}`} description="予約の確認、お客様の情報、次のフォローをひとつの画面で。" action={<AskAboutCustomers />} />
-    <nav className="workbench-tabs" aria-label="予約・顧客・分析の切り替え">
-      {[["bookings", "予約"], ["customers", industry.businessLabels.customer], ["analysis", "分析・フォロー"]].map(([key, label]) => <Link key={key} href={`${base}/customers?tab=${key}`} aria-current={tab === key ? "page" : undefined}>{label}</Link>)}
-    </nav>
+    <CustomerHubTabs storeId={store.id} active={tab} customerLabel={industry.businessLabels.customer} />
     {query.saved ? <p className="notice success">保存しました。</p> : null}
     {query.archived || query.deleted ? <p className="notice success">削除しました。削除済みから元に戻せます。</p> : null}
     {query.error ? <p className="notice danger">{query.error}</p> : null}

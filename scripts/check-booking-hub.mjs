@@ -29,7 +29,7 @@ assert.match(migration, /booking\.ends_at[\s\S]{0,160}> p_starts_at/u);
 assert.match(migration, /revoke insert, update, delete on public\.bookings from anon, authenticated/u);
 assert.match(migration, /audit_logs/u);
 
-assert.match(shell, /navigationLabels\.customer\}・予約/u);
+assert.match(shell, /予約・\$\{navigationLabels\.customer\}/u);
 assert.match(shell, /"\/bookings"/u);
 for (const phrase of ["今日の予約", "今後の確定予約", "削除済み", "予約を登録"]) assert.match(index, new RegExp(phrase, "u"));
 for (const phrase of ["予約の変更を保存", "予約を削除", "元に戻す"]) assert.match(detail, new RegExp(phrase, "u"));
