@@ -1,0 +1,9 @@
+.fields { border: 0; display: grid; gap: 16px; margin: 20px 0 0; min-width: 0; padding: 0; }
+.field { display: grid; gap: 8px; font-weight: 700; min-width: 0; }
+.field input { background: #fff; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); font: inherit; font-size: 16px; min-height: 44px; min-width: 0; padding: 10px 12px; width: 100%; }
+.field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.confirmation { display: grid; gap: 12px; overflow-wrap: anywhere; }
+.confirmation p { margin: 0; }
+.checkbox { align-items: flex-start; display: flex; gap: 10px; line-height: 1.7; }
+.checkbox input { accent-color: var(--accent); flex: 0 0 20px; height: 20px; margin: 3px 0 0; width: 20px; }
+.fields button { justify-self: start; min-height: 44px; }

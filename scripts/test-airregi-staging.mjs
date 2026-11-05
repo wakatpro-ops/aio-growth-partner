@@ -111,7 +111,7 @@ try {
   for(let n=0;n<100;n++){try{if((await fetch(`${base}/login`)).ok){started=true;break;}}catch{} await new Promise(r=>setTimeout(r,500));}
   assert(started,'local test server did not start');
   const cron=await fetch(`${base}/api/cron/airregi-sync`,{headers:{authorization:'Bearer synthetic-cron-only'}});
-  assert.equal(cron.status,200); assert.equal((await cron.json()).status,'awaiting_specification');
+  assert.equal(cron.status,200); assert.equal((await cron.json()).status,'awaiting_connection_setup');
   assert.equal((await fetch(`${base}/api/cron/airregi-sync`)).status,401);
   browser=await chromium.launch({headless:true});
   const context=await browser.newContext(); const page=await context.newPage(); page.setDefaultTimeout(30000);

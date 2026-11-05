@@ -41,11 +41,19 @@ export const transactionSchema = z.object({
 }).transform(value => ({ ...value, items: [...value.items].sort((a, b) => a.sourceItemId.localeCompare(b.sourceItemId, "en")) }));
 export const pageSchema = z.object({
   externalStoreId: id,
-  transactions: z.array(transactionSchema).max(1000),
+  transactions: z.array(z.union([transactionSchema, z.object({
+    sourceId: id, revisionAt: instant, businessDate: day, occurredAt: instant,
+    kind: z.enum(["sale", "refund"]), amountMinor: money,
+    taxMinor: z.null(), discountMinor: z.null(),
+    paymentMethod: z.string().trim().max(100), adjustmentMinor: z.literal(0),
+    items: z.array(z.never()).max(0),
+    detailsStatus: z.literal("unconfirmed"),
+    reviewReason: z.literal("provider_financial_details_unavailable")
+  }).strict()])).max(1000),
   nextCursor: z.string().min(1).max(2000).nullable(),
   watermark: instant.nullable()
 }).strict();
-export type AirRegiTransaction = z.infer<typeof transactionSchema>;
+export type AirRegiTransaction = z.infer<typeof pageSchema>["transactions"][number];
 export type AirRegiPage = z.infer<typeof pageSchema>;
 export type AirRegiCredentials = { apiKey: string; apiToken: string };
 export type AirRegiAdapter = {

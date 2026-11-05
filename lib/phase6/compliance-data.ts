@@ -1,5 +1,6 @@
 import "server-only";
 import { EFFECTIVE_POS_SALES_FILTER } from "../pos/transaction-state";
+import { requireKnownSalesTax, SalesFinancialDetailsError } from "../pos/financial-details";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import { syncOrderInventory } from "@/lib/inventory-operations";
@@ -698,7 +699,7 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
   const supabase = createSupabaseAdminClient();
   if (!supabase) return "発行日,請求書番号,顧客名,小計,消費税,合計,入金状態,支払方法\n";
   const resolved = await resolveStore(supabase, storeId);
-  const [{ data }, { data: sales }, { data: expenseReceipts }] = await Promise.all([
+  const [{ data }, { data: sales, error: salesError }, { data: expenseReceipts }] = await Promise.all([
     supabase
     .from("invoices")
     .select("*, customer:customers(name)")
@@ -721,6 +722,13 @@ export async function buildAccountingCsv(storeId: string, format: "standard" | "
       .order("receipt_date", { ascending: false })
       .limit(1000)
   ]);
+  if (format === "freee") {
+    const pending = await supabase.from("sales_transactions").select("id", { count: "exact", head: true })
+      .eq("store_id", resolved.storeId).eq("source_metadata->>financial_details_status", "unconfirmed").or(EFFECTIVE_POS_SALES_FILTER);
+    if (pending.error || salesError) throw new SalesFinancialDetailsError("unavailable");
+    if ((pending.count ?? 0) > 0) requireKnownSalesTax([{ tax_amount: null, net_amount: null }]);
+    requireKnownSalesTax(sales ?? []);
+  }
   const rows = [
     ["売上日", "請求書番号", "顧客名", "摘要", "税率", "税抜金額", "消費税額", "税込金額", "入金日", "支払方法", "ステータス"]
   ];
