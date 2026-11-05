@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:monthly-sales-dashboard": "node --experimental-strip-types scripts/test-monthly-sales-dashboard.mjs",
+    "test:sales-target-sql": "node scripts/test-sales-target-sql.mjs",
     "test:hub-tabs": "node scripts/test-hub-tabs.mjs",
     "test:home-metrics": "node scripts/test-store-home-metrics.mjs",
     "test:card-layout": "node --test tests/unit/card-layout-spacing.test.mjs",

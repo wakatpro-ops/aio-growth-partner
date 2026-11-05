@@ -10,6 +10,8 @@ import { listGrowthActions } from "@/lib/phase5/growth-actions";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { getStore } from "@/lib/stores";
 import { getStoreHomeMetrics } from "@/lib/store-home-metrics";
+import { homeMonthSales } from "@/lib/sales/dashboard-rules";
+import { getSalesDashboard } from "@/lib/sales/dashboard";
 import type { IndustryTypeKey, Store } from "@/types/domain";
 import type { GrowthAction } from "@/types/phase5";
 
@@ -82,11 +84,6 @@ function yen(value: number) {
   return `¥${Math.round(value).toLocaleString("ja-JP")}`;
 }
 
-function percentChange(current: number, previous: number) {
-  if (!previous) return null;
-  return Math.round(((current - previous) / previous) * 1000) / 10;
-}
-
 function metricChangeLabel(change: number | null, comparison: string) {
   if (change === null) return comparison;
   if (change === 0) return `${comparison} ±0%`;
@@ -121,7 +118,7 @@ async function socialImages(storeId: string) {
   return result;
 }
 
-export async function getStoreCommandCenter(storeId: string): Promise<StoreCommandCenter> {
+export async function getStoreCommandCenter(storeId: string, now = new Date()): Promise<StoreCommandCenter> {
   const store = await getStore(storeId);
   const industry = getIndustryConfig(store.industry_type_key);
   const operatingModel = normalizeOperatingModel(store.operating_model);
@@ -131,14 +128,15 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
     reservations: operatingModel.systems.reservations.authority !== "not_managed" && operatingModel.operations.serviceMode !== "not_used",
     customers: operatingModel.systems.customers.authority !== "not_managed"
   };
-  const [[salesResult, stocksResult, alertsResult, growthResult, googleResult, imagesResult], home] = await Promise.all([
+  const [[salesResult, stocksResult, alertsResult, growthResult, googleResult, imagesResult, monthResult], home] = await Promise.all([
     Promise.allSettled([
       getSalesReport(store.id),
       listInventoryStocks(store.id),
       listInventoryAlerts(store.id),
       listGrowthActions(store.id),
       getGoogleIntegrationState(store.id),
-      socialImages(store.id)
+      socialImages(store.id),
+      getSalesDashboard(store.id, now)
     ]),
     getStoreHomeMetrics(store.id)
   ]);
@@ -150,9 +148,8 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
   const imageByAction = settledValue(imagesResult, new Map<string, string>());
 
   const monthly = [...sales.monthly].sort((a, b) => a.label.localeCompare(b.label));
-  const currentMonth = monthly.at(-1) ?? null;
-  const previousMonth = monthly.at(-2) ?? null;
-  const salesChange = currentMonth && previousMonth ? percentChange(currentMonth.amount, previousMonth.amount) : null;
+  const monthSales = homeMonthSales(monthResult.status === "fulfilled" ? [...monthResult.value.current.daily, ...monthResult.value.previous.daily] : [], now);
+  const salesChange = monthSales.change;
   const daily = [...sales.daily].sort((a, b) => a.label.localeCompare(b.label)).slice(-14);
   const lowStocks = stocks.filter((stock) => Number(stock.quantity) <= Number(stock.reorder_point));
   const activeInventoryAlerts = inventoryAlerts.filter((alert) => !["resolved", "done", "archived"].includes(String(alert.status)));
@@ -170,7 +167,7 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
       imageUrl: imageByAction.get(action.id) ?? null
     }));
 
-  const salesReady = Boolean(currentMonth || daily.length);
+  const salesReady = Boolean(monthly.length || daily.length);
   const inventoryReady = stocks.length > 0;
   const googleReady = Boolean(google.connection || google.businessProfile || google.reviews.length);
   const socialReady = drafts.length > 0;
@@ -214,12 +211,12 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
   let summary = `接続済みの実データから、${monitoredAreas}の状況を確認しています。`;
   let recommendation = tasks[0].detail;
   if (salesChange !== null && salesChange < 0) {
-    headline = `直近月の売上が前月より${Math.abs(salesChange)}%下がっています`;
-    summary = `${previousMonth?.label ?? "前月"}と${currentMonth?.label ?? "直近月"}の実績を比較しました。`;
+    headline = `今月の取込済み売上は前月同期間比で${Math.abs(salesChange)}%減です`;
+    summary = `${monthSales.previousStart}〜${monthSales.previousUntil}と${monthSales.start}〜${monthSales.today}の取込済み実績を比較しました。`;
     recommendation = "商品別売上と在庫状況を確認し、優先して訴求する商品・サービスを決めましょう。";
   } else if (salesChange !== null && salesChange > 0) {
-    headline = `直近月の売上が前月より${salesChange}%伸びています`;
-    summary = `${previousMonth?.label ?? "前月"}と${currentMonth?.label ?? "直近月"}の実績を比較しました。`;
+    headline = `今月の取込済み売上は前月同期間比で${salesChange}%増です`;
+    summary = `${monthSales.previousStart}〜${monthSales.previousUntil}と${monthSales.start}〜${monthSales.today}の取込済み実績を比較しました。`;
     recommendation = "伸びている商品・サービスを確認し、SNSやGoogle投稿にも活用しましょう。";
   } else if (lowStocks.length) {
     headline = `${lowStocks.length}件の在庫が発注点以下です`;
@@ -234,7 +231,7 @@ export async function getStoreCommandCenter(storeId: string): Promise<StoreComma
   const ratingValue = ratingSummary ? ratingSummary.averageRating === null ? "口コミなし" : `${ratingSummary.averageRating.toFixed(1)} / 5`
     : rating.state === "disconnected" ? "未連携" : rating.state === "not_selected" ? "店舗未選択" : "未取得";
   const metrics = ([
-    { key: "sales", label: "直近月の売上", value: currentMonth ? yen(currentMonth.amount) : "未取得", change: salesChange, changeLabel: metricChangeLabel(salesChange, "前月比"), href: `/stores/${store.id}/sales-hub`, available: Boolean(currentMonth), points: monthly.slice(-8).map((item) => item.amount) },
+    { key: "sales", label: "月間売上（今月の売上）", value: monthResult.status === "rejected" ? "未取得" : yen(monthSales.amount), change: salesChange, changeLabel: monthResult.status === "rejected" ? "売上を取得できませんでした" : monthSales.available ? salesChange === null ? `${monthSales.month}・取込済み` : metricChangeLabel(salesChange, "前月同期間比") : "今月の取込なし", href: `/stores/${store.id}/sales-hub`, available: monthSales.available, points: monthSales.points },
     { key: "bookings", label: "今週の予約", value: home.bookingCount === null ? "未取得" : `${home.bookingCount.toLocaleString("ja-JP")}件`, change: null,
       changeLabel: home.bookingCount === null ? "予約を取得できませんでした" : `${home.week.days[0].slice(5).replace("-", "/")}〜${home.week.days[6].slice(5).replace("-", "/")}・キャンセルを除く`,
       href: `/stores/${store.id}/customers?tab=bookings&view=week&date=${home.week.days[0]}`, available: home.bookingCount !== null, points: [], visual: "bookings" },

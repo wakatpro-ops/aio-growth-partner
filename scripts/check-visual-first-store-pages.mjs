@@ -18,8 +18,8 @@ assert.match(sales, /売上上位の商品・メニュー/u);
 assert.match(sales, /支払方法の割合/u);
 // The shared KPIs now precede both the sales and accounting tab panels.
 assert.match(sales, /<SalesHubTabs/u);
-assert.match(sales, /className="sales-kpi-strip"/u);
-assert.ok(sales.indexOf('className="sales-kpi-strip"') < sales.indexOf("<SalesTrendChart"));
+assert.match(sales, /summary=\{report \? <MonthlySalesSummary/u);
+assert.ok(sales.indexOf("<MonthlySalesSummary") < sales.indexOf("<MonthlySalesVisuals"));
 assert.match(sales, /accounting=\{<AccountingOverview/u);
 assert.match(inventory, /残量を確認/u);
 assert.match(inventory, /stock.quantity.*stock.reserved_quantity/u);
