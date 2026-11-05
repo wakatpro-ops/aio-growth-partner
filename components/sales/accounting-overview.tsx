@@ -19,7 +19,7 @@ export function AccountingOverview({ result, storeId, editable }: { result: Acco
       </form>
       <Link className="text-link" href={receipts}>経費・伝票を確認 →</Link>
     </div>
-    <p className="muted accounting-scope">下の経費は{report.month.replace("-", "年")}月の税込金額です。上の売上3指標は登録済みの全期間です。</p>
+    <p className="muted accounting-scope">下の経費は{report.month.replace("-", "年")}月の税込金額です。上の売上指標は今月の取込済みデータです。</p>
     {report.pendingCount || report.duplicateCount || report.invalidCount || undatedCount ? <p className="notice accounting-review-note">
       {report.pendingCount ? `内容の確認待ち${report.pendingCount}件を含みます。` : ""}
       {report.duplicateCount ? `重複候補${report.duplicateCount}件は集計していません。` : ""}

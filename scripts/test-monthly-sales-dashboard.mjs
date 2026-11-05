@@ -105,6 +105,18 @@ assert.equal(switches[0].props["aria-pressed"], true); switches[1].props.onClick
 renderMonthly = true; assert(renderVisuals(positiveData).includes("月別売上推移")); renderMonthly = false; mockHooks = false;
 console.log("PASS rendered KPI scope/restaurant/retail/unknown/error/goal/progress/comparison/payment states and daily-default/monthly-switch event");
 
+const { AccountingOverview } = source("components/sales/accounting-overview.tsx");
+for (const month of ["2026-10", "2026-11"]) {
+  const accounting = renderToStaticMarkup(React.createElement(AccountingOverview, {
+    storeId: store.id, editable: false,
+    result: { state: "ready", undatedCount: 0, report: { month, count: 0, pendingCount: 0, duplicateCount: 0, invalidCount: 0 } }
+  }));
+  assert(accounting.includes(`${month.replace("-", "年")}月の税込金額です。`));
+  assert(accounting.includes("上の売上指標は今月の取込済みデータです。"));
+  assert(!accounting.includes("全期間")); assert(!accounting.includes("売上3指標"));
+}
+console.log("PASS accounting expense-month caption stays distinct from shared current-month sales KPIs, without obsolete three-card/all-time wording");
+
 if (process.argv.includes("--preview")) {
   const css = readFileSync("app/globals.css", "utf8");
   createServer((req, res) => {
