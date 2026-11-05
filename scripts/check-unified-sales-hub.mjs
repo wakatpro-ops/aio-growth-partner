@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 const read = (path) => fs.readFileSync(path, "utf8");
 const hub = read("app/stores/[storeId]/sales-hub/page.tsx");
+const monthlyDashboard = read("components/sales/monthly-sales-dashboard.tsx");
 const legacy = read("app/stores/[storeId]/sales/reports/page.tsx");
 const shell = read("components/layout/app-shell.tsx");
 const commandCenter = read("lib/store-command-center.ts");
@@ -18,12 +19,12 @@ const expect = (condition, message) => {
 
 expect(hub.includes("getSalesReport"), "sales-hub must load the sales report data");
 expect(hub.includes("SalesHubTabs") && hub.includes("AccountingOverview") && hub.includes("getAccountingOverview"), "sales/accounting tabs must use source-backed accounting");
-expect(hub.includes('className="sales-kpi-strip"'), "sales KPIs must be shared above both panels");
-for (const label of ["合計売上", "取引件数", "平均取引額", "日別売上", "月別売上", "商品別売上", "支払方法別売上"]) {
-  expect(hub.includes(label), `sales-hub is missing ${label}`);
+expect(hub.includes("summary={report ? <MonthlySalesSummary"), "monthly KPIs must be shared above both panels");
+for (const label of ["月間売上", "取引件数", "平均取引額", "平均客単価", "日別売上", "月別売上", "商品別売上", "支払方法別売上"]) {
+  expect((hub + monthlyDashboard).includes(label), `sales-hub is missing ${label}`);
 }
-expect(hub.includes("SalesTrendChart") && hub.includes("月別売上推移"), "sales-hub must visualize the monthly sales trend");
-expect(hub.includes('role="img"') && hub.includes("前月比") && hub.includes("最高売上月"), "sales trend must include accessible context");
+expect(hub.includes("MonthlySalesVisuals") && monthlyDashboard.includes("月別売上推移") && monthlyDashboard.includes('useState<"daily" | "monthly">("daily")'), "sales trend must default to daily with a monthly switch");
+expect(monthlyDashboard.includes('role="img"') && monthlyDashboard.includes("前月同期間比") && monthlyDashboard.includes("グラフの数値を見る"), "sales trend must include accessible, scoped context");
 for (const route of ["/estimates", "/invoices", "/payments", "/sales`", "/data-imports/ai", "/sales/forecast", "/reports/monthly"]) {
   expect(hub.includes(route), `sales-hub is missing a route containing ${route}`);
 }

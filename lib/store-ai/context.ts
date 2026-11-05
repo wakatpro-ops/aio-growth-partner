@@ -18,6 +18,7 @@ import { bookingFacts, bookingPeriod, contextGreeting, resolveAiPage, salesFacts
 import { contextVersion, pageKnowledge } from "./knowledge";
 import { importDetailSection, type ImportContextJob, type ImportContextRow } from "./context-import-rules";
 import { getAccountingOverview } from "@/lib/accounting/overview";
+import { buildSalesDashboard, type SalesDashboardRow } from "@/lib/sales/dashboard-rules";
 import type { Store } from "@/types/domain";
 import type { BusinessItem, InventoryStock } from "@/types/phase2";
 import type { AioGoal, AioImprovementTask } from "@/types/aio-improvement";
@@ -72,9 +73,10 @@ async function customers(store: Store, page: AiPage): Promise<AiSection> {
 
 async function sales(db: Db, store: Store): Promise<AiSection> {
   return section("sales", "売上", async () => {
-    const transactions = await rows<{ business_date: string; gross_amount: number; source_metadata?: { air_regi_state?: string; square_pos_state?: string } }>(db, store, "sales_transactions", "id,business_date,gross_amount,source_metadata");
+    const transactions = await rows<SalesDashboardRow>(db, store, "sales_transactions", "id,business_date,gross_amount,payment_method,source_metadata");
     const facts = salesFacts(transactions);
-    return { state: facts.count ? "ready" : "empty", summary: facts.latest ? `最新の登録月（${facts.latest.month}）の売上は${facts.latest.amount.toLocaleString("ja-JP")}円です。` : "売上データはまだ登録されていません。", truncated: facts.monthly.length > 24, data: { ...facts, monthly: facts.monthly.slice(-24), scope: "取り込み済み全取引。日付のない期間・利益・経費は取得していない。", currency: "JPY" } };
+    const dashboard = buildSalesDashboard(transactions, store.profile_data ?? {});
+    return { state: dashboard.current.count ? "ready" : "empty", summary: dashboard.current.count ? `今月（${dashboard.period.month}）の取込済み売上は${dashboard.current.total.toLocaleString("ja-JP")}円です。` : "今月の売上データはまだ取り込まれていません。", truncated: facts.monthly.length > 24, data: { displayedMonth: dashboard.period, current: dashboard.current, previousSamePeriod: dashboard.previous, guestDifference: dashboard.guestDifference, target: dashboard.target, allTime: { ...facts, monthly: facts.monthly.slice(-24) }, scope: "上段はJSTの今月1日から今日まで。前月比較は前月の同日まで。allTimeは別の全期間集計。未取込日は0円営業ではない。客数未取得時に会計件数で客単価を作らない。利益は未取得。", currency: "JPY" } };
   });
 }
 
@@ -84,7 +86,7 @@ async function accounting(store: Store, page: AiPage): Promise<AiSection> {
   if (result.state === "unavailable") return { key: "accounting", label: "経理", state: "unavailable", summary: "経費を取得できませんでした。未登録や0円とは異なります。" };
   const facts = result.report;
   return { key: "accounting", label: "経理", state: facts.count ? "ready" : "empty", summary: `${facts.month}の登録経費は${facts.count}件、税込${facts.total.toLocaleString("ja-JP")}円です。${facts.pendingCount ? `内容の確認待ち${facts.pendingCount}件を含みます。` : ""}`, truncated: facts.breakdown.length > 20,
-    data: { month: facts.month, total: facts.total, count: facts.count, pendingCount: facts.pendingCount, duplicateCount: facts.duplicateCount, invalidCount: facts.invalidCount, hasNegative: facts.hasNegative, categories: facts.breakdown.slice(0, 20), undatedCount: result.undatedCount, scope: "選択月の登録経費。確認待ちを含む。重複候補・日付/金額不明は集計外。上段の売上は全期間で別集計。利益・支払完了や会計送信を意味しない。" } };
+    data: { month: facts.month, total: facts.total, count: facts.count, pendingCount: facts.pendingCount, duplicateCount: facts.duplicateCount, invalidCount: facts.invalidCount, hasNegative: facts.hasNegative, categories: facts.breakdown.slice(0, 20), undatedCount: result.undatedCount, scope: "選択月の登録経費。確認待ちを含む。重複候補・日付/金額不明は集計外。上段の売上は今月で別集計。利益・支払完了や会計送信を意味しない。" } };
 }
 
 async function inventory(db: Db, store: Store, page: AiPage, manager: boolean): Promise<AiSection> {

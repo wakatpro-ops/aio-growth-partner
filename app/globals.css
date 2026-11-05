@@ -4637,13 +4637,56 @@ p {
 /* Unified sales and report hub */
 .sales-hub-workspace { display: grid; gap: 16px; min-width: 0; }
 .sales-hub-workspace > [hidden] { display: none; }
-.sales-shared-summary { display: grid; gap: 8px; }
+.sales-shared-summary { display: grid; gap: 8px; container-type: inline-size; }
 .sales-summary-scope { font-size: 12px; margin: 0; }
 .sales-kpi-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .sales-kpi-strip .card { padding: 14px 18px; min-width: 0; margin: 0; }
 .sales-kpi-strip .card p { margin: 0 0 8px; font-size: 13px; }
 .sales-kpi-strip .metric { font-size: clamp(22px, 2.4vw, 34px); overflow-wrap: anywhere; }
 .sales-kpi-strip small { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+.monthly-sales-kpis.restaurant { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sales-goal { display: grid; gap: 7px; margin-top: 12px; }
+.sales-goal-caption { display: flex; gap: 10px; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.sales-goal-caption strong { color: var(--text); }
+.sales-goal-track { height: 5px; border-radius: 8px; overflow: hidden; background: #e3ece7; }
+.sales-goal-track i { display: block; height: 100%; background: #248565; border-radius: inherit; }
+.sales-target-settings { font-size: 12px; }
+.sales-target-settings form { display: grid; gap: 8px; margin: 10px 0; }
+.sales-target-settings input { width: 100%; min-width: 0; }
+.sales-kpi-strip .sales-target-message { margin: 6px 0 0; font-size: 12px; }
+.sales-comparison { color: var(--muted); margin-top: 10px !important; }
+.monthly-sales-visuals { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(240px, 1fr); gap: 16px; align-items: stretch; }
+.monthly-sales-visuals > * { min-width: 0; }
+.sales-payment-overview { display: grid; align-content: start; gap: 18px; }
+.sales-payment-overview .visual-card { margin: 0; }
+.sales-payment-overview .donut-layout { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.sales-payment-overview .donut-chart { width: min(180px, 100%); }
+.sales-payment-overview .donut-legend { width: 100%; min-width: 0; }
+.sales-payment-overview dl > div { display: flex; gap: 12px; justify-content: space-between; padding: 8px 0; }
+.sales-payment-overview dd { margin: 0; font-variant-numeric: tabular-nums; }
+.sales-chart-switch { display: flex; gap: 4px; flex-shrink: 0; background: #f1f6f3; border-radius: 10px; padding: 3px; }
+.sales-chart-switch button { min-height: 44px; padding: 8px 14px; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--muted); font-weight: 700; cursor: pointer; }
+.sales-chart-switch button[aria-pressed="true"] { background: white; color: #176d54; border-color: #bad8cc; box-shadow: 0 2px 5px #17392d0c; }
+.sales-chart-switch button:focus-visible { outline: 2px solid #248565; outline-offset: 2px; }
+.sales-trend-chart.monthly-sales-chart { min-width: 0; }
+.monthly-sales-chart.compact-chart { display: none; }
+.monthly-sales-visuals .sales-trend-card, .sales-overview { container-type: inline-size; }
+@container (max-width: 900px) { .monthly-sales-visuals { grid-template-columns: minmax(0, 1fr); } }
+@container (max-width: 600px) {
+  .monthly-sales-chart.wide-chart { display: none; }
+  .monthly-sales-chart.compact-chart { display: block; }
+  .monthly-sales-kpis.restaurant { grid-template-columns: minmax(0, 1fr); }
+}
+.sales-chart-data { font-size: 12px; }
+.sales-chart-data .table-wrap { max-height: 270px; overflow: auto; }
+@media (max-width: 1100px) { .monthly-sales-visuals { grid-template-columns: minmax(0, 1fr); } .sales-payment-overview .donut-layout { grid-template-columns: 160px minmax(0, 1fr); align-items: center; } }
+@media (max-width: 680px) {
+  .sales-kpi-strip.monthly-sales-kpis, .sales-kpi-strip.monthly-sales-kpis.restaurant { grid-template-columns: minmax(0, 1fr); }
+  .sales-kpi-strip.monthly-sales-kpis .card:first-child { display: block; }
+  .sales-kpi-strip.monthly-sales-kpis .card:first-child p { margin-bottom: 8px; }
+  .sales-payment-overview .donut-layout { grid-template-columns: minmax(0, 1fr); }
+  .monthly-sales-visuals .sales-trend-heading { gap: 12px; flex-direction: row; flex-wrap: wrap; }
+}
 .sales-overview-links { display: flex; justify-content: flex-end; }
 .accounting-overview { display: grid; gap: 14px; min-width: 0; }
 .accounting-overview-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }

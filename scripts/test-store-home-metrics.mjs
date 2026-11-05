@@ -19,6 +19,7 @@ const mocks = {
   "@/lib/phase2/business-data": { listInventoryStocks: async () => [] },
   "@/lib/phase4/demand-actions": { listInventoryAlerts: async () => [] },
   "@/lib/phase4/sales-import-data": { getSalesReport: async () => ({ monthly: [{ label: "2026-10", amount: 100000, count: 10 }, { label: "2026-11", amount: 133100, count: 8 }], daily: [] }) },
+  "@/lib/sales/dashboard": { getSalesDashboard: async () => ({ current: { daily: [{ label: "2026-11-01", amount: 133100, count: 8 }] }, previous: { daily: [{ label: "2026-10-01", amount: 100000, count: 10 }] } }) },
   "@/lib/phase5/google-integrations": { getGoogleIntegrationState: async () => ({ reviews: [] }) },
   "@/lib/phase5/growth-actions": { listGrowthActions: async () => [] },
   "next/link": { __esModule: true, default: ({ href, children, ...props }) => require("react").createElement("a", { href, ...props }, children) }
@@ -109,10 +110,11 @@ reset(); records.bookings = [booking({})];
 // Pin the display week, without replacing real service logic above.
 mocks["@/lib/store-home-metrics"] = { getStoreHomeMetrics: id => getStoreHomeMetrics(id, now) };
 cache.delete("lib/store-command-center.ts");
-const dashboard = await source("lib/store-command-center.ts").getStoreCommandCenter(store.id);
+const dashboard = await source("lib/store-command-center.ts").getStoreCommandCenter(store.id, now);
 assert.deepEqual(dashboard.metrics.map(m => m.key), ["sales", "bookings", "google-rating"]);
 assert.deepEqual(dashboard.metrics.map(m => m.href), [`/stores/${store.id}/sales-hub`, `/stores/${store.id}/customers?tab=bookings&view=week&date=2026-11-02`, `/stores/${store.id}/marketing`]);
 assert.deepEqual(dashboard.metrics.map(m => m.value), ["¥133,100", "1件", "4.7 / 5"]);
+assert.equal(dashboard.metrics[0].label, "月間売上（今月の売上）");
 assert.deepEqual(dashboard.metrics.slice(1).map(m => m.points), [[], []]);
 pass("three real metric cards route separately; old transaction/average/profit cards removed without fake sparklines");
 records.bookings = []; records.google_business_locations[0].metadata.review_summary = googleReviewSummary({ totalReviewCount: 0 }, "locations/current", now.toISOString());
