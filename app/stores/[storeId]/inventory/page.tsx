@@ -13,6 +13,7 @@ import { getStoreNavigationLabels } from "@/lib/store-navigation";
 import { uploadDeliveryAction } from "./actions";
 import { DataPreview } from "@/components/ui/data-preview";
 import { registeredDataCount } from "@/lib/customer-workbench";
+import { isDemoStore } from "@/lib/mvp/status";
 
 export default async function InventoryPage({params,searchParams}:{params:Promise<{storeId:string}>;searchParams:Promise<{tab?:string;days?:string;saved?:string;error?:string}>}) {
   const {storeId}=await params, query=await searchParams;
@@ -22,6 +23,7 @@ export default async function InventoryPage({params,searchParams}:{params:Promis
   const items=await listBusinessItems(storeId,1000,tab==="menu"), labels=menuTabs(store.industry_type_key);
   const unregistered = items.length === 0 ? await registeredDataCount(storeId, "items") === 0 : false;
   const base=`/stores/${storeId}/inventory`;
+  const procurement=permissions.manager&&!isDemoStore(store)?`/stores/${storeId}/procurement`:null;
   const stocks=tab==="stock"?await listInventoryStocks(storeId):[];
   const documents=tab==="stock"?await stockDocuments(storeId):[];
   const movements=tab==="stock"?await listInventoryMovements(storeId):[];
@@ -37,6 +39,9 @@ export default async function InventoryPage({params,searchParams}:{params:Promis
     {unregistered && !query.error ? <DataPreview kind="cards" title={tab === "stock" ? "商品と残量がそろうと、在庫をひと目で確認できます" : "商品情報を取り込むと、写真で選べる一覧になります"} description="商品・メニューの一覧を取り込み、確認して保存してください。写真・価格・在庫など、登録できた情報から表示します。" importHref={permissions.manager ? `/stores/${storeId}/data-imports/ai` : undefined} manualHref={permissions.manager ? `/stores/${storeId}/items/new` : undefined}/> : null}
     {tab==="menu"?<><MenuCards storeId={storeId} items={items.map(({cost_price,...item})=>{void cost_price;return item;})} manager={permissions.manager} operate={permissions.operate}/>{permissions.manager?<p><Link className="button secondary" href={`/stores/${storeId}/data-imports/ai`}>既存の商品データを取り込む</Link> <Link className="button secondary" href={`/stores/${storeId}/archives`}>削除済みのデータ</Link></p>:null}</>:null}
     {tab==="stock"?<>
+      {procurement?<section className="card"><div className="section-heading"><div><h2>発注・仕入先</h2><p>仕入先への発注から納品・請求まで確認できます。</p></div><Link className="button" href={procurement}>発注・仕入先を開く</Link></div>
+        {stocks.some(row=>Number(row.reorder_point)>0&&Number(row.quantity)-Number(row.reserved_quantity??0)<=Number(row.reorder_point))?<details><summary>発注目安を下回った商品から選ぶ</summary><ul className="procurement-list">{items.filter(item=>item.is_stock_managed&&stocks.some(row=>row.item_id===item.id&&Number(row.reorder_point)>0&&Number(row.quantity)-Number(row.reserved_quantity??0)<=Number(row.reorder_point))).map(item=><li key={item.id}><strong>{item.name}</strong><Link className="button secondary" href={`${procurement}?item=${item.id}`}>この商品の発注を準備する</Link></li>)}</ul></details>:null}
+      </section>:null}
       {permissions.operate?<section className="card"><div className="menu-quick-actions"><Link className="button" href={`${base}/documents/new`}>📦 届いた商品を登録</Link><Link className="button secondary" href="#stock-list">残量を確認</Link><Link className="button secondary" href={`${base}/documents/new?kind=waste`}>廃棄を記録</Link>{permissions.manager?<Link className="button secondary" href={`${base}/documents/new?kind=purchase`}>仕入書を作る（未送信）</Link>:null}</div>
         <details><summary>伝票の写真から入荷を準備する</summary><form action={uploadDeliveryAction.bind(null,storeId)} className="form"><label className="field">納品書・伝票の写真<input type="file" name="receipt_file" accept="image/jpeg,image/png,image/webp,application/pdf" required/></label><p>JPG・PNG・WebP・PDF、4MBまで。AIで読み取った後、数量と単位を確認します。会計へ自動計上はしません。</p><PendingSubmitButton pendingLabel="伝票を読み取り中...">写真を読み取る</PendingSubmitButton></form></details>
       </section>:null}

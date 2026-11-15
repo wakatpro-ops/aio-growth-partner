@@ -7,6 +7,7 @@ export type SendEmailInput = {
   html?: string;
   templateKey: string;
   applicationId?: string | null;
+  disableTracking?: boolean;
 };
 
 export type SendEmailResult =
@@ -55,6 +56,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
+      ...(input.disableTracking ? { tracking_settings: { click_tracking: { enable: false, enable_text: false }, open_tracking: { enable: false } } } : {}),
       personalizations: [{ to: [{ email: input.to }] }],
       from: { email: config.fromEmail, name: config.fromName },
       subject: input.subject,

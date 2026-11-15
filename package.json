@@ -5,6 +5,8 @@
   "scripts": {
     "test:monthly-sales-dashboard": "node --experimental-strip-types scripts/test-monthly-sales-dashboard.mjs",
     "test:sales-target-sql": "node scripts/test-sales-target-sql.mjs",
+    "test:supplier-procurement": "node scripts/test-supplier-procurement.mjs",
+    "test:supplier-procurement:browser": "node scripts/test-supplier-procurement-browser.mjs",
     "test:hub-tabs": "node scripts/test-hub-tabs.mjs",
     "test:home-metrics": "node scripts/test-store-home-metrics.mjs",
     "test:card-layout": "node --test tests/unit/card-layout-spacing.test.mjs",

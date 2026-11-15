@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { AuthHashHandler } from "@/components/auth/auth-hash-handler";
 import { StoreAiWorkspace } from "@/components/store-ai/store-ai-workspace";
 import "./globals.css";
+import "./procurement.css";
 
 export const metadata: Metadata = {
   title: "AIO boost",
