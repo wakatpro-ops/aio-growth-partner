@@ -97,6 +97,11 @@ export async function buyerMove(storeId:string,id:string,revision:number,op:stri
 }
 
 function mailOrigin() {
+  if(process.env.PROCUREMENT_PREVIEW_MAIL_TO!==undefined) {
+    const host=process.env.VERCEL_URL;
+    if(process.env.VERCEL_ENV!=='preview'||!host||!/^aio-growth-partner-[a-z0-9-]+\.vercel\.app$/u.test(host)||!emailConfig().apiKey) throw new Error('procurement_mail');
+    return `https://${host}`;
+  }
   const configured=process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL;
   if(!configured || !emailConfig().apiKey) throw new Error('procurement_mail');
   const url=new URL(configured);

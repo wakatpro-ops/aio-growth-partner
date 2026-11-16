@@ -41,6 +41,17 @@ function textToHtml(text: string) {
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const config = emailConfig();
+  // An isolated review deployment can reuse the existing sender in place, but
+  // only for the two procurement templates and one explicitly configured mailbox.
+  const testRecipient = process.env.PROCUREMENT_PREVIEW_MAIL_TO;
+  if (testRecipient !== undefined && (
+    process.env.VERCEL_ENV !== "preview" ||
+    !testRecipient.trim() ||
+    input.to.toLowerCase() !== testRecipient.trim().toLowerCase() ||
+    !["procurement_supplier_link", "procurement_order_notice"].includes(input.templateKey)
+  )) {
+    return { ok: false, status: "skipped", errorMessage: "Mail is restricted to the procurement review fixture." };
+  }
   if (!config.apiKey) {
     return {
       ok: false,

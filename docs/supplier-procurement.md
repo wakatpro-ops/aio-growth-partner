@@ -20,4 +20,5 @@
 - `npm run test:supplier-procurement`：ローカル PostgreSQL（`initdb`・`pg_ctl`・`psql`）に使い捨てのDBを作り、実マイグレーションで権限、招待枠、状態遷移、税計算、請求書と履歴の保持を検証します。
 - `npm run build` 後の `npm run test:supplier-procurement:browser`：ローカルのブラウザでモバイル表示と未ログイン時のアクセス制御を検証します。既存のChromeを使うなら `AIOB_CHROMIUM_CHANNEL=chrome` を指定します。
 - 隔離環境ではマイグレーションを先に適用し、テスト店舗にのみ招待枠を設定します。アプリの HTTPS URL を明示する `APP_BASE_URL`（または `NEXT_PUBLIC_APP_URL`）と、既存メール送信設定を利用します。架空の仕入先用メールで配信・再ログインから請求書受領まで確認してから本番の導入を判断します。
+- ステージングに送信設定がない場合は、既存の送信設定を保持した Vercel Preview にステージングDBを接続し、`PROCUREMENT_PREVIEW_MAIL_TO` にテスト受信箱を指定できます。その場合、メールの行き先は同じ Preview に固定し、メール送信は仕入れ用の2種類と指定した1宛先だけに制限します。通常の Production にこの環境変数は設定しません。
 - この実装だけで補助金の対象ツール登録や電子帳簿保存法への適合を保証しません。対象制度の申請には、契約・利用条件、証憑の検索・保存・出力要件、ITツール登録の確認を別途行ってください。
