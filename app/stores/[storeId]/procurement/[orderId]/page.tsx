@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/ui/page-header';
-import { ConfirmSubmitButton } from '@/components/ui/confirm-submit-button';
+import { ConfirmProcurementButton as ConfirmSubmitButton } from '@/components/procurement/confirm-procurement-button';
 import { PendingSubmitButton } from '@/components/ui/pending-submit-button';
 import { OrderDraft } from '@/components/procurement/order-draft';
 import { OrderEvidence,OrderLines } from '@/components/procurement/evidence';

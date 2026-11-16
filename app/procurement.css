@@ -32,6 +32,8 @@
 .procurement-history p { margin-top: 4px; }
 .procurement-invoice summary { cursor: pointer; font-weight: 650; }
 .procurement-note { white-space: pre-wrap; }
+.procurement-confirm { padding: 12px; border: 1px solid #bad0c2; border-radius: 10px; background: #f5f9f6; }
+.procurement-confirm p { margin: 0 0 8px; }
 @container (max-width: 675px) {
   .procurement-line { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .procurement-line > label:first-of-type { grid-column: 1 / -1; }

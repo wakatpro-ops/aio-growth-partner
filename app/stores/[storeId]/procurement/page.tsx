@@ -4,7 +4,7 @@ import { unstable_rethrow } from 'next/navigation';
 import { AppShell } from '@/components/layout/app-shell';
 import { PageHeader } from '@/components/ui/page-header';
 import { PendingSubmitButton } from '@/components/ui/pending-submit-button';
-import { ConfirmSubmitButton } from '@/components/ui/confirm-submit-button';
+import { ConfirmProcurementButton as ConfirmSubmitButton } from '@/components/procurement/confirm-procurement-button';
 import { OrderDraft } from '@/components/procurement/order-draft';
 import { buyerAccess,buyerOverview,buyerPrefill,buyerSupplier,procurementPath } from '@/lib/procurement/service';
 import { localDateTime,statuses,uuid,type Supplier } from '@/lib/procurement/model';

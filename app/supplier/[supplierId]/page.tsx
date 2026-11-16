@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { SupplierLogin } from '@/components/procurement/supplier-login';
 import { OrderEvidence,OrderLines } from '@/components/procurement/evidence';
-import { ConfirmSubmitButton } from '@/components/ui/confirm-submit-button';
+import { ConfirmProcurementButton as ConfirmSubmitButton } from '@/components/procurement/confirm-procurement-button';
 import { PendingSubmitButton } from '@/components/ui/pending-submit-button';
 import { supplierPath,supplierView } from '@/lib/procurement/service';
 import { localDateTime,statuses,uuid } from '@/lib/procurement/model';
