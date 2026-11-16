@@ -7,6 +7,7 @@ export type SendEmailInput = {
   html?: string;
   templateKey: string;
   applicationId?: string | null;
+  disableTracking?: boolean;
 };
 
 export type SendEmailResult =
@@ -40,6 +41,17 @@ function textToHtml(text: string) {
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const config = emailConfig();
+  // An isolated review deployment can reuse the existing sender in place, but
+  // only for the two procurement templates and one explicitly configured mailbox.
+  const testRecipient = process.env.PROCUREMENT_PREVIEW_MAIL_TO;
+  if (testRecipient !== undefined && (
+    process.env.VERCEL_ENV !== "preview" ||
+    !testRecipient.trim() ||
+    input.to.toLowerCase() !== testRecipient.trim().toLowerCase() ||
+    !["procurement_supplier_link", "procurement_order_notice"].includes(input.templateKey)
+  )) {
+    return { ok: false, status: "skipped", errorMessage: "Mail is restricted to the procurement review fixture." };
+  }
   if (!config.apiKey) {
     return {
       ok: false,
@@ -55,6 +67,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
+      ...(input.disableTracking ? { tracking_settings: { click_tracking: { enable: false, enable_text: false }, open_tracking: { enable: false } } } : {}),
       personalizations: [{ to: [{ email: input.to }] }],
       from: { email: config.fromEmail, name: config.fromName },
       subject: input.subject,

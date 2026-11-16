@@ -1,0 +1,40 @@
+.procurement-portal {
+  width: min(100%, 960px);
+  margin-inline: auto;
+  padding: clamp(16px, 4vw, 40px);
+  min-height: 100svh;
+}
+.procurement-portal > header { margin-bottom: 22px; }
+.procurement-stack, .procurement-lines { display: grid; gap: 16px; min-width: 0; }
+.procurement-stack > *, .procurement-line > * { min-width: 0; }
+.procurement-stack p, .procurement-stack dd, .procurement-stack strong, .procurement-list li { overflow-wrap: anywhere; }
+.procurement-stack .button { white-space: normal; text-align: center; }
+.procurement-stack .form label { display: grid; gap: 5px; }
+.procurement-stack .form label input, .procurement-stack .form label select { width: 100%; min-width: 0; }
+.procurement-lines { container-type: inline-size; }
+.procurement-line {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(4, minmax(0, 1fr)) auto;
+  gap: 10px; align-items: end; margin: 0; padding: 12px;
+  border: 1px solid #d6e3dc; border-radius: 10px;
+}
+.procurement-line legend { padding-inline: 6px; font-weight: 600; }
+.procurement-list { margin: 0; padding: 0; list-style: none; }
+.procurement-list li { border-top: 1px solid #d6e3dc; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; padding-block: 13px; }
+.procurement-list li p { margin: 5px 0; }
+.procurement-facts { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-block: 16px; }
+.procurement-facts div { max-width: 100%; }
+.procurement-facts dt, .procurement-history time { color: #53665d; font-size: .85rem; }
+.procurement-facts dd { margin: 3px 0 0; }
+.procurement-history { padding-left: 22px; }
+.procurement-history li, .procurement-invoice { margin-block: 10px; overflow-wrap: anywhere; }
+.procurement-history time { margin-right: 8px; }
+.procurement-history p { margin-top: 4px; }
+.procurement-invoice summary { cursor: pointer; font-weight: 650; }
+.procurement-note { white-space: pre-wrap; }
+.procurement-confirm { padding: 12px; border: 1px solid #bad0c2; border-radius: 10px; background: #f5f9f6; }
+.procurement-confirm p { margin: 0 0 8px; }
+@container (max-width: 675px) {
+  .procurement-line { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .procurement-line > label:first-of-type { grid-column: 1 / -1; }
+}
